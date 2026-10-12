@@ -51,8 +51,12 @@ const PASSOS: Passo[] = [
     texto: "Chamou alguém pra oferecer? Toca aqui. Abordagem conta mesmo sem venda — é ela que mostra seu esforço e sua conversão.",
     espera: "abordagem", dica: "Toca em Abordagem pra continuar" },
   { anchor: "defcon-venda", rotulo: "Venda", titulo: "Vendeu? Registra em 2 toques",
-    texto: "Toca em Venda, digita o valor e escolhe como recebeu: Dinheiro, Pix ou Cartão. Faz 2 vendas de teste agora — aqui é treino, nada vai pro ranking.",
-    espera: "venda", meta: 2, dicas: ["Registra a 1ª venda de teste (0 de 2)", "Boa! Agora a 2ª venda (1 de 2)"] },
+    texto: "Toca em Venda, digita o valor e escolhe como recebeu: Dinheiro, Pix ou Cartão. Aqui é treino, nada vai pro ranking.",
+    espera: "venda", dica: "Registra a 1ª venda de teste" },
+  // 2ª venda pelo botão automático (Rick, 11/10): é o que ele mais vai usar na rua.
+  { anchor: "defcon-quick-sale", rotulo: "Venda rápida", titulo: "Mesmo valor? Um toque só",
+    texto: "Esse botão já vem com o valor do seu produto. Vendeu de novo pelo mesmo preço? Toca nele e pronto — sem digitar nada.",
+    espera: "venda", dica: "Toca no botão do valor pra registrar a 2ª venda" },
   { anchor: "defcon-custo", rotulo: "Custo", titulo: "Você gastou com o quê hoje?",
     texto: "Almoço, passagem, mercadoria… Anota aqui. É isso que faz a Vant te mostrar o LUCRO de verdade no fim do dia — não só o que entrou.",
     espera: "custo", dica: "Toca em Custo e registra o almoço, por exemplo" },
@@ -93,11 +97,13 @@ export default function DefconTour({ phase, totalApproaches, totalSalesCount, to
   const passo: Passo | null = rodando ? (PASSOS[idx] ?? null) : phase === "idle" ? PASSO_INICIO : null;
 
   // marca de onde partimos nos passos interativos (avança quando o contador cresce)
-  const [base, setBase] = useState<{ ab: number; vd: number; ct: number }>({ ab: 0, vd: 0, ct: 0 });
-  useEffect(() => { setBase({ ab: totalApproaches, vd: totalSalesCount, ct: totalCost }); }, [idx]); // eslint-disable-line react-hooks/exhaustive-deps
+  // (a marca guarda o passo dela: no 1º render de um passo novo a marca ainda é a do
+  //  anterior — sem isso, dois passos de venda seguidos pulavam o segundo na hora)
+  const [base, setBase] = useState<{ idx: number; ab: number; vd: number; ct: number }>({ idx: -1, ab: 0, vd: 0, ct: 0 });
+  useEffect(() => { setBase({ idx, ab: totalApproaches, vd: totalSalesCount, ct: totalCost }); }, [idx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // quantas vezes a ação do passo já aconteceu desde que ele abriu
-  const feitas = !passo ? 0
+  const feitas = !passo || base.idx !== idx ? 0
     : passo.espera === "abordagem" ? totalApproaches - base.ab
     : passo.espera === "venda" ? totalSalesCount - base.vd
     : passo.espera === "custo" ? (totalCost > base.ct ? 1 : 0)

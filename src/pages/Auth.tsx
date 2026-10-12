@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -14,13 +14,16 @@ import { validateCPF, cpfToInternalEmail } from "@/shared/lib/cpf-validation";
 import { getReferralCode } from "@/shared/lib/checkout";
 import { TERMOS_VERSAO } from "@/components/AceiteTermosModal";
 import { useBrazilCities } from "@/shared/hooks/use-brazil-cities";
+import { telefoneNormalizado, telefoneValido } from "@/shared/lib/telefone";
 
 type LoginMethod = "cpf" | "email";
 
 export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isLogin, setIsLogin] = useState(true);
+  // ?completar=1: logado, mas o cadastro caiu no meio (sem perfil) — termina aqui
+  const completar = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("completar") === "1";
+  const [isLogin, setIsLogin] = useState(!completar);
   const [isLoading, setIsLoading] = useState(false);
   const [loginMethod, setLoginMethod] = useState<LoginMethod>("cpf");
   const [cpf, setCpf] = useState("");
@@ -31,6 +34,7 @@ export default function Auth() {
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
+  const cadastrando = useRef(false);
 
   const BR_STATES = [
     "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
@@ -44,13 +48,16 @@ export default function Auth() {
     // login normal continua indo pro dashboard.
     const destino = () => (sessionStorage.getItem("orbis_signup_novo") === "1" ? "/onboarding-novo" : "/");
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) navigate(destino());
+      // Durante o cadastro quem navega é o handleAuth, DEPOIS de gravar o perfil.
+      // Antes, a sessão nascia no signUp e a tela já pulava pro onboarding: se o
+      // perfil falhasse, a pessoa seguia sem perfil (sem teste, sem Dia 0).
+      if (session && !cadastrando.current && !completar) navigate(destino());
     });
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate(destino());
+      if (session && !completar) navigate(destino());
     });
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, completar]);
 
   const resolveLoginEmail = async (): Promise<string> => {
     if (loginMethod === "cpf") {
@@ -114,9 +121,10 @@ export default function Auth() {
         if (!cleanedCpf || cleanedCpf.length !== 11) throw new Error("CPF deve conter 11 dígitos.");
         if (!validateCPF(cleanedCpf)) throw new Error("CPF inválido. Verifique os dígitos.");
         if (name.length < 2) throw new Error("Nome deve ter no mínimo 2 caracteres.");
-        const cleanedPhone = phone.replace(/\D/g, "");
-        if (cleanedPhone.length < 10 || cleanedPhone.length > 11) {
-          throw new Error("Informe um WhatsApp válido (DDD + número).");
+        // mesma regra do banco: celular com DDD e o 9 na frente (11 dígitos)
+        const cleanedPhone = telefoneNormalizado(phone);
+        if (!telefoneValido(cleanedPhone)) {
+          throw new Error("WhatsApp inválido: use DDD e o 9 na frente. Ex.: (11) 91234-5678.");
         }
         if (!state) throw new Error("Selecione o seu estado.");
         if (city.trim().length < 2) throw new Error("Informe a sua cidade.");
@@ -142,25 +150,46 @@ export default function Auth() {
         const trialEnd = new Date(Date.parse(trialStart + "T12:00:00-03:00") + 3 * 86_400_000).toISOString().split('T')[0]!;
 
         sessionStorage.setItem("orbis_signup_novo", "1"); // → Onboarding 2.0 após criar
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: internalEmail,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: { nickname: name, cpf: cleanedCpf, ref: getReferralCode() ?? undefined },
-          },
-        });
+        cadastrando.current = true;
 
-        if (signUpError) {
-          if (signUpError.message.includes("already registered") || signUpError.message.includes("User already")) {
-            throw new Error("Este CPF já possui uma conta na Vant. Faça login.");
+        // Quem já tentou e o perfil falhou tem a conta de login, mas não o perfil.
+        // Mesmo CPF + mesma senha = é a pessoa: entra e termina o cadastro aqui.
+        let userId: string | null = null;
+        const { data: { session: jaLogado } } = await supabase.auth.getSession();
+        if (jaLogado?.user?.email === internalEmail) userId = jaLogado.user.id;
+        if (!userId) {
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: internalEmail,
+            password,
+            options: {
+              emailRedirectTo: `${window.location.origin}/`,
+              data: { nickname: name, cpf: cleanedCpf, ref: getReferralCode() ?? undefined },
+            },
+          });
+          if (signUpError) {
+            if (!/already registered|User already/i.test(signUpError.message)) throw signUpError;
+            const { data: entrou, error: loginErr } = await supabase.auth.signInWithPassword({ email: internalEmail, password });
+            if (loginErr || !entrou?.user) throw new Error("Este CPF já possui uma conta na Vant. Faça login.");
+            userId = entrou.user.id;
+          } else {
+            userId = signUpData?.user?.id ?? null;
           }
-          throw signUpError;
+        }
+        if (!userId) throw new Error("Não consegui criar a conta agora. Tente de novo em instantes.");
+
+        // Conta antiga e completa: é só login.
+        const { data: perfilAtual } = await supabase.from("profiles").select("cpf").eq("user_id", userId).maybeSingle();
+        if ((perfilAtual as { cpf?: string | null } | null)?.cpf) {
+          cadastrando.current = false;
+          sessionStorage.removeItem("orbis_signup_novo");
+          toast({ title: "Você já tinha conta", description: "Entrando na sua Vant." });
+          navigate("/", { replace: true });
+          return;
         }
 
-        if (signUpData?.user) {
+        {
           const { error: profileError } = await supabase.from("profiles").upsert({
-            user_id: signUpData.user.id,
+            user_id: userId,
             nickname: name,
             cpf: cleanedCpf,
             phone: cleanedPhone,
@@ -182,6 +211,8 @@ export default function Auth() {
             if (profileError.code === "23505" || /duplicate|unique/i.test(profileError.message)) {
               throw new Error("Já existe uma conta com esse CPF, telefone ou e-mail.");
             }
+            // 23514 = o banco recusou um campo (CPF/WhatsApp) e já explica qual
+            if (profileError.code === "23514") throw new Error(profileError.message);
             throw profileError;
           }
         }
@@ -191,12 +222,13 @@ export default function Auth() {
           description: "Bem-vindo à Vant. Você ganhou 3 dias de teste grátis.",
         });
         // Marca a conta como "Onboarding 2.0" (o Layout não mostra a missão antiga pra ela)
-        if (signUpData?.user) {
-          try { localStorage.setItem(`orbis_onboarding_novo_${signUpData.user.id}`, "1"); } catch (e) { avisar.silencioso("Auth: marcar onboarding 2.0", e); }
-        }
+        try { localStorage.setItem(`orbis_onboarding_novo_${userId}`, "1"); } catch (e) { avisar.silencioso("Auth: marcar onboarding 2.0", e); }
+        cadastrando.current = false;
         navigate("/onboarding-novo", { replace: true });
       }
     } catch (error: any) {
+      // o perfil falhou: a pessoa fica no formulário (logada), corrige e manda de novo
+      cadastrando.current = false;
       toast({
         title: "Erro",
         description: traduzirErroAuth(error, "login-cadastro"),
