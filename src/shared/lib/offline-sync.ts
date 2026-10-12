@@ -55,7 +55,7 @@ async function syncStore(store: StoreName, handler: (record: OfflineRecord) => P
   for (const record of records) {
     try {
       const ok = await handler(record);
-      if (ok) { await markSynced(store, record.id); synced++; }
+      if (ok) { await markSynced(store, record.id, record.rev); synced++; }
     } catch (err) {
       console.error(`[OfflineSync] Failed to sync ${store} record ${record.id}:`, err);
     }

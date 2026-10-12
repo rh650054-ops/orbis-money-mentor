@@ -13,7 +13,11 @@ export interface OfflineRecord {
   data: Record<string, unknown>;
   created_at: string;
   synced: boolean;
+  /** Versão do registro: muda a cada gravação na mesma chave (ver markSynced). */
+  rev?: string;
 }
+
+const novaRev = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 export type StoreName = 'pending_sales' | 'pending_venda' | 'pending_approaches' | 'pending_checklist' | 'pending_defcon' | 'cached_data';
 
@@ -65,7 +69,9 @@ export async function addOfflineRecord(store: StoreName, record: OfflineRecord):
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readwrite');
-    tx.objectStore(store).put(record);
+    // Cada gravação ganha versão nova — inclusive quando substitui o mesmo id
+    // (o bloco usa o id do bloco como chave e é regravado a cada venda).
+    tx.objectStore(store).put({ ...record, rev: novaRev() });
     tx.oncomplete = () => { db.close(); resolve(); };
     tx.onerror = () => { db.close(); reject(tx.error); };
   });
@@ -95,14 +101,21 @@ export async function getUnsynced(store: StoreName): Promise<OfflineRecord[]> {
   });
 }
 
-export async function markSynced(store: StoreName, id: string): Promise<void> {
+/**
+ * Marca como enviado SÓ se o registro guardado ainda é a mesma versão que foi enviada.
+ * Corrida (12/10/2026): a sync lia R$ 100, uma venda regravava a chave com R$ 120
+ * durante o envio, e o fim do envio dos R$ 100 marcava os R$ 120 como enviados —
+ * a limpeza apagava a venda mais nova sem ela ter subido. Agora a versão nova fica
+ * pendente e sobe na próxima sync.
+ */
+export async function markSynced(store: StoreName, id: string, rev?: string): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readwrite');
     const objectStore = tx.objectStore(store);
     const getReq = objectStore.get(id);
     getReq.onsuccess = () => {
-      if (getReq.result) {
+      if (getReq.result && getReq.result.rev === rev) {
         getReq.result.synced = true;
         objectStore.put(getReq.result);
       }
