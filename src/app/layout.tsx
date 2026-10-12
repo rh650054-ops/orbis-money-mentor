@@ -76,11 +76,18 @@ export default function Layout({ children }: LayoutProps) {
       // Lê SEMPRE no banco — precisa pegar must_change_password mesmo de quem já
       // concluiu o onboarding (a senha temporária do admin é gerada depois). Sem
       // o atalho de localStorage aqui, senão a flag não era lida pra esses usuários.
-      const { data } = await supabase.from("profiles")
+      const { data, error: erroPerfil } = await supabase.from("profiles")
         .select("nickname, onboarding_completed, onboarding_step, must_change_password")
         .eq("user_id", user.id)
         .maybeSingle();
       if (cancelled) return;
+      // Login sem perfil (o cadastro caiu no meio: a conta de login nasceu, o perfil não):
+      // volta pro cadastro pra terminar — senão fica sem teste, sem Dia 0 e sem onboarding.
+      // (perfil sem CPF NÃO entra aqui: há contas assim usando o app e pagando)
+      if (!erroPerfil && !data) {
+        navigate("/auth?completar=1", { replace: true });
+        return;
+      }
       // Senha temporária do admin: força a troca (redirecionamento no efeito abaixo).
       setMustChangePassword(data?.must_change_password === true);
       // Fonte de verdade: a flag do banco DESTE usuário.
