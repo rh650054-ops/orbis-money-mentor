@@ -69,12 +69,16 @@ const FOCO=[{d:"26/08",ini:"13:34",fim:"15:23",min:109,tar:6,fic:3},
  {d:"15/09",ini:"16:26",fim:"20:29",min:243,tar:63,fic:25}];
 
 /* mapa pipeline do banco -> esteira desta tela */
-const DE_PIPE={trial:"trial", relacionamento:"pagante", inadimplente:"perdido", parceiro:"base"};
+const DE_PIPE={trial:"trial", relacionamento:"pagante", inadimplente:"perdido", parceiro:"base", upgrade_pro:"upgrade"};
 const DE_ETAPA={
  trial:{lp:"lp",dia1:"dia1",dia2:"dia2",dia3:"dia3",fechamento:"dia3",fechou:"assinou",nao_renovou:"acabou"},
  relacionamento:{inicio_mes:"novo",meio_mes:"meio",fim_mes:"meio",renovacao:"renova"},
  inadimplente:{novo:"saiu",contato1:"motivo",negociando:"oferta",fechamento:"voltou"},
- parceiro:{novo:"frio",contatado:"acordou",respondeu:"usou",virou_teste:"virou"}};
+ parceiro:{novo:"frio",contatado:"acordou",respondeu:"usou",virou_teste:"virou"},
+ upgrade_pro:{dia1:"dia1",dia2:"dia2",dia3:"dia3",ligar:"ligar",renovou:"renovou",nao_renovou:"nao_renovou",duvida:"duvida"}};
+/* Esteira de UPGRADE PRO (12/10): coluna movida de verdade no banco (crm_mover),
+   então "dias nessa coluna" é real. Fez upgrade = ganho, não fez = perdido. */
+const UPGRADE_STATUS={renovou:"ganho",nao_renovou:"perdido"};
 
 const E={
  trial:{nome:"Trial de 3 dias",cor:"c1",
@@ -133,6 +137,19 @@ const E={
    oferta:[{t:"Cobrar a decisão em 48h",m:"{p}, só pra fechar: quer que eu reative ou prefere que eu encerre de vez aqui?\n\nQualquer resposta tá ótima, só não quero te deixar no limbo."}],
    voltou:[{t:"Confirmar que o pagamento passou",m:"Confirmado, {p}! Bem-vindo de volta.\n\nSeu histórico tá todo lá, é só continuar de onde parou."}]}},
 
+ upgrade:{nome:"Upgrade Pro · assinantes",cor:"c5",
+  desc:"Toda a base de assinantes que ainda não é Pro. Dia 1, 2 e 3 é mensagem; no Dia 4 liga. Mova a ficha conforme a conversa — o número de dias na coluna é real.",
+  cols:[["dia1","Dia 1 · Oi, tudo bem?"],["dia2","Dia 2 · Oi de novo"],["dia3","Dia 3 · Oi e apagar"],["ligar","Dia 4 · Ligar"],["renovou","Fez upgrade"],["nao_renovou","Não fez upgrade"],["duvida","Na dúvida"]],
+  ativ:{
+   dia1:[{t:"Mandar \"Oi, tudo bem?\"",m:"Oi {p}, tudo bem?"},
+         {t:"Se respondeu: apresentar o VANT Pro",nota:"Anote como ele respondeu. Se ele respondeu, conte do Pro com o número dele (o que ele faz por mês está nos Dados)."}],
+   dia2:[{t:"Mandar \"Oi, tudo bem?\" de novo",m:"Oi {p}, tudo bem?"}],
+   dia3:[{t:"Mandar \"Oi, tudo bem?\" e apagar",nota:"Manda a mensagem e apaga pra todos. A notificação fica no celular dele e dá curiosidade de abrir a conversa."}],
+   ligar:[{t:"Ligar pra ele",nota:"Ligue pelo WhatsApp ou pelo telefone. Anote aqui como foi a ligação e o motivo se não quiser."}],
+   renovou:[{t:"Confirmar que o Pro liberou",m:"{p}, confirmado: seu VANT Pro está liberado! Qualquer dúvida me chama aqui."}],
+   nao_renovou:[{t:"Anotar o motivo",nota:"OBRIGATÓRIO. Por que ele não quis o Pro? Preço, não viu valor, não usa o banco… esse é o dado da campanha."}],
+   duvida:[{t:"Anotar a dúvida e quando voltar",nota:"O que falta pra ele decidir? Escreva a dúvida e o dia de chamar de novo."}]}},
+
  base:{nome:"Base geral",cor:"c4",
   desc:"Quem criou conta e nunca virou nada. O maior bolo e o mais frio — só entra na fila quando o resto estiver limpo.",
   cols:[["frio","Nunca usou"],["acordou","Abriu o app"],["usou","Registrou venda"],["virou","Virou teste"]],
@@ -189,7 +206,7 @@ async function carregarTudo(){
   PROBLEMAS.length=0;
   /* Tudo de uma vez: antes eram 12 chamadas em fila (uma esperava a outra). */
   const dono=ehDono();
-  const [g0, n, rel, hot, conv, afil, cfg, est, vendas, fTrial, fRel, fInad, fParc, pkit, ajustes] = await Promise.all([
+  const [g0, n, rel, hot, conv, afil, cfg, est, vendas, fTrial, fRel, fInad, fParc, pkit, ajustes, fUp] = await Promise.all([
     dono ? chamar("crm_faturamento") : Promise.resolve(null),
     chamar("crm_numeros"),
     chamar("crm_relatorio_mensal"),
@@ -205,6 +222,7 @@ async function carregarTudo(){
     chamar("crm_funil",{p_pipeline:"parceiro"}),
     chamar("crm_parceiros_kit"),
     chamar("crm_ajustes_ler"),
+    chamar("crm_funil",{p_pipeline:"upgrade_pro"}),
   ]);
   AJUSTES = ajustes || {}; aplicarAjustes();
   const g = g0 || {};
@@ -230,9 +248,9 @@ async function carregarTudo(){
   HOJE=hojeZero();
   EST={};
   for(const e of (est||[])) EST[e.cartao]=normEst(e);
-  const FUNIS={trial:fTrial, relacionamento:fRel, inadimplente:fInad, parceiro:fParc};
+  const FUNIS={trial:fTrial, relacionamento:fRel, inadimplente:fInad, parceiro:fParc, upgrade_pro:fUp};
 
-  const pipes=["trial","relacionamento","inadimplente","parceiro"];
+  const pipes=["upgrade_pro","trial","relacionamento","inadimplente","parceiro"];
   QTD={}; F=[]; let id=0;
   for(const pipe of pipes){
     const dados = FUNIS[pipe];
@@ -241,7 +259,7 @@ async function carregarTudo(){
     for(const c of (dados.cartoes||[])){
       try{
         const col=mapa[c.etapa]; if(!col) continue;
-        if(String(c.status||"aberto")!=="aberto" && col!=="assinou") continue;
+        if(String(c.status||"aberto")!=="aberto" && col!=="assinou" && pipe!=="upgrade_pro") continue;
         const k=est+"/"+col; QTD[k]=(QTD[k]||0)+1;
         const h=hotDe(c)||null;
         F.push({id:id++, cartaoId:c.id, e:est, c:col,
@@ -257,7 +275,7 @@ async function carregarTudo(){
           // data da próxima cobrança: a da Hotmart manda; a da Vant é reserva
           renova:(h&&h.cobra_em?deBR(h.cobra_em):null)||c.period_end||null,
           pago:h&&h.valor?Number(h.valor):null, notas:c.notas||"",
-          feitasBanco:c.feitas||[], hot:h});
+          feitasBanco:c.feitas||[], hot:h, faz:c.faz||null, parceiro:c.parceiro||null});
       }catch(e){ PROBLEMAS.push("cartão "+(c&&c.id)+": "+(e.message||e)); }
     }
   }
@@ -340,6 +358,18 @@ function temperatura(f){
 /* ===== prioridade ===== */
 function avaliar(f){
  let u=0,d=0,p="";
+ if(f.e==="upgrade"){
+  const c=etapaDe(f), fz=f.faz||{}, mes=+fz.mes||0, ant=+fz.mes_passado||0;
+  const quanto=mes>0||ant>0?` Faz <b>${brl(Math.max(mes,ant))}</b> por mês na Vant${fz.dias_30?` (${fz.dias_30} dias de venda em 30)`:""}.`:" Ainda não registrou vendas este mês.";
+  const fechado=c==="renovou"||c==="nao_renovou";
+  u=fechado?5:c==="ligar"?90:c==="duvida"?80:c==="dia3"?75:c==="dia2"?70:68; d=60+Math.min(30,Math.round(Math.max(mes,ant)/200));
+  p=fechado?(c==="renovou"?"<b>Fez upgrade pro Pro.</b>":"<b>Não fez upgrade.</b> Confira se o motivo está anotado.")
+   :c==="ligar"?`<b>Dia de ligar.</b> Já foram 3 mensagens sem resposta.${quanto}`
+   :c==="duvida"?`<b>Está na dúvida.</b> Veja a nota e chame no dia combinado.${quanto}`
+   :`Assinante do Essencial, campanha de upgrade pro Pro (${(E.upgrade.cols.find(x=>x[0]===c)||[c,c])[1]}).${quanto}`;
+  if(!fechado&&f.d>=1) p+=` <b>Parado há ${Math.round(f.d)} dia${Math.round(f.d)===1?"":"s"} nessa coluna.</b>`;
+  return{score:Math.round(u*.55+d*.3+Math.min(30,f.d*1.1)*.15),porque:p};
+ }
  if(f.c==="acabou"){u=100;d=55;
   p=`<b>Travado há ${f.trava} dias e sem motivo registrado.</b> O teste acabou e ninguém falou com essa pessoa. Enquanto o motivo não for escrito, ela conta como <b>lead sem contato</b> nas suas métricas.`;}
  else if(f.c==="renova"){const k=dias(f.renova);u=k<=3?100:95;d=95;
@@ -497,7 +527,19 @@ function avancar(f){
  if(f.e==="trial"&&at==="dia3"){mover(f,"assinou");return;}
  if(i>=0&&i<cols.length-1)mover(f,cols[i+1][0]);
 }
+async function moverUpgrade(f,destino,abrirDepois){
+ const e=estDe(f); const antes={c:f.c,d:f.d,etapa:e.etapa,base:e.etapa_base};
+ f.c=destino; f.d=0; e.etapa=null; e.etapa_base=null;              // resposta na hora
+ Object.assign(f,avaliar(f));
+ QTD={}; for(const x of FICHAS){ const q=x.e+"/"+etapaDe(x); QTD[q]=(QTD[q]||0)+1; }
+ toast(f.n.split(" ")[0]+" → "+((E.upgrade.cols.find(c=>c[0]===destino)||[0,destino])[1]));
+ render(); if(abrirDepois) abrir(f.id);
+ const {error}=await sb.rpc("crm_mover",{p_cartao:f.cartaoId,p_etapa:destino,p_status:UPGRADE_STATUS[destino]||"aberto"});
+ if(error){ Object.assign(f,{c:antes.c,d:antes.d}); e.etapa=antes.etapa; e.etapa_base=antes.base;
+   PROBLEMAS.push("mover no banco ("+f.n+"): "+error.message); mostrarProblemas(); render(); }
+}
 function mover(f,destino){
+ if(f.e==="upgrade"&&E.upgrade.cols.some(c=>c[0]===destino)){ void moverUpgrade(f,destino,true); return; }
  // Trial > Assinou entra sozinho em Pagantes
  if(f.e==="trial"&&destino==="assinou"){
    void gravarEstado(f,{esteira:"pagante",etapa:"novo",etapa_base:f.c}); f.e="pagante";
@@ -872,12 +914,13 @@ function renderEsteiras(){
  let h=`<p class="nota" style="margin:0 0 12px">Clique em qualquer ficha para abrir o <b>painel completo da pessoa</b>.
  Para mudar de lugar, <b>pegue a ficha e solte em qualquer coluna</b>, até de outra esteira (no celular: segure a ficha meio segundo e arraste).
  No celular, arraste as colunas para o lado.</p>`;
- for(const [k,def] of Object.entries(E)){
+ // a campanha de Upgrade Pro vem primeiro (é o foco do comercial agora)
+ for(const [k,def] of Object.entries(E).sort(([a],[b])=>(b==="upgrade")-(a==="upgrade"))){
   const total=def.cols.reduce((s,[c])=>s+(QTD[k+"/"+c]||0),0);
   h+=`<div class="box" style="margin-bottom:14px">
    <div class="est-head"><span class="dot" style="background:var(--${def.cor});width:9px;height:9px"></span>
     <h3>${def.nome}</h3><span class="c num">${total} fichas</span>
-    <p style="width:100%;margin:2px 0 0;font-size:11.5px;color:var(--dim)">${def.desc}</p></div>
+    <p style="width:100%;margin:2px 0 0;font-size:11.5px;color:var(--dim)">${def.desc}</p>${k==="upgrade"?resumoUpgrade():""}</div>
    <div class="cols" style="--n:${def.cols.length}">
    ${def.cols.map(([c,titulo])=>{
      const qtd=QTD[k+"/"+c]||0,morto=(c==="acabou");
@@ -887,8 +930,8 @@ function renderEsteiras(){
         const semMotivo=etapaDe(x)==="acabou"&&!notaDe(x,0).trim();
         return `<button class="chip${morto?" morto":""}" style="border-left-color:var(--${morto?"bad":def.cor})" data-painel="${x.id}" data-arrasta="${x.id}">
          <div class="nm">${esc(x.n)}</div>
-         <div class="sb${travaDe(x)||semMotivo?" bad":""}">${semMotivo?"sem motivo · conta como sem contato"
-           :travaDe(x)?`travado ${travaDe(x)}d`:`${Math.round(x.d)}d nessa coluna`}</div></button>`;}).join("")}
+         <div class="sb${travaDe(x)||semMotivo||(k==="upgrade"&&x.d>=1&&!["renovou","nao_renovou"].includes(c))?" bad":""}">${semMotivo?"sem motivo · conta como sem contato"
+           :travaDe(x)?`travado ${travaDe(x)}d`:`${Math.round(x.d)}d nessa coluna`}${k==="upgrade"?upgradeInfo(x):""}</div></button>`;}).join("")}
       ${qtd>am.length?`<button class="mais num" data-coluna="${k}/${c}" style="color:var(--c1);font-weight:700">+ ${qtd-am.length} não mostradas · ver todas ↗</button>`:""}
       ${qtd===0?`<div class="mais">vazia</div>`:""}</div>`;}).join("")}
    </div></div>`;}
@@ -920,6 +963,10 @@ const ARRASTO={f:null,el:null,fantasma:null,alvo:null,acabou:false,t:null,x0:0,y
 function moverArrastando(f,k,c){
  const destino=E[k]?.cols.find(x=>x[0]===c); if(!destino) return;
  if(f.e===k&&etapaDe(f)===c) return;
+ if(k==="upgrade"||f.e==="upgrade"){
+   if(k!==f.e){ toast("A esteira de Upgrade Pro não troca com as outras."); return; }
+   void moverUpgrade(f,c,false); return;
+ }
  if(k==="trial"&&c==="assinou"){            // mesma regra do botão: Assinou entra sozinho em Pagantes
    void gravarEstado(f,{esteira:"pagante",etapa:"novo",etapa_base:f.c}); f.e="pagante";
    toast(f.n.split(" ")[0]+" assinou · foi para Já pagantes");
@@ -1002,6 +1049,31 @@ function ligarArrasto(el){
  el.addEventListener("pointercancel",soltar);
 }
 
+/* ===== UPGRADE PRO: o que aparece no cartão e o resumo pro Rick analisar o comercial ===== */
+function upgradeInfo(x){
+ const fz=x.faz||{}, mes=Math.max(+fz.mes||0,+fz.mes_passado||0);
+ const origem=x.parceiro||(x.ref&&x.ref!=="—"?x.ref:"");
+ return `<br>${mes>0?`faz ${brl(Math.round(mes)).replace(/,00$/,"")}/mês`:"sem venda no mês"}${origem?` · ${esc(origem)}`:""}`;
+}
+function resumoUpgrade(){
+ const t=FICHAS.filter(f=>f.e==="upgrade");
+ const col=c=>t.filter(f=>etapaDe(f)===c).length;
+ const fez=col("renovou"), nao=col("nao_renovou"), fechados=fez+nao;
+ const abertos=t.filter(f=>!["renovou","nao_renovou"].includes(etapaDe(f)));
+ const parados=abertos.filter(f=>f.d>=1).length;
+ const conv=t.length?Math.round(fez/t.length*100):0;
+ const recorrente=t.filter(f=>etapaDe(f)==="renovou").reduce((s,f)=>s+(+f.pago||0),0);
+ return `<div class="est-resumo">
+  <span><b>${t.length}</b> assinantes na campanha</span>
+  <span>em contato: <b>${abertos.length}</b></span>
+  <span>fizeram upgrade: <b>${fez}</b> (${conv}%)</span>
+  <span>não fizeram: <b>${nao}</b></span>
+  <span>na dúvida: <b>${col("duvida")}</b></span>
+  <span${parados?' style="border-color:var(--warn);color:var(--warn)"':""}>parados +1 dia: <b>${parados}</b></span>
+  ${fechados?`<span>decididos: <b>${fechados}</b></span>`:""}${recorrente?`<span>pagavam: <b>${brl(recorrente)}</b>/mês</span>`:""}
+ </div>`;
+}
+
 /* ===== CONTATO ERRADO: corrigir o WhatsApp (conta ou lead) ===== */
 async function corrigirZap(f){
  const atual=f.tel?f.tel.replace(/^55/,""):"";
@@ -1043,7 +1115,11 @@ function abrir(id,foco){
    <div class="dr-sec"><h4>Dados</h4>
     <div class="kv"><span class="k">WhatsApp</span><span class="v">${f.tel?`<a href="${linkZap(f)}" target="_blank" rel="noopener" style="color:var(--c2);font-weight:700">+${f.tel.slice(0,2)} ${f.tel.slice(2,4)} ${f.tel.slice(4)} ↗</a>`:esc(f.zap)}
       <button class="btn ghost" id="dr-zap-edit" style="padding:3px 8px;font-size:11px;margin-left:6px">corrigir</button>${contatoErrado(f)?"":`<button class="btn ghost" id="dr-zap-errado" style="padding:3px 8px;font-size:11px;margin-left:4px;color:var(--warn)">nº errado</button>`}</span></div>
-    <div class="kv"><span class="k">Origem</span><span class="v">${esc(f.ref||"—")}</span></div>
+    <div class="kv"><span class="k">Origem</span><span class="v">${esc(f.parceiro?`${f.parceiro} (${f.ref})`:(f.ref||"—"))}</span></div>
+    ${f.e==="upgrade"&&f.faz?`<div class="kv"><span class="k">Faz este mês</span><span class="v">${brl(+f.faz.mes||0)}</span></div>
+    <div class="kv"><span class="k">Fez mês passado</span><span class="v">${brl(+f.faz.mes_passado||0)}</span></div>
+    <div class="kv"><span class="k">Média por dia</span><span class="v">${brl(+f.faz.media_dia||0)} · ${+f.faz.dias_30||0} dias de venda em 30</span></div>
+    ${f.faz.assina_desde?`<div class="kv"><span class="k">Assina desde</span><span class="v">${esc(f.faz.assina_desde)}</span></div>`:""}`:""}
     ${f.email?`<div class="kv"><span class="k">E-mail</span><span class="v">${esc(f.email)}</span></div>`:""}
     ${f.cidade?`<div class="kv"><span class="k">Cidade</span><span class="v">${esc(f.cidade)}</span></div>`:""}
     ${f.entrou?`<div class="kv"><span class="k">Entrou em</span><span class="v">${dbr(f.entrou)}</span></div>`:""}
@@ -1069,7 +1145,7 @@ function abrir(id,foco){
     <p class="nota" style="margin:11px 0 0"><b>Mover para:</b></p>
     <div class="mover">${cols.filter(([c])=>c!==et).map(([c,t])=>{
       const frente=cols.findIndex(x=>x[0]===c)>idx;
-      const trava=frente&&!pronto;
+      const trava=frente&&!pronto&&f.e!=="upgrade";   // no upgrade o comercial move pela conversa
       return `<button class="mv" data-mover="${c}" ${trava?"disabled":""} title="${trava?"Faça as atividades desta etapa antes de avançar":"Mover para "+t}">${trava?"🔒 ":""}${esc(t)}</button>`;}).join("")}</div>
     ${!pronto?`<p class="nota">Só dá pra <b>avançar</b> depois que as atividades desta etapa estiverem feitas. Voltar é sempre liberado.</p>`:""}
    </div>
@@ -1658,6 +1734,7 @@ async function depoisDoLogin(){
   document.getElementById("telaLogin").hidden=true;
   document.getElementById("app").hidden=false;
   document.getElementById("carregando").hidden=false;
+  await chamar("crm_sync_upgrade");   // assinantes novos entram no Dia 1 do Upgrade Pro
   try{ await carregarTudo(); ULTIMA_CARGA=Date.now(); }
   catch(e){ PROBLEMAS.push("carregamento: "+(e.message||e)); mostrarProblemas(); }
   try{ aplicarPapel(); render(); renderParceiros(); renderAfiliados(); }
@@ -1701,7 +1778,7 @@ async function atualizar(silencioso){
   const cartaoAberto=drawerAberto?byId(+(document.getElementById("drawer").dataset.id||-1))?.cartaoId:null;
   if(!silencioso) document.getElementById("carregando").hidden=false;
   try{
-    if(!silencioso){ await Promise.all([chamar("crm_sync"), chamar("crm_sync_base")]); }
+    if(!silencioso){ await Promise.all([chamar("crm_sync"), chamar("crm_sync_base"), chamar("crm_sync_upgrade")]); }
     await carregarTudo();
     // mantém a pessoa que estava na tela, mesmo que a ordem tenha mudado
     if(cartaoAtual){ const i=fila().findIndex(x=>x.cartaoId===cartaoAtual); if(i>=0){S.pos=i;salvar();} }
