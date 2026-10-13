@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef, useMemo } from "react";
+import { limparModelo } from "./modelo-cobranca";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
 import { reaisDeTexto, limparDinheiro, arrumarDinheiro } from "@/shared/lib/dinheiro";
-import { Plus, X, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, CreditCard, ChevronLeft, ChevronRight, Camera, Check, Loader2 } from "lucide-react";
+import { Plus, X, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, CreditCard, ChevronLeft, ChevronRight, Camera, Check } from "lucide-react";
 import { DefconBlock, type MotivoPausa } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
@@ -123,9 +124,6 @@ export function DefconRunning({
   const [pixCharge, setPixCharge] = useState<{ key: string; name: string } | null>(null);
   // Cobrança criada NA HORA da venda: o Pix nasce na carteira do vendedor e o
   // link entra na mensagem antes dela sair. Enquanto cria, o botão espera.
-  const [criandoPix, setCriandoPix] = useState(false);
-  const [cobrancaLink, setCobrancaLink] = useState<string | null>(null);
-  const [cobrancaId, setCobrancaId] = useState<string | null>(null);
   /* ---- TRAVAS DE LANÇAMENTO (01/09, pedido do Rick) ----
      CONFIRMA_ACIMA: acima disso o app PERGUNTA antes de registrar (pode ser um zero a
      mais). Hoje só 0,6% das vendas do app passam de R$ 300 — o vendedor comum nunca vê.
@@ -306,9 +304,6 @@ export function DefconRunning({
     setSaleQty(1);
     setShowChargePreview(false);
     setShowClientFields(false);
-    setCobrancaLink(null);
-    setCobrancaId(null);
-    setCriandoPix(false);
     // Mantém o produto selecionado se houver só 1; reseta se múltiplos
     if (loadout.length > 1) setSelectedProductId(null);
   };
@@ -371,10 +366,18 @@ export function DefconRunning({
     return `Confirmando sua compra de ${VALOR_TOKEN}.\n\nPra finalizar, é só pagar no meu Pix 👇\n${pixLine}\n\nDepois me envia o comprovante por aqui, por favor!`;
   };
 
+  /* 13/10 (Rick): sai o link do Mercado Pago da mensagem. O modelo salvo tinha
+     guardado a linha "É só pagar por aqui, cai na hora:" (só a URL era tirada ao
+     salvar), e a cada venda ela voltava duplicada. Limpa os modelos já salvos. */
+
   const loadChargeBody = () => {
     try {
       const saved = localStorage.getItem(chargeTplKey);
-      if (saved && saved.trim()) return saved;
+      if (saved && saved.trim()) {
+        const limpo = limparModelo(saved);
+        if (limpo !== saved) localStorage.setItem(chargeTplKey, limpo);
+        if (limpo) return limpo;
+      }
     } catch (e) { avisar.silencioso("DefconRunning: ler modelo de cobrança", e); }
     return defaultChargeBody();
   };
@@ -393,54 +396,19 @@ export function DefconRunning({
     } catch (e) { avisar.silencioso("DefconRunning: guardar modelo de cobrança", e); }
   };
 
-  /** O que o cliente levou — vai na descrição da cobrança e no extrato da carteira. */
-  const produtoDaVenda = () => {
-    const pid = selectedProductId;
-    const prod = pid ? loadoutProducts.find((p) => p.id === pid) : null;
-    return (prod?.name as string) || "Compra";
-  };
 
-  /* ---- COBRANÇA NA HORA (pedido do Rick, 09/09) ------------------------------
-     O momento de cobrar é ESTE: o cara acabou de levar a mercadoria, o vendedor
-     digitou o nome e o telefone, e a cobrança tem que sair no mesmo segundo.
-     Ao abrir a prévia a Vant JÁ cria o Pix na carteira do vendedor e cola o
-     link dentro da mensagem. Quando o cliente paga, o webhook confirma sozinho.
-     Se a carteira não estiver ligada (ou a criação falhar), cai no jeito antigo:
-     a mensagem vai com a chave Pix dele. Nada quebra pra quem não conectou. */
-  const openChargePreview = async () => {
+  /* ---- COBRANÇA NA HORA ---------------------------------------------------------
+     O vendedor digitou valor, nome e telefone: a prévia abre com a mensagem pronta
+     (a padrão dele, com o nome e o valor da venda). 13/10 (Rick): sem link do
+     Mercado Pago — a mensagem vai só com a chave Pix dele. */
+  const mensagemGeradaRef = useRef("");
+  const openChargePreview = () => {
     const amount = reaisDeTexto(saleValue);
     if (amount <= 0 || sanitizePhone(salePhone).length < 10) return;
-
     const base = buildChargeMessage(amount, saleName);
+    mensagemGeradaRef.current = base;
     setSaleMessage(base);
-    setCobrancaLink(null);
     setShowChargePreview(true);
-    if (onboardingMode) return;
-
-    setCriandoPix(true);
-    try {
-      const { data, error } = await (supabase as any).functions.invoke("cobranca-criar", {
-        body: {
-          nome: saleName.trim(),
-          telefone: sanitizePhone(salePhone),
-          valor: amount,
-          descricao: produtoDaVenda(),
-          // a venda é lançada aqui na hora — quando o cliente pagar, a Vant
-          // só confirma. Se somasse de novo, o dia contava o dinheiro em dobro.
-          abate_calote: false,
-        },
-      });
-      const link = !error && !data?.error ? String(data?.link ?? "") : "";
-      if (link) {
-        setCobrancaLink(link);
-        setCobrancaId(String(data?.id ?? "") || null);
-        setSaleMessage(`${base}\n\nÉ só pagar por aqui, cai na hora:\n${link}`);
-      }
-    } catch (e) {
-      avisar.erro("DefconRunning: criar cobrança Pix", e);
-    } finally {
-      setCriandoPix(false);
-    }
   };
 
   const confirmCharge = async () => {
@@ -459,24 +427,13 @@ export function DefconRunning({
     const janela = window.open(url, "_blank");
     if (!janela) window.location.href = url;
 
-    // o modelo salvo nunca guarda o link (ele muda a cada cobrança)
-    saveChargeTemplate(cobrancaLink ? text.split(cobrancaLink).join("") : text, amount, saleName);
+    // o modelo só muda quando ELE edita a mensagem (Rick, 13/10): a mensagem pronta
+    // não é regravada a cada venda, então nada de automático gruda no modelo
+    if (text.trim() !== mensagemGeradaRef.current.trim()) saveChargeTemplate(text, amount, saleName);
     // Cobrança por WhatsApp é sempre PIX (a mensagem manda o link ou a chave) —
     // antes registrava como "dinheiro" e o valor caía errado no split do fim do dia.
     registerSale(amount, "pix", saleQty);
-    const idCliente = await persistClient(amount, "pix");
-    // amarra a cobrança ao cliente do dia pra ela aparecer no fechamento
-    if (idCliente && cobrancaId) {
-      void supabase.from("cobrancas" as any)
-        .update({ defcon_client_id: idCliente, enviada_em: new Date().toISOString() })
-        .eq("id", cobrancaId)
-        .then(({ error }: { error: unknown }) => { if (error) avisar.erro("DefconRunning: amarrar cobrança ao cliente", error); });
-    } else if (cobrancaId) {
-      void supabase.from("cobrancas" as any)
-        .update({ enviada_em: new Date().toISOString() })
-        .eq("id", cobrancaId)
-        .then(({ error }: { error: unknown }) => { if (error) avisar.erro("DefconRunning: marcar cobrança enviada", error); });
-    }
+    await persistClient(amount, "pix");
     setShowChargePreview(false);
     resetSaleForm();
     setShowAddSale(false);
@@ -991,16 +948,19 @@ export function DefconRunning({
                   />
                 </div>
 
-                {sanitizePhone(salePhone).length >= 10 && saleValorNum > 0 && (
+                {sanitizePhone(salePhone).length >= 10 && (
                   <button
                     onClick={openChargePreview}
-                    style={{ backgroundColor: BRAND_COLORS.WHATSAPP, boxShadow: "0 10px 28px -8px rgba(37,211,102,0.7)" }}
-                    className="w-full h-14 rounded-2xl text-white flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform"
+                    disabled={saleValorNum <= 0}
+                    style={{ backgroundColor: BRAND_COLORS.WHATSAPP, boxShadow: saleValorNum > 0 ? "0 10px 28px -8px rgba(37,211,102,0.7)" : "none" }}
+                    className="w-full h-14 rounded-2xl text-white flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform disabled:opacity-45"
                   >
                     <MessageCircle className="w-5 h-5" strokeWidth={2.5} />
                     <span className="flex flex-col items-start leading-tight">
-                      <span className="text-sm font-extrabold">Gerar Pix e cobrar no WhatsApp</span>
-                      <span className="text-[11px] font-medium opacity-90">O Pix cai na sua conta · você revisa antes de enviar</span>
+                      <span className="text-sm font-extrabold">Cobrar no WhatsApp</span>
+                      <span className="text-[11px] font-medium opacity-90">
+                        {saleValorNum > 0 ? "Vai com a sua chave Pix · você revisa antes de enviar" : "Digite o valor da venda primeiro"}
+                      </span>
                     </span>
                   </button>
                 )}
@@ -1065,19 +1025,9 @@ export function DefconRunning({
               </button>
             </div>
 
-            {criandoPix ? (
-              <span className="text-xs font-bold flex items-center gap-2" style={{ color: "var(--orbis-fg-2)" }}>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Criando o Pix na sua conta…
-              </span>
-            ) : cobrancaLink ? (
-              <span className="text-xs font-bold flex items-center gap-2" style={{ color: "#3DD68C" }}>
-                <Check className="w-3.5 h-3.5" strokeWidth={3} /> Pix criado — o link já está na mensagem. Quando ela pagar, a Vant avisa você.
-              </span>
-            ) : (
-              <span className="text-xs font-bold block" style={{ color: "#EAB308" }}>
-                Personalize sua mensagem — ela vira a sua padrão
-              </span>
-            )}
+            <span className="text-xs font-bold block" style={{ color: "#EAB308" }}>
+              Se você mudar a mensagem, ela vira a sua padrão. Se não mexer, fica a de sempre.
+            </span>
             <textarea
               value={saleMessage}
               onChange={(e) => setSaleMessage(e.target.value)}
@@ -1088,12 +1038,11 @@ export function DefconRunning({
 
             <button
               onClick={confirmCharge}
-              disabled={criandoPix}
               style={{ backgroundColor: BRAND_COLORS.WHATSAPP, boxShadow: "0 10px 28px -8px rgba(37,211,102,0.7)" }}
               className="w-full h-14 rounded-2xl text-white flex items-center justify-center gap-2 font-extrabold active:scale-[0.98] transition-transform disabled:opacity-50"
             >
-              {criandoPix ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageCircle className="w-5 h-5" strokeWidth={2.5} />}
-              {criandoPix ? "Criando o Pix…" : "Abrir WhatsApp e cobrar"}
+              <MessageCircle className="w-5 h-5" strokeWidth={2.5} />
+              Abrir WhatsApp e cobrar
             </button>
           </div>
         </div>
