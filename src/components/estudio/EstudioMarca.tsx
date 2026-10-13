@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X, Sparkles, Download, Loader2, Lock, ArrowLeft, Move, Check, ImagePlus, Trash2, Crosshair, QrCode } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { comporArte, entregarPng } from "./exportar-arte";
+import { arquivoPng, comporArte } from "./exportar-arte";
+import { ArtePronta } from "./arte-pronta";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -180,6 +181,8 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
   const [gerando, setGerando] = useState(false);
   const [fraseIdx, setFraseIdx] = useState(0);
   const [exportando, setExportando] = useState(false);
+  // PNG final pronto, esperando o toque em "Salvar na galeria"
+  const [arquivoPronto, setArquivoPronto] = useState<File | null>(null);
   // Paywall do download: no teste, antes de baixar aparece a chance de assinar
   const [mostrarPaywall, setMostrarPaywall] = useState(false);
   // Id do registro em estudio_geracoes — usado pra marcar que ele BAIXOU a arte
@@ -430,6 +433,34 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
     return c.toDataURL("image/png");
   };
 
+  const falhouExport = (e: unknown) => {
+    avisar.erro("EstudioMarca: exportar arte", e);
+    toast({
+      title: "Não consegui gerar a imagem",
+      description: `Tenta de novo. Se continuar, manda um print disso pro suporte. (${avisar.resumo(e).slice(0, 90) || "erro"})`,
+      variant: "destructive",
+    });
+  };
+
+  // Salvou de verdade = achou boa. É o sinal mais forte que o Estúdio produz —
+  // sem ele, melhorar o prompt vira chute.
+  const aoSalvar = async () => {
+    setArquivoPronto(null);
+    try {
+      const { error } = await sb.rpc("marcar_arte_baixada", {
+        p_id: geracaoId || null,
+        p_url: arte && !arte.startsWith("data:") ? arte : null,
+      });
+      if (error) avisar.erro("EstudioMarca: marcar arte baixada", error);
+    } catch (e) { avisar.erro("EstudioMarca: marcar arte baixada", e); }
+    toast({
+      title: pagante ? "Arte salva!" : "Arte salva (com marca d'água)",
+      description: pagante
+        ? "PNG em alta resolução com seu QR Pix real, pronto pra gráfica."
+        : "No teste grátis a arte sai marcada. Assinando, ela baixa limpa e pronta pra gráfica.",
+    });
+  };
+
   const baixar = async () => {
     if (!artRef.current) return;
     if (!temQr) {
@@ -446,8 +477,8 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
     setExportando(true);
     try {
       await salvarPix();
-      // Desenha arte + QR no tamanho REAL da arte (não "fotografa" a tela) e entrega
-      // como arquivo: no celular abre a folha de compartilhar (Salvar imagem).
+      // Desenha arte + QR no tamanho REAL da arte (não "fotografa" a tela). Salvar
+      // fica pro toque em "Salvar na galeria" (ArtePronta): o iPhone exige o toque.
       const fonte = qrBoxRef.current?.querySelector("svg, img") as SVGSVGElement | HTMLImageElement | null;
       if (!fonte) throw new Error("qr_nao_encontrado");
       let png = await comporArte(arteData ?? arte ?? "", {
@@ -456,26 +487,9 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
       });
       if (!pagante) png = await aplicarMarcaDagua(png);
       const nome = `${(marca || "adesivo").toLowerCase().replace(/\s+/g, "-")}-vant.png`;
-      const como = await entregarPng(png, nome);
-      if (como === "cancelado") return;
-      // Baixou = achou boa. É o sinal mais forte que o Estúdio produz — sem ele,
-      // melhorar o prompt vira chute.
-      try {
-        const { error } = await sb.rpc("marcar_arte_baixada", {
-          p_id: geracaoId || null,
-          p_url: arte && !arte.startsWith("data:") ? arte : null,
-        });
-        if (error) avisar.erro("EstudioMarca: marcar arte baixada", error);
-      } catch (e) { avisar.erro("EstudioMarca: marcar arte baixada", e); }
-      toast({
-        title: pagante ? "Arte baixada!" : "Arte baixada (com marca d'água)",
-        description: pagante
-          ? "PNG em alta resolução com seu QR Pix real, pronto pra gráfica."
-          : "No teste grátis a arte sai marcada. Assinando, ela baixa limpa e pronta pra gráfica.",
-      });
+      setArquivoPronto(await arquivoPng(png, nome));
     } catch (e) {
-      avisar.erro("EstudioMarca: exportar arte", e);
-      toast({ title: "Não consegui gerar a imagem", description: "Tenta de novo. Se continuar, tira um print da tela e manda pro suporte.", variant: "destructive" });
+      falhouExport(e);
     } finally {
       setExportando(false);
     }
@@ -658,6 +672,9 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
             </div>
           )}
 
+          {arquivoPronto && (
+            <ArtePronta arquivo={arquivoPronto} onFechar={() => setArquivoPronto(null)} onSalvou={aoSalvar} onErro={falhouExport} />
+          )}
           {mostrarPaywall && (
             <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/70 p-4" onClick={() => setMostrarPaywall(false)}>
               <div className="w-full max-w-sm rounded-2xl border border-primary/40 bg-card p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
