@@ -11,6 +11,18 @@
 
 import { blobDeDataUrl } from "@/shared/lib/blob-de-data-url";
 
+/** Erro com o PASSO onde quebrou — aparece no aviso, pra um print já dizer a causa. */
+export class FalhaExport extends Error {
+  constructor(public passo: string, causa: unknown) {
+    super(`${passo}: ${causa instanceof Error ? causa.message : String(causa)}`);
+    this.name = "FalhaExport";
+  }
+}
+
+async function passo<T>(nome: string, fn: () => T | Promise<T>): Promise<T> {
+  try { return await fn(); } catch (e) { throw e instanceof FalhaExport ? e : new FalhaExport(nome, e); }
+}
+
 export interface QrNaArte {
   /** posição/tamanho em % da LARGURA da arte (igual ao editor) */
   x: number; y: number; tam: number;
@@ -47,7 +59,7 @@ async function fonteDoQr(el: SVGSVGElement | HTMLImageElement): Promise<HTMLImag
 
 /** Desenha arte + QR no tamanho real e devolve PNG em data URL. */
 export async function comporArte(arteSrc: string, qr: QrNaArte): Promise<string> {
-  const arte = await carregar(arteSrc);
+  const arte = await passo("arte", () => carregar(arteSrc));
   const W = arte.naturalWidth, H = arte.naturalHeight;
   const c = document.createElement("canvas");
   c.width = W; c.height = H;
@@ -77,7 +89,7 @@ export async function comporArte(arteSrc: string, qr: QrNaArte): Promise<string>
   ctx.fill();
   ctx.restore();
 
-  const img = await fonteDoQr(qr.fonte);
+  const img = await passo("qr", () => fonteDoQr(qr.fonte));
   // QR precisa de pixel nítido pra escanear na gráfica
   ctx.imageSmoothingEnabled = false;
   const altura = qr.fonte instanceof HTMLImageElement && img.naturalWidth
@@ -86,28 +98,35 @@ export async function comporArte(arteSrc: string, qr: QrNaArte): Promise<string>
   ctx.drawImage(img, x + pad, y + pad, lado, altura);
   ctx.imageSmoothingEnabled = true;
 
-  return c.toDataURL("image/png");
+  return passo("desenho", () => c.toDataURL("image/png"));
 }
 
-/** Entrega o PNG: folha de compartilhar no celular (salvar na galeria) ou download. */
-export async function entregarPng(dataUrl: string, nome: string): Promise<"compartilhado" | "baixado" | "cancelado"> {
-  const blob = blobDeDataUrl(dataUrl);
-  const arquivo = new File([blob], nome, { type: "image/png" });
+/** Vira arquivo PNG (sem fetch: o CSP do site não libera data:). */
+export function arquivoPng(dataUrl: string, nome: string): Promise<File> {
+  return passo("arquivo", () => new File([blobDeDataUrl(dataUrl)], nome, { type: "image/png" }));
+}
+
+/**
+ * Entrega o arquivo. Chamar DIRETO no toque do botão: o iPhone só abre a folha de
+ * compartilhar ("Salvar imagem") logo depois de um toque — depois de segundos
+ * desenhando, ele recusa calado. Sem folha (computador), baixa normal.
+ */
+export async function entregarArquivo(arquivo: File): Promise<"compartilhado" | "baixado" | "cancelado"> {
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
   const celular = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   if (celular && nav.share && nav.canShare?.({ files: [arquivo] })) {
     try {
-      await nav.share({ files: [arquivo], title: nome });
+      await nav.share({ files: [arquivo], title: arquivo.name });
       return "compartilhado";
     } catch (e) {
       if ((e as Error)?.name === "AbortError") return "cancelado";
       // outro erro: cai pro download normal
     }
   }
-  const url = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(arquivo);
   const a = document.createElement("a");
   a.href = url;
-  a.download = nome;
+  a.download = arquivo.name;
   a.rel = "noopener";
   document.body.appendChild(a);
   a.click();
