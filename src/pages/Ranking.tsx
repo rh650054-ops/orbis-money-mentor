@@ -29,6 +29,7 @@ import { comprimirImagem, fotoValida } from "@/shared/lib/avatar";
 import { ConviteRanking } from "@/components/ranking/ConviteRanking";
 import { ConviteProduto } from "@/features/produtos";
 import { OcultarResultado, useRankingOculto } from "@/components/ranking/OcultarResultado";
+import { blobDeDataUrl } from "@/shared/lib/blob-de-data-url";
 
 const motivationalPhrases = [
   "Dominando o jogo com excelência!",
@@ -243,7 +244,7 @@ export default function Ranking() {
       });
 
       // Tenta Web Share API com arquivo (mobile)
-      const blob = await (await fetch(dataUrl)).blob();
+      const blob = blobDeDataUrl(dataUrl);
       const file = new File([blob], `orbis-ranking-${activeTab}.png`, { type: "image/png" });
 
       const nav = navigator as Navigator & { canShare?: (data: { files: File[] }) => boolean };
