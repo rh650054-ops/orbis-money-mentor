@@ -67,9 +67,12 @@ declare
 begin
   select i.user_id into v_dono from public.ingredients i where i.id = p_ingredient_id;
   if v_dono is null then return; end if;
-  if not (auth.uid() is null or auth.uid() = v_dono
-          or auth.role() = 'service_role' or public.is_orbis_admin()) then
-    raise exception 'sem permissao';
+  -- Dono, admin ou servidor (igual à versão de produção). auth.uid() é nulo quando roda por gatilho/servidor.
+  if auth.uid() is not null
+     and auth.uid() <> v_dono
+     and coalesce(auth.jwt() ->> 'role', '') <> 'service_role'
+     and not public.is_orbis_admin() then
+    raise exception 'ingrediente não é seu';
   end if;
 
   update public.products p
