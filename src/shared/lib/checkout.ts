@@ -1,5 +1,6 @@
 import { HOTMART_CHECKOUT_URL } from "./constants";
 import { avisar } from "@/shared/lib/avisar";
+import { validateCPF } from "@/shared/lib/cpf-validation";
 
 // Atribuição de influenciador por cupom, mesmo com o teste grátis no app.
 // Quando a pessoa entra pelo link do influenciador (ex: ".../?cupom=ZECK15"),
@@ -87,3 +88,97 @@ export function getProCheckoutUrl(plano: PlanoPro): string {
  *  O hotmart-webhook reconhece as duas e libera
  *  1 vaga por assinatura ativa (banco_extra_registrar → open_finance_limite). */
 export const BANCO_EXTRA_CHECKOUT: string | null = "https://pay.hotmart.com/N104683123F?off=3nnrr1xn&checkoutMode=6";
+
+/* ===== RENEWING WITHOUT LEAVING THE APP STRANDED (13/10/2026) =====
+   Rick: "to renew, the user leaves the app and often can't renew". Two fixes live
+   here: every checkout link carries who is buying (so the webhook finds the
+   account even if the buyer types another e-mail), and every link opens the same
+   way (new tab, falling back to the same window when the popup is blocked). */
+
+/** Who is buying. Every field is optional; missing or invalid ones are skipped. */
+export type IdentidadeCheckout = {
+  email?: string | null;
+  nome?: string | null;
+  cpf?: string | null;
+  telefone?: string | null;
+  /** auth user id: goes as `xcod` and comes back in the webhook (purchase.origin.xcod) */
+  userId?: string | null;
+};
+
+/** CPF sign-ups log in with a synthetic `<cpf>@orbis.internal` e-mail: never prefill it. */
+export const emailReal = (e?: string | null): string | null => {
+  const v = (e ?? "").trim();
+  return v.includes("@") && !v.toLowerCase().endsWith("@orbis.internal") ? v : null;
+};
+
+/** Brazilian phone → Hotmart's phoneac (DDD) + phonenumber. Null when not a clean BR number. */
+function telefoneBR(t?: string | null): { ddd: string; numero: string } | null {
+  let d = (t ?? "").replace(/\D/g, "");
+  if ((d.length === 12 || d.length === 13) && d.startsWith("55")) d = d.slice(2);
+  if (d.length !== 10 && d.length !== 11) return null;
+  return { ddd: d.slice(0, 2), numero: d.slice(2) };
+}
+
+/** Appends Hotmart prefill params (email, name, doc, phoneac, phonenumber, xcod) to a
+ *  checkout URL. Never touches off/sck/offDiscount/checkoutMode and never duplicates a
+ *  param the link already has (an explicit value wins). */
+export function comIdentidade(url: string, id: IdentidadeCheckout): string {
+  let u: URL;
+  try { u = new URL(url); } catch { return url; }
+  const p = u.searchParams;
+  const por = (k: string, v: string | null | undefined) => { if (v && !p.has(k)) p.set(k, v); };
+  por("email", emailReal(id.email));
+  por("name", id.nome?.trim());
+  const cpf = (id.cpf ?? "").replace(/\D/g, "");
+  if (validateCPF(cpf)) por("doc", cpf);
+  const tel = telefoneBR(id.telefone);
+  if (tel) { por("phoneac", tel.ddd); por("phonenumber", tel.numero); }
+  por("xcod", id.userId?.trim());
+  return u.toString();
+}
+
+// The paywalls watch this to re-check the subscription when the buyer comes back.
+const CHECKOUT_ABERTO_KEY = "vant_checkout_aberto_em";
+export const EVENTO_CHECKOUT_ABERTO = "vant:checkout-aberto";
+
+/** When the user last opened a checkout (ms), or null. Survives a full reload. */
+export function checkoutAbertoEm(): number | null {
+  try {
+    const n = Number(localStorage.getItem(CHECKOUT_ABERTO_KEY) || "0");
+    return n > 0 ? n : null;
+  } catch { return null; }
+}
+
+export function limparCheckoutAberto(): void {
+  try { localStorage.removeItem(CHECKOUT_ABERTO_KEY); } catch { /* private mode */ }
+}
+
+function marcarCheckoutAberto(): void {
+  const agora = Date.now();
+  try { localStorage.setItem(CHECKOUT_ABERTO_KEY, String(agora)); } catch { /* private mode */ }
+  try { window.dispatchEvent(new CustomEvent(EVENTO_CHECKOUT_ABERTO, { detail: agora })); } catch { /* old browser */ }
+}
+
+/** The ONE way to open a checkout. New tab; if the browser refuses (popup blocked,
+ *  iOS standalone quirks) it falls back to the same window so the tap never "does
+ *  nothing". The "noopener" feature is NOT passed: with it, window.open always
+ *  returns null by spec and the fallback would always replace the app — the
+ *  opener is cut by hand instead. */
+export function abrirCheckout(url: string): void {
+  marcarCheckoutAberto();
+  let janela: Window | null = null;
+  try {
+    janela = window.open(url, "_blank");
+    if (janela) janela.opener = null;
+  } catch (e) {
+    avisar.silencioso("checkout: abrir nova aba", e);
+  }
+  if (!janela) window.location.href = url;
+}
+
+/** onClick for an `<a href target=_blank>` checkout link: keeps the link accessible
+ *  (long-press, screen readers) but routes the tap through abrirCheckout. */
+export function aoClicarCheckout(e: { preventDefault: () => void; currentTarget: { href: string } }): void {
+  e.preventDefault();
+  abrirCheckout(e.currentTarget.href);
+}

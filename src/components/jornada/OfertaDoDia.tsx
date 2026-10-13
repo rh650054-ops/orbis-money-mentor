@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { getCheckoutUrl } from "@/shared/lib/checkout";
+import { aoClicarCheckout, getCheckoutUrl } from "@/shared/lib/checkout";
+import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import { useJornada } from "./useJornada";
 import { jornadaDoDia, brl, seloTeste } from "./jornada-lib";
 
@@ -30,6 +31,7 @@ export function OfertaDoDia({ agora = false }: { agora?: boolean } = {}) {
   const { emTeste, dia, vendidoNoTeste } = useJornada();
   const navigate = useNavigate();
   const [aberta, setAberta] = useState(agora);
+  const montarCheckout = useCheckoutUrl();
   const j = jornadaDoDia(dia);
   const chave = user?.id && j ? `vant_oferta_${user.id}_${j.dia}` : null;
 
@@ -71,7 +73,7 @@ export function OfertaDoDia({ agora = false }: { agora?: boolean } = {}) {
               style={{ background: "linear-gradient(180deg,#FFF1B3 0%,#FFC800 55%,#D9A800 100%)", color: "#1A1200" }}>
               CONTINUAR MEU TESTE · {seloTeste(j.dia).replace("Teste grátis · ", "").toUpperCase()}
             </button>
-            <a href={getCheckoutUrl()} target="_blank" rel="noopener noreferrer" className="block text-center text-[12.5px] font-extrabold underline underline-offset-[3px]" style={{ color: "#b9b3a6" }}>
+            <a href={montarCheckout(getCheckoutUrl())} target="_blank" rel="noopener noreferrer" onClick={aoClicarCheckout} className="block text-center text-[12.5px] font-extrabold underline underline-offset-[3px]" style={{ color: "#b9b3a6" }}>
               já quero garantir o Essencial por R$ 29,90
             </a>
           </>

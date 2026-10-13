@@ -5,21 +5,29 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 type Resultado = { data: unknown; error: { message: string; code?: string } | null };
 
-function supabaseFalso(opts: { falhar?: Set<string> } = {}) {
+function supabaseFalso(opts: { falhar?: Set<string>; achar?: string | null; perfis?: Set<string> } = {}) {
   const marcados = new Set<string>();
   const chamadas: string[] = [];
   const falhar = opts.falhar ?? new Set<string>();
+  const achar = opts.achar === undefined ? "user-1" : opts.achar;
+  const perfis = opts.perfis ?? new Set<string>();
+  const gravados: { tabela: string; op: string; linha: Record<string, unknown> }[] = [];
 
   const tabela = (t: string) => {
     let op = "select";
     let linha: Record<string, unknown> = {};
+    let filtroUser: unknown = null;
     const q = {
       insert(v: Record<string, unknown>) { op = "insert"; linha = v; return q; },
       upsert(v: Record<string, unknown>) { op = "upsert"; linha = v; return q; },
       update(v: Record<string, unknown>) { op = "update"; linha = v; return q; },
       delete() { op = "delete"; return q; },
       select() { return q; },
-      eq(col: string, v: unknown) { if (col === "event_id") linha = { event_id: v }; return q; },
+      eq(col: string, v: unknown) {
+        if (col === "event_id") linha = { event_id: v };
+        if (col === "user_id") filtroUser = v;
+        return q;
+      },
       ilike() { return q; },
       is() { return q; },
       maybeSingle() { return q; },
@@ -27,8 +35,12 @@ function supabaseFalso(opts: { falhar?: Set<string> } = {}) {
       then(res: (r: Resultado) => unknown, rej?: (e: unknown) => unknown) {
         const k = `${t}.${op}`;
         chamadas.push(k);
+        if (op !== "select") gravados.push({ tabela: t, op, linha });
         let r: Resultado = { data: null, error: null };
         if (falhar.has(k)) r = { data: null, error: { message: "falhou" } };
+        else if (t === "profiles" && op === "select" && perfis.has(String(filtroUser))) {
+          r = { data: { user_id: filtroUser }, error: null };
+        }
         else if (t === "processed_hotmart_events" && op === "insert") {
           const id = String(linha.event_id);
           if (marcados.has(id)) r = { data: null, error: { message: "dup", code: "23505" } };
@@ -47,22 +59,22 @@ function supabaseFalso(opts: { falhar?: Set<string> } = {}) {
     rpc: (nome: string) => {
       chamadas.push(`rpc.${nome}`);
       if (falhar.has(`rpc.${nome}`)) return Promise.resolve({ data: null, error: { message: "falhou" } });
-      return Promise.resolve({ data: nome === "orbis_achar_usuario" ? "user-1" : true, error: null });
+      return Promise.resolve({ data: nome === "orbis_achar_usuario" ? achar : true, error: null });
     },
   };
-  return { cliente, chamadas, marcados, falhar };
+  return { cliente, chamadas, marcados, falhar, gravados };
 }
 
-const pedido = (offer = "8qbxvm9p", event = "PURCHASE_APPROVED") =>
+const pedido = (offer = "8qbxvm9p", event = "PURCHASE_APPROVED", xcod?: string) =>
   new Request("https://x/hotmart-webhook", {
     method: "POST",
     headers: { "x-hotmart-hottok": "segredo-teste", "content-type": "application/json" },
     body: JSON.stringify({
-      id: `ev-${offer}-${event}`,
+      id: `ev-${offer}-${event}-${xcod ?? ""}`,
       event,
       data: {
         buyer: { email: "comprador@exemplo.com" },
-        purchase: { transaction: "T1", offer: { code: offer } },
+        purchase: { transaction: "T1", offer: { code: offer }, ...(xcod ? { origin: { xcod } } : {}) },
         subscription: { subscriber: { code: "S1" } },
       },
     }),
@@ -130,5 +142,42 @@ describe("hotmart-webhook: recebido ≠ concluído", () => {
     const r = await tratarHotmart(pedido("8qbxvm9p", "SUBSCRIPTION_CANCELLATION"), () => sb.cliente as never);
     expect(r.status).toBe(500);
     expect(sb.marcados.size).toBe(0);
+  });
+});
+
+describe("hotmart-webhook: fallback pelo xcod", () => {
+  const UID = "3f2b8c1e-9a7d-4e21-b6c3-0d5e4f6a7b8c";
+  const assinaturaDe = (sb: ReturnType<typeof supabaseFalso>) =>
+    sb.gravados.find((g) => g.tabela === "subscriptions" && g.op === "upsert")?.linha;
+
+  it("e-mail/CPF diferentes na Hotmart → acha a conta pelo xcod e ativa", async () => {
+    const sb = supabaseFalso({ achar: null, perfis: new Set([UID]) });
+    const r = await tratarHotmart(pedido("8qbxvm9p", "PURCHASE_APPROVED", UID), () => sb.cliente as never);
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ status: "ok" });
+    expect(assinaturaDe(sb)?.user_id).toBe(UID);
+    expect(sb.chamadas).not.toContain("unlinked_purchases.insert");
+  });
+
+  it("xcod de perfil que não existe → continua indo pra unlinked", async () => {
+    const sb = supabaseFalso({ achar: null });
+    const r = await tratarHotmart(pedido("8qbxvm9p", "PURCHASE_APPROVED", UID), () => sb.cliente as never);
+    expect(await r.json()).toEqual({ status: "unlinked" });
+    expect(sb.chamadas).toContain("unlinked_purchases.insert");
+  });
+
+  it("busca pelo xcod deu erro → 500 e libera o evento (não vira compra sem dono)", async () => {
+    const sb = supabaseFalso({ achar: null, perfis: new Set([UID]), falhar: new Set(["profiles.select"]) });
+    const r = await tratarHotmart(pedido("8qbxvm9p", "PURCHASE_APPROVED", UID), () => sb.cliente as never);
+    expect(r.status).toBe(500);
+    expect(sb.marcados.size).toBe(0);
+    expect(sb.chamadas).not.toContain("unlinked_purchases.insert");
+  });
+
+  it("xcod que não é UUID nem é consultado", async () => {
+    const sb = supabaseFalso({ achar: null, perfis: new Set(["nao-uuid"]) });
+    const r = await tratarHotmart(pedido("8qbxvm9p", "PURCHASE_APPROVED", "nao-uuid"), () => sb.cliente as never);
+    expect(await r.json()).toEqual({ status: "unlinked" });
+    expect(sb.chamadas).not.toContain("profiles.select");
   });
 });

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
+vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: null }) }));
 import { BancoExtra, ContasDeVenda, PapelToggle } from "./PapelContas";
 import type { ContaVenda } from "./pluggy";
 

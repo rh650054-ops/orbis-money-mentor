@@ -22,6 +22,8 @@ class FalhaGravacao extends Error {
   }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Lança FalhaGravacao se a chamada ao Supabase devolveu { error }. */
 function exigir(etapa: string, r: { error: unknown }) {
   if (r.error) throw new FalhaGravacao(etapa, r.error);
@@ -138,6 +140,29 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
       if (achado) userId = String(achado);
     } catch (e) {
       console.error("orbis_achar_usuario exceção:", String(e).slice(0, 200));
+    }
+
+    // FALLBACK PELO XCOD (13/10/2026): todo link de checkout do app leva xcod=<user id>.
+    // Se a pessoa digitou outro e-mail/CPF na Hotmart, o xcod ainda aponta pra conta.
+    // Só vale se for um UUID de um perfil que existe.
+    if (!userId) {
+      const xcod = String(
+        compra?.origin?.xcod ?? compra?.xcod ?? payload.purchase?.origin?.xcod ?? "",
+      ).trim();
+      if (UUID_RE.test(xcod)) {
+        // Erro na busca NÃO pode virar "compra sem dono": falha e a Hotmart reenvia.
+        const r = await supabase
+          .from("profiles")
+          .select("user_id")
+          .eq("user_id", xcod)
+          .maybeSingle();
+        exigir("busca pelo xcod", r);
+        const achadoXcod = (r.data as { user_id?: string } | null)?.user_id;
+        if (achadoXcod) {
+          userId = String(achadoXcod);
+          console.log("achado pelo xcod");
+        }
+      }
     }
 
     // Grava a caixa-preta agora que já sabemos de quem é (userId pode ser null).
