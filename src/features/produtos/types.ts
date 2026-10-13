@@ -45,15 +45,23 @@ export interface RascunhoProduto {
   rende: number;
 }
 
-/** Um ingrediente da receita: quanto vai numa leva (em unidades de compra: 1 lata,
- *  2 caixas) e o preço de 1 (opcional — vem da última compra quando existe). */
+/** Um ingrediente da receita: quanto vai numa leva (na unidade de medida dele: 1 un,
+ *  200 g, 20 un de canudo) e o preço de 1 dessa unidade (opcional, pode ser aproximado).
+ *  `pacote` = quanto vem em cada compra (pacote de 100 canudos, lata de 800 g). */
 export interface ItemReceita {
   /** id em ingredients quando já existe */
   id?: string;
   nome: string;
   qtd: number;
   preco: number;
+  unidade: Unidade;
+  pacote: number;
 }
+
+export const UNIDADES = ["un", "g", "kg", "ml", "l"] as const;
+export type Unidade = (typeof UNIDADES)[number];
+export const unidadeDe = (u: string | null | undefined): Unidade =>
+  (UNIDADES as readonly string[]).includes((u ?? "").toLowerCase()) ? ((u ?? "").toLowerCase() as Unidade) : "un";
 
 export const RASCUNHO_VAZIO: RascunhoProduto = {
   nome: "", emoji: "📦", foto: null, origem: null, custo: 0, preco: 0,

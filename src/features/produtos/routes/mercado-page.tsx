@@ -72,7 +72,13 @@ export default function MercadoPage() {
       onError: () => toast({ title: "Não consegui concluir a compra", description: "Tenta de novo.", variant: "destructive" }),
     });
   };
-  const unidadeDe = (id: string | null) => base.ingredientes.find((i) => i.id === id)?.unit;
+  const ingDe = (id: string | null) => base.ingredientes.find((i) => i.id === id);
+  const unidadeDe = (id: string | null) => {
+    const i = ingDe(id);
+    if (!i) return undefined;
+    const pac = i.pacote_qtd ?? 1;
+    return pac > 1 ? `pacote de ${pac.toLocaleString("pt-BR")} ${i.unit}` : i.unit;
+  };
 
   return (
     <MercadoCasca titulo="Tô no mercado" sub="Anota o que você tá comprando. O estoque sobe sozinho." onVoltar={voltar}
@@ -91,6 +97,7 @@ export default function MercadoPage() {
         <MercadoLinha key={l.key} linha={l} porItem={porItem} subtotal={m.subtotais[i] ?? 0}
           opcoesPara={l.tipo === "ingrediente" ? opcoesDe(l.id) : []}
           unidade={l.tipo === "ingrediente" ? unidadeDe(l.id) : undefined}
+          emPacote={l.tipo === "ingrediente" && (ingDe(l.id)?.pacote_qtd ?? 1) > 1}
           onMudar={(patch) => m.mudar(l.key, patch)} onTirar={() => m.tirar(l.key)} />
       ))}
       {m.temItem && <MercadoPrevia previa={m.previa} totalItens={porItem ? m.totalItens : undefined} />}

@@ -17,7 +17,7 @@ vi.mock("../api/use-produtos-query", () => ({
   }),
 }));
 vi.mock("../api/use-receita-query", () => ({
-  useReceitaQuery: () => ({ isError: false, data: [{ id: "lc", nome: "Leite condensado", qtd: 1, preco: 6.5, estoque: 4 }] }),
+  useReceitaQuery: () => ({ isError: false, data: [{ id: "lc", nome: "Leite condensado", qtd: 1, preco: 6.5, estoque: 4, unidade: "un", pacote: 1 }] }),
 }));
 vi.mock("../api/use-mercado-query", () => ({ useMercadoQuery: () => ({ data: undefined }) }));
 const salvar = vi.fn();
@@ -33,7 +33,7 @@ describe("ficha do produto", () => {
     expect(screen.getByDisplayValue("Batida")).toBeTruthy();
     expect(screen.getByText("QUANTO VOCÊ COBRA")).toBeTruthy();
     expect(screen.getByDisplayValue("Leite condensado")).toBeTruthy();
-    expect(screen.getByText("tem 4 no estoque")).toBeTruthy();
+    expect(screen.getByText(/tem 4 un guardado/)).toBeTruthy();
     expect(screen.getByText(/dá pra mais 4 levas \(200 un\)/)).toBeTruthy();
 
     // "5" no preço é R$ 5,00 (não R$ 0,05)

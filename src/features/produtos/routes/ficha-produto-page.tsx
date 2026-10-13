@@ -56,7 +56,7 @@ function Tela({ id, inicial, estoques, userId }: { id: string; inicial: Ficha; e
   });
 
   return (
-    <div className="text-[#F4F1EA] max-w-md mx-auto flex flex-col gap-3 pt-2 pb-40">
+    <div className="text-[#F4F1EA] max-w-md mx-auto flex flex-col gap-3 pt-2 pb-48">
       <FichaCabecalho nome={f.nome} foto={f.foto} emoji={f.emoji} enviandoFoto={foto.isPending} onVoltar={() => navigate("/products")}
         onNome={(nome, emoji) => mudar({ nome, emoji })}
         onFoto={(file) => foto.mutate(file, {
@@ -78,7 +78,7 @@ function Tela({ id, inicial, estoques, userId }: { id: string; inicial: Ficha; e
         }}>
         {confirmaTirar ? "Toca de novo pra tirar (as vendas antigas continuam)" : "Tirar da lista"}
       </button>
-      <div className="fixed left-0 right-0 z-40 px-4 max-w-md mx-auto flex flex-col gap-1.5" style={{ bottom: "calc(max(env(safe-area-inset-bottom), 0.5rem) + 74px)" }}>
+      <div className="fixed left-0 right-0 z-40 px-4 max-w-md mx-auto flex flex-col gap-1.5" style={{ bottom: "calc(env(safe-area-inset-bottom) + 6rem)", paddingRight: 88 }}>
         {problema && <p className="text-center text-[12px] font-bold" style={{ color: "#F5B800" }}>{problema}</p>}
         <BotaoOuro onClick={gravar} disabled={!!problema || salvar.isPending}>{salvar.isPending ? "SALVANDO…" : "SALVAR"}</BotaoOuro>
       </div>

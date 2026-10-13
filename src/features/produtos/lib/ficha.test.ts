@@ -8,8 +8,8 @@ const batida: ProdutoComFaixas = {
   faixas: [{ qty: 1, price: 20 }, { qty: 2, price: 35 }],
 };
 const receita = [
-  { id: "lc", nome: "Leite condensado", qtd: 1, preco: 6.5, estoque: 3 },
-  { id: "cl", nome: "Creme de leite", qtd: 1, preco: 0, estoque: 0 },
+  { id: "lc", nome: "Leite condensado", qtd: 1, preco: 6.5, estoque: 3, unidade: "un" as const, pacote: 1 },
+  { id: "cl", nome: "Creme de leite", qtd: 1, preco: 0, estoque: 0, unidade: "un" as const, pacote: 1 },
 ];
 
 describe("ficha do produto", () => {
@@ -24,7 +24,7 @@ describe("ficha do produto", () => {
   it("custo pela receita só quando todo ingrediente tem preço; senão o salvo", () => {
     const f = fichaDe(batida, receita);
     expect(custoDaFicha(f)).toEqual({ valor: 0.9, pelaReceita: false });
-    const comPreco = { ...f, itens: f.itens.map((i) => ({ ...i, preco: i.preco || 3.5 })) };
+    const comPreco = { ...f, itens: f.itens.map((i) => ({ ...i, precoPacote: i.precoPacote || 3.5 })) };
     expect(custoDaFicha(comPreco)).toEqual({ valor: 0.2, pelaReceita: true }); // (6,50 + 3,50) ÷ 50
   });
 

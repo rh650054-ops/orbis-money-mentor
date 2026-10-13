@@ -2,7 +2,7 @@
    Dinheiro segue a regra do Foco (shared/lib/dinheiro): digitou "5" = R$ 5,00, a
    vírgula é dele quando quiser ("5,50"). Antes os 2 últimos dígitos viravam centavos
    e "5" dava R$ 0,05 (Rick, 12/10/2026). */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import { arrumarDinheiro, limparDinheiro, reaisDeTexto, textoDeReais } from "@/shared/lib/dinheiro";
 
@@ -46,6 +46,9 @@ export function CampoDinheiro({ valor, onChange, rotulo, grande, autoFocus }: {
 export function Contador({ valor, onChange, min = 0, grande, unidade, rotulo }: {
   valor: number; onChange: (n: number) => void; min?: number; grande?: boolean; unidade?: string; rotulo?: string;
 }) {
+  const [texto, setTexto] = useState(valor ? String(valor) : "");
+  // − / + (ou o pai) mudaram o valor: o campo acompanha
+  useEffect(() => { setTexto((t) => (parseInt(t, 10) === valor || (t === "" && !valor) ? t : valor ? String(valor) : "")); }, [valor]);
   const lado = grande ? "w-[70px] h-[70px] rounded-[20px]" : "w-[54px] h-[54px] rounded-2xl";
   const caixa = { background: "#121211", border: "1px solid #26241f" };
   return (
@@ -57,8 +60,15 @@ export function Contador({ valor, onChange, min = 0, grande, unidade, rotulo }: 
         </button>
         <div className={`flex-1 flex flex-col items-center justify-center ${grande ? "h-[90px] rounded-[22px]" : "h-[54px] rounded-2xl"}`}
           style={grande ? { border: "1.5px solid #F5B800", background: "#0f0d08" } : caixa}>
-          <input type="number" inputMode="numeric" value={valor || ""} placeholder="0"
-            onChange={(e) => onChange(Math.max(min, parseInt(e.target.value, 10) || 0))}
+          <input type="text" inputMode="numeric" value={texto} placeholder={String(min)}
+            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => {
+              // deixa apagar tudo e digitar de novo ("1" → "" → "6"); o mínimo só vale ao sair
+              const t = e.target.value.replace(/\D/g, "").slice(0, 6);
+              setTexto(t);
+              if (t !== "" && parseInt(t, 10) >= min) onChange(parseInt(t, 10));
+            }}
+            onBlur={() => { const n = Math.max(min, parseInt(texto, 10) || 0); setTexto(n ? String(n) : ""); onChange(n); }}
             className={`w-full bg-transparent text-center font-black outline-none tabular-nums ${grande ? "text-[40px] leading-none" : "text-[22px]"}`}
             aria-label={rotulo ?? "Quantidade"} />
           {unidade && <span className="text-[11px] font-extrabold" style={{ color: "#7b766e" }}>{unidade}</span>}

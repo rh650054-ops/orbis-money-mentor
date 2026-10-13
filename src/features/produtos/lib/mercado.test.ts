@@ -92,3 +92,19 @@ describe("itensParaRpc", () => {
     expect(it).toMatchObject({ tipo: "ingrediente", qtd: 57, preco_unit: null, para: ["Batida"] });
   });
 });
+
+import { emUnidades } from "./mercado";
+
+describe("pacotes no Tô no mercado (Rick, 13/10)", () => {
+  it("2 pacotes de 100 canudos por R$ 8 = 200 canudos a R$ 0,08", () => {
+    const base = {
+      ingredientes: [{ id: "c", name: "Canudo", unit: "un", stock_quantity: 0, cost_per_unit: 0, pacote_qtd: 100 }],
+      receitas: [], produtos: [],
+    };
+    const [l] = [emUnidades({ key: "k", tipo: "ingrediente", id: "c", nome: "Canudo", qtd: 2, precoUnit: 8, para: [] }, base)];
+    expect(l?.qtd).toBe(200);
+    expect(l?.precoUnit).toBeCloseTo(0.08);
+    const solto = emUnidades({ key: "k", tipo: "produto", id: "x", nome: "Água", qtd: 2, precoUnit: 3, para: [] }, base);
+    expect(solto.qtd).toBe(2);
+  });
+});

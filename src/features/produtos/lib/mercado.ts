@@ -16,7 +16,20 @@ export interface LinhaMercado {
   para: string[];
 }
 
-export interface IngredienteMercado { id: string; name: string; unit: string; stock_quantity: number; cost_per_unit: number }
+export interface IngredienteMercado {
+  id: string; name: string; unit: string; stock_quantity: number; cost_per_unit: number;
+  /** quanto vem em cada compra (pacote de 100 canudos); 1 = compra de 1 em 1 */
+  pacote_qtd?: number;
+}
+
+/** A linha na tela conta PACOTES e preço do PACOTE; a conta e o banco trabalham na
+ *  unidade de medida (2 pacotes de 100 = 200 canudos, R$ 8 o pacote = R$ 0,08 cada). */
+export function emUnidades(l: LinhaMercado, base: BaseMercado): LinhaMercado {
+  if (l.tipo !== "ingrediente") return l;
+  const pac = base.ingredientes.find((i) => i.id === l.id)?.pacote_qtd ?? 1;
+  if (!(pac > 1)) return l;
+  return { ...l, qtd: l.qtd * pac, precoUnit: l.precoUnit != null ? l.precoUnit / pac : null };
+}
 export interface ReceitaMercado { product_id: string; ingredient_id: string; quantity: number }
 export interface ProdutoMercado {
   id: string; name: string; emoji: string | null; cost: number; stock_quantity: number;

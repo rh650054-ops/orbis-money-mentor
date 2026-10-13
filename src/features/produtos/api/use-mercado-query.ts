@@ -8,7 +8,7 @@ const num = z.coerce.number().catch(0);
 
 const ingredienteSchema = z.object({
   id: z.string(), name: z.string(), unit: z.string().nullable().catch("un").transform((u) => u ?? "un"),
-  stock_quantity: num, cost_per_unit: num,
+  stock_quantity: num, cost_per_unit: num, pacote_qtd: z.coerce.number().catch(1),
 });
 const receitaSchema = z.object({ product_id: z.string(), ingredient_id: z.string(), quantity: num });
 const produtoSchema = z.object({
@@ -27,7 +27,7 @@ export function useMercadoQuery(userId: string | undefined) {
     queryFn: async (): Promise<BaseMercado> => {
       const uid = userId ?? "";
       const [ings, recs, prods] = await Promise.all([
-        supabase.from("ingredients").select("id, name, unit, stock_quantity, cost_per_unit").eq("user_id", uid).order("name"),
+        supabase.from("ingredients").select("id, name, unit, stock_quantity, cost_per_unit, pacote_qtd").eq("user_id", uid).order("name"),
         supabase.from("product_recipes").select("product_id, ingredient_id, quantity").eq("user_id", uid),
         supabase.from("products").select("id, name, emoji, cost, stock_quantity, recipe_mode, batch_yield, origem")
           .eq("user_id", uid).eq("is_active", true).order("name"),
