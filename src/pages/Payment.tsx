@@ -7,7 +7,10 @@ import { CreditCard, Loader2, RefreshCw, Lock, TrendingUp, Brain, Target, Flame,
 import { useToast } from "@/shared/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-import { getCheckoutUrl } from "@/shared/lib/checkout";
+import { abrirCheckout, getCheckoutUrl } from "@/shared/lib/checkout";
+import { verificarAcessoPago } from "@/shared/lib/verificar-acesso";
+import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
+import { useVoltaDoCheckout } from "@/hooks/useVoltaDoCheckout";
 
 export default function Payment() {
   const navigate = useNavigate();
@@ -16,6 +19,7 @@ export default function Payment() {
   const [isDemo, setIsDemo] = useState(false);
   const [checkingDemo, setCheckingDemo] = useState(true);
   const [isChecking, setIsChecking] = useState(false);
+  const montarCheckout = useCheckoutUrl();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -39,32 +43,26 @@ export default function Payment() {
   }, [user, loading, navigate]);
 
   const handleHotmartCheckout = () => {
-    window.open(getCheckoutUrl(), "_blank");
+    abrirCheckout(montarCheckout(getCheckoutUrl()));
   };
+
+  // Recarrega a home de verdade: o PaywallGate lê a assinatura uma vez só, um
+  // navigate("/") mantinha o estado velho e mostrava o bloqueio de novo.
+  const irPraHome = () => window.location.replace("/");
+  useVoltaDoCheckout({ ativo: !!user && !isDemo, verificar: verificarAcessoPago, aoLiberar: irPraHome });
 
   const handleCheckAccess = async () => {
     if (!user) return;
     setIsChecking(true);
 
     try {
-      await supabase.functions.invoke("check-admin-access");
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("plan_status, billing_exempt, is_demo")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      const hasAccess =
-        profile?.plan_status === "active" ||
-        (profile?.is_demo && profile?.billing_exempt);
-
-      if (hasAccess) {
+      // mesma regra do useSubscription (shared/lib/assinatura)
+      if (await verificarAcessoPago()) {
         toast({
           title: "✅ Acesso liberado!",
           description: "Seu plano foi ativado. Redirecionando...",
         });
-        setTimeout(() => navigate("/"), 1500);
+        setTimeout(irPraHome, 1500);
       } else {
         toast({
           title: "Pagamento não confirmado",

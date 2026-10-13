@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { avisar } from "@/shared/lib/avisar";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
-import { getCheckoutUrl } from "@/shared/lib/checkout";
+import { abrirCheckout, getCheckoutUrl } from "@/shared/lib/checkout";
+import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import { Sparkles, X } from "lucide-react";
 
 interface TrialNudgeProps {
@@ -25,6 +26,7 @@ export function TrialNudge({ userId, title, benefit, momentKey, oncePerDay = tru
   const { trialStatus, loading } = useTrialStatus(userId);
   const [closed, setClosed] = useState(false);
   const [show, setShow] = useState(false);
+  const montarCheckout = useCheckoutUrl();
 
   // Robusto: mostra pra quem NÃO é assinante/demo e NÃO está expirado.
   // (Não depende só da flag is_trial_active, que às vezes não vem setada.)
@@ -98,7 +100,7 @@ export function TrialNudge({ userId, title, benefit, momentKey, oncePerDay = tru
       </p>
 
       <button
-        onClick={() => window.open(getCheckoutUrl(), "_blank")}
+        onClick={() => abrirCheckout(montarCheckout(getCheckoutUrl()))}
         className="w-full h-11 mt-3 rounded-xl font-extrabold text-sm text-primary-foreground active:scale-[0.98] transition-transform"
         style={{
           background: "linear-gradient(180deg, hsl(45 100% 58%), hsl(var(--primary)))",

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
+import { assinaturaAtiva } from "@/shared/lib/assinatura";
 
 interface SubscriptionStatus {
   subscribed: boolean;
@@ -75,15 +76,9 @@ export function useSubscription(userId: string | undefined) {
         .maybeSingle();
 
       if (sub) {
-        const now = new Date();
-        const graceUntil = sub.grace_until ? new Date(sub.grace_until) : null;
-        // Assinatura ATIVA conta como paga mesmo sem grace_until (ex.: ativação
-        // manual / evento sem grace). So' o 'past_due' exige a janela de grace.
-        const isActive = sub.status === "active" && (!graceUntil || now <= graceUntil);
-        const isPastDueInGrace = sub.status === "past_due" && graceUntil && now <= graceUntil;
-
+        // Regra única (shared/lib/assinatura): a mesma do "Já paguei".
         setStatus({
-          subscribed: isActive || isPastDueInGrace || false,
+          subscribed: assinaturaAtiva(sub),
           status: sub.status,
           graceUntil: sub.grace_until,
           subscription_id: sub.hotmart_subscription_id || null,

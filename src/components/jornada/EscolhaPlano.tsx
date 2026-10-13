@@ -2,7 +2,8 @@
    VANT Pro Mensal e VANT Essencial. Usado no fim do teste, na tela /planos e na oferta
    do último dia. O Essencial nunca some: é a porta mais barata. */
 import { useState } from "react";
-import { getCheckoutUrl, getProCheckoutUrl } from "@/shared/lib/checkout";
+import { aoClicarCheckout, getCheckoutUrl, getProCheckoutUrl } from "@/shared/lib/checkout";
+import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import { brl } from "./jornada-lib";
 
 const GOLD = "#F5B800";
@@ -77,6 +78,7 @@ const linkDe = (e: Escolha) => (e === "essencial" ? getCheckoutUrl() : getProChe
 
 export function EscolhaPlano({ vendido, titulo }: { vendido?: number | null; titulo?: string }) {
   const [escolha, setEscolha] = useState<Escolha>("anual");
+  const montar = useCheckoutUrl();
   return (
     <div className="space-y-3">
       <div className="text-center space-y-1.5">
@@ -125,7 +127,7 @@ export function EscolhaPlano({ vendido, titulo }: { vendido?: number | null; tit
         })}
       </div>
 
-      <a href={linkDe(escolha)} target="_blank" rel="noopener noreferrer"
+      <a href={montar(linkDe(escolha))} target="_blank" rel="noopener noreferrer" onClick={aoClicarCheckout}
         className="w-full h-[54px] rounded-[16px] inline-flex items-center justify-center text-[14.5px] font-black tracking-[.02em] active:translate-y-[1px]"
         style={{ background: "linear-gradient(180deg,#FFF1B3 0%,#FFC800 55%,#D9A800 100%)", color: "#1A1200", boxShadow: "0 10px 24px -12px rgba(255,200,0,.8)" }}>
         {CTA[escolha]}

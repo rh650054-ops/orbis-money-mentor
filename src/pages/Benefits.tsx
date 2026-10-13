@@ -1,11 +1,13 @@
 import { Check, ArrowLeft, Sparkles } from "lucide-react";
-import { getCheckoutUrl } from "@/shared/lib/checkout";
+import { abrirCheckout, getCheckoutUrl } from "@/shared/lib/checkout";
+import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { useNavigate } from "react-router-dom";
 
 export default function Benefits() {
   const navigate = useNavigate();
+  const montarCheckout = useCheckoutUrl();
 
   const benefits = [
     {
@@ -138,7 +140,7 @@ export default function Benefits() {
             <Button
               size="lg"
               className="w-full sm:w-auto px-12 h-16 text-xl font-bold shadow-lg hover:shadow-xl"
-              onClick={() => window.open(getCheckoutUrl(), "_blank")}
+              onClick={() => abrirCheckout(montarCheckout(getCheckoutUrl()))}
             >
               🚀 Assinar por R$ 29,90/mês
             </Button>

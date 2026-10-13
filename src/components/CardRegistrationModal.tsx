@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
 import { CreditCard } from "lucide-react";
-import { getCheckoutUrl } from "@/shared/lib/checkout";
+import { abrirCheckout, getCheckoutUrl } from "@/shared/lib/checkout";
+import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 
 interface CardRegistrationModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrat
   // cair no botão "Assinar agora" (que aparece no mesmo lugar do dedo) e ir
   // direto pro checkout. Só liberamos os botões ~350ms depois de abrir.
   const [armed, setArmed] = useState(false);
+  const montarCheckout = useCheckoutUrl();
   useEffect(() => {
     if (!isOpen) {
       setArmed(false);
@@ -27,7 +29,7 @@ export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrat
   const handleRegister = () => {
     if (!armed) return;
     onClose();
-    window.open(getCheckoutUrl(), "_blank");
+    abrirCheckout(montarCheckout(getCheckoutUrl()));
   };
 
   const handleSkip = () => {

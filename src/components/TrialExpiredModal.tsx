@@ -10,6 +10,8 @@ import { EscolhaPlano } from "@/components/jornada/EscolhaPlano";
 import { useJornada } from "@/components/jornada/useJornada";
 import { useAuth } from "@/hooks/useAuth";
 import { simular, useSimulacao } from "@/components/jornada/simulador";
+import { useVoltaDoCheckout } from "@/hooks/useVoltaDoCheckout";
+import { verificarAcessoPago } from "@/shared/lib/verificar-acesso";
 
 interface TrialExpiredModalProps {
   isOpen: boolean;
@@ -23,34 +25,14 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
   const { vendidoNoTeste: vendido } = useJornada();
   const { user: eu } = useAuth();
   const sim = useSimulacao(eu?.id);
-
+  // voltou da Hotmart: confere sozinho e libera sem precisar do "Já paguei"
+  useVoltaDoCheckout({ ativo: isOpen, verificar: verificarAcessoPago, aoLiberar: () => window.location.reload() });
 
   const handleCheckAccess = async () => {
     setIsChecking(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Não autenticado");
-
-      await supabase.functions.invoke("check-admin-access");
-
-      const { data: sub } = await supabase
-        .from("subscriptions")
-        .select("status, grace_until")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      const now = new Date();
-      const hasActiveSub = sub && sub.status === "active" && sub.grace_until && now <= new Date(sub.grace_until);
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("plan_status, is_demo, billing_exempt")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      const isActive = hasActiveSub || profile?.plan_status === "active" || (profile?.is_demo && profile?.billing_exempt);
-
-      if (isActive) {
+      // mesma regra do useSubscription (shared/lib/assinatura)
+      if (await verificarAcessoPago()) {
         toast({
           title: "✅ Acesso liberado!",
           description: "Seu plano foi ativado com sucesso.",

@@ -9,7 +9,8 @@ import { generatePixPayload } from "@/shared/lib/pix-code";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { useToast } from "@/shared/ui/use-toast";
-import { getCheckoutUrl } from "@/shared/lib/checkout";
+import { abrirCheckout, getCheckoutUrl } from "@/shared/lib/checkout";
+import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 
 // ESTÚDIO DE MARCA v4 — a arte nasce no CHAT; aqui é o EDITOR do QR:
 // 1) (opcional) galeria de modelos + 4 perguntas, pra quem entra por aqui;
@@ -153,6 +154,7 @@ async function prepararQrEnviado(file: File): Promise<string | null> {
 export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { userId: string; onClose: () => void; brief?: EstudioBrief | null; arteInicial?: string | null }) {
   const { toast } = useToast();
   const { status, loading: subLoading } = useSubscription(userId);
+  const montarCheckout = useCheckoutUrl();
   const assinante = status.subscribed;
   // Quem está nos 3 dias grátis TAMBÉM cria arte — mas baixa com marca d'água.
   // Pra sair limpa, assina. (status.status === "trial" vem do useSubscription.)
@@ -665,7 +667,7 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
                   gráfica — e você passa de 2 pra 4 artes por dia, além do mentor de vendas completo.
                 </p>
                 <Button
-                  onClick={() => { try { window.open(getCheckoutUrl(), "_blank"); } catch (e) { avisar.silencioso("EstudioMarca: abrir checkout", e); } }}
+                  onClick={() => abrirCheckout(montarCheckout(getCheckoutUrl()))}
                   className="w-full h-12 bg-gradient-primary text-base font-bold"
                 >
                   ⭐ Assinar e baixar sem marca d'água

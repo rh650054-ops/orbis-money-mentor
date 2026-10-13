@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import confetti from "canvas-confetti";
 import { getTier } from "@/components/ranking/tier";
-import { getCheckoutUrl } from "@/shared/lib/checkout";
+import { abrirCheckout, getCheckoutUrl } from "@/shared/lib/checkout";
+import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import GoldParticles from "../GoldParticles";
 
 interface MissionRewardProps {
@@ -22,6 +23,7 @@ const CHECKLIST = [
  */
 export default function MissionReward({ onAdvance }: MissionRewardProps) {
   const tier = getTier(999); // posição baixa => BRONZE (patente inicial)
+  const montarCheckout = useCheckoutUrl();
 
   useEffect(() => {
     const colors = ["#F2B43A", "#CD7F45", "#FFD700"];
@@ -34,7 +36,7 @@ export default function MissionReward({ onAdvance }: MissionRewardProps) {
   }, []);
 
   const handleSubscribe = () => {
-    window.open(getCheckoutUrl(), "_blank");
+    abrirCheckout(montarCheckout(getCheckoutUrl()));
     onAdvance();
   };
 

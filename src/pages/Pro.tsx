@@ -9,6 +9,7 @@ import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { PaywallPro } from "@/components/conectar/PaywallPro";
 import { carregarPro } from "@/components/conectar/pluggy";
+import { useVoltaDoCheckout } from "@/hooks/useVoltaDoCheckout";
 
 const MUTE = "#7b766e";
 
@@ -16,16 +17,25 @@ export default function Pro() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [ehPro, setEhPro] = useState<boolean | null>(null);
+  const [jaTinhaBanco, setJaTinhaBanco] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
     let vivo = true;
-    carregarPro().then((p) => { if (vivo) setEhPro(p.pro); });
+    carregarPro().then((p) => { if (vivo) { setEhPro(p.pro); setJaTinhaBanco(!!p.liberado); } });
     return () => { vivo = false; };
   }, [user?.id]);
 
   // já é Pro: a paywall não tem o que vender; segue pra ligar o banco
   useEffect(() => { if (ehPro) navigate("/verificar", { replace: true }); }, [ehPro, navigate]);
+
+  // voltou da Hotmart: confere sozinho e segue pra ligar o banco. Quem já tinha o
+  // banco avulso só conta quando virar Pro (senão "confirmava" na hora, sem compra).
+  useVoltaDoCheckout({
+    ativo: !!user?.id && ehPro === false,
+    verificar: () => carregarPro().then((p) => p.pro || (!!p.liberado && !jaTinhaBanco)),
+    aoLiberar: () => navigate("/verificar", { replace: true }),
+  });
 
   if (!user?.id) return null;
 

@@ -8,7 +8,8 @@
    grudado no rodapé; o mensal vira link. Abre o checkout da Hotmart.
    ============================================================ */
 import { useState } from "react";
-import { getProCheckoutUrl, BANCO_EXTRA_CHECKOUT, type PlanoPro } from "@/shared/lib/checkout";
+import { getProCheckoutUrl, BANCO_EXTRA_CHECKOUT, aoClicarCheckout, type PlanoPro } from "@/shared/lib/checkout";
+import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import { SeloVerificado } from "@/components/ranking/AvatarRanking";
 import { SO_PRO, ECONOMIA_ANUAL, PRECO_BANCO, PRECO_MENSAL, ESSENCIAL_COM_BANCO, PRECO_ESSENCIAL, brl } from "./pro-lib";
 
@@ -66,6 +67,7 @@ function Plano({ ativo, onClick, titulo, preco, sub, risca, economia, selo }: {
 export function PaywallPro() {
   const [plano, setPlano] = useState<PlanoPro>("anual");
   const outro: PlanoPro = plano === "anual" ? "mensal" : "anual";
+  const montar = useCheckoutUrl();
 
   return (
     <div className="relative">
@@ -114,7 +116,7 @@ export function PaywallPro() {
             <p className="text-[10.5px] leading-snug mt-1" style={{ color: MUTE }}>
               No Essencial, cada banco é +{brl(PRECO_BANCO)}/mês: fica {brl(ESSENCIAL_COM_BANCO)}. Por {brl(Math.round((PRECO_MENSAL - ESSENCIAL_COM_BANCO) * 100) / 100)} a mais o Pro já vem com o banco e tudo acima.
             </p>
-            <a href={`${BANCO_EXTRA_CHECKOUT}&sck=banco_avulso`} target="_blank" rel="noopener noreferrer"
+            <a href={montar(`${BANCO_EXTRA_CHECKOUT}&sck=banco_avulso`)} target="_blank" rel="noopener noreferrer" onClick={aoClicarCheckout}
               className="mt-2 inline-flex text-[11.5px] font-extrabold underline underline-offset-[3px]" style={{ color: INK2 }}>
               quero só o banco, {brl(PRECO_BANCO)}/mês (pra quem já assina o Essencial)
             </a>
@@ -122,7 +124,8 @@ export function PaywallPro() {
         )}
 
         <div className="sticky bottom-0 pt-3.5 space-y-1.5" style={{ background: "linear-gradient(180deg,rgba(0,0,0,0),#000 35%)" }}>
-          <a href={getProCheckoutUrl(plano)}
+          {/* era um <a> sem target: substituía o app pela Hotmart e no iPhone (PWA) a pessoa não voltava logada */}
+          <a href={montar(getProCheckoutUrl(plano))} target="_blank" rel="noopener noreferrer" onClick={aoClicarCheckout}
             className="w-full h-[56px] rounded-[16px] inline-flex items-center justify-center text-[15px] font-black tracking-[.02em] active:translate-y-[1px]"
             style={{ background: "linear-gradient(180deg,#FFF1B3 0%,#FFC800 55%,#D9A800 100%)", color: "#1A1200", boxShadow: "0 10px 24px -12px rgba(255,200,0,.8)" }}>
             {plano === "anual" ? "ASSINAR ANUAL · R$ 418,80" : "ASSINAR MENSAL · R$ 49,90"}

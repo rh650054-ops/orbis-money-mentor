@@ -13,7 +13,8 @@
 import { useState } from "react";
 import { Briefcase, Home, Loader2, Sparkles, Lock } from "lucide-react";
 import { toast } from "@/shared/hooks/use-toast";
-import { BANCO_EXTRA_CHECKOUT } from "@/shared/lib/checkout";
+import { BANCO_EXTRA_CHECKOUT, aoClicarCheckout } from "@/shared/lib/checkout";
+import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import { definirPapel, type ContaVenda } from "@/components/conectar/pluggy";
 
 export type Papel = "trabalho" | "pessoal";
@@ -128,10 +129,10 @@ export function ContasDeVenda({ contas, onMudou }: { contas: ContaVenda[]; onMud
 }
 
 export function BancoExtra({ usados, onFechar, email }: { usados: number; onFechar: () => void; email?: string | null }) {
-  // e-mail da conta já preenchido no checkout: é por ele que o webhook acha o dono da compra
-  const link = BANCO_EXTRA_CHECKOUT
-    ? `${BANCO_EXTRA_CHECKOUT}&sck=banco_extra${email ? `&email=${encodeURIComponent(email)}` : ""}`
-    : null;
+  // identidade da conta já preenchida no checkout (e-mail, CPF, xcod): é por ela que o
+  // webhook acha o dono da compra. O `email` da prop só entra se a conta não tiver um.
+  const montar = useCheckoutUrl();
+  const link = BANCO_EXTRA_CHECKOUT ? montar(`${BANCO_EXTRA_CHECKOUT}&sck=banco_extra`, { email }) : null;
   return (
     <div className="rounded-[20px] p-4 text-center" style={{ background: "linear-gradient(170deg,#1a1305,#0e0e10 70%)", border: "1px solid rgba(245,184,0,.42)" }}>
       <p className="text-[10px] font-black tracking-[.16em]" style={{ color: GOLD }}>MAIS UM BANCO</p>
@@ -141,7 +142,7 @@ export function BancoExtra({ usados, onFechar, email }: { usados: number; onFech
       </p>
       {link ? (
         <>
-        <a href={link} target="_blank" rel="noopener noreferrer"
+        <a href={link} target="_blank" rel="noopener noreferrer" onClick={aoClicarCheckout}
           className="mt-3 w-full h-12 rounded-[14px] inline-flex items-center justify-center text-[14px] font-black"
           style={{ background: "linear-gradient(180deg,#FFF1B3 0%,#FFC800 55%,#D9A800 100%)", color: "#1A1200" }}>
           QUERO LIGAR MAIS UM BANCO
