@@ -166,6 +166,14 @@ describe("hotmart-webhook: fallback pelo xcod", () => {
     expect(sb.chamadas).toContain("unlinked_purchases.insert");
   });
 
+  it("busca pelo xcod deu erro → 500 e libera o evento (não vira compra sem dono)", async () => {
+    const sb = supabaseFalso({ achar: null, perfis: new Set([UID]), falhar: new Set(["profiles.select"]) });
+    const r = await tratarHotmart(pedido("8qbxvm9p", "PURCHASE_APPROVED", UID), () => sb.cliente as never);
+    expect(r.status).toBe(500);
+    expect(sb.marcados.size).toBe(0);
+    expect(sb.chamadas).not.toContain("unlinked_purchases.insert");
+  });
+
   it("xcod que não é UUID nem é consultado", async () => {
     const sb = supabaseFalso({ achar: null, perfis: new Set(["nao-uuid"]) });
     const r = await tratarHotmart(pedido("8qbxvm9p", "PURCHASE_APPROVED", "nao-uuid"), () => sb.cliente as never);

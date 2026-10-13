@@ -150,19 +150,17 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
         compra?.origin?.xcod ?? compra?.xcod ?? payload.purchase?.origin?.xcod ?? "",
       ).trim();
       if (UUID_RE.test(xcod)) {
-        try {
-          const { data: perfil } = await supabase
-            .from("profiles")
-            .select("user_id")
-            .eq("user_id", xcod)
-            .maybeSingle();
-          const achadoXcod = (perfil as { user_id?: string } | null)?.user_id;
-          if (achadoXcod) {
-            userId = String(achadoXcod);
-            console.log("achado pelo xcod");
-          }
-        } catch (e) {
-          console.error("busca pelo xcod falhou:", String(e).slice(0, 200));
+        // Erro na busca NÃO pode virar "compra sem dono": falha e a Hotmart reenvia.
+        const r = await supabase
+          .from("profiles")
+          .select("user_id")
+          .eq("user_id", xcod)
+          .maybeSingle();
+        exigir("busca pelo xcod", r);
+        const achadoXcod = (r.data as { user_id?: string } | null)?.user_id;
+        if (achadoXcod) {
+          userId = String(achadoXcod);
+          console.log("achado pelo xcod");
         }
       }
     }
