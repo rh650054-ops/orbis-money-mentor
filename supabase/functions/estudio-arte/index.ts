@@ -81,7 +81,14 @@ Deno.serve(async (req) => {
     // Qualidade da arte pelo banco: 1=low (US$0,005) 2=medium (US$0,041) 3=high (US$0,165).
     // Assim da' pra baixar de high pra medium no meio de um pico viral, num UPDATE,
     // sem publicar nada — 4x mais barato por arte se a conta apertar.
-    const qualidadeImagem = ({ 1: "low", 2: "medium", 3: "high" } as Record<number, string>)[limNum("imagem_qualidade", 3)] ?? "high";
+    // ESBOÇO (Rick, 13/10/2026): o primeiro desenho é pra acertar a ideia junto com o
+    // vendedor, não pra impressionar — sai em "low" (gpt-image-2: US$0,017 contra
+    // US$0,25 da final), não gasta a arte do dia e tem teto próprio (esboco_limite_dia).
+    // A FINAL sai na qualidade do banco, partindo do esboço aprovado.
+    const etapa = String(body?.etapa ?? "") === "esboco" ? "esboco" : String(body?.etapa ?? "") === "final" ? "final" : "";
+    const qualidadeImagem = etapa === "esboco"
+      ? "low"
+      : ({ 1: "low", 2: "medium", 3: "high" } as Record<number, string>)[limNum("imagem_qualidade", 3)] ?? "high";
     // Modelo da arte, tambem pelo banco (25/08/2026). O "mini" custa ~4,6x menos
     // NA MESMA faixa de qualidade alta: US$ 0,054 contra US$ 0,20 por arte retrato.
     // 1 = gpt-image-1-mini (barato)  2 = gpt-image-1.5  3 = gpt-image-2 (caro)
@@ -118,7 +125,11 @@ Deno.serve(async (req) => {
       if (Number(usoMes) >= limiteMes) return json({ error: "limite_mensal", limite: limiteMes });
     } catch (e) { console.error("checagem de trava falhou (seguindo):", String(e).slice(0, 150)); }
 
-    const { data: usage } = await supa.rpc("bump_ai_usage", { p_feature: "estudio", p_limit: limite });
+    if (etapa === "esboco") {
+      const { data: ue } = await supa.rpc("bump_ai_usage", { p_feature: "esboco", p_limit: limNum("esboco_limite_dia", 8) });
+      if ((ue as any)?.over) return json({ error: "limite_esboco", plano: pagante ? "pagante" : "trial" });
+    }
+    const { data: usage } = etapa === "esboco" ? { data: null } : await supa.rpc("bump_ai_usage", { p_feature: "estudio", p_limit: limite });
     if ((usage as any)?.over) {
       return json({
         error: "limite_diario", limite, plano: pagante ? "pagante" : "trial",
@@ -160,6 +171,8 @@ Deno.serve(async (req) => {
       } catch { /* sem a arte anterior, cai pra geração normal */ }
     }
     const modoAjuste = !!ajuste && !!refUserB64;
+    // FINAL a partir do esboço aprovado: mesma arte, acabamento de gráfica.
+    const modoFinal = etapa === "final" && !modoAjuste && !!refUserB64;
 
     if (!marca || !produto || (!modeloId && !estilo && !refUserB64)) return json({ error: "dados_incompletos" });
 
@@ -193,7 +206,7 @@ Deno.serve(async (req) => {
         origem,
         plano: pagante ? "pagante" : "trial",
         marca, produto,
-        estilo: (modoAjuste ? `AJUSTE: ${ajuste}` : (estilo || String(modelo?.nome ?? ""))).slice(0, 300),
+        estilo: ((etapa === "esboco" ? "ESBOÇO: " : etapa === "final" ? "FINAL: " : "") + (modoAjuste ? `AJUSTE: ${ajuste}` : (estilo || String(modelo?.nome ?? "")))).slice(0, 300),
         cores, extras,
         modelo_id: modeloId || null,
         com_referencia: !!refB64,
@@ -271,6 +284,20 @@ Mantenha TODO o resto absolutamente idêntico — mesma composição, mesmo enqu
 Contexto (mantenha igual, salvo se a mudança pedida for justamente esta):
 - Marca: "${marca}"
 - Produto: ${produto}
+
+${REGRAS_COMUNS}`
+      // MODO FINAL: o esboço aprovado vira arte de gráfica, sem mudar a ideia.
+      : modoFinal
+      ? `Você é um designer profissional. A imagem anexa é o ESBOÇO que o vendedor aprovou para o adesivo da marca dele.
+
+Sua tarefa: produzir a versão FINAL dessa mesma arte, com acabamento de gráfica profissional. Mantenha a mesma composição, o mesmo enquadramento, as mesmas cores, o mesmo nome e o mesmo personagem (mesmo traço, mesma pose). O que muda é só o acabamento: nitidez, detalhes, tipografia impecável, texturas, luz e volume. Corrija qualquer erro de ortografia. Alguém que olhe as duas lado a lado tem que dizer "é a mesma arte, agora pronta pra imprimir".
+
+Dados (mantenha):
+- Marca: "${marca}" (escreva EXATAMENTE assim)
+- Produto: ${produto}
+${frase ? `- Slogan (EXATAMENTE assim): "${frase}"` : ""}
+${contato ? `- Contato (EXATAMENTE assim): ${contato}` : ""}
+${caixinha ? `- Ao lado da área branca do Pix, a faixa "CAIXINHA" com os 3 selos: ${caixinha}` : ""}
 
 ${REGRAS_COMUNS}`
       // MODO NORMAL: arte nova, do zero.
