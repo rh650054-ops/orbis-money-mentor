@@ -332,3 +332,94 @@ end $$;
 
 revoke all on function public.mercado_concluir(jsonb, numeric, boolean) from public, anon;
 grant execute on function public.mercado_concluir(jsonb, numeric, boolean) to authenticated;
+
+-- ------------------------------------------------------------
+-- produto_salvar_receita(produto, itens, rende) — a receita do quiz/ficha, numa
+-- transação só. itens: [{ id?, nome, qtd, preco }] (preco = preço de 1, opcional).
+--   • ingrediente: acha pelo id ou pelo nome (sem diferenciar maiúscula); se não
+--     existe, cria (un, estoque 0). Preço digitado > 0 vira o custo do ingrediente.
+--   • troca as linhas de product_recipes do produto; modo lote com o rendimento.
+--   • itens vazio = "não faço mais por receita": apaga a receita, modo 'none'.
+--   • custo do produto: recalculado pela receita quando TODOS os ingredientes têm
+--     custo; senão fica o que estava (o "Tô no mercado" completa depois).
+-- ------------------------------------------------------------
+create or replace function public.produto_salvar_receita(p_produto uuid, p_itens jsonb, p_rende numeric)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  u uuid := auth.uid();
+  it jsonb;
+  v_id uuid; v_nome text; v_qtd numeric; v_preco numeric;
+  v_ids uuid[] := '{}';
+  v_sem_custo int; v_custo numeric;
+begin
+  if u is null then raise exception 'login necessario'; end if;
+  if not exists (select 1 from public.products p where p.id = p_produto and p.user_id = u) then
+    raise exception 'produto não é seu';
+  end if;
+  if p_itens is null or jsonb_typeof(p_itens) <> 'array' then raise exception 'receita invalida'; end if;
+  if jsonb_array_length(p_itens) > 40 then raise exception 'ingredientes demais'; end if;
+
+  if jsonb_array_length(p_itens) = 0 then
+    delete from public.product_recipes where product_id = p_produto and user_id = u;
+    update public.products set recipe_mode = 'none', updated_at = now() where id = p_produto;
+    return jsonb_build_object('ingredientes', 0);
+  end if;
+
+  if p_rende is null or p_rende < 1 or p_rende > 100000 then raise exception 'rendimento invalido'; end if;
+
+  delete from public.product_recipes where product_id = p_produto and user_id = u;
+
+  for it in select value from jsonb_array_elements(p_itens) loop
+    v_nome := left(trim(coalesce(it->>'nome', '')), 80);
+    v_qtd := nullif(it->>'qtd', '')::numeric;
+    v_preco := coalesce(nullif(it->>'preco', '')::numeric, 0);
+    if v_nome = '' or v_qtd is null or v_qtd <= 0 or v_qtd > 100000 or v_preco < 0 or v_preco > 1000000 then
+      raise exception 'ingrediente invalido';
+    end if;
+    v_id := null;
+    if nullif(it->>'id', '') is not null then
+      begin v_id := (it->>'id')::uuid; exception when others then v_id := null; end;
+      if v_id is not null and not exists (select 1 from public.ingredients i where i.id = v_id and i.user_id = u) then
+        raise exception 'ingrediente não é seu';
+      end if;
+    end if;
+    if v_id is null then
+      select i.id into v_id from public.ingredients i
+       where i.user_id = u and lower(trim(i.name)) = lower(v_nome) order by i.created_at limit 1;
+    end if;
+    if v_id is null then
+      insert into public.ingredients (user_id, name, unit, stock_quantity, cost_per_unit)
+      values (u, v_nome, 'un', 0, v_preco) returning id into v_id;
+    else
+      update public.ingredients
+         set name = v_nome,
+             cost_per_unit = case when v_preco > 0 then v_preco else cost_per_unit end,
+             updated_at = now()
+       where id = v_id;
+    end if;
+    if v_id = any (v_ids) then
+      update public.product_recipes set quantity = quantity + v_qtd where product_id = p_produto and ingredient_id = v_id;
+    else
+      insert into public.product_recipes (user_id, product_id, ingredient_id, quantity) values (u, p_produto, v_id, v_qtd);
+      v_ids := array_append(v_ids, v_id);
+    end if;
+  end loop;
+
+  select count(*) filter (where coalesce(i.cost_per_unit, 0) <= 0),
+         round(sum(r.quantity * coalesce(i.cost_per_unit, 0)) / p_rende, 2)
+    into v_sem_custo, v_custo
+    from public.product_recipes r join public.ingredients i on i.id = r.ingredient_id
+   where r.product_id = p_produto;
+
+  update public.products
+     set recipe_mode = 'batch', batch_yield = p_rende, origem = 'faz',
+         cost = case when v_sem_custo = 0 and v_custo > 0 then v_custo else cost end,
+         updated_at = now()
+   where id = p_produto;
+
+  return jsonb_build_object('ingredientes', array_length(v_ids, 1), 'custo', case when v_sem_custo = 0 then v_custo end);
+end $$;
+
+revoke all on function public.produto_salvar_receita(uuid, jsonb, numeric) from public, anon;
+grant execute on function public.produto_salvar_receita(uuid, jsonb, numeric) to authenticated;

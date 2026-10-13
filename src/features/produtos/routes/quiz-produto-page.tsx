@@ -1,5 +1,5 @@
 /* /products/novo e /products/:id — cadastro do produto em perguntas (quiz). */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
@@ -9,6 +9,7 @@ import { useSalvarProdutoMutation } from "../api/use-produto-mutations";
 import { useSubirFotoMutation } from "../api/use-subir-foto-mutation";
 import { rascunhoDe, TOTAL_PASSOS, useQuizProduto } from "../hooks/use-quiz-produto";
 import type { RascunhoProduto } from "../types";
+import { rascunhoDaReceita } from "../lib/receitas";
 import { PassoNome } from "../components/passo-nome";
 import { PassoOrigem } from "../components/passo-origem";
 import { PassoCustoCompra } from "../components/passo-custo-compra";
@@ -38,9 +39,10 @@ function Quiz({ inicial, userId }: { inicial?: RascunhoProduto; userId?: string 
   const voltar = () => { if (!q.voltar()) sair(); };
   const r = q.r;
 
+  const [salvo, setSalvo] = useState<string | null>(null);
   const gravar = (rascunho: RascunhoProduto) => {
     salvar.mutate(rascunho, {
-      onSuccess: () => q.ir("pronto"),
+      onSuccess: (id) => { setSalvo(id); q.ir("pronto"); },
       onError: (e) => toast({ title: "Não consegui salvar o produto", description: mapSupabaseError(e).message, variant: "destructive" }),
     });
   };
@@ -57,7 +59,8 @@ function Quiz({ inicial, userId }: { inicial?: RascunhoProduto; userId?: string 
       return <PassoOrigem total={TOTAL_PASSOS} onEscolher={q.setOrigem} onVoltar={voltar} />;
     case "custo":
       return r.origem === "faz"
-        ? <PassoCustoFaz total={TOTAL_PASSOS} nome={r.nome} custo={r.custo} onCusto={q.setCusto} onRende={(n) => q.setPacote(n)} onContinuar={q.avancar} onVoltar={voltar} />
+        ? <PassoCustoFaz total={TOTAL_PASSOS} nome={r.nome} custo={r.custo} receitaInicial={r.receita ? rascunhoDaReceita(r.receita) : null}
+            rendeInicial={r.rende} onCusto={q.setCusto} onRende={(n) => q.setPacote(n)} onReceita={q.setReceita} onContinuar={q.avancar} onVoltar={voltar} />
         : <PassoCustoCompra total={TOTAL_PASSOS} nome={r.nome} custo={r.custo} onCusto={q.setCusto} onPacote={(n) => q.setPacote(n)}
             onFaco={() => q.setOrigem("faz")} onContinuar={q.avancar} onVoltar={voltar} />;
     case "preco":
@@ -68,6 +71,7 @@ function Quiz({ inicial, userId }: { inicial?: RascunhoProduto; userId?: string 
         onEstoque={q.setEstoque} onSalvar={() => gravar(r)} onVoltar={voltar}
         onSemEstoque={() => { q.semEstoque(); gravar({ ...r, controlaEstoque: false, estoque: 0 }); }} />;
     case "pronto":
-      return <QuizPronto r={r} onComecarDia={() => navigate("/daily-goals")} onOutro={q.recomecar} onLista={sair} />;
+      return <QuizPronto r={r} onComecarDia={() => navigate("/daily-goals")} onOutro={q.recomecar} onLista={sair}
+        onFicha={salvo ? () => navigate(`/products/${salvo}`) : undefined} />;
   }
 }

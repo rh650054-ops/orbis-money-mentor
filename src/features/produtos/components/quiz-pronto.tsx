@@ -5,8 +5,8 @@ import type { RascunhoProduto } from "../types";
 import { reais } from "./campos";
 import { OURO } from "./quiz-casca";
 
-export function QuizPronto({ r, onComecarDia, onOutro, onLista }: {
-  r: RascunhoProduto; onComecarDia: () => void; onOutro: () => void; onLista: () => void;
+export function QuizPronto({ r, onComecarDia, onOutro, onLista, onFicha }: {
+  r: RascunhoProduto; onComecarDia: () => void; onOutro: () => void; onLista: () => void; onFicha?: () => void;
 }) {
   const l = lucroDe(r.preco, r.custo);
   const comLucro = !r.precoLivre && r.custo > 0 && r.preco > 0;
@@ -51,6 +51,11 @@ export function QuizPronto({ r, onComecarDia, onOutro, onLista }: {
       <button type="button" onClick={onComecarDia} className="w-full h-[54px] rounded-2xl text-[15px] font-black" style={{ background: OURO, color: "#1A1200" }}>
         COMEÇAR MEU DIA DE TRABALHO
       </button>
+      {onFicha && (
+        <button type="button" onClick={onFicha} className="w-full h-12 rounded-2xl text-[15px] font-black" style={{ background: "#121211", border: "1px solid rgba(245,184,0,.45)", color: "#F5B800" }}>
+          Ver ficha completa{r.receita ? " · receita e estoque" : ""}
+        </button>
+      )}
       <button type="button" onClick={onOutro} className="w-full h-12 rounded-2xl text-[15px] font-black" style={{ background: "#121211", border: "1px solid #26241f" }}>
         + Cadastrar outro produto
       </button>

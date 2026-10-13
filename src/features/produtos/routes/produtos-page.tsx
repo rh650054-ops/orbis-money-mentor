@@ -5,12 +5,8 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { toast } from "@/shared/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { useProdutosQuery } from "../api/use-produtos-query";
-import { useApagarProdutoMutation } from "../api/use-produto-mutations";
 import { lucroDe, ordenarPorLucro } from "../lib/conta";
-import type { ProdutoComFaixas } from "../types";
 import { AbaEstoque } from "../components/aba-estoque";
 import { ChegouMercadoria } from "../components/chegou-mercadoria";
 import { CarregandoProdutos } from "../components/carregando-produtos";
@@ -23,10 +19,8 @@ export default function ProdutosPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data, isLoading, isError, refetch } = useProdutosQuery(user?.id);
-  const apagar = useApagarProdutoMutation();
   const [aba, setAba] = useState<"produtos" | "estoque">("produtos");
   const [chegou, setChegou] = useState<{ aberto: boolean; id?: string }>({ aberto: false });
-  const [acoes, setAcoes] = useState<ProdutoComFaixas | null>(null);
   const lista = useMemo(() => ordenarPorLucro(data ?? []), [data]);
 
   if (isLoading) return <CarregandoProdutos />;
@@ -63,10 +57,10 @@ export default function ProdutosPage() {
               {pior && <span className="text-xs" style={{ color: "#b9b3a6" }}>{pior.name} é o que menos dá lucro: {reais(lucroDe(pior.sale_price, pior.cost).sobra)}.</span>}
             </div>
           )}
-          {lista.map((p, i) => <ProdutoCard key={p.id} p={p} i={i} onClick={() => setAcoes(p)} />)}
+          {lista.map((p, i) => <ProdutoCard key={p.id} p={p} i={i} onClick={() => navigate(`/products/${p.id}`)} />)}
         </>
       ) : (
-        <AbaEstoque produtos={lista} onRepor={(id) => setChegou({ aberto: true, id })} onFicha={() => navigate("/products/ficha")} />
+        <AbaEstoque produtos={lista} userId={user?.id} onRepor={(id) => setChegou({ aberto: true, id })} onMercado={() => navigate("/products/mercado")} />
       )}
 
       <div className="fixed left-0 right-0 z-40 px-4 max-w-md mx-auto" style={{ bottom: "calc(max(env(safe-area-inset-bottom), 0.5rem) + 74px)" }}>
@@ -79,17 +73,6 @@ export default function ProdutosPage() {
       </div>
 
       <ChegouMercadoria key={chegou.id ?? "todos"} aberto={chegou.aberto} inicial={chegou.id} produtos={lista} userId={user?.id} onFechar={() => setChegou({ aberto: false })} />
-      <Dialog open={!!acoes} onOpenChange={(v) => { if (!v) setAcoes(null); }}>
-        <DialogContent className="max-w-sm bg-black border-[#26241f] text-[#F4F1EA]">
-          <DialogHeader><DialogTitle>{acoes?.emoji} {acoes?.name}</DialogTitle></DialogHeader>
-          <button type="button" className="w-full h-12 rounded-xl font-black" style={{ background: OURO, color: "#1A1200" }} onClick={() => { const id = acoes?.id; setAcoes(null); if (id) navigate(`/products/${id}`); }}>Editar</button>
-          <button type="button" className="w-full h-12 rounded-xl font-extrabold" style={{ background: "#121211", border: "1px solid #26241f" }} onClick={() => { const id = acoes?.id; setAcoes(null); setChegou({ aberto: true, id }); }}>Chegou mercadoria</button>
-          <button type="button" className="w-full h-11 rounded-xl text-sm font-extrabold" style={{ color: "#ff7a6b" }}
-            onClick={() => { const p = acoes; setAcoes(null); if (p) apagar.mutate(p.id, { onSuccess: () => toast({ title: `${p.name} saiu da lista` }) }); }}>
-            Tirar da lista
-          </button>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

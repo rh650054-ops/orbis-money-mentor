@@ -39,9 +39,23 @@ export interface RascunhoProduto {
   combo: { qty: number; price: number } | null;
   estoque: number;
   controlaEstoque: boolean;
+  /** "Eu mesmo faço": o que vai numa receita (leva) e quantas unidades ela rende.
+   *  null = sem receita salva (custo digitado direto). */
+  receita: ItemReceita[] | null;
+  rende: number;
+}
+
+/** Um ingrediente da receita: quanto vai numa leva (em unidades de compra: 1 lata,
+ *  2 caixas) e o preço de 1 (opcional — vem da última compra quando existe). */
+export interface ItemReceita {
+  /** id em ingredients quando já existe */
+  id?: string;
+  nome: string;
+  qtd: number;
+  preco: number;
 }
 
 export const RASCUNHO_VAZIO: RascunhoProduto = {
   nome: "", emoji: "📦", foto: null, origem: null, custo: 0, preco: 0,
-  precoLivre: false, combo: null, estoque: 0, controlaEstoque: true,
+  precoLivre: false, combo: null, estoque: 0, controlaEstoque: true, receita: null, rende: 0,
 };

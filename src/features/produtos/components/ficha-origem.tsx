@@ -1,0 +1,30 @@
+/* Ficha: como ele consegue o produto — compra pronto (custo de 1) ou faz (receita). */
+import { custoDaFicha, type Ficha } from "../lib/ficha";
+import { CampoDinheiro, DuasAbas, reais } from "./campos";
+import { EditorReceita } from "./editor-receita";
+import { Secao } from "./ficha-secao";
+
+export function FichaOrigem({ f, estoques, onMudar }: {
+  f: Ficha; estoques: Map<string, number>; onMudar: (m: Partial<Ficha>) => void;
+}) {
+  const custo = custoDaFicha(f);
+  return (
+    <Secao titulo="COMO VOCÊ CONSEGUE" sub={f.origem === "faz"
+      ? "Com a receita, o \"Tô no mercado\" já sabe quantas saem de cada compra."
+      : "Quanto você paga em 1 unidade."}>
+      <DuasAbas valor={f.origem} onChange={(origem) => onMudar({ origem })}
+        opcoes={[["compra", "📦 Compro pronto"], ["faz", "👩‍🍳 Eu faço"]]} />
+      {f.origem === "compra" ? (
+        <CampoDinheiro rotulo="Custo de 1 unidade" valor={f.custo} onChange={(c) => onMudar({ custo: c })} />
+      ) : (
+        <>
+          <EditorReceita itens={f.itens} rende={f.rende} estoques={estoques}
+            onItens={(itens) => onMudar({ itens })} onRende={(rende) => onMudar({ rende })} />
+          {!custo.pelaReceita && f.custo > 0 && (
+            <p className="text-[11.5px] font-bold px-1" style={{ color: "#7b766e" }}>Custo salvo hoje: {reais(f.custo)} cada.</p>
+          )}
+        </>
+      )}
+    </Secao>
+  );
+}

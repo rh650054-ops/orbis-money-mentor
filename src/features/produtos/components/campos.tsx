@@ -1,14 +1,32 @@
-/* Campos do quiz: dinheiro (digita números, os 2 últimos viram centavos) e contador − n +. */
+/* Campos do quiz: dinheiro e contador − n +.
+   Dinheiro segue a regra do Foco (shared/lib/dinheiro): digitou "5" = R$ 5,00, a
+   vírgula é dele quando quiser ("5,50"). Antes os 2 últimos dígitos viravam centavos
+   e "5" dava R$ 0,05 (Rick, 12/10/2026). */
 import { useState } from "react";
 import { Minus, Plus } from "lucide-react";
+import { arrumarDinheiro, limparDinheiro, reaisDeTexto, textoDeReais } from "@/shared/lib/dinheiro";
 
 const brl2 = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const reais = (n: number) => `R$ ${brl2(n)}`;
 
+/** Texto do campo de dinheiro: mostra o que ele digitou, arruma no blur. */
+export function useTextoDinheiro(valor: number, onChange: (n: number) => void) {
+  const [texto, setTexto] = useState(textoDeReais(valor));
+  return {
+    value: texto,
+    onChange: (e: { target: { value: string } }) => {
+      const t = limparDinheiro(e.target.value);
+      setTexto(t);
+      onChange(reaisDeTexto(t));
+    },
+    onBlur: () => setTexto(arrumarDinheiro(texto)),
+  };
+}
+
 export function CampoDinheiro({ valor, onChange, rotulo, grande, autoFocus }: {
   valor: number; onChange: (n: number) => void; rotulo?: string; grande?: boolean; autoFocus?: boolean;
 }) {
-  const [texto, setTexto] = useState(valor > 0 ? brl2(valor) : "");
+  const campo = useTextoDinheiro(valor, onChange);
   return (
     <label className="flex flex-col gap-1.5">
       {rotulo && <span className="text-xs font-extrabold" style={{ color: "#b9b3a6" }}>{rotulo}</span>}
@@ -16,13 +34,7 @@ export function CampoDinheiro({ valor, onChange, rotulo, grande, autoFocus }: {
         style={{ border: "1.5px solid #F5B800", background: "#0f0d08" }}>
         <span className="mr-2 font-bold" style={{ color: "#7b766e", fontSize: grande ? 17 : 15 }}>R$</span>
         <input
-          type="text" inputMode="numeric" placeholder="0,00" autoFocus={autoFocus} value={texto}
-          onChange={(e) => {
-            const d = e.target.value.replace(/\D/g, "").slice(0, 9);
-            const n = d ? parseInt(d, 10) / 100 : 0;
-            setTexto(d ? brl2(n) : "");
-            onChange(n);
-          }}
+          type="text" inputMode="decimal" placeholder="0" autoFocus={autoFocus} {...campo}
           className={`bg-transparent outline-none font-black tabular-nums ${grande ? "text-[30px] w-40 text-center" : "text-xl w-full"}`}
           aria-label={rotulo ?? "Valor"}
         />
