@@ -85,6 +85,8 @@ Deno.serve(async (req) => {
     // vendedor, não pra impressionar — sai em "low" (gpt-image-2: US$0,017 contra
     // US$0,25 da final), não gasta a arte do dia e tem teto próprio (esboco_limite_dia).
     // A FINAL sai na qualidade do banco, partindo do esboço aprovado.
+    // O corpo é lido aqui, antes da etapa (13/10: lido depois quebrava toda geração).
+    const body = await req.json().catch(() => ({}));
     const etapa = String(body?.etapa ?? "") === "esboco" ? "esboco" : String(body?.etapa ?? "") === "final" ? "final" : "";
     const qualidadeImagem = etapa === "esboco"
       ? "low"
@@ -139,7 +141,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = await req.json().catch(() => ({}));
     const modeloId = String(body?.modelo_id ?? "").trim();
     const marca = String(body?.marca ?? "").slice(0, 30).trim();
     const produto = String(body?.produto ?? "").slice(0, 140).trim();
