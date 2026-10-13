@@ -6,6 +6,7 @@ import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import { useAIConversations } from "@/hooks/useAIConversations";
+import { useDigitando } from "@/shared/hooks/use-digitando";
 import { useAuth } from "@/hooks/useAuth";
 import EstudioMarca, { type EstudioBrief } from "@/components/estudio/EstudioMarca";
 import { supabase } from "@/integrations/supabase/client";
@@ -242,11 +243,25 @@ export default function FloatingChatButton() {
     }
   }, [action, clearAction]);
 
+  const rolarProFim = () => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  };
+  useEffect(rolarProFim, [messages, isSending]);
+
+  // Só a resposta que ACABOU de chegar aparece "digitando"; o histórico abre pronto.
+  // Guarda os ids que já existiam quando o envio começou e anima o 1º novo da IA.
+  const idsAntesDoEnvio = useRef<Set<string> | null>(null);
+  const [digitandoId, setDigitandoId] = useState<string | null>(null);
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (isSending && !idsAntesDoEnvio.current) idsAntesDoEnvio.current = new Set(messages.map((m) => m.id));
+    const antes = idsAntesDoEnvio.current;
+    if (!antes) return;
+    const nova = messages.find((m) => m.role === "assistant" && !antes.has(m.id));
+    if (nova) setDigitandoId(nova.id);
+    if (!isSending) idsAntesDoEnvio.current = null;
   }, [messages, isSending]);
+  // Trocou de conversa: nada fica "digitando" de novo ao voltar.
+  useEffect(() => { setDigitandoId(null); }, [activeId]);
 
   // Desenhar o adesivo leva ~1 minuto (IA de imagem e' lenta mesmo). Sem aviso, o
   // vendedor acha que travou e fecha o app no meio da geracao. Depois de 6s de espera
@@ -839,7 +854,9 @@ export default function FloatingChatButton() {
                               : "bg-muted/60 border border-border text-foreground rounded-bl-md"
                           )}
                         >
-                          {renderContent(m.content)}
+                          {m.id === digitandoId && !voiceMode
+                            ? <Digitando texto={m.content} render={renderContent} aoAvancar={rolarProFim} />
+                            : renderContent(m.content)}
                         </div>
                         {m.role === "assistant" && !voiceMode && (
                           <button
@@ -1094,5 +1111,18 @@ export default function FloatingChatButton() {
         </div>
       )}
     </>
+  );
+}
+
+/** Resposta da IA aparecendo palavra por palavra, com cursor piscando. Toque mostra tudo. */
+function Digitando({ texto, render, aoAvancar }: {
+  texto: string; render: (t: string) => React.ReactNode; aoAvancar: () => void;
+}) {
+  const { visivel, digitando, pular } = useDigitando(texto, true, aoAvancar);
+  return (
+    <span onClick={digitando ? pular : undefined}>
+      {render(visivel)}
+      {digitando && <span aria-hidden className="inline-block w-[2px] h-[1em] -mb-[2px] ml-0.5 bg-primary animate-pulse" />}
+    </span>
   );
 }
