@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -17,12 +18,15 @@ interface EditPlanningModalProps {
   userId: string;
   isOpen: boolean;
   onClose: () => void;
+  /** chamado só quando o planejamento foi SALVO (antes do onClose) */
+  onSalvo?: () => void;
   isRequired?: boolean;
   requiredReason?: "first_time" | "new_month" | null;
 }
 
-export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false, requiredReason = null }: EditPlanningModalProps) {
+export function EditPlanningModal({ userId, isOpen, onClose, onSalvo, isRequired = false, requiredReason = null }: EditPlanningModalProps) {
   const { toast } = useToast();
+  const qc = useQueryClient();
   const [monthlyGoal, setMonthlyGoal] = useState(4200);
   const [workHours, setWorkHours] = useState(8);
   const [workDaysPerWeek, setWorkDaysPerWeek] = useState(5);
@@ -183,11 +187,14 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
       avisar.usuario("Salvei as metas, mas não consegui atualizar o plano de hoje. Tenta de novo.", planErr, "EditPlanningModal: atualizar plano de hoje");
       return;
     }
+    // a meta do Foco (meta_do_dia) recalcula com o planejamento novo (Rick, 13/10)
+    void qc.invalidateQueries({ queryKey: ["meta-do-dia"] });
     toast({
       title: "✅ Planejamento atualizado!",
       description: "Suas metas foram atualizadas com sucesso.",
     });
     emitMissionEvent("goal-set");
+    onSalvo?.();
     onClose();
   };
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -601,6 +601,14 @@ export default function DefconHub() {
   const qc = useQueryClient();
   const { meta: metaViavel, replanejar } = useMetaDoDia(user?.id, today);
   const [replanOpen, setReplanOpen] = useState(false);
+  // 13/10 (Rick): mudou a meta no Planejar e a conta nova diz que não chega no mês →
+  // a Vant avisa e já abre o replanejamento (máximo / realista / manter).
+  const acabouDePlanejar = useRef(false);
+  useEffect(() => {
+    if (!acabouDePlanejar.current || !metaViavel) return;
+    acabouDePlanejar.current = false;
+    if (metaViavel.status === "inviavel") setReplanOpen(true);
+  }, [metaViavel]);
   const temFaixas = !!metaViavel && metaViavel.status !== "aprendendo" && metaViavel.meta > 0;
   /* ---- Foco v2 (Rick, 05/09): um card que muda com o momento do dia ---- */
   const [sessao, setSessao] = useState<{ id: string; status: string; current_block_index: number; total_blocks: number; started_at: string | null; ended_at: string | null; worked_minutes: number | null } | null>(null);
@@ -1339,7 +1347,8 @@ export default function DefconHub() {
       <p className="text-center text-[11.5px] mt-4" style={{ color: "var(--orbis-fg-3)" }}>Relatórios completos e filtros ficam na aba <span style={{ color: "var(--orbis-gold)" }}>Relatório</span>.</p>
 
       {user && (
-        <EditPlanningModal userId={user.id} isOpen={showEdit} onClose={() => { setShowEdit(false); void qc.invalidateQueries({ queryKey: ["meta-do-dia"] }); loadAll(); }} />
+        <EditPlanningModal userId={user.id} isOpen={showEdit} onSalvo={() => { acabouDePlanejar.current = true; }}
+          onClose={() => { setShowEdit(false); void qc.invalidateQueries({ queryKey: ["meta-do-dia"] }); loadAll(); }} />
       )}
       {metaViavel && (
         <ReplanejarMes aberto={replanOpen} onFechar={() => setReplanOpen(false)} m={metaViavel} salvando={replanejar.isPending}
