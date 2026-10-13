@@ -7,7 +7,10 @@ describe("receita de quem faz", () => {
     expect(ingredientesSugeridos("Trufa de maracujá").map((i) => i.nome)).toContain("Leite condensado");
     expect(ingredientesSugeridos("Batida de morango").map((i) => i.nome)).toContain("Copo e canudo");
     expect(ingredientesSugeridos("Capinha").length).toBe(2);
-    expect(ingredientesSugeridos("Batida").every((i) => i.qtd === 1)).toBe(true);
+    const batida = ingredientesSugeridos("Batida", 20);
+    expect(batida.map((i) => i.nome)).toEqual(["Leite condensado", "Creme de leite", "Fruta / polpa", "Copo e canudo"]);
+    expect(batida.find((i) => i.nome === "Copo e canudo")?.qtd).toBe(20); // 1 copo por unidade
+    expect(batida.find((i) => i.nome === "Leite condensado")?.qtd).toBe(1);
   });
 
   it("custo da leva = soma de qtd × preço de 1 do que ele marcou; ÷ rendimento", () => {

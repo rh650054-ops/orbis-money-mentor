@@ -5,8 +5,8 @@ import { IngredientesGuardados } from "./ingredientes-guardados";
 import { reais } from "./campos";
 import { estoqueBaixo } from "./produto-card";
 
-export function AbaEstoque({ produtos, userId, onRepor, onMercado }: {
-  produtos: ProdutoComFaixas[]; userId: string | undefined; onRepor: (id: string) => void; onMercado: () => void;
+export function AbaEstoque({ produtos, userId, onRepor }: {
+  produtos: ProdutoComFaixas[]; userId: string | undefined; onRepor: (id: string) => void;
 }) {
   const controlados = produtos.filter((p) => p.controla_estoque !== false);
   const valor = controlados.reduce((s, p) => s + Math.max(0, p.stock_quantity) * Math.max(0, p.cost), 0);
@@ -39,7 +39,7 @@ export function AbaEstoque({ produtos, userId, onRepor, onMercado }: {
       {controlados.length === 0 && (
         <p className="text-sm text-center py-6" style={{ color: "#7b766e" }}>Nenhum produto com controle de estoque.</p>
       )}
-      <IngredientesGuardados userId={userId} onMercado={onMercado} />
+      <IngredientesGuardados userId={userId} />
     </div>
   );
 }

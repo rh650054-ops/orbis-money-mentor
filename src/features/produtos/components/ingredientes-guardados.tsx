@@ -5,7 +5,7 @@ import { levasPossiveis } from "../lib/receitas";
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toLocaleString("pt-BR", { maximumFractionDigits: 2 }));
 
-export function IngredientesGuardados({ userId, onMercado }: { userId: string | undefined; onMercado: () => void }) {
+export function IngredientesGuardados({ userId }: { userId: string | undefined }) {
   const { data } = useMercadoQuery(userId);
   const ingredientes = data?.ingredientes ?? [];
   const porId = new Map(ingredientes.map((i) => [i.id, i]));
@@ -44,10 +44,6 @@ export function IngredientesGuardados({ userId, onMercado }: { userId: string | 
           ))}
         </div>
       )}
-      <button type="button" onClick={onMercado} className="rounded-2xl h-12 text-[13.5px] font-black mt-1"
-        style={{ background: "#121211", border: "1px solid rgba(245,184,0,.45)", color: "#F5B800" }}>
-        🛒 Tô no mercado
-      </button>
     </div>
   );
 }

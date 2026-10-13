@@ -19,7 +19,7 @@ export function PassoCustoFaz({ nome, custo, total, receitaInicial, rendeInicial
   const [caminho, setCaminho] = useState<null | "sei" | "receita">(receitaInicial ? "receita" : null);
   const [gasto, setGasto] = useState(0);
   const [rende, setRende] = useState(rendeInicial > 0 ? rendeInicial : 20);
-  const [itens, setItens] = useState<IngredienteRascunho[]>(() => receitaInicial ?? ingredientesSugeridos(nome));
+  const [itens, setItens] = useState<IngredienteRascunho[]>(() => receitaInicial ?? ingredientesSugeridos(nome, rendeInicial > 0 ? rendeInicial : 20));
   const voltar = () => (caminho ? setCaminho(null) : onVoltar());
 
   if (!caminho) {

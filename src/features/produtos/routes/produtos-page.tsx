@@ -60,7 +60,7 @@ export default function ProdutosPage() {
           {lista.map((p, i) => <ProdutoCard key={p.id} p={p} i={i} onClick={() => navigate(`/products/${p.id}`)} />)}
         </>
       ) : (
-        <AbaEstoque produtos={lista} userId={user?.id} onRepor={(id) => setChegou({ aberto: true, id })} onMercado={() => navigate("/products/mercado")} />
+        <AbaEstoque produtos={lista} userId={user?.id} onRepor={(id) => setChegou({ aberto: true, id })} />
       )}
 
       <div className="fixed left-0 right-0 z-40 px-4 max-w-md mx-auto" style={{ bottom: "calc(max(env(safe-area-inset-bottom), 0.5rem) + 74px)" }}>
