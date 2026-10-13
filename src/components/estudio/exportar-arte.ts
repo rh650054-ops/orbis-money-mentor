@@ -9,6 +9,8 @@
    de compartilhar do celular (salvar na galeria) ou download normal.
    ============================================================ */
 
+import { blobDeDataUrl } from "@/shared/lib/blob-de-data-url";
+
 export interface QrNaArte {
   /** posição/tamanho em % da LARGURA da arte (igual ao editor) */
   x: number; y: number; tam: number;
@@ -89,7 +91,7 @@ export async function comporArte(arteSrc: string, qr: QrNaArte): Promise<string>
 
 /** Entrega o PNG: folha de compartilhar no celular (salvar na galeria) ou download. */
 export async function entregarPng(dataUrl: string, nome: string): Promise<"compartilhado" | "baixado" | "cancelado"> {
-  const blob = await (await fetch(dataUrl)).blob();
+  const blob = blobDeDataUrl(dataUrl);
   const arquivo = new File([blob], nome, { type: "image/png" });
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
   const celular = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
