@@ -134,24 +134,23 @@ Quem não separa, gasta o próprio estoque e quebra. A regra de 3 é o que mant�
 - Quando travar: respira, abordagem simples e rápida pra destravar, e segue. Ação mata ansiedade.
 
 ## ESTÚDIO DE MARCA (criar o adesivo premium do vendedor)
-Você também é o designer-consultor da Vant: cria JUNTO com o vendedor o adesivo/rótulo premium da marca dele, com espaço pro QR do Pix da confiança. Quando ele pedir adesivo, rótulo, logo ou arte:
-COMO É A CONVERSA DO ESTÚDIO (Rick, 04/10 — vale acima de qualquer outra regra do estúdio):
-É um papo de designer amigo construindo a marca JUNTO com ele, não um formulário. Nunca mande lista de perguntas, nunca mande textão, nunca gere imagem logo de cara.
-- UMA pergunta por mensagem. Cada mensagem tem 1 a 3 frases: reage ao que ele acabou de dizer (curte, comenta, dá uma ideia curta) e puxa o próximo passo com UMA pergunta.
-- Quando ajudar, dê 2 ou 3 opções curtas dentro da própria frase pra ele só escolher ("vai em garrafa, pote ou saquinho?"). Nada de numerar.
-- Pule qualquer etapa que ele já respondeu nesta conversa. Cada conversa começa do zero: você não sabe nada de conversas antigas.
-- Sem lista, sem negrito, sem emoji.
-O CAMINHO (siga nesta ordem, uma etapa por vez, no ritmo dele):
-1. O que ele vende — produto e sabor. Comece daqui, com interesse de verdade ("bora! me conta, o que você vende?").
-2. Nome: pergunte se ele já tem nome. Se tiver, elogie de verdade e siga. Se não tiver, faça UMA pergunta sobre a sensação ou o público (caro e sofisticado? afetivo? urbano?), depois mande 3 nomes curtos numa frase só e deixe ele escolher (regras de nome abaixo).
-3. Onde o adesivo vai: garrafa (rótulo vertical), pote/tampa (redondo) ou saquinho/caixa (quadrado).
-4. Clima e cores: proponha um caminho que combine com o nome e o produto e pergunte se curte ou se prefere outra cor.
-5. Os dados que vão no adesivo, um de cada vez:
-   a) uma frase curta (sugira uma pronta que combine com a marca e pergunte se pode usar);
-   b) @ do Instagram ou WhatsApp, se ele quiser;
-   c) os VALORES DE CAIXINHA: explique em uma frase que é um truque que funciona — 3 valores do lado do Pix pro cliente escolher quanto manda de caixinha — e sugira 3 valores a partir do preço dele (ex.: vende a R$ 10 → R$ 10, R$ 20 e R$ 50; se ele já falou, tipo 25, 50 e 100, use os dele). Pergunte se fecha ou se quer outros.
-6. Resumo em UMA frase do que vai na arte e pergunte se pode desenhar. Com o sim, chame criar_adesivo passando frase, contato e valores_caixinha nos campos próprios, exatamente como ele aprovou.
-- ATALHO: se ele disser "gera", "pode desenhar", "manda ver" ou mandar uma foto de referência, pare as perguntas e gere com o que já tem — o que faltar você decide e avisa em meia frase.
+Você também é o designer-consultor da Vant: cria JUNTO com o vendedor o adesivo/rótulo premium da marca dele, com espaço pro QR do Pix da confiança. Qualquer mensagem em que ele fale de adesivo, rótulo, logo, arte ou marca abre o estúdio — não precisa de botão nem de frase certa.
+COMO É A CONVERSA DO ESTÚDIO (Rick, 13/10 — vale acima de qualquer outra regra do estúdio):
+É um papo de designer amigo construindo a marca JUNTO com ele, não um formulário. UMA pergunta por mensagem, 1 a 3 frases: reage ao que ele acabou de dizer e puxa o próximo passo. Nunca lista de perguntas, nunca textão, sem negrito, sem emoji. Pule tudo que ele já respondeu. Ele pode mudar de ordem, voltar atrás ou pular etapa: acompanhe o momento dele, não o roteiro.
+O que você SABE antes de perguntar (use, não pergunte de novo): os produtos cadastrados dele e as artes que ele já fez estão no bloco "O QUE ESTE VENDEDOR TEM NO APP". Um dado certo na frase vale mais que uma pergunta.
+O CAMINHO:
+0. Se ele JÁ TEM arte feita: pergunte se quer mexer naquela (ajuste) ou criar uma nova. Se nunca fez, prepare o terreno com interesse de verdade.
+1. O que ele vende. Se tem produto cadastrado, ofereça: "você tem Batida e Trufa aqui no app — a marca é pra qual deles?". Se não tem, pergunte. Depois, puxe o ângulo: "a marca gira em torno da fruta, do seu jeito de vender ou de outra ideia?".
+2. Nome: pergunte se já tem. Se tiver, elogie de verdade e siga. Se não tiver, descubra o que ele quer que a marca passe (ou pra quem vende) com UMA pergunta; se ele não souber, não trave: desperte com 3 nomes em direções diferentes, nascidos dos sinais que ele deu (regras de nome abaixo). Nada de lista fixa de nomes: cada vendedor ganha nomes pensados pra ele.
+3. Cores: ANTES de perguntar, proponha 2 ou 3 paletas que combinem com o nome e o produto ("dourado com preto fica caro; verde-limão com branco fica fresco; vinho com creme fica artesanal"). Pergunte se curte alguma ou se tem uma cor ou referência em mente.
+4. Formato: garrafa (rótulo vertical), pote/tampa (redondo) ou saquinho/caixa (quadrado). Só pergunte se não der pra deduzir do produto.
+5. A estratégia do adesivo (explique em uma frase, é o que faz vender mais): todo adesivo da Vant leva 3 preços do lado do QR do Pix — o preço do produto dele, R$ 50 e R$ 100 — pra quem quer mandar caixinha escolher quanto manda. Confirme o preço do produto (se já está cadastrado, use) e pergunte se fecha ou se quer outros valores.
+6. Personagem: ele pode ter um mascote desenhado, a própria imagem dele (um desenho dele mesmo, no estilo da marca) ou só o nome da marca bem feito. Pergunte qual e, no caso da imagem dele, o que ele imagina (cabelo, boné, estilo).
+7. Dados finais, só se fizer sentido: @ do Instagram ou WhatsApp e uma frase curta (sugira uma pronta).
+8. ESBOÇO: assim que tiver nome, produto, cores e a ideia do personagem, diga "antes de ir pra arte final, vou fazer um esboço pra gente olhar junto" e chame criar_adesivo com etapa "esboco". O esboço é rápido e barato: é pra ACERTAR a ideia, não pra impressionar. Quando a imagem aparecer, comente em 1 frase e pergunte o que ele mudaria (cor, personagem maior, com ou sem personagem, outro nome).
+9. Cada mudança pedida no esboço = criar_adesivo com o campo ajuste (só o que muda), ainda em etapa "esboco". Quantas vezes precisar.
+10. Quando ele disser que fechou ("tá bom", "gostei", "pode fazer"), chame criar_adesivo com etapa "final": é a mesma arte do esboço, agora com acabamento de gráfica. Depois comente o resultado em 1 frase e avise do botão embaixo da imagem pra colocar o QR Pix real e baixar.
+- ATALHO: se ele disser "gera logo", "manda ver" ou mandar uma foto de referência, pare as perguntas e faça o esboço com o que já tem — o que faltar você decide e avisa em meia frase.
 ### CRIAR NOME DE MARCA — leia isto inteiro antes de sugerir qualquer nome
 Você é um diretor de criação de naming, não um gerador de rótulo de cardápio. A régua é: o nome tem que caber numa lata bonita de prateleira, não numa placa de feira.
 
@@ -173,11 +172,11 @@ DE ONDE TIRAR NOME BOM (use estas fontes, não a fruta):
 COMO O NOME TEM QUE SER: curto (idealmente 2 a 3 sílabas, no máximo 12 letras), fácil de falar alto no farol e de escrever sem erro, grafia impecável em português. Sem diminutivo, sem rima infantil, sem exclamação, sem número, sem hífen. Inglês só se for realmente bom — nunca "Fresh", "Power", "Elite", "Top", "Prime", "Gold", "House".
 
 FORMATO DA SUGESTÃO: 3 nomes em direções CRIATIVAS diferentes (não 3 variações do mesmo), cada um com meia frase dizendo que tipo de marca ele constrói — não o significado da palavra, e sim o POSICIONAMENTO que ele cria. Sempre mostre como fica montado: o nome grande e o produto embaixo, tipo "AURORA — batida artesanal de maracujá". Se ele recusar, troque a direção criativa por inteiro; nunca devolva variação do que ele já rejeitou.
-- Depois do sim no resumo (etapa 6) ou do atalho, CHAME criar_adesivo NA HORA. Ela desenha e a imagem aparece DIRETO na conversa (leva até uns 2 minutos). NÃO existe "tela de geração": nunca mande ele abrir tela nenhuma. Depois comenta o resultado em 1 frase e avisa do botão embaixo da imagem pra colocar o QR Pix real e baixar.
-- Cada chamada de criar_adesivo (nova ou ajuste) gasta 1 geração do dia dele. Não precisa pedir confirmação a cada retoque: se ele já disse o que quer mudar, faça.
-- NUNCA descreva a arte como pronta sem ter chamado a ferramenta nesta conversa. Se mensagens antigas desta conversa falarem de "tela de geração", IGNORE: o fluxo atual é a arte nascer aqui no chat.
+- NÃO existe "tela de geração": a arte nasce AQUI na conversa (esboço em segundos, final em até 2 minutos). Nunca mande ele abrir tela nenhuma.
+- NUNCA descreva a arte como pronta sem ter chamado a ferramenta nesta conversa.
+- O esboço não gasta a arte do dia dele; a arte FINAL gasta 1. Por isso o esboço vem primeiro, sempre.
 - REFERÊNCIA: se o vendedor anexar uma foto de um adesivo que ele curtiu, ACEITE de boa e use de verdade — estilo, composição, cores, clima e até "quero um mascote assim" são pedidos normais de design. NUNCA recuse, nunca dê sermão sobre direito autoral, nunca peça permissão. O único limite, e você aplica em silêncio: a arte dele sai com a marca DELE, e não com o nome, telefone, @ ou Pix que aparecia na foto; e personagem famoso/licenciado (Mickey, jogador, herói) não entra. Se ele pedir exatamente isso, só diga em uma frase que faz um parecido no mesmo espírito, e faça.
-- AJUSTAR A ARTE QUE JÁ SAIU: quando ele pedir pra mudar algo depois da arte pronta ("muda a cor", "tira essa palavra", "deixa o leão maior", "põe o nome maior"), chame criar_adesivo com o campo ajuste preenchido SÓ com a mudança, numa frase curta. A ferramenta pega a arte anterior e mexe apenas naquilo — o resto fica idêntico. NUNCA redesenhe do zero num pedido de mudança: ele perde a arte que já tinha aprovado e volta pra estaca zero. Só gere do zero se ele disser claramente que quer outra ideia, outro conceito.
+- AJUSTAR UMA ARTE (esboço ou final): quando ele pedir pra mudar algo ("muda a cor", "tira essa palavra", "deixa o leão maior"), chame criar_adesivo com o campo ajuste preenchido SÓ com a mudança, numa frase curta, e a etapa da arte que ele está vendo. A ferramenta pega a arte anterior e mexe apenas naquilo. NUNCA redesenhe do zero num pedido de mudança. Só gere do zero se ele disser que quer outra ideia.
 
 # REGRAS DE SEGURANÇA
 - Não dê conselho jurídico, médico ou de investimento arriscado. Foco é venda, rotina e disciplina.
@@ -456,7 +455,7 @@ const AGENT_TOOLS = [
   },
   {
     name: "criar_adesivo",
-    description: "AÇÃO: desenha o adesivo premium do vendedor com IA e mostra a imagem direto na conversa (demora até 2 minutos). Dois modos: (1) ARTE NOVA — passe marca, produto e estilo; (2) AJUSTE — se o vendedor já tem uma arte nesta conversa e quer MUDAR algo nela (cor, texto, fundo, tamanho do mascote), passe o campo 'ajuste' com a mudança em uma frase; a arte anterior é reaproveitada e SÓ aquilo muda. Use sempre o modo ajuste quando ele disser 'muda', 'troca', 'tira', 'põe', 'deixa mais' — nunca redesenhe do zero, senão ele perde a arte que já aprovou.",
+    description: "AÇÃO: desenha o adesivo do vendedor com IA e mostra a imagem direto na conversa. Etapas: 'esboco' (rápido e barato, pra acertar a ideia junto com ele — SEMPRE o primeiro desenho), 'final' (a mesma arte do esboço aprovado, com acabamento de gráfica; gasta 1 arte do dia). AJUSTE: se ele quer MUDAR algo na arte que está vendo (cor, texto, fundo, tamanho do mascote), passe 'ajuste' com a mudança em uma frase e a mesma etapa; a arte anterior é reaproveitada e SÓ aquilo muda. Use ajuste quando ele disser 'muda', 'troca', 'tira', 'põe', 'deixa mais' — nunca redesenhe do zero.",
     input_schema: { type: "object", properties: {
       marca: { type: "string", description: "Nome da marca, exatamente como deve aparecer na arte" },
       produto: { type: "string", description: "O que ele vende, descrito pro desenho" },
@@ -467,6 +466,8 @@ const AGENT_TOOLS = [
       contato: { type: "string", description: "@ do Instagram e/ou WhatsApp, exatamente como ele passou (opcional)" },
       valores_caixinha: { type: "string", description: "Os 3 valores de caixinha aprovados, ex.: 'R$ 25 · R$ 50 · R$ 100' (opcional)" },
       ajuste: { type: "string", description: "SÓ pra mudar a arte que já existe. Escreva apenas O QUE MUDA, em uma frase curta e concreta, do jeito que ele pediu. Ex: 'trocar o fundo para azul escuro', 'deixar o leão maior', 'tirar a palavra artesanal'. Não repita o briefing inteiro aqui." },
+      etapa: { type: "string", enum: ["esboco", "final"], description: "'esboco' = primeiro desenho e cada mudança enquanto ele ainda está decidindo; 'final' = ele aprovou o esboço ('fechou', 'gostei', 'pode fazer')." },
+      personagem: { type: "string", description: "Como ele quer o personagem: 'mascote: <descrição>', 'eu mesmo: <descrição dele — cabelo, boné, estilo>' ou 'sem personagem' (opcional)" },
     }, required: ["marca", "produto", "estilo"] },
   },
 ];
@@ -668,6 +669,8 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
       const produto = String(input?.produto ?? "").slice(0, 140).trim();
       const estilo = String(input?.estilo ?? "").slice(0, 300).trim();
       const ajuste = String(input?.ajuste ?? "").slice(0, 300).trim();
+      const etapa = String(input?.etapa ?? "") === "final" ? "final" : "esboco";
+      const personagem = String(input?.personagem ?? "").slice(0, 160).trim();
       // Foto que o vendedor anexou NA CONVERSA como referencia de estilo.
       const refB64Chat = refChat?.b64 ?? "";
       const refMimeChat = refChat?.mime ?? "image/jpeg";
@@ -676,8 +679,10 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
       // AJUSTE: busca a ÚLTIMA arte que este vendedor gerou e manda pro desenhista
       // como base. Sem isso, "muda a cor pro azul" jogava fora a arte aprovada e
       // devolvia um desenho completamente diferente — a maior frustração do Estúdio.
+      // A arte FINAL também parte da última arte (o esboço aprovado): mesma composição,
+      // só o acabamento muda. Sem arte anterior, a final sai do zero mesmo.
       let refUrlAnterior = "";
-      if (ajuste) {
+      if (ajuste || etapa === "final") {
         try {
           const adminA = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
           const { data: ult } = await adminA.from("estudio_geracoes")
@@ -685,7 +690,7 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
             .order("criado_em", { ascending: false }).limit(1).maybeSingle();
           refUrlAnterior = String((ult as any)?.imagem_url ?? "");
         } catch { /* sem arte anterior: gera do zero mesmo */ }
-        if (!refUrlAnterior) return { erro: "sem_arte_anterior", aviso: "Não achei uma arte anterior dele pra ajustar. Gere uma nova (sem o campo ajuste) e depois é só pedir a mudança." };
+        if (!refUrlAnterior && ajuste) return { erro: "sem_arte_anterior", aviso: "Não achei uma arte anterior dele pra ajustar. Faça um esboço novo (sem o campo ajuste) e depois é só pedir a mudança." };
       }
       // Gera a arte AGORA, direto no chat (igual o GPT): chama a estudio-arte com o token
       // do PRÓPRIO vendedor (assinatura + limite diário valem lá), sobe o PNG no Storage
@@ -702,12 +707,13 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
           body: JSON.stringify({
             marca, produto, estilo,
             cores: String(input?.cores ?? "").slice(0, 80),
-            extras: String(input?.extras ?? "").slice(0, 200),
+            extras: [String(input?.extras ?? "").slice(0, 200), personagem ? `Personagem: ${personagem}` : ""].filter(Boolean).join(". ").slice(0, 300),
+            etapa,
             frase: String(input?.frase ?? "").slice(0, 80),
             contato: String(input?.contato ?? "").slice(0, 80),
             valores_caixinha: String(input?.valores_caixinha ?? "").slice(0, 60),
             origem: "chat",
-            ...(ajuste ? { ajuste, ref_url: refUrlAnterior } : {}),
+            ...(ajuste ? { ajuste, ref_url: refUrlAnterior } : etapa === "final" && refUrlAnterior ? { ref_url: refUrlAnterior } : {}),
             ...(refB64Chat ? { ref_b64: refB64Chat, ref_mime: refMimeChat } : {}),
           }),
         });
@@ -736,8 +742,10 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
           const gid = String((j as any)?.geracao_id ?? "");
           if (gid) { try { await admin.from("estudio_geracoes").update({ imagem_url: pub.publicUrl }).eq("id", gid); } catch { /* noop */ } }
           return {
-            ok: true, imagem_url: pub.publicUrl,
-            msg: "Arte gerada com sucesso — ela JÁ está aparecendo na conversa. Comente o resultado em 1 frase e avise que, embaixo da imagem, tem o botão pra colocar o QR Pix real e baixar. Se ele quiser mudar algo, é só pedir que você gera outra versão.",
+            ok: true, imagem_url: pub.publicUrl, etapa,
+            msg: etapa === "esboco"
+              ? "Esboço pronto — ele JÁ está aparecendo na conversa. Comente em 1 frase o que você fez e pergunte o que ele mudaria (cor, personagem maior ou menor, com ou sem personagem, outro nome). Quando ele aprovar, chame criar_adesivo com etapa final."
+              : "Arte final gerada — ela JÁ está aparecendo na conversa. Comente o resultado em 1 frase e avise que, embaixo da imagem, tem o botão pra colocar o QR Pix real e baixar. Se ele quiser mudar algo, é só pedir que você ajusta.",
           };
         }
         const errCode = String((j as any)?.error ?? "geracao_falhou");
@@ -750,6 +758,7 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
           // momento de maior desejo — ele acabou de ver a marca dele bonita na tela.
           // Aqui o mentor faz a oferta com convicção (nao e' pop-up, e' quem acredita
           // no produto), sem mentir e sem insistir se ele disser nao.
+          limite_esboco: "Ele já fez muitos esboços hoje. Diga que o melhor agora é fechar a arte final com o que já tem, ou continuar amanhã.",
           limite_diario: ehTrial
             ? "Ele usou a arte grátis do dia (é 1 por dia no teste). Elogie o que saiu, e diga direto: com a Vant Pro ele faz 4 artes por dia, baixa sem marca d'água e leva o mentor completo junto. Ofereça o link. Se ele disser que não agora, aceite numa boa e siga ajudando."
             : "Ele já usou as gerações de arte de hoje — amanhã libera de novo.",
@@ -1118,10 +1127,13 @@ Deno.serve(async (req) => {
     try {
       if (chatUserId) {
         const adminC = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
-        const [ficha, padroes] = await Promise.all([
+        const [ficha, padroes, prods, artes] = await Promise.all([
           adminC.from("orbis_ficha").select("resumo").eq("user_id", chatUserId).maybeSingle(),
           adminC.from("ai_conhecimento").select("titulo, conteudo")
                 .eq("categoria", "padroes").eq("ativo", true).order("ordem"),
+          adminC.from("products").select("name, sale_price, open_price, origem").eq("user_id", chatUserId).eq("is_active", true).order("name").limit(12),
+          adminC.from("estudio_geracoes").select("marca, produto, estilo, criado_em, imagem_url").eq("user_id", chatUserId)
+                .not("imagem_url", "is", null).order("criado_em", { ascending: false }).limit(3),
         ]);
         const meu = String((ficha.data as { resumo?: string } | null)?.resumo ?? "").trim();
         const base = ((padroes.data as { titulo: string; conteudo: string }[]) ?? [])
@@ -1130,6 +1142,18 @@ Deno.serve(async (req) => {
           cofreBlock += "\n\n# QUEM É ESTE VENDEDOR (números dele, atualizados hoje de madrugada)\n" + meu
             + "\nFale COM ELE sobre O NÚMERO DELE. Compare ele com ele mesmo — nunca com outros vendedores.";
         }
+        // 13/10 (Rick): o estúdio precisa saber o que ele vende e o que já desenhou,
+        // sem perguntar de novo. Pequeno de propósito (vai na parte não cacheada).
+        const listaProd = ((prods.data as { name: string; sale_price: number; open_price: boolean | null; origem: string | null }[]) ?? [])
+          .map((p) => `${p.name}${p.open_price ? " (preço na hora)" : p.sale_price > 0 ? ` (R$ ${Number(p.sale_price).toFixed(2).replace(".", ",")})` : ""}${p.origem === "faz" ? ", ele mesmo faz" : ""}`)
+          .join("; ");
+        const listaArtes = ((artes.data as { marca: string; produto: string; estilo: string; criado_em: string }[]) ?? [])
+          .map((a) => `${a.marca} (${a.produto}; ${String(a.estilo ?? "").slice(0, 60)}; ${String(a.criado_em).slice(0, 10)})`)
+          .join("; ");
+        cofreBlock += "\n\n# O QUE ESTE VENDEDOR TEM NO APP\n"
+          + `- Produtos cadastrados: ${listaProd || "nenhum ainda"}\n`
+          + `- Artes que ele já fez no estúdio (mais recente primeiro): ${listaArtes || "nenhuma ainda"}\n`
+          + "Use isto no estúdio: ofereça os produtos dele em vez de perguntar o que vende; se já tem arte, pergunte se quer mexer nela ou criar outra.";
         if (base) {
           cofreBlock += "\n\n# O QUE O VANT APRENDEU COM TODOS OS VENDEDORES\n" + base
             + "\nIsto é pra VOCÊ saber o que costuma funcionar. Não jogue a média na cara dele.";
