@@ -7,8 +7,8 @@ import { Chip } from "./mercado-casca";
 
 export interface OpcaoPara { id: string; nome: string; emoji: string | null }
 
-export function MercadoLinha({ linha, porItem, subtotal, opcoesPara, unidade, onMudar, onTirar }: {
-  linha: LinhaMercado; porItem: boolean; subtotal: number; opcoesPara: OpcaoPara[]; unidade?: string;
+export function MercadoLinha({ linha, porItem, subtotal, opcoesPara, unidade, emPacote, onMudar, onTirar }: {
+  linha: LinhaMercado; porItem: boolean; subtotal: number; opcoesPara: OpcaoPara[]; unidade?: string; emPacote?: boolean;
   onMudar: (patch: Partial<LinhaMercado>) => void; onTirar: () => void;
 }) {
   const escolher = opcoesPara.length > 1;
@@ -26,9 +26,9 @@ export function MercadoLinha({ linha, porItem, subtotal, opcoesPara, unidade, on
           <X className="w-5 h-5" />
         </button>
       </div>
-      <Contador valor={linha.qtd} onChange={(qtd) => onMudar({ qtd })} unidade={unidade} rotulo="Quantos" />
+      <Contador valor={linha.qtd} onChange={(qtd) => onMudar({ qtd })} unidade={unidade} rotulo={emPacote ? "Quantos pacotes" : "Quantos"} />
       {porItem && (
-        <CampoDinheiro rotulo="Preço de 1 (opcional)" valor={linha.precoUnit ?? 0}
+        <CampoDinheiro rotulo={emPacote ? "Preço do pacote (opcional)" : "Preço de 1 (opcional)"} valor={linha.precoUnit ?? 0}
           onChange={(n) => onMudar({ precoUnit: n > 0 ? n : null })} />
       )}
       {escolher && (

@@ -2,7 +2,7 @@
    prévia ao vivo (mesma conta do banco, em lib/mercado). */
 import { useMemo, useRef, useState } from "react";
 import {
-  calcularMercado, itensParaRpc, totaisDasLinhas,
+  calcularMercado, emUnidades, itensParaRpc, totaisDasLinhas,
   type BaseMercado, type LinhaMercado, type TipoLinha,
 } from "../lib/mercado";
 
@@ -17,8 +17,10 @@ export function useMercado(base: BaseMercado | undefined) {
   const [modo, setModo] = useState<ModoPreco>("item");
   const [total, setTotal] = useState(0);
 
-  const previa = useMemo(() => calcularMercado(linhas, b), [linhas, b]);
-  const subtotais = useMemo(() => totaisDasLinhas(linhas, modo === "item", total, b), [linhas, modo, total, b]);
+  // a tela conta pacotes; a conta (igual à do banco) usa a unidade de medida
+  const emUn = useMemo(() => linhas.map((l) => emUnidades(l, b)), [linhas, b]);
+  const previa = useMemo(() => calcularMercado(emUn, b), [emUn, b]);
+  const subtotais = useMemo(() => totaisDasLinhas(emUn, modo === "item", total, b), [emUn, modo, total, b]);
   const totalItens = subtotais.reduce((s, x) => s + x, 0);
 
   const adicionar = (tipo: TipoLinha, id: string | null, nome: string) => {
@@ -35,7 +37,7 @@ export function useMercado(base: BaseMercado | undefined) {
 
   const temItem = linhas.some((l) => l.qtd > 0);
   const podeConcluir = temItem && previa.pendentes.length === 0;
-  const itens = () => itensParaRpc(linhas, modo === "item", b);
+  const itens = () => itensParaRpc(emUn, modo === "item", b);
 
   return {
     linhas, modo, setModo, total, setTotal, previa, subtotais, totalItens,

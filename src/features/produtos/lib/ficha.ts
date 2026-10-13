@@ -4,7 +4,7 @@
 import type { IngredienteDaReceita } from "../api/use-receita-query";
 import type { ProdutoComFaixas } from "../types";
 import { custoPorUnidade } from "./conta";
-import { receitaDoRascunho, totalDaReceita, type IngredienteRascunho } from "./receitas";
+import { precoDe1, rascunhoDaReceita, receitaDoRascunho, totalDaReceita, type IngredienteRascunho } from "./receitas";
 
 export interface Ficha {
   nome: string;
@@ -30,7 +30,7 @@ export function fichaDe(p: ProdutoComFaixas, receita: IngredienteDaReceita[]): F
     preco: p.sale_price, precoLivre: !!p.open_price,
     combos: p.faixas.filter((f) => f.qty >= 2).map((f) => ({ qty: f.qty, price: f.price })),
     custo: p.cost, estoque: p.stock_quantity, estoqueMin: p.stock_min, controlaEstoque: p.controla_estoque !== false,
-    itens: receita.map((i) => ({ id: i.id, nome: i.nome, qtd: i.qtd, preco: i.preco, usa: true })),
+    itens: rascunhoDaReceita(receita),
     rende: p.batch_yield > 0 ? p.batch_yield : 20,
   };
 }
@@ -40,7 +40,7 @@ export function fichaDe(p: ProdutoComFaixas, receita: IngredienteDaReceita[]): F
 export function custoDaFicha(f: Ficha): { valor: number; pelaReceita: boolean } {
   if (f.origem === "faz") {
     const usados = f.itens.filter((i) => i.usa && i.qtd > 0 && i.nome.trim());
-    if (usados.length > 0 && usados.every((i) => i.preco > 0)) {
+    if (usados.length > 0 && usados.every((i) => precoDe1(i) > 0)) {
       return { valor: custoPorUnidade(totalDaReceita(usados), f.rende), pelaReceita: true };
     }
   }
