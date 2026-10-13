@@ -51,6 +51,7 @@ const Settings = lazyWithReload(() => import("@/pages/Settings"));
 const Products = lazyWithReload(() => import("@/pages/Products"));
 const ProdutosPage = lazyWithReload(() => import("@/features/produtos/routes/produtos-page"));
 const QuizProdutoPage = lazyWithReload(() => import("@/features/produtos/routes/quiz-produto-page"));
+const MercadoPage = lazyWithReload(() => import("@/features/produtos/routes/mercado-page"));
 const CustoProduto = lazyWithReload(() => import("@/pages/CustoProduto"));
 const Chat = lazyWithReload(() => import("@/pages/Chat"));
 const Finances = lazyWithReload(() => import("@/pages/Finances"));
@@ -185,6 +186,7 @@ export function AppRouter() {
                     <Route path="/products" element={<FeatureErrorBoundary title="Produtos"><ProdutosPage /></FeatureErrorBoundary>} />
                     <Route path="/products/novo" element={<FeatureErrorBoundary title="Produtos"><QuizProdutoPage /></FeatureErrorBoundary>} />
                     <Route path="/products/ficha" element={<Products />} />
+                    <Route path="/products/mercado" element={<FeatureErrorBoundary title="Produtos"><MercadoPage /></FeatureErrorBoundary>} />
                     <Route path="/products/:id" element={<FeatureErrorBoundary title="Produtos"><QuizProdutoPage /></FeatureErrorBoundary>} />
                     <Route path="/custo-produto" element={<CustoProduto />} />
                     <Route path="/bank-connections" element={<BankConnections />} />

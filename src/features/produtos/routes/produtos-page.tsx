@@ -70,10 +70,10 @@ export default function ProdutosPage() {
       )}
 
       <div className="fixed left-0 right-0 z-40 px-4 max-w-md mx-auto" style={{ bottom: "calc(max(env(safe-area-inset-bottom), 0.5rem) + 74px)" }}>
-        <button type="button" onClick={() => setChegou({ aberto: true })} className="w-full rounded-2xl p-3.5 flex items-center gap-2.5 text-left"
+        <button type="button" onClick={() => navigate("/products/mercado")} className="w-full rounded-2xl p-3.5 flex items-center gap-2.5 text-left"
           style={{ border: "1px solid transparent", background: "linear-gradient(#171206,#0f0d08) padding-box, linear-gradient(135deg,#FFE27A,#B88E00 60%,#FFC800) border-box" }}>
-          <span className="text-xl">📦</span>
-          <span className="flex-1 flex flex-col"><span className="text-sm font-black">Chegou mercadoria</span><span className="text-[11.5px] font-bold" style={{ color: "#7b766e" }}>soma no estoque e acerta o custo</span></span>
+          <span className="text-xl">🛒</span>
+          <span className="flex-1 flex flex-col"><span className="text-sm font-black">Tô no mercado</span><span className="text-[11.5px] font-bold" style={{ color: "#7b766e" }}>anota a compra e o estoque sobe sozinho</span></span>
           <span className="font-black" style={{ color: "#F5B800" }}>›</span>
         </button>
       </div>
