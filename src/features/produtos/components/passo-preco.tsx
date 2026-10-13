@@ -4,7 +4,7 @@ import { lucroDe, precosVizinhos } from "../lib/conta";
 import { CampoDinheiro, Contador, reais } from "./campos";
 import { BotaoOuro, LinkCinza, QuizCasca } from "./quiz-casca";
 
-function CardLucro({ preco, custo }: { preco: number; custo: number }) {
+export function CardLucro({ preco, custo }: { preco: number; custo: number }) {
   const l = lucroDe(preco, custo);
   const pctCusto = preco > 0 ? Math.min(100, Math.max(0, Math.round((custo / preco) * 100))) : 0;
   const ruim = l.sobra <= 0;

@@ -4,6 +4,7 @@ import { marcarPasso } from "@/components/jornada/useJornada";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import type { RascunhoProduto } from "../types";
 import { produtosKeys } from "./use-produtos-query";
+import { salvarReceita } from "./salvar-receita";
 
 /** Salva o produto do quiz (novo ou editado) e o combo dele. Devolve o id.
  *  Na edição, estoque e custo só são gravados se ele mexeu: o Foco e as compras
@@ -48,6 +49,7 @@ export function useSalvarProdutoMutation(userId: string | undefined, inicial?: R
           .upsert({ user_id: userId, product_id: id, qty: r.combo.qty, price: r.combo.price }, { onConflict: "product_id,qty" });
         if (error) throw error;
       }
+      if (r.receita) await salvarReceita(id, r.receita, r.rende);
       if (!r.id) {
         void marcarPasso("produto"); // jornada do teste: dia 0 "cadastrar seu produto"
         emitMissionEvent("product-added");

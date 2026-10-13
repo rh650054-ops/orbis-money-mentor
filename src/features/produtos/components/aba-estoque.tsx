@@ -1,11 +1,12 @@
-/* Aba Estoque: quanto tem em mercadoria, o que precisa repor e a ficha técnica. */
-import { ChevronRight } from "lucide-react";
+/* Aba Estoque: quanto tem em mercadoria, o que precisa repor e os ingredientes
+   guardados (antes escondidos na "Ficha técnica", agora aqui — Rick, 12/10/2026). */
 import type { ProdutoComFaixas } from "../types";
+import { IngredientesGuardados } from "./ingredientes-guardados";
 import { reais } from "./campos";
 import { estoqueBaixo } from "./produto-card";
 
-export function AbaEstoque({ produtos, onRepor, onFicha }: {
-  produtos: ProdutoComFaixas[]; onRepor: (id: string) => void; onFicha: () => void;
+export function AbaEstoque({ produtos, userId, onRepor }: {
+  produtos: ProdutoComFaixas[]; userId: string | undefined; onRepor: (id: string) => void;
 }) {
   const controlados = produtos.filter((p) => p.controla_estoque !== false);
   const valor = controlados.reduce((s, p) => s + Math.max(0, p.stock_quantity) * Math.max(0, p.cost), 0);
@@ -38,14 +39,7 @@ export function AbaEstoque({ produtos, onRepor, onFicha }: {
       {controlados.length === 0 && (
         <p className="text-sm text-center py-6" style={{ color: "#7b766e" }}>Nenhum produto com controle de estoque.</p>
       )}
-      <button type="button" onClick={onFicha} className="rounded-2xl px-3.5 py-3 flex items-center gap-2.5 text-left mt-2" style={{ background: "#0f0f10", border: "1px dashed #3a3833" }}>
-        <span className="text-lg">👩‍🍳</span>
-        <span className="flex-1 flex flex-col">
-          <span className="text-[13px] font-extrabold">Ficha técnica e ingredientes</span>
-          <span className="text-[11.5px] font-bold" style={{ color: "#7b766e" }}>receita de cada produto e estoque dos ingredientes</span>
-        </span>
-        <ChevronRight className="w-4 h-4" style={{ color: "#7b766e" }} />
-      </button>
+      <IngredientesGuardados userId={userId} />
     </div>
   );
 }

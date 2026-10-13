@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { emojiDoNome } from "../lib/conta";
-import { RASCUNHO_VAZIO, type ProdutoComFaixas, type RascunhoProduto } from "../types";
+import { RASCUNHO_VAZIO, type ItemReceita, type ProdutoComFaixas, type RascunhoProduto } from "../types";
 
 export type PassoQuiz = "nome" | "origem" | "custo" | "preco" | "estoque" | "pronto";
 const ORDEM: PassoQuiz[] = ["nome", "origem", "custo", "preco", "estoque", "pronto"];
@@ -12,6 +12,7 @@ export function rascunhoDe(p: ProdutoComFaixas): RascunhoProduto {
     id: p.id, nome: p.name, emoji: p.emoji || emojiDoNome(p.name), foto: p.photo_url,
     origem: p.origem, custo: p.cost, preco: p.sale_price, precoLivre: !!p.open_price,
     combo, estoque: p.stock_quantity, controlaEstoque: p.controla_estoque !== false,
+    receita: null, rende: p.batch_yield,
   };
 }
 
@@ -42,6 +43,7 @@ export function useQuizProduto(inicial?: RascunhoProduto) {
     setPreco: (preco: number) => mudar({ preco, precoLivre: false }),
     setPrecoLivre: () => { mudar({ precoLivre: true, preco: 0, combo: null }); ir("estoque"); },
     setCombo: (combo: RascunhoProduto["combo"]) => mudar({ combo }),
+    setReceita: (receita: ItemReceita[] | null, rende: number) => mudar({ receita, rende }),
     setEstoque: (estoque: number) => mudar({ estoque, controlaEstoque: true }),
     semEstoque: () => mudar({ controlaEstoque: false, estoque: 0 }),
   };
