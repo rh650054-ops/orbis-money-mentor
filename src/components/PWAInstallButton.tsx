@@ -8,13 +8,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
+import { ehAppDaLoja } from "@/shared/lib/platform";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-export default function PWAInstallButton() {
+function PWAInstallButtonWeb() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -168,4 +169,9 @@ export default function PWAInstallButton() {
       </Dialog>
     </>
   );
+}
+
+/** Dentro do app da loja já está instalado: o botão de instalar não aparece. */
+export default function PWAInstallButton() {
+  return ehAppDaLoja() ? null : <PWAInstallButtonWeb />;
 }

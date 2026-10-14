@@ -4,6 +4,7 @@ import { getTier } from "@/components/ranking/tier";
 import { abrirCheckout, getCheckoutUrl } from "@/shared/lib/checkout";
 import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import GoldParticles from "../GoldParticles";
+import { podeMostrarAssinatura } from "@/shared/lib/cobranca-loja";
 
 interface MissionRewardProps {
   /** Encerra a missão (marca como concluída). */
@@ -74,12 +75,14 @@ export default function MissionReward({ onAdvance }: MissionRewardProps) {
         >
           Bora vender! →
         </button>
+        {podeMostrarAssinatura() && (
         <button
           onClick={handleSubscribe}
           className="text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           Assinar agora e garantir tudo
         </button>
+        )}
       </div>
     </div>
   );

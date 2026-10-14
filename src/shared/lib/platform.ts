@@ -3,12 +3,11 @@ import { Capacitor } from "@capacitor/core";
 /*
  * Where is VANT running?
  *  - "web":     browser / installed PWA (app.orbis.inf.br). Hotmart checkout allowed.
- *  - "android": Play Store build. Subscriptions MUST go through Google Play Billing
- *               (Brazil is not in Google's billing-choice program as of 10/2026).
- *  - "ios":     App Store build. Subscriptions go through Apple In-App Purchase.
+ *  - "android": Play Store build.
+ *  - "ios":     App Store build.
  *
- * Every place that opens a Hotmart link must check `podeUsarCheckoutWeb()` first;
- * a Hotmart link inside a store build gets the app rejected.
+ * How the store build handles subscriptions lives in cobranca-loja.ts
+ * (modoCobranca): every checkout goes through abrirCheckout, which respects it.
  */
 export type Plataforma = "web" | "android" | "ios";
 

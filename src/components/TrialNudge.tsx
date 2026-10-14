@@ -4,6 +4,7 @@ import { useTrialStatus } from "@/hooks/useTrialStatus";
 import { abrirCheckout, getCheckoutUrl } from "@/shared/lib/checkout";
 import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import { Sparkles, X } from "lucide-react";
+import { soComAssinatura } from "@/shared/components/assinatura-loja";
 
 interface TrialNudgeProps {
   userId: string;
@@ -22,7 +23,7 @@ interface TrialNudgeProps {
  * Aparece para quem ainda não assinou (e não está expirado/demo), mostrando o
  * valor da funcionalidade e quantos dias faltam, com a opção de assinar na hora.
  */
-export function TrialNudge({ userId, title, benefit, momentKey, oncePerDay = true }: TrialNudgeProps) {
+function TrialNudgeVenda({ userId, title, benefit, momentKey, oncePerDay = true }: TrialNudgeProps) {
   const { trialStatus, loading } = useTrialStatus(userId);
   const [closed, setClosed] = useState(false);
   const [show, setShow] = useState(false);
@@ -118,3 +119,5 @@ export function TrialNudge({ userId, title, benefit, momentKey, oncePerDay = tru
     </div>
   );
 }
+
+export const TrialNudge = soComAssinatura(TrialNudgeVenda, "nada");

@@ -12,6 +12,7 @@ import { getProCheckoutUrl, BANCO_EXTRA_CHECKOUT, aoClicarCheckout, type PlanoPr
 import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import { SeloVerificado } from "@/components/ranking/AvatarRanking";
 import { SO_PRO, ECONOMIA_ANUAL, PRECO_BANCO, PRECO_MENSAL, ESSENCIAL_COM_BANCO, PRECO_ESSENCIAL, brl } from "./pro-lib";
+import { soComAssinatura } from "@/shared/components/assinatura-loja";
 
 const GOLD = "#F5B800";
 const OK = "#3DD68C";
@@ -64,7 +65,7 @@ function Plano({ ativo, onClick, titulo, preco, sub, risca, economia, selo }: {
   );
 }
 
-export function PaywallPro() {
+function PaywallProVenda() {
   const [plano, setPlano] = useState<PlanoPro>("anual");
   const outro: PlanoPro = plano === "anual" ? "mensal" : "anual";
   const montar = useCheckoutUrl();
@@ -141,3 +142,5 @@ export function PaywallPro() {
     </div>
   );
 }
+
+export const PaywallPro = soComAssinatura(PaywallProVenda);
