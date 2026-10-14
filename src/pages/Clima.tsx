@@ -11,6 +11,7 @@ import { Loader2, MapPin } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useClima } from "@/hooks/useClima";
 import { cidadeCurta } from "@/components/clima/picos";
+import { quandoFoi, tempoDeAgora } from "@/components/clima/frescor";
 import { decisaoAgora, janelasDeVenda, planoDoDia, riscoSevero } from "@/components/clima/decisao";
 import { HeroClima } from "@/components/clima/tela/HeroClima";
 import { OpiniaoVant } from "@/components/clima/tela/OpiniaoVant";
@@ -31,8 +32,14 @@ const ehNoturno = (h?: number | null) => h != null && (h >= 19 || h <= 4);
 export default function Clima() {
   const { user } = useAuth();
   const { contexto, perfilHoras, aprendizado } = useContextoClima(user?.id);
-  const { tempo, extras, responder, opiniao, carregando, erro, permissao, recarregar, pedirPermissao } =
+  const { tempo: tempoGuardado, extras, responder, opiniao, carregando, erro, permissao, recarregar, pedirPermissao } =
     useClima({ contexto: contexto ?? undefined, auto: contexto !== null });
+  // A leitura guardada no aparelho perde o passado (dias e horas que já foram).
+  const visto = useMemo(() => (tempoGuardado ? tempoDeAgora(tempoGuardado) : null), [tempoGuardado]);
+  // Leitura com mais de 6 h não serve pro "agora" (chovendo, sair pra vender):
+  // se a atualização falhou, a tela assume que não sabe em vez de chutar.
+  const velhaDemais = erro === "falhou" && !!extras.atualizadoEm && Date.now() - new Date(extras.atualizadoEm).getTime() > 6 * 3600 * 1000;
+  const tempo = velhaDemais ? null : visto?.tempo ?? null;
 
   const noturno = ehNoturno(contexto?.melhorHora);
   const janelas = useMemo(() => (tempo ? janelasDeVenda(tempo, perfilHoras) : []), [tempo, perfilHoras]);
@@ -65,7 +72,11 @@ export default function Clima() {
         ) : erro === "falhou" ? (
           <section className="rounded-[22px] border p-5 text-center" style={{ background: "#0e0e10", borderColor: "rgba(255,255,255,.08)" }}>
             <p className="text-[16px] font-bold">Não consegui ler o céu agora</p>
-            <p className="text-[14px] mt-1" style={{ color: "#b3ada3" }}>Tenta de novo em 1 minuto.</p>
+            <p className="text-[14px] mt-1" style={{ color: "#b3ada3" }}>Os modelos de clima não responderam. Tenta de novo em 1 minuto.</p>
+            <button type="button" onClick={() => void recarregar()} disabled={carregando}
+              className="mt-3 h-11 px-5 rounded-[12px] inline-flex items-center justify-center gap-2 text-[14px] font-black" style={{ background: "#F5B800", color: "#141005" }}>
+              {carregando && <Loader2 className="w-4 h-4 animate-spin" />} Tentar de novo
+            </button>
           </section>
         ) : (
           <div className="flex flex-col gap-4">{[260, 150, 180].map((h) => <div key={h} className="rounded-[22px] animate-pulse" style={{ height: h, background: "#131211" }} />)}</div>
@@ -82,12 +93,22 @@ export default function Clima() {
 
   return (
     <div className="px-4 pt-2 pb-12 max-w-2xl mx-auto flex flex-col gap-7">
+      {(erro === "falhou" || visto?.velha) && !carregando && (
+        <section role="status" className="rounded-[16px] border px-4 py-3 flex items-center gap-3" style={{ background: "#1a1408", borderColor: "rgba(245,184,0,.35)" }}>
+          <p className="flex-1 text-[13.5px] leading-snug" style={{ color: "#e9dfc9" }}>
+            {erro === "falhou" ? "Os modelos de clima não responderam agora." : "Essa leitura é antiga."} Mostrando a última leitura{extras.atualizadoEm ? ` (${quandoFoi(extras.atualizadoEm)})` : ""}.
+          </p>
+          <button type="button" onClick={() => void recarregar()} className="shrink-0 h-9 px-3 rounded-[10px] text-[13px] font-black" style={{ background: "#F5B800", color: "#141005" }}>
+            Tentar de novo
+          </button>
+        </section>
+      )}
       <HeroClima t={tempo} cidade={cidade} decisao={decisao!} janela={sev ? null : janelas.find((j) => j.boa) ?? janelas[0] ?? null}
         rede={extras.rede} atualizadoEm={extras.atualizadoEm} carregando={carregando} onAtualizar={() => void recarregar()} />
       {temAlerta && alertas}
       <HoraAHora horas={tempo.horas} />
       <JanelasVenda janelas={janelas} aprendendo={perfilHoras.length === 0} pausadoPor={sev?.titulo ?? null} />
-      <OpiniaoVant falas={opiniao?.falas ?? []} fontes={tempo.fontesTotal} pensando={carregando} />
+      <OpiniaoVant falas={opiniao?.falas ?? []} fontes={tempo.fontesTotal} pensando={carregando} falhou={erro === "falhou"} />
       <PlanoAcao passos={plano} />
       <ProximosDias dias={tempo.dias ?? []} />
       {!temAlerta && alertas}

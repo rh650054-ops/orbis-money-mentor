@@ -252,14 +252,36 @@ async function buscarTempo(lat: number, lon: number, pesos: Pesos = {}): Promise
   const uRef = `${base}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_gusts_10m,is_day,precipitation`
     + `&hourly=weather_code,precipitation_probability,precipitation,temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m`
     + `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum&forecast_days=7&past_days=14`;
-  const [rc, rr, oficiais] = await Promise.all([
-    fetch(uCons, { signal: AbortSignal.timeout(15000) }),
-    fetch(uRef, { signal: AbortSignal.timeout(15000) }),
+  /* Open-Meteo engasga às vezes (503, timeout — 14/10 de manhã foram várias).
+     Antes, uma falha da referência derrubava a tela inteira e o app ficava com
+     a previsão de dias atrás. Agora: tenta de novo, depois um pedido mais leve
+     (sem os 14 dias pra trás, que só alimentam o "padrão da região"), e o
+     consenso dos 6 modelos é opcional — sem ele, vale o modelo local. */
+  const uRefLeve = `${base}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_gusts_10m,is_day,precipitation`
+    + `&hourly=weather_code,precipitation_probability,precipitation,temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m`
+    + `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum&forecast_days=7`;
+  const pegarJson = async (url: string, ms: number) => {
+    const r = await fetch(url, { signal: AbortSignal.timeout(ms) });
+    if (!r.ok) throw new Error(`open_meteo_${r.status}`);
+    return await r.json();
+  };
+  const pegarRef = async () => {
+    const tentativas: [string, number][] = [[uRef, 10000], [uRef, 8000], [uRefLeve, 8000]];
+    let ultimo: unknown = null;
+    for (const [i, [url, ms]] of tentativas.entries()) {
+      try { return await pegarJson(url, ms); } catch (e) {
+        ultimo = e;
+        console.warn(`clima-vendedor: referência falhou (tentativa ${i + 1}):`, String(e).slice(0, 80));
+        if (i < tentativas.length - 1) await new Promise((r) => setTimeout(r, 600));
+      }
+    }
+    throw new Error(`open_meteo_ref_indisponivel: ${String(ultimo).slice(0, 80)}`);
+  };
+  const [cons, ref, oficiais] = await Promise.all([
+    pegarJson(uCons, 12000).catch((e) => { console.warn("clima-vendedor: consenso falhou (segue com o modelo local):", String(e).slice(0, 80)); return null; }),
+    pegarRef(),
     alertasOficiais(lat, lon),
   ]);
-  if (!rr.ok) throw new Error(`open_meteo_ref_${rr.status}`);
-  const ref = await rr.json();
-  const cons = rc.ok ? await rc.json() : null;
   const rh = ref.hourly ?? {};
   const rTimes: string[] = rh.time ?? [];
   const rIdx = new Map(rTimes.map((t, i) => [t, i]));
@@ -539,9 +561,18 @@ serve(async (req) => {
     if (cached && Date.now() - new Date(cached.atualizado_em).getTime() < 30 * 60 * 1000 && !body?.forcar && (cached.payload as Tempo)?.dias) {
       tempo = cached.payload as Tempo; atualizadoEm = cached.atualizado_em;
     } else {
-      tempo = await buscarTempo(cLat, cLon, pesos);
-      const { error: eCache } = await admin.from("clima_celula").upsert({ cell, payload: tempo, atualizado_em: atualizadoEm });
-      if (eCache) console.error("CACHE_CLIMA_FALHOU:", eCache.message);
+      try {
+        tempo = await buscarTempo(cLat, cLon, pesos);
+        const { error: eCache } = await admin.from("clima_celula").upsert({ cell, payload: tempo, atualizado_em: atualizadoEm });
+        if (eCache) console.error("CACHE_CLIMA_FALHOU:", eCache.message);
+      } catch (e) {
+        // Open-Meteo fora mesmo depois das tentativas: a última leitura boa da
+        // célula (até 6 h) com a hora REAL dela — melhor que tela de erro.
+        const idade = cached ? Date.now() - new Date(cached.atualizado_em).getTime() : Infinity;
+        if (!cached || idade > 6 * 3600 * 1000 || !(cached.payload as Tempo)?.dias) throw e;
+        console.warn("clima-vendedor: usando a leitura da célula de", Math.round(idade / 60000), "min atrás:", String(e).slice(0, 80));
+        tempo = cached.payload as Tempo; atualizadoEm = cached.atualizado_em;
+      }
     }
 
     /* "TÁ CHOVENDO AÍ?" (08/10): a resposta vale pra Rede VANT (célula de ~5 km)
