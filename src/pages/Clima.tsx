@@ -38,7 +38,7 @@ export default function Clima() {
   const visto = useMemo(() => (tempoGuardado ? tempoDeAgora(tempoGuardado) : null), [tempoGuardado]);
   // Leitura com mais de 6 h não serve pro "agora" (chovendo, sair pra vender):
   // se a atualização falhou, a tela assume que não sabe em vez de chutar.
-  const velhaDemais = erro === "falhou" && !!extras.atualizadoEm && Date.now() - new Date(extras.atualizadoEm).getTime() > 6 * 3600 * 1000;
+  const velhaDemais = erro !== null && !!extras.atualizadoEm && Date.now() - new Date(extras.atualizadoEm).getTime() > 6 * 3600 * 1000;
   const tempo = velhaDemais ? null : visto?.tempo ?? null;
 
   const noturno = ehNoturno(contexto?.melhorHora);
@@ -96,10 +96,10 @@ export default function Clima() {
       {(erro === "falhou" || visto?.velha) && !carregando && (
         <section role="status" className="rounded-[16px] border px-4 py-3 flex items-center gap-3" style={{ background: "#1a1408", borderColor: "rgba(245,184,0,.35)" }}>
           <p className="flex-1 text-[13.5px] leading-snug" style={{ color: "#e9dfc9" }}>
-            {erro === "falhou" ? "Os modelos de clima não responderam agora." : "Essa leitura é antiga."} Mostrando a última leitura{extras.atualizadoEm ? ` (${quandoFoi(extras.atualizadoEm)})` : ""}.
+            {erro === "falhou" ? "Os modelos de clima não responderam agora." : erro === "sem_posicao" ? "Preciso da sua localização pra atualizar." : "Essa leitura é antiga."} Mostrando a última leitura{extras.atualizadoEm ? ` (${quandoFoi(extras.atualizadoEm)})` : ""}.
           </p>
-          <button type="button" onClick={() => void recarregar()} className="shrink-0 h-9 px-3 rounded-[10px] text-[13px] font-black" style={{ background: "#F5B800", color: "#141005" }}>
-            Tentar de novo
+          <button type="button" onClick={() => void (erro === "sem_posicao" ? pedirPermissao() : recarregar())} className="shrink-0 h-9 px-3 rounded-[10px] text-[13px] font-black" style={{ background: "#F5B800", color: "#141005" }}>
+            {erro === "sem_posicao" ? "Usar minha localização" : "Atualizar agora"}
           </button>
         </section>
       )}
