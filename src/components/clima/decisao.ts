@@ -62,13 +62,36 @@ export function alertaAtivo(oficiais: AlertaOficial[] | undefined, agora = new D
     return fim >= agora && ini.getTime() - agora.getTime() <= 3 * 3600_000;
   }) ?? null;
 }
-/** Tem que parar a venda? Alerta oficial laranja/vermelho ou tempestade pelos modelos. */
+/** Perigo de verdade nas próximas 2 h pelos modelos: tempestade, chuva forte ou rajada ≥ 50 km/h. */
+export function perigoPerto(t: Tempo): boolean {
+  return t.horas.slice(0, 3).some((h, i) => {
+    const it = intensidade(h, t.horas[i - 1]);
+    return it === "tempestade" || it === "chuva forte" || (h.rajada ?? 0) >= 50;
+  });
+}
+
+/** Tem que parar a venda AGORA?
+ *  Rick, 14/10: alerta laranja do INMET "das 9h às 23h59" pra uma área enorme virava
+ *  "procura abrigo" com sol e 10% de chuva. Alerta de dia inteiro diz QUE pode ter
+ *  temporal, não QUANDO — o quando vem dos 6 modelos. Então:
+ *  vermelho → para; laranja → para só se os modelos mostram perigo nas próximas 2 h;
+ *  sem alerta → para com tempestade agora (ou chegando em até 2 h). */
 export function riscoSevero(t: Tempo, agora = new Date()): { titulo: string; oficial: AlertaOficial | null } | null {
   const of = alertaAtivo(t.oficiais, agora);
-  if (of && of.nivel !== "amarelo") return { titulo: of.tipo, oficial: of };
-  if (t.estado === "tempestade" || /^tempestade/i.test(t.alerta?.titulo ?? "")) return { titulo: t.alerta?.titulo ?? "Tempestade", oficial: null };
+  const perto = perigoPerto(t);
+  if (of && (of.nivel === "vermelho" || (of.nivel === "laranja" && perto))) return { titulo: of.tipo, oficial: of };
+  if (t.estado === "tempestade" || (perto && /^tempestade/i.test(t.alerta?.titulo ?? ""))) return { titulo: t.alerta?.titulo ?? "Tempestade", oficial: null };
   return null;
 }
+
+/** Alerta oficial valendo, mas sem perigo agora: vira aviso ("vende perto de abrigo"). */
+export function alertaDeFundo(t: Tempo, agora = new Date()): AlertaOficial | null {
+  const of = alertaAtivo(t.oficiais, agora);
+  return of && !riscoSevero(t, agora) ? of : null;
+}
+const fimDoAlerta = (a: AlertaOficial) => (a.fim.length >= 16 ? a.fim.slice(11, 16).replace(":", "h") : "o fim do dia");
+export const textoAlerta = (a: AlertaOficial) =>
+  `Alerta ${a.nivel} de ${a.tipo.toLowerCase()} do INMET até ${fimDoAlerta(a)}`;
 
 /* ---------------------------------------------------------------- janelas de venda */
 export interface Janela extends Pico { rotulo: string; amanha: boolean; conf: Confianca; boa: boolean; confPct: number; temp: number | null }
@@ -118,6 +141,12 @@ export function decisaoAgora(t: Tempo, opts: { noturno?: boolean; agora?: Date }
   }
   const chovendo = t.estado === "chuva";
   const s0 = statusHora(h0);
+  const aviso = alertaDeFundo(t, opts.agora);
+  if (!chovendo && s0.nivel === "bom" && aviso) {
+    // alerta no dia, mas seco agora: vende, só que perto de abrigo e de olho na hora que fecha
+    const r = proximaRuim(h, 1);
+    return { titulo: r > 0 ? `Dá pra vender até ${h[r]!.hora}h` : "Dá pra vender agora", sub: `${textoAlerta(aviso)}. Fica perto de abrigo.`, nivel: "atencao" };
+  }
   if (!chovendo && s0.nivel === "bom") {
     const r = proximaRuim(h, 1);
     if (r > 0 && r <= 3) return { titulo: `Janela curta até ${h[r]!.hora}h`, sub: `Depois vem ${intensidade(h[r]!, h[r - 1]).replace("instável", "tempo instável")}.`, nivel: "atencao" };
@@ -141,12 +170,19 @@ export function planoDoDia(t: Tempo, janelas: Janela[], c: ContextoPlano = {}, a
     passos.push({ quando: "Agora", acao: "procura abrigo", texto: `${sev.titulo}. Pausa a venda e evita deslocamento.`, nivel: "risco" });
   } else if (d.nivel === "neutro") {
     passos.push({ quando: "Agora", acao: "descansa", texto: d.sub || "Rua vazia. Prepara o estoque de amanhã.", nivel: "neutro" });
-  } else if (d.nivel === "bom" || d.titulo.startsWith("Janela curta")) {
+  } else if (d.nivel === "bom" || d.titulo.startsWith("Janela curta") || d.titulo.startsWith("Dá pra vender")) {
     passos.push({ quando: "Agora", acao: "sair pra vender", texto: d.sub, nivel: d.nivel });
   } else {
     const fim = h.findIndex((x, i) => i > 0 && chanceDe(x) < 30);
     const i0 = intensidade(h[0]!);
     passos.push({ quando: "Agora", acao: "espera", texto: `${i0 === "seco" ? "Tempo instável" : i0[0]!.toUpperCase() + i0.slice(1)}${fim > 0 ? ` até ${h[fim]!.hora}h` : ""}. Fica em local coberto.`, nivel: "atencao" });
+  }
+
+  // alerta oficial no dia: marca a hora em que a chuva chega pelos modelos
+  const aviso = !sev ? alertaDeFundo(t, agora) : null;
+  const chega = aviso ? h.findIndex((x, i) => i > 0 && chanceDe(x) >= 50) : -1;
+  if (aviso && chega > 0) {
+    passos.push({ quando: `${h[chega]!.hora}h`, acao: "recolhe", texto: `A chuva chega por aí (${chanceDe(h[chega]!)}%). ${textoAlerta(aviso)}: guarda tudo antes e espera coberto.`, nivel: "risco" });
   }
 
   const melhor = janelas.find((j) => !j.amanha);
