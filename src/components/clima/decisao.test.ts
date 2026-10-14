@@ -39,6 +39,26 @@ describe("Clima · decisão", () => {
     expect(planoDoDia(t, [], {}, agora)[0]).toMatchObject({ acao: "procura abrigo" });
   });
 
+  it("alerta laranja do dia inteiro com sol agora: vende até a chuva chegar, perto de abrigo (Rick, 14/10)", () => {
+    const of = { tipo: "Tempestade", severidade: "Perigo", nivel: "laranja" as const, inicio: "2026-10-08 09:00", fim: "2026-10-08 23:59", riscos: "", instrucoes: [] };
+    const h = [hora(11, 10, { rajada: 15 }), hora(12, 9), hora(13, 13), hora(14, 32), hora(15, 46), hora(16, 94, { mm: 1, codigo: 61 }), hora(17, 54)];
+    const t = tempo(h, { estado: "sol", oficiais: [of] });
+    const agora = new Date("2026-10-08T11:40:00-03:00");
+    const d = decisaoAgora(t, { agora });
+    expect(d.titulo).toBe("Dá pra vender até 14h");
+    expect(d.sub).toMatch(/Alerta laranja de tempestade do INMET até 23h59/);
+    const p = planoDoDia(t, janelasDeVenda(t, []), {}, agora);
+    expect(p[0]).toMatchObject({ acao: "sair pra vender" });
+    expect(p.find((x) => x.acao === "recolhe")?.quando).toBe("16h");
+    expect(p.some((x) => x.acao === "procura abrigo")).toBe(false);
+  });
+
+  it("alerta vermelho para a venda mesmo com sol", () => {
+    const of = { tipo: "Tempestade", severidade: "Grande perigo", nivel: "vermelho" as const, inicio: "2026-10-08 09:00", fim: "2026-10-08 23:59", riscos: "", instrucoes: [] };
+    const t = tempo([hora(11, 10), hora(12, 9)], { estado: "sol", oficiais: [of] });
+    expect(decisaoAgora(t, { agora: new Date("2026-10-08T11:40:00-03:00") }).titulo).toBe("Pausa a venda");
+  });
+
   it("motivo da janela nunca diz céu aberto em dia nublado", () => {
     const nublado = notaDaHora({ ...hora(12, 5), codigo: 3, temp: 25 }, [], []);
     expect(nublado.etiquetas).toContain("sem chuva");

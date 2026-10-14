@@ -456,7 +456,10 @@ REGRAS:
 - Sempre específico: cite horas e números que te passarem. Nunca invente chuva que os modelos não apontam.
 - Contas vencendo e meta do dia pesam: dia ruim de clima + conta vencendo = "sai cedo e fecha antes"; tempestade = segurança primeiro, meta se recupera amanhã. Mas conta vencendo NUNCA é motivo pra mandar alguém pra rua de madrugada.
 - Se a confiança das horas for baixa, não afirme com certeza: diga que está instável.
-- Alerta oficial ou tempestade: a primeira frase é de segurança (procura abrigo, pausa a venda, evita deslocamento).
+- A DECISÃO DO DIA vem calculada (seção "DECISÃO JÁ CALCULADA"). As 3 falas seguem essa decisão, com as MESMAS horas. Nenhuma fala contradiz outra: se uma manda vender até 14h, nenhuma manda procurar abrigo agora nem trabalhar até 17h.
+- Cada fala tem um ângulo: 1) o plano, com as horas; 2) o porquê (os modelos e o alerta, se tiver); 3) o dinheiro (meta do dia ou conta vencendo), sempre dentro do mesmo plano.
+- Alerta oficial de dia inteiro (INMET) diz que PODE ter temporal na região, não QUANDO. O quando vem das horas dos modelos. Só mande procurar abrigo agora se a decisão disser PARAR.
+- Conta: cite pelo nome e valor ("a conta de luz, R$ 1.185, vence hoje"). Nunca diga só "conta vencendo".
 - Humildade: o clima pode mudar — mas a fala principal NÃO precisa repetir "não sou Deus", isso já aparece fixo na tela.
 - Português do Brasil. Frases curtas. Sem emoji.`;
 
@@ -480,6 +483,18 @@ function opiniaoLocal(t: Tempo, c: Contexto = {}): Opiniao {
       volta: { hora: "—", txt: "Amanhã a gente combina o dia." },
     };
   }
+  const f = fatosDoDia(t, ag);
+  if (f.alerta && f.decisao !== "parar") {
+    const fimA = f.alerta.fim.slice(11, 16).replace(":", "h");
+    const plano = f.decisao === "vender_ate" ? `Seco agora: vende até ${f.chuvaChega}h e recolhe antes da chuva.` : f.decisao === "esperar" ? `Chovendo agora${f.abre != null ? `: espera até ${f.abre}h` : ""}. Fica coberto.` : "Seco nas próximas horas: dá pra vender.";
+    return {
+      falas: [plano, `Tem alerta ${f.alerta.nivel} de ${f.alerta.tipo.toLowerCase()} do INMET até ${fimA}: fica perto de abrigo e de olho no céu.`, "Bate o que der antes da chuva; o resto a gente recupera amanhã."],
+      veredito: { titulo: f.decisao === "esperar" ? "Espera a chuva passar" : "Vende, perto de abrigo", sub: plano, nota: f.decisao === "esperar" ? 4 : 6 },
+      sair: { hora: f.decisao === "esperar" ? (f.abre != null ? `${f.abre}h` : "—") : "agora", txt: "Perto de abrigo." },
+      pausa: { hora: f.chuvaChega != null ? `${f.chuvaChega}h` : "—", txt: "Recolhe antes da chuva." },
+      volta: { hora: "—", txt: "Confere a tela de novo à tarde." },
+    };
+  }
   if (t.estado === "tempestade") return { falas: ["Tempestade chegando. Hoje o corre é ficar vivo — a meta espera até amanhã.", "Se tiver que sair, sai agora e perto de casa.", "Amanhã a gente compensa."], veredito: { titulo: "Hoje não é dia de herói", sub: "Raio e chuva forte nas próximas horas. Se der pra ficar, fica.", nota: 2 }, sair: { hora: "só se precisar", txt: "Perto de casa e antes da chuva." }, pausa: { hora: "—", txt: "Encerra cedo." }, volta: { hora: "antes da chuva", txt: "Em casa quando fechar o tempo." } };
   if (t.estado === "chuva" && ch) return { falas: [`Chuva entre ${ch.proxima}h e ${ch.ate ?? ch.proxima}h — ${ch.fontes} de ${t.fontesTotal} fontes concordam. Bate a meta antes.`, "Na chuva você vende menos: a manhã vale por um dia inteiro.", "Se a meta fechou antes da chuva, vai pra casa tranquilo."], veredito: { titulo: "Dia de RALAR antes da chuva", sub: `Seco até ${ch.proxima}h. Depois, cobertura.`, nota: 6 }, sair: { hora: "agora", txt: `Seco até ${ch.proxima}h.` }, pausa: { hora: `${ch.proxima}h`, txt: "Almoça coberto enquanto chove." }, volta: { hora: `${(ch.ate ?? ch.proxima)! + 1}h ou fica`, txt: "Abre de novo depois da chuva." } };
   if (t.estado === "calor") return { falas: ["Sol muito forte hoje. Gelada é ouro: leva o dobro e cobra o preço cheio.", "Das 12h às 15h nem eu fico na rua. Pausa, hidrata, volta.", "Boné, água e não pula o almoço."], veredito: { titulo: "Dia de RALAR cedo", sub: "Gelada vende sozinha, mas das 12h às 15h o povo some.", nota: 8 }, sair: { hora: "7h30–11h30", txt: "Antes do sol subir." }, pausa: { hora: "12h–15h", txt: "Sombra e água." }, volta: { hora: "17h30", txt: "Fecha quando refresca." } };
@@ -489,8 +504,45 @@ function opiniaoLocal(t: Tempo, c: Contexto = {}): Opiniao {
   return { falas: ["Dia limpo. Sai cedo que o povo já tá na rua.", "Sua melhor hora tá protegida hoje — não perde ela pra almoçar.", "Dia pra bater a meta e adiantar conta."], veredito: { titulo: "Dia de RALAR o dia todo", sub: "Céu limpo e movimento cheio.", nota: 10 }, sair: { hora: "9h–12h", txt: "Fluxo alto e sol ainda leve." }, pausa: { hora: "13h–14h", txt: "1h de sombra e água." }, volta: { hora: "18h", txt: "Seco até de noite." } };
 }
 
+/* FATOS DO DIA (Rick, 14/10: "opinião toda bugada" — mandava procurar abrigo
+   no sol por causa de um alerta de dia inteiro, e outra fala mandava trabalhar
+   até 17h). A decisão sai daqui, com as mesmas regras da tela
+   (src/components/clima/decisao.ts), e a IA só escreve em cima dela. */
+interface Fatos { decisao: "parar" | "vender" | "vender_ate" | "esperar"; secoAte: number | null; chuvaChega: number | null; abre: number | null; perigoPerto: boolean; alerta: AlertaOficial | null; texto: string }
+export function fatosDoDia(t: Tempo, ag: ReturnType<typeof agoraSP>): Fatos {
+  const desde = `${ag.data}T${String(ag.hora).padStart(2, "0")}`;
+  const hs = t.horas.filter((h) => h.iso.slice(0, 13) >= desde).slice(0, 12);
+  const ch = (h: Hora) => h.chance ?? (h.total > 0 ? Math.round((h.fontes / h.total) * 100) : h.prob ?? 0);
+  const perigo = (h: Hora) => ((h.codigo ?? 0) >= 95 && ch(h) >= 40) || (ch(h) >= 50 && (h.mm >= 4 || h.codigo === 65 || h.codigo === 82)) || (h.rajada ?? 0) >= 50;
+  const perigoPerto = hs.slice(0, 3).some(perigo);
+  const agora = new Date();
+  const dataLocal = (x: string) => new Date(`${x.replace(" ", "T")}:00-03:00`);
+  const alerta = (t.oficiais ?? []).find((a) => dataLocal(a.fim) >= agora && dataLocal(a.inicio).getTime() - agora.getTime() <= 3 * 3600_000) ?? null;
+  const iChuva = hs.findIndex((h) => ch(h) >= 50);
+  const chuvaChega = iChuva >= 0 ? hs[iChuva]!.hora : null;
+  const chovendo = t.estado === "chuva" || t.estado === "tempestade" || (hs[0] ? ch(hs[0]) >= 50 : false);
+  const iAbre = chovendo ? hs.findIndex((h, i) => i > 0 && ch(h) < 30) : -1;
+  const abre = iAbre > 0 ? hs[iAbre]!.hora : null;
+  const parar = (alerta && (alerta.nivel === "vermelho" || (alerta.nivel === "laranja" && perigoPerto))) || t.estado === "tempestade";
+  const fim = alerta ? alerta.fim.slice(11, 16).replace(":", "h") : "";
+  const txtAlerta = alerta ? `alerta ${alerta.nivel} de ${alerta.tipo.toLowerCase()} do INMET até ${fim}` : "";
+  let decisao: Fatos["decisao"]; let texto: string;
+  if (parar) { decisao = "parar"; texto = `PARAR AGORA: ${alerta ? txtAlerta : "tempestade"} e perigo nas próximas 2 horas pelos modelos. Segurança primeiro.`; }
+  else if (chovendo) { decisao = "esperar"; texto = `ESPERAR: chovendo agora${abre != null ? `, abre por volta das ${abre}h` : ", sem abertura clara nas próximas horas"}.${alerta ? ` Há ${txtAlerta}.` : ""}`; }
+  else if (chuvaChega != null) { decisao = "vender_ate"; texto = `VENDER ATÉ ${chuvaChega}h: seco agora, a chuva chega por volta das ${chuvaChega}h.${alerta ? ` Há ${txtAlerta}: perto de abrigo e recolhe antes das ${chuvaChega}h.` : ""}`; }
+  else { decisao = "vender"; texto = `VENDER: seco nas próximas 12 horas.${alerta ? ` Há ${txtAlerta}, mas os modelos não mostram chuva forte nas próximas horas: perto de abrigo.` : ""}`; }
+  return { decisao, secoAte: chuvaChega, chuvaChega, abre, perigoPerto, alerta, texto };
+}
+
+/** Uma fala que manda parar quando a decisão é vender (ou o contrário) sai fora. */
+export function falaCoerente(f: string, d: Fatos["decisao"]): boolean {
+  const manda = /procur\w* abrigo|pausa a venda|n[ãa]o sai|fica em casa|para (a venda|tudo) agora/i.test(f);
+  return d === "parar" || !manda;
+}
+
 async function opiniaoIA(t: Tempo, c: Contexto, rede: Rede | null = null): Promise<Opiniao> {
   const ag = agoraSP();
+  const fatos = fatosDoDia(t, ag);
   const noturno = ehNoturno(c.melhorHora);
   // cada hora sai marcada com hoje/amanhã pra IA não mandar ele sair num horário que já passou
   const horasTxt = t.horas.slice(0, 16).map((h) => {
@@ -498,17 +550,19 @@ async function opiniaoIA(t: Tempo, c: Contexto, rede: Rede | null = null): Promi
     const chance = h.chance ?? (h.total > 0 ? Math.round((h.fontes / h.total) * 100) : h.prob ?? 0);
     return `${h.hora}h${amanha ? " (amanhã)" : ""}: chance de chuva ${chance}% (confiança ${h.conf ?? "media"})${h.mm >= 0.2 ? ` (${h.mm.toFixed(1)}mm)` : ""}${h.temp != null ? ` · ${Math.round(h.temp)}°` : ""}`;
   }).join("\n");
-  const contas = (c.contas ?? []).slice(0, 4).map((x) => `${x.nome} R$ ${Math.round(x.valor)} (${x.dias <= 0 ? "vence hoje" : `vence em ${x.dias} dias`})`).join("; ") || "nenhuma vencendo";
+  const contas = (c.contas ?? []).slice(0, 4).map((x) => `conta "${x.nome}" de R$ ${Math.round(x.valor)} (${x.dias <= 0 ? "vence hoje" : `vence em ${x.dias} dias`})`).join("; ") || "nenhuma vencendo";
   const user = `AGORA SÃO ${String(ag.hora).padStart(2, "0")}h${ag.minuto} de ${ag.diaSemana} (horário de Brasília). É ${ag.periodo}.
 ${ag.hora >= 23 || ag.hora < 5 ? (noturno ? "ATENÇÃO: é madrugada, MAS a melhor hora dele é nessa faixa — ele é vendedor noturno. Fale do corre desta noite." : "ATENÇÃO: é MADRUGADA e ele não é vendedor noturno. A resposta é descansar agora e sair mais tarde, no horário bom de HOJE. Não mande ele pra rua agora.") : ""}
 CLIMA AGORA em ${t.cidade || "sua região"}: ${t.condicao}, ${Math.round(t.temp)}° (sensação ${Math.round(t.sensacao)}°), vento ${Math.round(t.vento)} km/h${t.rajada ? `, rajadas ${Math.round(t.rajada)} km/h` : ""}. Máx ${t.max ?? "?"}° · mín ${t.min ?? "?"}°. ${t.ehDia ? "É dia." : "É noite."}
 ESTADO DA CENA: ${t.estado}. Concordância entre modelos: ${t.concordancia}%.
-${t.alerta ? `ALERTA: ${t.alerta.titulo} — ${t.alerta.texto}\n` : ""}${(t.oficiais ?? []).length ? `ALERTA OFICIAL (INMET/Defesa Civil): ${(t.oficiais ?? []).map((a) => `${a.tipo} (${a.severidade}) ${a.inicio} até ${a.fim}`).join("; ")}. Segurança vem antes da venda.\n` : ""}${rede ? `REDE VANT: nos últimos 45 min, ${rede.sim} vendedores perto disseram que está chovendo e ${rede.nao} que não.\n` : ""}${t.padrao && t.padrao.diasChuva >= 3 ? `PADRÃO DA REGIÃO (14 dias): choveu em ${t.padrao.diasChuva} dias; em ${t.padrao.abreFimTarde} deles a chuva abriu no fim da tarde.\n` : ""}PRÓXIMAS HORAS (chance de chuva pelos ${t.fontesTotal} modelos, pesados pelo acerto aqui; confiança baixa = fale com cautela):
+${t.alerta ? `ALERTA: ${t.alerta.titulo} — ${t.alerta.texto}\n` : ""}${(t.oficiais ?? []).length ? `ALERTA OFICIAL (INMET/Defesa Civil, área grande): ${(t.oficiais ?? []).map((a) => `${a.tipo} (${a.severidade}) ${a.inicio} até ${a.fim}`).join("; ")}. Diz que pode ter temporal, não quando: o quando são as horas abaixo.\n` : ""}${rede ? `REDE VANT: nos últimos 45 min, ${rede.sim} vendedores perto disseram que está chovendo e ${rede.nao} que não.\n` : ""}${t.padrao && t.padrao.diasChuva >= 3 ? `PADRÃO DA REGIÃO (14 dias): choveu em ${t.padrao.diasChuva} dias; em ${t.padrao.abreFimTarde} deles a chuva abriu no fim da tarde.\n` : ""}PRÓXIMAS HORAS (chance de chuva pelos ${t.fontesTotal} modelos, pesados pelo acerto aqui; confiança baixa = fale com cautela):
 ${horasTxt}
 
 VENDEDOR: meta de hoje R$ ${Math.round(c.meta ?? 0)} · já vendeu R$ ${Math.round(c.vendidoHoje ?? 0)} · melhor hora dele: ${c.melhorHora != null ? `${c.melhorHora}h` : "desconhecida"}${(c.melhoresHoras ?? []).length ? ` · as horas em que ele MAIS VENDE, pelo histórico dele: ${(c.melhoresHoras ?? []).map((h) => `${h}h`).join(", ")} (proteja essas horas: se o clima deixar, ele não pode perdê-las)` : ""} · contas: ${contas}${c.quedaChuvaPct != null ? ` · ele vende ${Math.round(c.quedaChuvaPct)}% menos com chuva (medido nos dias dele)` : ""}.
 
-CONFIRA ANTES DE RESPONDER: toda hora que você escrever é depois das ${String(ag.hora).padStart(2, "0")}h${ag.minuto}? Se for do dia seguinte, está escrito "amanhã"? Se é madrugada${noturno ? "" : " e ele não é vendedor noturno"}, você mandou ele descansar?
+DECISÃO JÁ CALCULADA (siga, não contradiga): ${fatos.texto}
+
+CONFIRA ANTES DE RESPONDER: as 3 falas seguem a decisão e usam as mesmas horas? toda hora que você escrever é depois das ${String(ag.hora).padStart(2, "0")}h${ag.minuto}? Se for do dia seguinte, está escrito "amanhã"? Se é madrugada${noturno ? "" : " e ele não é vendedor noturno"}, você mandou ele descansar?
 
 Responda SOMENTE este JSON:
 {"falas":["leitura principal: 2 ou 3 frases CURTAS separadas por ponto, até 150 caracteres no total. Ex: Parceiro, a chuva aperta até 14h. A melhor janela abre entre 16h e 19h. Segura agora e entra depois.","outra leitura (até 120)","outra leitura (até 120)"],
@@ -521,7 +575,7 @@ Responda SOMENTE este JSON:
   if (!m) throw new Error("ia_sem_json");
   const j = JSON.parse(m[0]);
   const s = (v: unknown, n: number) => String(v ?? "").trim().slice(0, n);
-  const falas = Array.isArray(j.falas) ? j.falas.map((f: unknown) => s(f, 160)).filter(Boolean).slice(0, 3) : [];
+  const falas = Array.isArray(j.falas) ? j.falas.map((f: unknown) => s(f, 160)).filter((f: string) => f && falaCoerente(f, fatos.decisao)).slice(0, 3) : [];
   if (falas.length === 0) throw new Error("ia_sem_falas");
   return {
     falas,
