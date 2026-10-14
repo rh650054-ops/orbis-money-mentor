@@ -16,7 +16,7 @@ function Avatar() {
   );
 }
 
-export function OpiniaoVant({ falas, fontes, pensando }: { falas: string[]; fontes: number; pensando: boolean }) {
+export function OpiniaoVant({ falas, fontes, pensando, falhou = false }: { falas: string[]; fontes: number; pensando: boolean; falhou?: boolean }) {
   const [i, setI] = useState(0);
   const n = falas.length;
   const fala = n > 0 ? falas[i % n]! : null;
@@ -35,7 +35,7 @@ export function OpiniaoVant({ falas, fontes, pensando }: { falas: string[]; font
         <span key={i} className="mt-2 flex flex-col gap-0.5 animate-in fade-in duration-200">
           {fala ? linhas.map((l, k) => (
             <span key={k} className="block text-[18px] leading-snug" style={{ color: TINTA, fontWeight: k === 0 ? 800 : 600 }}>{l}</span>
-          )) : <span className="block text-[15px]" style={{ color: CINZA }}>{pensando ? "Lendo os modelos e as suas contas…" : "Toca em atualizar pra eu dar minha opinião."}</span>}
+          )) : <span className="block text-[15px]" style={{ color: CINZA }}>{pensando ? "Lendo os modelos e as suas contas…" : falhou ? "Os modelos de clima não responderam agora. Toca em atualizar daqui a 1 minuto." : "Toca em atualizar pra eu dar minha opinião."}</span>}
         </span>
         {n > 1 && <span className="block mt-2 text-[12px] font-semibold" style={{ color: CINZA }}>toque para ver outras leituras</span>}
         <span className="block mt-2.5 pt-2.5 border-t text-[12px] leading-snug" style={{ borderColor: "rgba(20,18,16,.1)", color: CINZA }}>

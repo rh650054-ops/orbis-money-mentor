@@ -3,7 +3,9 @@
    recomendação e a confiança (cai com a distância: a tela não finge certeza). */
 import { useState } from "react";
 import type { DiaClima } from "@/hooks/useClima";
-import { COR_NIVEL, janelaDoDia, nomeDia, resumoDia, resumoVenda } from "../decisao";
+import { COR_NIVEL, janelaDoDia, resumoDia, resumoVenda } from "../decisao";
+import { nomeDiaPelaData } from "../frescor";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 import { CLIMA } from "./paleta";
 import { COR, ChipConf, Folha, Titulo, haptic } from "./comum";
 import { IconeTempo } from "./IconeTempo";
@@ -14,6 +16,7 @@ const r = (v: number | null) => (v == null ? "–" : `${Math.round(v)}°`);
 export function ProximosDias({ dias }: { dias: DiaClima[] }) {
   const [aberto, setAberto] = useState<number | null>(null);
   const d = aberto != null ? dias[aberto] : undefined;
+  const hoje = getBrazilDate();
   if (dias.length === 0) return null;
   return (
     <section aria-label="Próximos dias">
@@ -28,7 +31,7 @@ export function ProximosDias({ dias }: { dias: DiaClima[] }) {
               <button key={x.data} type="button" onClick={() => { haptic(); setAberto(i); }}
                 className="w-[96px] shrink-0 rounded-[18px] border px-2.5 pt-3 pb-3 flex flex-col items-center gap-1.5 transition-[transform,background-color] duration-150 active:scale-[0.98] hover:bg-white/[.03]"
                 style={{ scrollSnapAlign: "start", background: i === 0 ? "#151517" : "#0e0e10", borderColor: i === 0 ? "rgba(245,184,0,.3)" : "rgba(255,255,255,.07)" }}>
-                <span className="text-[12px] font-black uppercase tracking-[.1em]" style={{ color: i === 0 ? COR.ouro : "#c9c3b8" }}>{nomeDia(x.data, i)}</span>
+                <span className="text-[12px] font-black uppercase tracking-[.1em]" style={{ color: i === 0 ? COR.ouro : "#c9c3b8" }}>{nomeDiaPelaData(x.data, hoje)}</span>
                 <IconeTempo codigo={x.codigo} tamanho={28} />
                 <span className="text-[15px] font-extrabold tabular-nums" style={{ color: COR.texto }}>{r(x.max)}<span style={{ color: COR.mute }}> / {r(x.min)}</span></span>
                 <span className="text-[14px] font-bold tabular-nums" style={{ color: (x.prob ?? 0) >= 30 ? CLIMA.chuvaLeve : COR.mute }}>{x.prob ?? 0}%</span>
@@ -39,7 +42,7 @@ export function ProximosDias({ dias }: { dias: DiaClima[] }) {
         </div>
       </div>
 
-      <Folha open={!!d} onOpenChange={(o) => { if (!o) setAberto(null); }} titulo={d ? nomeDia(d.data, aberto ?? 0) : ""}
+      <Folha open={!!d} onOpenChange={(o) => { if (!o) setAberto(null); }} titulo={d ? nomeDiaPelaData(d.data, hoje) : ""}
         subtitulo={d ? `${r(d.max)} / ${r(d.min)} · ${d.prob ?? 0}% chuva · ${resumoDia(d)}` : undefined} alta>
         {d && (
           <>
