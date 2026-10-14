@@ -4,8 +4,9 @@ import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { useNavigate } from "react-router-dom";
+import { soComAssinatura } from "@/shared/components/assinatura-loja";
 
-export default function Benefits() {
+function BenefitsVenda() {
   const navigate = useNavigate();
   const montarCheckout = useCheckoutUrl();
 
@@ -169,3 +170,5 @@ export default function Benefits() {
     </div>
   );
 }
+
+export default soComAssinatura(BenefitsVenda);

@@ -49,6 +49,8 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          # opcional: "link" = botão de assinar abre a Hotmart (modelo Néctar); padrão: o app da loja não vende
+          VITE_COBRANCA_LOJA: ${{ vars.VITE_COBRANCA_LOJA }}
         run: |
           test -n "$VITE_SUPABASE_URL" || { echo "Missing repo variable VITE_SUPABASE_URL"; exit 1; }
           npm run build

@@ -11,8 +11,9 @@ import { abrirCheckout, getCheckoutUrl } from "@/shared/lib/checkout";
 import { verificarAcessoPago } from "@/shared/lib/verificar-acesso";
 import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import { useVoltaDoCheckout } from "@/hooks/useVoltaDoCheckout";
+import { soComAssinatura } from "@/shared/components/assinatura-loja";
 
-export default function Payment() {
+function PaymentVenda() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const { toast } = useToast();
@@ -247,3 +248,5 @@ export default function Payment() {
     </div>
   );
 }
+
+export default soComAssinatura(PaymentVenda);

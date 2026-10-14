@@ -5,6 +5,7 @@ import { useState } from "react";
 import { aoClicarCheckout, getCheckoutUrl, getProCheckoutUrl } from "@/shared/lib/checkout";
 import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import { brl } from "./jornada-lib";
+import { soComAssinatura } from "@/shared/components/assinatura-loja";
 
 const GOLD = "#F5B800";
 const OK = "#3DD68C";
@@ -76,7 +77,7 @@ function Beneficios({ id }: { id: Escolha }) {
 
 const linkDe = (e: Escolha) => (e === "essencial" ? getCheckoutUrl() : getProCheckoutUrl(e));
 
-export function EscolhaPlano({ vendido, titulo }: { vendido?: number | null; titulo?: string }) {
+function EscolhaPlanoVenda({ vendido, titulo }: { vendido?: number | null; titulo?: string }) {
   const [escolha, setEscolha] = useState<Escolha>("anual");
   const montar = useCheckoutUrl();
   return (
@@ -141,3 +142,5 @@ export function EscolhaPlano({ vendido, titulo }: { vendido?: number | null; tit
     </div>
   );
 }
+
+export const EscolhaPlano = soComAssinatura(EscolhaPlanoVenda);

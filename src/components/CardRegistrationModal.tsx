@@ -4,13 +4,14 @@ import { Button } from "@/shared/ui/button";
 import { CreditCard } from "lucide-react";
 import { abrirCheckout, getCheckoutUrl } from "@/shared/lib/checkout";
 import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
+import { soComAssinatura } from "@/shared/components/assinatura-loja";
 
 interface CardRegistrationModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrationModalProps) {
+function CardRegistrationModalVenda({ isOpen, onClose }: CardRegistrationModalProps) {
   // "Trava anti-toque-fantasma": o MESMO toque que abre o modal no celular pode
   // cair no botão "Assinar agora" (que aparece no mesmo lugar do dedo) e ir
   // direto pro checkout. Só liberamos os botões ~350ms depois de abrir.
@@ -90,3 +91,5 @@ export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrat
     </Dialog>
   );
 }
+
+export default soComAssinatura(CardRegistrationModalVenda, "nada");

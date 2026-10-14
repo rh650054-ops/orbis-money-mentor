@@ -4,6 +4,7 @@ import "./index.css";
 import { setupOfflineSyncListeners } from "@/shared/lib/offline-sync";
 import { captureReferralCoupon } from "@/shared/lib/checkout";
 import { loadExtratoDeadline } from "@/shared/lib/extrato-config";
+import { ehAppDaLoja } from "@/shared/lib/platform";
 
 window.addEventListener("error", (event) => {
   console.error("[Vant] Unhandled error:", event.error ?? event.message);
@@ -27,7 +28,9 @@ loadExtratoDeadline();
 // plano B quando não há internet), então o app abre offline SEM voltar o bug da
 // tela preta (que vinha de cache-first servindo build velho). Também habilita as
 // ações rápidas (Venda / Abordagem) na notificação da tela bloqueada no DEFCON.
-if ("serviceWorker" in navigator) {
+// No app da loja (Capacitor) não registra: o site já vem dentro do binário e o
+// WebView do iPhone nem suporta service worker em capacitor://.
+if ("serviceWorker" in navigator && !ehAppDaLoja()) {
   navigator.serviceWorker
     .register("/sw.js", { scope: "/" })
     .catch(() => {

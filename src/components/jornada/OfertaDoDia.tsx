@@ -9,6 +9,7 @@ import { aoClicarCheckout, getCheckoutUrl } from "@/shared/lib/checkout";
 import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import { useJornada } from "./useJornada";
 import { jornadaDoDia, brl, seloTeste } from "./jornada-lib";
+import { soComAssinatura } from "@/shared/components/assinatura-loja";
 
 const GOLD = "#F5B800";
 const MUTE = "#7b766e";
@@ -26,7 +27,7 @@ function Item({ texto, sub }: { texto: string; sub: string }) {
 }
 
 /** `agora`: abre na hora, mesmo se já foi vista hoje (usado pelo simulador). */
-export function OfertaDoDia({ agora = false }: { agora?: boolean } = {}) {
+function OfertaDoDiaVenda({ agora = false }: { agora?: boolean } = {}) {
   const { user } = useAuth();
   const { emTeste, dia, vendidoNoTeste } = useJornada();
   const navigate = useNavigate();
@@ -126,3 +127,5 @@ export function OfertaDoDia({ agora = false }: { agora?: boolean } = {}) {
     </div>
   );
 }
+
+export const OfertaDoDia = soComAssinatura<{ agora?: boolean }>(OfertaDoDiaVenda, "nada");
