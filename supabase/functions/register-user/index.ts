@@ -215,6 +215,7 @@ Deno.serve(async (req) => {
             expira_em: new Date(Date.now() + 24 * 60 * 60_000).toISOString(),
             tentativas: 0,
             enviado_em: new Date().toISOString(),
+            tipo: "link",
           });
           const link = `${supabaseUrl}/functions/v1/email-confirmar-link?t=${token}`;
           await enviarEmail({

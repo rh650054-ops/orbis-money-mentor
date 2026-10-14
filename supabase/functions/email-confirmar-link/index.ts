@@ -1,6 +1,7 @@
 // email-confirmar-link — confirma o e-mail com 1 clique (link enviado no cadastro).
 // GET ?t=<token>. Sem login (verify_jwt = false): a prova e o proprio token,
-// aleatorio (24 bytes), guardado so como sha256, valido por 24h, uso unico.
+// aleatorio (24 bytes), guardado so como sha256, valido por 24h, uso unico, e so
+// vale para o e-mail que ainda esta no perfil (trocou o e-mail = link morto).
 // Sucesso -> redireciona pro app com ?email=confirmado.
 // Falha (expirado/invalido/usado) -> redireciona pro card nas Configuracoes,
 // onde a pessoa pede um codigo novo. Nunca mostra erro tecnico.
@@ -19,20 +20,12 @@ Deno.serve(async (req) => {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const hash = await sha256Hex(`link:${token}`);
 
-    const { data: row } = await admin.from("email_codigos").select("user_id, email, expira_em").eq("codigo_hash", hash).maybeSingle();
-    if (!row) return redirect(fallback);
-    if (new Date(row.expira_em).getTime() < Date.now()) {
-      await admin.from("email_codigos").delete().eq("user_id", row.user_id);
-      return redirect(fallback);
-    }
-
-    await admin.from("profiles")
-      .update({ email: row.email, email_verificado_em: new Date().toISOString() })
-      .eq("user_id", row.user_id);
-    await admin.from("email_codigos").delete().eq("user_id", row.user_id);
+    // confere, consome e confirma numa transacao so, preso ao e-mail ATUAL do perfil
+    const { data: status, error } = await admin.rpc("email_confirmar_link", { p_hash: hash });
+    if (error || status !== "ok") return redirect(fallback);
     return redirect(`${APP_URL}/?email=confirmado`);
   } catch (e) {
-    console.error("email-confirmar-link:", e);
+    console.error("email-confirmar-link:", (e as Error)?.message ?? "erro");
     return redirect(fallback);
   }
 });
