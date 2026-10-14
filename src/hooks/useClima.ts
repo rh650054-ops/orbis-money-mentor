@@ -97,14 +97,19 @@ function lerGps(timeout = 8000): Promise<{ lat: number; lon: number } | null> {
   });
 }
 
-/** Posição sem incomodar: usa o GPS só se já estiver liberado; senão, a última conhecida (24 h). */
-async function pegarPosicao(): Promise<{ lat: number; lon: number } | null> {
-  const ult = getUltimaPosicao(24 * 3600 * 1000);
+/** Posição sem incomodar. Abrindo a tela sozinha: GPS só se já estiver liberado;
+ *  senão, a última conhecida. Com TOQUE do vendedor (atualizar / tentar de novo):
+ *  GPS direto — o iPhone diz "perguntar" mesmo depois de liberado, e antes o
+ *  toque nunca chegava no GPS (Rick, 14/10: leitura de 3 dias atrás sem sair do lugar).
+ *  Sem GPS, vale a última posição de até 30 dias: a região de quem vende muda pouco
+ *  e a previsão é por célula de ~5 km. */
+async function pegarPosicao(comToque = false): Promise<{ lat: number; lon: number } | null> {
   const perm = await estadoPermissao();
-  if (perm === "liberada") {
-    const p = await lerGps(6000);
+  if (perm === "liberada" || (comToque && perm !== "negada" && perm !== "sem_gps")) {
+    const p = await lerGps(comToque ? 10000 : 6000);
     if (p) return p;
   }
+  const ult = getUltimaPosicao(30 * 24 * 3600 * 1000);
   return ult ? { lat: ult.lat, lon: ult.lng } : null;
 }
 
@@ -140,7 +145,7 @@ export function useClima(opts: { contexto?: ContextoClima; comOpiniao?: boolean;
   const carregar = useCallback(async (forcarOpiniao = false) => {
     setCarregando(true); setErro(null);
     try {
-      const pos = await pegarPosicao();
+      const pos = await pegarPosicao(forcarOpiniao);
       if (!pos) { setErro("sem_posicao"); setPermissao(await estadoPermissao()); return; }
       const cTempo = lerCache<{ tempo: Tempo; extras?: Extras }>(K_TEMPO);
       const cOp = lerCache<{ opiniao: Opiniao; dia: string; periodo: string; estado: string }>(K_OPINIAO);
