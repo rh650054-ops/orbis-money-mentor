@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { Check, Plus } from "lucide-react";
 import { reaisDeTexto } from "@/shared/lib/dinheiro";
+import { useIngredientesGuardadosQuery, type IngredienteGuardado } from "../api/use-ingredientes-guardados-query";
 import { custoPorUnidade } from "../lib/conta";
 import { novoIngrediente, precoDe1, totalDaReceita, type IngredienteRascunho } from "../lib/receitas";
 import { UNIDADES, type Unidade } from "../types";
@@ -19,12 +20,14 @@ export function EditorReceita({ itens, rende, onItens, onRende, estoques }: {
   estoques?: Map<string, number>;
 }) {
   const mudar = (i: number, m: Partial<IngredienteRascunho>) => onItens(itens.map((it, j) => (j === i ? { ...it, ...m } : it)));
+  const guardados = useIngredientesGuardadosQuery().data ?? [];
   const total = totalDaReceita(itens);
   const custo = custoPorUnidade(total, rende);
   return (
     <div className="flex flex-col gap-2.5">
       {itens.map((it, i) => (
-        <Linha key={i} it={it} estoque={estoques?.get(it.nome.trim().toLowerCase())} onMudar={(m) => mudar(i, m)} />
+        <Linha key={i} it={it} estoque={estoques?.get(it.nome.trim().toLowerCase())} onMudar={(m) => mudar(i, m)}
+          sugestoes={guardados.filter((g) => !itens.some((x, j) => j !== i && x.nome.trim().toLowerCase() === g.nome.trim().toLowerCase()))} />
       ))}
       <button type="button" onClick={() => onItens([...itens, novoIngrediente()])}
         className="flex items-center gap-1 text-[12.5px] font-black px-0.5 py-1 self-start" style={{ color: "#F5B800" }}>
@@ -38,7 +41,28 @@ export function EditorReceita({ itens, rende, onItens, onRende, estoques }: {
   );
 }
 
-function Linha({ it, estoque, onMudar }: { it: IngredienteRascunho; estoque?: number; onMudar: (m: Partial<IngredienteRascunho>) => void }) {
+/** Ingredientes já guardados que combinam com o que ele está digitando. */
+function Sugestoes({ texto, lista, onEscolher }: { texto: string; lista: IngredienteGuardado[]; onEscolher: (g: IngredienteGuardado) => void }) {
+  const t = texto.trim().toLowerCase();
+  const achados = lista.filter((g) => g.nome.trim().toLowerCase() !== t && (!t || g.nome.toLowerCase().includes(t))).slice(0, 6);
+  if (achados.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 pl-[30px]">
+      <span className="w-full text-[10.5px] font-black tracking-[.12em]" style={{ color: "#7b766e" }}>JÁ GUARDADOS</span>
+      {achados.map((g) => (
+        <button key={g.id} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => onEscolher(g)}
+          className="rounded-full px-2.5 py-1 text-[12px] font-extrabold" style={{ background: "#1a1305", border: "1px solid rgba(245,184,0,.4)", color: "#F5B800" }}>
+          {g.nome}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Linha({ it, estoque, sugestoes, onMudar }: {
+  it: IngredienteRascunho; estoque?: number; sugestoes: IngredienteGuardado[]; onMudar: (m: Partial<IngredienteRascunho>) => void;
+}) {
+  const [editando, setEditando] = useState(false);
   const p1 = precoDe1(it);
   return (
     <div className="flex flex-col gap-2 rounded-[14px] px-3 py-2.5" style={{ background: it.usa ? "#121211" : "#0b0b0c", border: `1px solid ${it.usa ? "#26241f" : "#1a1917"}` }}>
@@ -48,9 +72,17 @@ function Linha({ it, estoque, onMudar }: { it: IngredienteRascunho; estoque?: nu
           style={it.usa ? { background: "#F5B800", color: "#1A1200" } : { border: "1.5px solid #3a3833" }}>
           {it.usa && <Check className="w-3.5 h-3.5" strokeWidth={4} />}
         </button>
-        <input value={it.nome} placeholder="Ingrediente" onChange={(e) => onMudar({ nome: e.target.value })}
+        <input value={it.nome} placeholder="Nome do ingrediente" onChange={(e) => onMudar({ nome: e.target.value })}
+          onFocus={() => setEditando(true)} onBlur={() => setEditando(false)}
           className="flex-1 min-w-0 bg-transparent outline-none text-[14px] font-extrabold" aria-label="Ingrediente" />
       </div>
+      {editando && (
+        <Sugestoes texto={it.nome} lista={sugestoes} onEscolher={(g) => {
+          // mesmo nome = mesmo ingrediente: a compra do mercado cai certinho nesta receita
+          onMudar({ id: g.id, nome: g.nome, unidade: g.unidade, pacote: g.pacote, ...(g.precoPacote > 0 && !(it.precoPacote > 0) ? { precoPacote: g.precoPacote } : {}) });
+          setEditando(false);
+        }} />
+      )}
       {it.usa && (
         <>
           <div className="flex items-center gap-1.5 text-[12px] font-bold pl-[30px]" style={{ color: "#b9b3a6" }}>

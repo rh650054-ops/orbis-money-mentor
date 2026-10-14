@@ -4,12 +4,16 @@ import { useState } from "react";
 import { compraPronto, type BaseMercado, type TipoLinha } from "../lib/mercado";
 import { Chip } from "./mercado-casca";
 
-export function MercadoChips({ base, onAdicionar }: {
-  base: BaseMercado; onAdicionar: (tipo: TipoLinha, id: string | null, nome: string) => void;
+export function MercadoChips({ base, noCarrinho = [], onAdicionar }: {
+  base: BaseMercado; noCarrinho?: string[]; onAdicionar: (tipo: TipoLinha, id: string | null, nome: string) => void;
 }) {
   const [outro, setOutro] = useState<string | null>(null);
+  // Todo ingrediente guardado aparece (antes só os de receita: o que ele digitou
+  // na 1ª compra sumia na 2ª). Os da receita primeiro; os já no carrinho, não.
   const naReceita = new Set(base.receitas.map((r) => r.ingredient_id));
-  const ingredientes = base.ingredientes.filter((i) => naReceita.has(i.id));
+  const ingredientes = base.ingredientes
+    .filter((i) => !noCarrinho.includes(i.id))
+    .sort((x, y) => Number(naReceita.has(y.id)) - Number(naReceita.has(x.id)));
   const prontos = base.produtos.filter(compraPronto);
 
   const porOutro = () => {
@@ -20,7 +24,7 @@ export function MercadoChips({ base, onAdicionar }: {
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-xs font-extrabold" style={{ color: "#b9b3a6" }}>O que você tá pegando?</span>
+      <span className="text-xs font-extrabold" style={{ color: "#b9b3a6" }}>O que mais você tá pegando?</span>
       <div className="flex flex-wrap gap-2">
         {ingredientes.map((i) => (
           <Chip key={i.id} onClick={() => onAdicionar("ingrediente", i.id, i.name)}>+ {i.name}</Chip>

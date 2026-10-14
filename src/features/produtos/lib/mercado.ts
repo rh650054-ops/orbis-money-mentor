@@ -34,9 +34,15 @@ export interface ReceitaMercado { product_id: string; ingredient_id: string; qua
 export interface ProdutoMercado {
   id: string; name: string; emoji: string | null; cost: number; stock_quantity: number;
   recipe_mode: string | null; batch_yield: number; origem: "compra" | "faz" | null;
+  /** preço de venda (pra mostrar o lucro de cada um depois da compra) */
+  sale_price?: number;
 }
 
-export interface BaseMercado { ingredientes: IngredienteMercado[]; receitas: ReceitaMercado[]; produtos: ProdutoMercado[] }
+export interface BaseMercado {
+  ingredientes: IngredienteMercado[]; receitas: ReceitaMercado[]; produtos: ProdutoMercado[];
+  /** último preço pago por ingrediente, na unidade de medida (compras_mercadoria) */
+  ultimos?: Record<string, number>;
+}
 
 export interface ResultadoProduto { id: string; nome: string; receitas: number; unidades: number; faltam: string[] }
 export interface PreviaMercado {
@@ -48,8 +54,9 @@ export interface PreviaMercado {
 
 const EPS = 1e-9;
 export const ehLote = (p: ProdutoMercado) => p.recipe_mode === "batch" && p.batch_yield > 0;
-/** "Compro pronto": o estoque é o próprio produto. */
-export const compraPronto = (p: ProdutoMercado) => p.origem === "compra" || p.recipe_mode !== "batch";
+/** "Compro pronto": o estoque é o próprio produto. Quem marcou "eu faço" e ainda
+ *  não tem receita NÃO entra aqui (é a 1ª compra dele, pelo "pra qual produto?"). */
+export const compraPronto = (p: ProdutoMercado) => p.origem === "compra" || (p.origem !== "faz" && p.recipe_mode !== "batch");
 
 /** Produtos em lote cuja receita usa este ingrediente. */
 export function produtosDoIngrediente(ingId: string, base: BaseMercado): string[] {
