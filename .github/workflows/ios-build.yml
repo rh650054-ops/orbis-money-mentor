@@ -1,0 +1,114 @@
+# Builds the VANT iPhone app on a GitHub macOS runner (no Mac needed).
+#
+# Run it from GitHub: Actions > "iOS build" > Run workflow.
+#
+# Stage 1 — works TODAY, without an Apple account:
+#   compiles the app for the iOS Simulator (unsigned). Green = the native project,
+#   the web bundle and the Capacitor plugins all build for iPhone.
+#
+# Stage 2 — after the Apple Developer account is active:
+#   with the secrets below set, the same run also archives a SIGNED build and
+#   uploads it straight to App Store Connect / TestFlight.
+#
+# One-time setup in GitHub > Settings > Secrets and variables > Actions
+# (never paste these values in a chat):
+#   Variables: VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY (same as the Android build)
+#              APPLE_TEAM_ID       (10 characters, App Store Connect > Membership)
+#   Secrets:   ASC_KEY_ID, ASC_ISSUER_ID,
+#              ASC_KEY_P8_BASE64   (the .p8 App Store Connect API key, base64; role Admin,
+#                                   so Xcode can create the signing certificate itself)
+#   Optional:  VITE_COBRANCA_LOJA = link   (Néctar model: subscribe button opens Hotmart;
+#                                          default is "fora": the store app does not sell)
+name: iOS build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: "Version shown in the store (e.g. 1.0.0)"
+        required: true
+        default: "1.0.0"
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Pick the newest Xcode on the runner
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web bundle
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_COBRANCA_LOJA: ${{ vars.VITE_COBRANCA_LOJA }}
+        run: |
+          test -n "$VITE_SUPABASE_URL" || { echo "Missing repo variable VITE_SUPABASE_URL"; exit 1; }
+          npm run build
+
+      - name: Copy web bundle into the iOS project
+        run: npx cap sync ios
+
+      - name: Stage 1 — compile for the Simulator (unsigned)
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tail -40
+
+      - name: Stage 2 — signed archive and upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          VERSION_NAME: ${{ inputs.version_name }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_P8_BASE64" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "::notice::Apple secrets not set yet: stopped after the Simulator build (stage 1)."
+            exit 0
+          fi
+          [[ "$VERSION_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version_name must look like 1.0.0"; exit 1; }
+          KEY="$RUNNER_TEMP/AuthKey.p8"
+          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$KEY"
+          AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/VANT.xcarchive" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            MARKETING_VERSION="$VERSION_NAME" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            "${AUTH[@]}" archive | tail -40
+
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+          </dict></plist>
+          PLIST
+
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/VANT.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" \
+            "${AUTH[@]}" | tail -40
+          rm -f "$KEY"
+          echo "::notice::Build $VERSION_NAME ($BUILD_NUMBER) sent to App Store Connect. It shows up in TestFlight after Apple processes it (~15-30 min)."
