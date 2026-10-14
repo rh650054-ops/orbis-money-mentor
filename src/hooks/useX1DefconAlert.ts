@@ -23,7 +23,6 @@ export interface X1LiveState {
   myName: string;
   my: number;
   opp: number;
-  stakes: number;
   lead: "me" | "opp" | "tie" | null;
   /** virada recente — o widget mostra o banner e depois chama dismissEvent() */
   event: X1LiveEvent | null;
@@ -38,7 +37,6 @@ const EMPTY: X1LiveState = {
   myName: "",
   my: 0,
   opp: 0,
-  stakes: 0,
   lead: null,
   event: null,
   dismissEvent: () => {},
@@ -62,7 +60,7 @@ export function useX1DefconAlert(userId: string | undefined, active: boolean): X
       return;
     }
     let alive = true;
-    let duel: { id: string; iAmCh: boolean; oppName: string; oppAvatar: string | null; myAvatar: string | null; myName: string; stakes: number } | null = null;
+    let duel: { id: string; iAmCh: boolean; oppName: string; oppAvatar: string | null; myAvatar: string | null; myName: string } | null = null;
 
     const notify = (title: string, body: string) => {
       if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
@@ -75,7 +73,7 @@ export function useX1DefconAlert(userId: string | undefined, active: boolean): X
       const today = getBrazilDate();
       const { data } = await supabase
         .from("x1_challenges" as any)
-        .select("id, challenger_id, opponent_id, stakes_amount")
+        .select("id, challenger_id, opponent_id")
         .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
         .eq("status", "active")
         .eq("scheduled_date", today)
@@ -99,7 +97,6 @@ export function useX1DefconAlert(userId: string | undefined, active: boolean): X
         oppAvatar: (opp?.avatar_url as string) || null,
         myAvatar: (me?.avatar_url as string) || null,
         myName: (me?.nickname as string) || "Você",
-        stakes: Number(c.stakes_amount) || 0,
       };
     };
 
@@ -155,7 +152,6 @@ export function useX1DefconAlert(userId: string | undefined, active: boolean): X
         myName: duel!.myName,
         my,
         opp,
-        stakes: duel!.stakes,
         lead,
         // não apaga um evento ainda em exibição se este poll não gerou outro
         event: event ?? s.event,

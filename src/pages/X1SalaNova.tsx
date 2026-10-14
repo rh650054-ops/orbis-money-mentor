@@ -1,9 +1,8 @@
 /* ============================================================
    ABRIR SALA (/x1/sala/nova) — Sala de Competição, X1 em grupo.
-   Nome · quantos lutadores (2–8) · valendo (honra ou aposta igual pra todos,
-   travada pela patente) · pote em tempo real (−10% da casa, 1º/2º) ·
-   chamar vendedores (grade, busca) · ABRIR SALA. A aposta é travada na hora,
-   igual ao X1. ?alvo=uid pré-seleciona um convidado.
+   Nome · quantos lutadores (2–8) · chamar vendedores (grade, busca) ·
+   ABRIR SALA. Vale pontos, sem dinheiro (14/10/2026). ?alvo=uid pré-seleciona
+   um convidado.
    Mesma tela em modo CHAMAR MAIS (/x1/sala/:id/chamar): só a grade de
    vendedores (quem já tá na sala some) + link da sala → x1_sala_convidar.
    A + B unificadas em 02/10/2026 (lib única: x1-sala-lib.ts).
@@ -11,7 +10,7 @@
    ============================================================ */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Users, Search, Loader2, Lock, Link2, UserPlus, Wallet } from "lucide-react";
+import { ArrowLeft, Users, Search, Loader2, Link2, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,8 +18,8 @@ import { toast } from "@/shared/hooks/use-toast";
 import "@/components/x1/x1.css";
 import { useTravaBanco } from "@/components/x1/x1-trava-lib";
 import { X1Avatar } from "@/components/x1/X1Avatar";
-import { fmt, primeiroNome, carregarRecorde, type Recorde, RECORDE_VAZIO } from "@/components/x1/x1-lib";
-import { SALA_VAGAS, SALA_APOSTAS, SALA_HORA_ENTRADA, aindaEntra, divisaoPote, criarSala, carregarSala, convidarSala, linkSala, type Sala } from "@/components/x1/x1-sala-lib";
+import { primeiroNome } from "@/components/x1/x1-lib";
+import { SALA_VAGAS, SALA_HORA_ENTRADA, aindaEntra, criarSala, carregarSala, convidarSala, linkSala, type Sala } from "@/components/x1/x1-sala-lib";
 
 const GOLD = "#F5B800";
 const RED = "#F2465A";
@@ -54,30 +53,12 @@ export default function X1SalaNova() {
 
   const [nome, setNome] = useState("");
   const [vagas, setVagas] = useState(4);
-  const [aposta, setAposta] = useState(0);
-  const [recorde, setRecorde] = useState<Recorde>(RECORDE_VAZIO);
-  const [saldo, setSaldo] = useState(0);
-  const [verificado, setVerificado] = useState(false);
   const [busca, setBusca] = useState("");
   const [lista, setLista] = useState<Candidato[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [escolhidos, setEscolhidos] = useState<Candidato[]>([]);
   const [abrindo, setAbrindo] = useState(false);
   const [sala, setSala] = useState<Sala | null>(null);
-
-  useEffect(() => {
-    if (!uid) return;
-    let vivo = true;
-    Promise.all([
-      carregarRecorde(uid),
-      supabase.from("x1_wallets" as any).select("balance").eq("user_id", uid).maybeSingle(),
-      supabase.from("profiles").select("verificado").eq("user_id", uid).maybeSingle(),
-    ]).then(([r, w, p]) => {
-      if (!vivo) return;
-      setRecorde(r); setSaldo(Number((w.data as any)?.balance) || 0); setVerificado(!!(p.data as any)?.verificado);
-    });
-    return () => { vivo = false; };
-  }, [uid]);
 
   // modo CHAMAR MAIS: carrega a sala pra saber vagas, quem já tá dentro e o nome
   useEffect(() => {
@@ -86,7 +67,7 @@ export default function X1SalaNova() {
     carregarSala(salaId).then((s) => {
       if (!vivo) return;
       if (!s) { toast({ title: "Essa sala não existe mais", variant: "destructive" }); navigate("/x1", { replace: true }); return; }
-      setSala(s); setNome(s.nome); setVagas(s.vagas); setAposta(s.stakes_amount);
+      setSala(s); setNome(s.nome); setVagas(s.vagas);
     }).catch((e) => { if (vivo) { toast({ title: "Não rolou", description: (e as Error).message, variant: "destructive" }); navigate(`/x1/sala/${salaId}`, { replace: true }); } });
     return () => { vivo = false; };
   }, [uid, salaId, navigate]);
@@ -108,15 +89,12 @@ export default function X1SalaNova() {
   }, [params, uid, lista, escolhidos]);
 
   const chamando = !!salaId;
-  const limite = recorde.aposta_max;
-  const divisao = useMemo(() => divisaoPote(aposta, vagas), [aposta, vagas]);
   // quem já tá dentro ou já foi chamado não aparece na grade do modo CHAMAR MAIS
   const jaNaSala = useMemo(() => new Set((sala?.lutadores ?? []).filter((m) => m.status === "dentro" || m.status === "convidado").map((m) => m.user_id)), [sala]);
   const dentro = useMemo(() => (sala?.lutadores ?? []).filter((m) => m.status === "dentro").length, [sala]);
   const maxConvites = chamando ? Math.max(0, vagas - dentro) : vagas - 1;
   const candidatos = useMemo(() => (chamando ? lista.filter((c) => !jaNaSala.has(c.user_id)) : lista), [chamando, lista, jaNaSala]);
   const abertoAgora = aindaEntra();
-  const faltaSaldo = aposta > 0 && saldo < aposta;
 
   const alternar = (c: Candidato) => {
     setEscolhidos((prev) => {
@@ -141,7 +119,7 @@ export default function X1SalaNova() {
         toast({ title: n > 0 ? `${n} ${n === 1 ? "pessoa chamada" : "pessoas chamadas"} 👊` : "Ninguém novo chamado", description: "Quem não entrar pelo chamado ainda entra pelo link, até lotar." });
         navigate(`/x1/sala/${salaId}`, { replace: true });
       } else {
-        const id = await criarSala({ nome: nome.trim() || "Sala de competição", aposta, vagas, convidados: escolhidos.map((c) => c.user_id) });
+        const id = await criarSala({ nome: nome.trim() || "Sala de competição", vagas, convidados: escolhidos.map((c) => c.user_id) });
         try { navigator.vibrate?.([60, 40, 90]); } catch { /* sem vibração */ }
         toast({ title: "Sala aberta 👊", description: escolhidos.length > 0 ? `${escolhidos.length} ${escolhidos.length === 1 ? "pessoa recebeu" : "pessoas receberam"} o chamado. Manda o link pra quem faltou.` : "Manda o link pra galera entrar." });
         navigate(`/x1/sala/${id}`, { replace: true });
@@ -160,7 +138,6 @@ export default function X1SalaNova() {
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => navigate(chamando ? `/x1/sala/${salaId}` : "/x1")} aria-label="Voltar" className="w-9 h-9 rounded-full flex items-center justify-center" style={{ color: "#b3ab9c" }}><ArrowLeft className="w-5 h-5" /></button>
         <p className="flex-1 text-[11px] font-black tracking-[.2em]" style={{ color: "#8a8378" }}>{chamando ? "CHAMAR MAIS · HOJE" : "NOVA SALA · HOJE"}</p>
-        <button type="button" onClick={() => navigate("/x1/carteira")} className="h-8 px-3 rounded-full inline-flex items-center gap-1.5 text-[12px] font-black" style={{ background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD }}><Wallet className="w-3.5 h-3.5" strokeWidth={2.6} /> {fmt(saldo)}</button>
       </div>
 
       {!abertoAgora && (
@@ -173,7 +150,7 @@ export default function X1SalaNova() {
       {chamando && sala ? (
         <Card style={{ borderColor: `${GOLD}73`, background: "linear-gradient(160deg,#1a1305,#0e0e10)" }}>
           <p className="text-[10px] font-black tracking-[.16em]" style={{ color: GOLD }}>SALA · {sala.nome.toUpperCase()}</p>
-          <p className="text-[15px] font-black mt-0.5">{dentro} dentro · {Math.max(0, sala.vagas - dentro)} {sala.vagas - dentro === 1 ? "vaga" : "vagas"}{sala.stakes_amount > 0 ? ` · ${fmt(sala.stakes_amount)} cada` : " · na honra"}</p>
+          <p className="text-[15px] font-black mt-0.5">{dentro} dentro · {Math.max(0, sala.vagas - dentro)} {sala.vagas - dentro === 1 ? "vaga" : "vagas"} · vale pontos</p>
           <p className="text-[11px] mt-1" style={{ color: "#b3ab9c" }}>Quem você chamar recebe o aviso na Arena. Quem não for chamado entra pelo link até lotar.</p>
         </Card>
       ) : (
@@ -189,40 +166,7 @@ export default function X1SalaNova() {
         <div className="flex gap-1.5 flex-wrap mt-2">
           {SALA_VAGAS.map((v) => <Chip key={v} on={vagas === v} onClick={() => { setVagas(v); setEscolhidos((p) => p.slice(0, v - 1)); }}>{v}</Chip>)}
         </div>
-        <p className="text-[10px] font-black tracking-[.16em] mt-3" style={{ color: "#8a8378" }}>VALENDO (IGUAL PRA TODOS)</p>
-        <div className="flex gap-1.5 flex-wrap mt-2">
-          {SALA_APOSTAS.map((v) => { const trava = v > limite; return (
-            <Chip key={v} on={aposta === v} cor={v === 0 ? "ouro" : "vermelho"} disabled={trava} onClick={() => setAposta(v)}>
-              {v === 0 ? "Honra" : `R$ ${v}`}{trava && <Lock className="w-3 h-3" />}
-            </Chip>
-          ); })}
-        </div>
-        {limite <= 0 ? (
-          <p className="text-[10.5px] mt-2" style={{ color: "#8a8378" }}>Aposta em dinheiro libera em BRIGÃO (50 XP). Na honra vale XP igual.</p>
-        ) : aposta > 0 && !verificado ? (
-          <p className="text-[10.5px] mt-2" style={{ color: "#ff7d8c" }}>Pra apostar dinheiro você precisa conectar onde recebe (Vender → verificado).</p>
-        ) : aposta > 0 && faltaSaldo ? (
-          <p className="text-[10.5px] mt-2" style={{ color: "#ff7d8c" }}>Falta saldo: você tem {fmt(saldo)} e a aposta é {fmt(aposta)}. Deposita na carteira ou abre na honra.</p>
-        ) : null}
-
-        <div className="flex items-center justify-between gap-3 mt-3">
-          <div>
-            <p className="text-[10px] font-black tracking-[.16em]" style={{ color: GOLD }}>{aposta > 0 ? `POTE COM ${vagas} · 10% DA CASA` : "NA HONRA"}</p>
-            <p className="text-[26px] font-black italic leading-none mt-1 tabular-nums" style={{ color: GOLD }}>{aposta > 0 ? fmt(divisao.pote) : "XP"}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-[10px] font-black tracking-[.16em]" style={{ color: "#8a8378" }}>VOCÊ TRAVA AGORA</p>
-            <p className="text-[15px] font-black mt-1 tabular-nums">{aposta > 0 ? fmt(aposta) : "R$ 0"}</p>
-          </div>
-        </div>
-        {aposta > 0 && (
-          <div className="flex gap-1.5 mt-2">
-            <span className="h-[30px] rounded-[9px] flex items-center justify-center text-[11px] font-black" style={{ flex: 7, background: "#2a1f05", border: `1px solid ${GOLD}80`, color: GOLD }}>1º leva {fmt(divisao.primeiro)}</span>
-            {divisao.segundo > 0 && <span className="h-[30px] rounded-[9px] flex items-center justify-center text-[11px] font-black" style={{ flex: 3, background: "#1c1c1f", border: "1px solid #333", color: "#cfcfcf" }}>2º {fmt(divisao.segundo)}</span>}
-            <span className="h-[30px] rounded-[9px] flex items-center justify-center text-[11px] font-black" style={{ flex: 1.2, background: "#1a0a0e", border: `1px solid ${RED}66`, color: "#ff7d8c" }}>10%</span>
-          </div>
-        )}
-        <p className="text-[10.5px] mt-2 leading-snug" style={{ color: "#8a8378" }}>{vagas <= 2 ? "Com 2 lutadores, quem vende mais leva tudo." : "Com 3 ou mais: 1º leva 70%, 2º leva 30%. Empate divide."} O pote final é com quem ficar na sala.</p>
+        <p className="text-[10.5px] mt-3 leading-snug" style={{ color: "#8a8378" }}>Vale pontos e colocação: quem vender mais no dia fica em 1º. Sem dinheiro, sem aposta.</p>
       </Card>
       )}
 
@@ -284,9 +228,9 @@ export default function X1SalaNova() {
               {escolhidos.length === 0 ? "ESCOLHE QUEM CHAMAR" : `CHAMAR ${escolhidos.length} PRA SALA`}
             </button>
           ) : (
-            <button type="button" onClick={abrir} disabled={abrindo || !abertoAgora || (aposta > 0 && (faltaSaldo || !verificado))} className="x1-btn ouro">
+            <button type="button" onClick={abrir} disabled={abrindo || !abertoAgora} className="x1-btn ouro">
               {abrindo ? <Loader2 className="w-5 h-5 animate-spin" /> : <Users className="w-5 h-5" strokeWidth={2.6} />}
-              {aposta > 0 ? `ABRIR SALA · TRAVAR ${fmt(aposta)}` : "ABRIR SALA · NA HONRA"}
+              "ABRIR SALA"
             </button>
           )}
         </div>

@@ -28,7 +28,7 @@ META DO DIA QUE FAZ SENTIDO
 Diga quanto quer fazer no mês e a VANT quebra em meta do dia e da hora. No fim do dia, um relatório mostra quanto entrou, quanto sobrou e o que mudar amanhã.
 
 RANKING E DESAFIOS
-Dispute com vendedores do Brasil inteiro. Suba de posição, defenda seu lugar no X1 e participe dos desafios da temporada.
+Dispute com vendedores do Brasil inteiro. Suba de posição, defenda seu lugar no X1 (valendo pontos e patente) e participe dos desafios da temporada.
 
 SEU DINHEIRO ORGANIZADO
 Separe o que é do negócio e o que é da casa, acompanhe gastos com mercadoria e veja quanto você realmente lucra. Na VANT Pro, conecte sua conta do banco pelo Open Finance e as entradas de Pix caem sozinhas, sem digitar nada.
@@ -58,10 +58,15 @@ ambulante,vendedor,feirante,caixa,controle,financeiro,pix,lucro,ranking,camelô,
 - Apple: **Negócios** (principal), **Finanças** (secundária).
 
 ## Classificação etária
-Livre / 4+ na maioria das perguntas. Atenção: o **X1** com depósito em dinheiro
-pode ser lido como aposta. Se o X1 envolver valor em dinheiro entre jogadores,
-ele precisa ficar fora do app da loja ou o app vira 18+ e cai em regras de jogos
-de azar nas duas lojas. Decidir antes do envio.
+Livre / 4+ na maioria das perguntas. **X1:** desde 14/10/2026 vale **só pontos**
+(sem depósito, aposta, taxa nem prêmio em dinheiro; pontos não se compram, não se
+transferem e não viram dinheiro). Nas perguntas de jogos de azar / apostas /
+"simulated gambling", responder **não**. O placar do duelo são as vendas reais do
+dia (R$), que é métrica de desempenho, não prêmio.
+
+Atenção, fora do X1: o **Desafio Avante** e os desafios do ranking têm prêmio pra
+quem mais vender (concurso de desempenho, sem pagamento pra participar). Conferir
+o regulamento antes do envio; não foi mudado nesta etapa.
 
 ## URLs que as lojas pedem
 - Política de privacidade: https://app.orbis.inf.br/privacidade

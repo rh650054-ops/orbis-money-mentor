@@ -53,7 +53,7 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
   const { whitelisted, role } = useAdminAccess(viewer?.id);
   const canSeeWinnings = !!userId && (viewer?.id === userId || (whitelisted && role === "admin"));
   const [winTotal, setWinTotal] = useState<number | null>(null);
-  const [x1Hist, setX1Hist] = useState<Array<{ id: string; otherName: string; won: boolean; prize: number }>>([]);
+  const [x1Hist, setX1Hist] = useState<Array<{ id: string; otherName: string; won: boolean }>>([]);
   const [compWins, setCompWins] = useState<Array<{ id: string; label: string; value: number }>>([]);
 
   /* ---- MODERAÇÃO (admin supremo) — pedido do Rick, 01/09 ----
@@ -143,7 +143,7 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
         (supabase as any).rpc("get_user_winnings", { p_user: userId }),
         supabase
           .from("x1_challenges" as any)
-          .select("id, challenger_id, opponent_id, winner_user_id, prize_amount, created_at")
+          .select("id, challenger_id, opponent_id, winner_user_id, created_at")
           .eq("status", "finished")
           .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
           .order("created_at", { ascending: false })
@@ -161,7 +161,6 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
         id: r.id as string,
         other: (r.challenger_id === userId ? r.opponent_id : r.challenger_id) as string,
         won: r.winner_user_id === userId,
-        prize: (r.prize_amount as number) || 0,
       }));
       const otherIds = Array.from(new Set(raw.map((h) => h.other)));
       let nameMap = new Map<string, string>();
@@ -170,7 +169,7 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
         nameMap = new Map(((ps as any[]) || []).map((p) => [p.user_id, p.nickname || "Vendedor"]));
       }
       if (!active) return;
-      setX1Hist(raw.map((h) => ({ id: h.id, otherName: nameMap.get(h.other) || "Vendedor", won: h.won, prize: h.prize })));
+      setX1Hist(raw.map((h) => ({ id: h.id, otherName: nameMap.get(h.other) || "Vendedor", won: h.won })));
       setCompWins(((cw as any[]) || []).map((r) => ({ id: r.id, label: r.prize_label, value: r.prize_value || 0 })));
     })().catch((e) => avisar.erro("PublicProfileModal: carregar histórico", e));
     return () => {
@@ -345,7 +344,7 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
                               X1 vs {h.otherName}
                             </span>
                             <span className={h.won ? "text-green-400 font-semibold" : "text-muted-foreground"}>
-                              {h.won ? `+${formatCurrency(h.prize)}` : "perdeu"}
+                              {h.won ? "venceu · +10 pontos" : "perdeu"}
                             </span>
                           </div>
                         ))}

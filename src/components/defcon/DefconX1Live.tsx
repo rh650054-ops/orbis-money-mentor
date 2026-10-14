@@ -58,7 +58,7 @@ export function DefconX1Live({ x1 }: { x1: X1LiveState }) {
             {ahead ? `+${formatCurrency(diff)} na frente de ${nome}` : behind ? `${nome} tá ${formatCurrency(diff)} na frente` : `Empate com ${nome}`}
           </span>
           <span className="block text-[9.5px] font-bold leading-tight tabular-nums" style={{ color: "#8a8378" }}>
-            {formatCurrency(x1.my)} × {formatCurrency(x1.opp)}{x1.stakes > 0 ? ` · pote ${formatCurrency(x1.stakes * 2)}` : " · amistoso"}
+            {formatCurrency(x1.my)} × {formatCurrency(x1.opp)} · vale pontos
           </span>
         </span>
       </button>

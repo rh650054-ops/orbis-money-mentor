@@ -48,14 +48,14 @@ export default function Privacidade() {
         <S t="2. Dados que coletamos">
           <p><strong>No cadastro:</strong> nome/apelido, CPF, e-mail, telefone/WhatsApp, cidade e estado, e senha (armazenada de forma criptografada — nunca temos acesso à senha em texto).</p>
           <p><strong>No uso do app:</strong> registros de vendas, metas, custos, despesas, contas a pagar, produtos, insumos e estoque, rotinas de trabalho, participação em rankings e competições, e foto de perfil (opcional).</p>
-          <p><strong>Financeiros (opcionais):</strong> chave Pix cadastrada por você para receber pagamentos; extratos bancários enviados por você ou obtidos via conexão bancária autorizada (Open Finance, pela Pluggy); movimentações da carteira X1.</p>
+          <p><strong>Financeiros (opcionais):</strong> chave Pix cadastrada por você para receber pagamentos; extratos bancários enviados por você ou obtidos via conexão bancária autorizada (Open Finance, pela Pluggy); histórico da antiga carteira X1 (encerrada), guardado para resolver saldos e obrigações anteriores.</p>
           <p><strong>Assistente de IA:</strong> as mensagens que você troca com o assistente da Vant, para gerar as respostas e conselhos.</p>
           <p><strong>Pagamento da assinatura:</strong> processado pela Hotmart. Não armazenamos números de cartão — recebemos da Hotmart apenas a confirmação do pagamento, e-mail e CPF do comprador para liberar seu acesso.</p>
           <p><strong>Técnicos:</strong> registros de acesso (logs), identificadores de dispositivo e dados de uso necessários à segurança e ao funcionamento.</p>
         </S>
 
         <S t="3. Para que usamos (finalidades e bases legais)">
-          <p><strong>Prestar o serviço</strong> (execução de contrato): manter sua conta, calcular metas, custos, lucros e relatórios, operar rankings, competições e a carteira X1.</p>
+          <p><strong>Prestar o serviço</strong> (execução de contrato): manter sua conta, calcular metas, custos, lucros e relatórios, operar rankings, competições e o X1 (só por pontos).</p>
           <p><strong>Conexão bancária e extratos</strong> (consentimento): só acontecem quando você autoriza expressamente; você pode desconectar a qualquer momento.</p>
           <p><strong>Assistente de IA</strong> (execução de contrato): suas mensagens e dados de contexto necessários são processados para gerar respostas personalizadas.</p>
           <p><strong>Segurança e melhoria</strong> (legítimo interesse): prevenção de fraude (inclusive em competições), estabilidade e evolução do produto.</p>
@@ -69,7 +69,7 @@ export default function Privacidade() {
           <p><strong>Anthropic</strong> — processamento das conversas do assistente de IA (EUA). Veja a seção 5 sobre transferência internacional.</p>
           <p><strong>Hotmart</strong> — processamento do pagamento da assinatura.</p>
           <p><strong>Pluggy</strong> — conexão bancária via Open Finance, somente quando você autoriza (Brasil, regulada pelo ecossistema do Banco Central).</p>
-          <p><strong>Mercado Pago</strong> — processamento de depósitos e saques da carteira X1, quando você usa essa função.</p>
+          <p><strong>Mercado Pago</strong> — processou depósitos da antiga carteira X1 (encerrada); hoje só é usado quando você conecta sua própria conta do Mercado Pago (vendas e cobranças).</p>
           <p><strong>Google</strong> — integração opcional com a sua agenda, somente se você conectar.</p>
         </S>
 

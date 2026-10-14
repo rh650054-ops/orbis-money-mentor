@@ -1,7 +1,7 @@
 /* ============================================================
    CARD DE LUTADOR — a identidade do vendedor na Arena X1.
    Variantes:
-     • "arena"  → card grande com foto, escudo, 4 stats e barra de XP
+     • "arena"  → card grande com foto, escudo, 4 stats e barra de pontos
      • "luta"   → card compacto do lado do VS (foto, patente, placar)
      • "mini"   → card da grade de seleção (foto, nome, patente, potência)
    Foto real sempre (X1Avatar cai pra iniciais se não tiver).
@@ -29,7 +29,7 @@ export function XpBar({ r, animar = false, corTexto = GOLD }: { r: Recorde; anim
   return (
     <div className="mt-2.5">
       <div className="flex items-center justify-between text-[10px] font-black tracking-[.16em]" style={{ color: corTexto }}>
-        <span>XP · {r.pontos}{r.pontos_proxima != null ? ` / ${r.pontos_proxima}` : ""}</span>
+        <span>PONTOS · {r.pontos}{r.pontos_proxima != null ? ` / ${r.pontos_proxima}` : ""}</span>
         <span>{prox ? `→ ${prox}` : "LENDA"}</span>
       </div>
       <div className="h-[10px] rounded-full overflow-hidden mt-1.5" style={{ background: "rgba(0,0,0,.55)", border: "1px solid rgba(255,255,255,.08)" }}>

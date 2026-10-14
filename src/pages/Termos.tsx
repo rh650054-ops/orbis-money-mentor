@@ -70,10 +70,12 @@ export default function Termos() {
           <p>É proibido: fraudar rankings, competições ou extratos; usar a conta de terceiros; enviar conteúdo ilegal ou ofensivo na comunidade; tentar burlar a segurança do sistema; usar o serviço para atividades ilícitas. Violações podem levar à suspensão ou encerramento da conta, sem prejuízo das medidas legais.</p>
         </S>
 
-        <S t="6. Carteira X1 e funções financeiras">
+        <S t="6. X1 e funções financeiras">
           <p>
-            Depósitos e saques da carteira X1 são processados pelo <strong>Mercado Pago</strong> e
-            seguem as regras exibidas no app. A conexão bancária (via Pluggy/Open Finance) e o envio
+            O X1 e a Sala de Competição valem <strong>só pontos</strong>: não há depósito, aposta,
+            taxa nem prêmio em dinheiro. Os pontos não podem ser comprados, transferidos, sacados
+            ou trocados por dinheiro, produtos ou benefícios com valor. A antiga carteira X1 foi
+            encerrada; quem tinha saldo nela pode pedir a devolução pelo suporte. A conexão bancária (via Pluggy/Open Finance) e o envio
             de extratos são opcionais e só ocorrem com a sua autorização. Os valores, metas e
             relatórios exibidos dependem dos dados que você registra — confira sempre suas
             informações.

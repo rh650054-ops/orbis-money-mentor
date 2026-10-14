@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import "@/components/x1/x1.css";
 import { X1Avatar } from "@/components/x1/X1Avatar";
-import { carregarPessoas, carregarRecorde, fmt, primeiroNome, patenteCor, proximaPatente, voltaPraVoce, xpPct, type Pessoa, type Recorde, RECORDE_VAZIO } from "@/components/x1/x1-lib";
+import { carregarPessoas, carregarRecorde, fmt, primeiroNome, patenteCor, proximaPatente, xpPct, type Pessoa, type Recorde, RECORDE_VAZIO } from "@/components/x1/x1-lib";
 
 const GOLD = "#F5B800";
 const RED = "#F2465A";
@@ -23,8 +23,8 @@ const OK = "#3DD68C";
 const HOT = "#ff7a1a";
 
 type Estado =
-  | { tipo: "luta"; id: string; ele: Pessoa; meu: number; dele: number; stakes: number }
-  | { tipo: "desafio"; id: string; ele: Pessoa; stakes: number; quando: string }
+  | { tipo: "luta"; id: string; ele: Pessoa; meu: number; dele: number }
+  | { tipo: "desafio"; id: string; ele: Pessoa; quando: string }
   | { tipo: "rival"; ele: Pessoa; posicao: number | null; diferenca: number; vivas: number }
   | { tipo: "primeira"; vivas: number };
 
@@ -41,7 +41,7 @@ export function X1HomeBanner({ userId }: { userId: string | undefined }) {
       const hoje = getBrazilDate();
       const [{ data: rows }, rec, meMap, lv] = await Promise.all([
         supabase.from("x1_challenges" as any)
-          .select("id, challenger_id, opponent_id, status, scheduled_date, stakes_amount, last_proposed_by")
+          .select("id, challenger_id, opponent_id, status, scheduled_date, last_proposed_by")
           .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
           .in("status", ["pending", "active"]).order("created_at", { ascending: false }).limit(10),
         carregarRecorde(userId),
@@ -67,14 +67,13 @@ export function X1HomeBanner({ userId }: { userId: string | undefined }) {
           ele: { user_id: outroId(ativa), nome: souCh ? row.op_nome : row.ch_nome, avatar_url: souCh ? row.op_avatar : row.ch_avatar },
           meu: Number(souCh ? row.ch_total : row.op_total) || 0,
           dele: Number(souCh ? row.op_total : row.ch_total) || 0,
-          stakes: Number(ativa.stakes_amount) || 0,
         });
         return;
       }
       if (desafio) {
         const m = await carregarPessoas([outroId(desafio)]);
         if (!vivo) return;
-        setEstado({ tipo: "desafio", id: desafio.id, ele: m[outroId(desafio)] || { user_id: outroId(desafio), nome: "Vendedor", avatar_url: null }, stakes: Number(desafio.stakes_amount) || 0, quando: desafio.scheduled_date === hoje ? "hoje" : "amanhã" });
+        setEstado({ tipo: "desafio", id: desafio.id, ele: m[outroId(desafio)] || { user_id: outroId(desafio), nome: "Vendedor", avatar_url: null }, quando: desafio.scheduled_date === hoje ? "hoje" : "amanhã" });
         return;
       }
       const { data: op } = await (supabase as any).rpc("x1_oponentes", { p_filtro: "liga", p_busca: null });
@@ -103,7 +102,7 @@ export function X1HomeBanner({ userId }: { userId: string | undefined }) {
       style={{ background: fundo, border: `1.5px solid ${borda}`, boxShadow: `0 26px 60px -34px ${estado.tipo === "luta" ? RED : GOLD}cc` }}>
       <span className="x1-shine" />
 
-      {/* cabeçalho: selo + patente/XP */}
+      {/* cabeçalho: selo + patente/pontos */}
       <div className="flex items-center justify-between relative z-[1]">
         <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black tracking-[.14em]"
           style={estado.tipo === "luta"
@@ -112,7 +111,7 @@ export function X1HomeBanner({ userId }: { userId: string | undefined }) {
           {estado.tipo === "luta" ? <><i className="w-[6px] h-[6px] rounded-full x1-live" style={{ background: RED }} /> AO VIVO</> : "ARENA X1"}
         </span>
         <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black" style={{ background: `${corPat}1a`, border: `1px solid ${corPat}66`, color: corPat }}>
-          {r.patente} · {r.pontos} XP
+          {r.patente} · {r.pontos} pontos
         </span>
       </div>
 
@@ -140,7 +139,7 @@ export function X1HomeBanner({ userId }: { userId: string | undefined }) {
             </div>
             <p className="text-[12px] font-black mt-2 relative z-[1]" style={{ color: lidero ? OK : atras ? "#ff7d8c" : "#b3ab9c" }}>
               {lidero ? `Você lidera por ${fmt(estado.meu - estado.dele)}` : atras ? `Uma venda de ${fmt(Math.ceil(estado.dele - estado.meu))} vira o jogo` : "Empatados — a próxima venda decide"}
-              <span className="font-medium" style={{ color: "#8a8378" }}> · fecha 23:59{estado.stakes > 0 ? ` · volta ${fmt(voltaPraVoce(estado.stakes))}` : ""}</span>
+              <span className="font-medium" style={{ color: "#8a8378" }}> · fecha 23:59 · vale pontos</span>
             </p>
             <span className="x1-btn vermelho x1-pulse mt-3 relative z-[1]" style={{ height: 48 }}><Flame className="w-4 h-4" strokeWidth={2.6} /> DAR UM GOLPE · VENDER</span>
           </>
@@ -156,7 +155,7 @@ export function X1HomeBanner({ userId }: { userId: string | undefined }) {
             <X1Avatar url={eu.avatar_url} nome={eu.nome} size={56} cor={GOLD} style={{ borderWidth: 3, boxShadow: `0 0 0 5px ${GOLD}1a, 0 0 26px ${GOLD}55` }} />
             <div className="flex-1 min-w-0 text-right">
               <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#ff7d8c" }}>TE DESAFIOU</p>
-              <p className="text-[11.5px] mt-0.5" style={{ color: "#b3ab9c" }}>{estado.quando} · {estado.stakes > 0 ? `${fmt(estado.stakes)} · volta ${fmt(voltaPraVoce(estado.stakes))}` : "amistoso"}</p>
+              <p className="text-[11.5px] mt-0.5" style={{ color: "#b3ab9c" }}>{estado.quando} · vale pontos</p>
             </div>
           </div>
           <p className="text-[17px] font-black leading-tight mt-3 relative z-[1]">{primeiroNome(estado.ele.nome)} quer saber quem vende mais {estado.quando}.<br /><span style={{ color: GOLD }}>Topa a luta?</span></p>
@@ -178,10 +177,10 @@ export function X1HomeBanner({ userId }: { userId: string | undefined }) {
               <X1Avatar url={estado.ele.avatar_url} nome={estado.ele.nome} size={52} cor={RED} style={{ borderWidth: 3, boxShadow: `0 0 0 5px ${RED}1a, 0 0 26px ${RED}55` }} />
             </div>
           </div>
-          {/* XP */}
+          {/* pontos */}
           <div className="mt-3 relative z-[1]">
             <div className="flex items-center justify-between text-[9.5px] font-black tracking-[.14em]" style={{ color: GOLD }}>
-              <span>XP · {r.pontos}{r.pontos_proxima != null ? ` / ${r.pontos_proxima}` : ""}</span>
+              <span>PONTOS · {r.pontos}{r.pontos_proxima != null ? ` / ${r.pontos_proxima}` : ""}</span>
               <span>{prox ? `→ ${prox}` : "LENDA"}</span>
             </div>
             <div className="h-[9px] rounded-full overflow-hidden mt-1" style={{ background: "rgba(0,0,0,.5)", border: "1px solid rgba(255,255,255,.08)" }}>
@@ -207,7 +206,7 @@ export function X1HomeBanner({ userId }: { userId: string | undefined }) {
             <X1Avatar url={eu.avatar_url} nome={eu.nome} size={56} cor={GOLD} style={{ borderWidth: 3, boxShadow: `0 0 0 5px ${GOLD}1a, 0 0 26px ${GOLD}55` }} />
             <p className="text-[17px] font-black leading-tight">Sua primeira luta.<br /><span style={{ color: GOLD }}>Quem vende mais no dia leva.</span></p>
           </div>
-          <p className="text-[12px] mt-2 relative z-[1]" style={{ color: "#b3ab9c" }}>Amistoso, sem dinheiro. Vale XP e patente. {estado.vivas > 0 ? `${estado.vivas} ${estado.vivas === 1 ? "luta rolando" : "lutas rolando"} agora.` : ""}</p>
+          <p className="text-[12px] mt-2 relative z-[1]" style={{ color: "#b3ab9c" }}>Sem dinheiro: vale pontos e patente. {estado.vivas > 0 ? `${estado.vivas} ${estado.vivas === 1 ? "luta rolando" : "lutas rolando"} agora.` : ""}</p>
           <span className="x1-btn ouro x1-pulse mt-3 relative z-[1]" style={{ height: 48 }}><Swords className="w-5 h-5" strokeWidth={2.6} /> ENTRAR NA ARENA</span>
         </>
       )}

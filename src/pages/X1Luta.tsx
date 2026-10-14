@@ -5,11 +5,12 @@
                 últimos golpes (vendas do DEFCON), torcida; CTA VENDER
    • finished → tela de VITÓRIA/DERROTA animada (participante) ou resumo
    Espectador vê tudo e pode torcer. Atualiza a cada 15 s. Sem API externa.
+   Vale pontos, sem dinheiro (14/10/2026).
    Todo hook acima do primeiro return.
    ============================================================ */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Wallet, Flame, Check, X, Loader2, Swords, Share2 } from "lucide-react";
+import { ArrowLeft, Star, Flame, Check, X, Loader2, Swords, Share2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,7 +19,7 @@ import "@/components/x1/x1.css";
 import { X1Avatar } from "@/components/x1/X1Avatar";
 import { FighterCardLuta } from "@/components/x1/FighterCard";
 import { VitoriaScreen } from "@/components/x1/VitoriaScreen";
-import { fmt, primeiroNome, horaBR, rodadaAgora, horasAteMeiaNoite, erroBonito, expiraEm, carregarRecorde, voltaPraVoce, chaveVisto, type Pessoa, type Recorde, RECORDE_VAZIO } from "@/components/x1/x1-lib";
+import { fmt, primeiroNome, horaBR, rodadaAgora, horasAteMeiaNoite, erroBonito, expiraEm, carregarRecorde, chaveVisto, PONTOS_X1, type Pessoa, type Recorde, RECORDE_VAZIO } from "@/components/x1/x1-lib";
 import { Provocacoes } from "@/components/x1/X1Provocacao";
 import { carregarProvocacoes, type Provocacao } from "@/components/x1/x1-lote5";
 
@@ -26,7 +27,7 @@ const GOLD = "#F5B800";
 const RED = "#F2465A";
 const OK = "#3DD68C";
 
-interface Luta { id: string; status: string; scheduled_date: string; stakes_amount: number; prize_amount: number; winner_user_id: string | null; last_proposed_by: string | null; expires_at: string | null;
+interface Luta { id: string; status: string; scheduled_date: string; winner_user_id: string | null; last_proposed_by: string | null; expires_at: string | null;
   challenger_id: string; ch_nome: string; ch_avatar: string | null; ch_total: number; ch_patente: string; ch_vitorias: number; ch_potencia: number;
   opponent_id: string; op_nome: string; op_avatar: string | null; op_total: number; op_patente: string; op_vitorias: number; op_potencia: number;
   torcida_ch: number; torcida_op: number; minha_torcida: string | null }
@@ -41,7 +42,6 @@ export default function X1Luta() {
   const [l, setL] = useState<Luta | null>(null);
   const [golpes, setGolpes] = useState<Golpe[]>([]);
   const [recorde, setRecorde] = useState<Recorde>(RECORDE_VAZIO);
-  const [saldo, setSaldo] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
   const [agindo, setAgindo] = useState(false);
   const [hit, setHit] = useState<"ch" | "op" | null>(null);
@@ -54,7 +54,7 @@ export default function X1Luta() {
     const [{ data, error }, g] = await Promise.all([(supabase as any).rpc("x1_luta", { p_id: id }), (supabase as any).rpc("x1_golpes", { p_id: id })]);
     const row = ((data as any[]) || [])[0];
     if (error || !row) { setErro("Essa luta não existe mais."); return; }
-    const nova: Luta = { ...row, stakes_amount: Number(row.stakes_amount) || 0, prize_amount: Number(row.prize_amount) || 0, ch_total: Number(row.ch_total) || 0, op_total: Number(row.op_total) || 0, ch_potencia: Number(row.ch_potencia) || 0, op_potencia: Number(row.op_potencia) || 0 };
+    const nova: Luta = { ...row, ch_total: Number(row.ch_total) || 0, op_total: Number(row.op_total) || 0, ch_potencia: Number(row.ch_potencia) || 0, op_potencia: Number(row.op_potencia) || 0 };
     // golpe novo → sacode a barra e pula o número
     if (prev.current) {
       if (nova.ch_total > prev.current.ch) setHit("ch");
@@ -73,7 +73,6 @@ export default function X1Luta() {
   useEffect(() => {
     if (!uid) return;
     carregarRecorde(uid).then(setRecorde);
-    supabase.from("x1_wallets" as any).select("balance").eq("user_id", uid).maybeSingle().then(({ data }) => setSaldo(Number((data as any)?.balance) || 0));
   }, [uid, l?.status]);
   useEffect(() => { if (!hit) return; try { navigator.vibrate?.(40); } catch (e) { avisar.silencioso("X1Luta: vibração", e); } const t = setTimeout(() => setHit(null), 500); return () => clearTimeout(t); }, [hit]);
   useEffect(() => { const t = setTimeout(() => setRodadaVisivel(false), 2600); return () => clearTimeout(t); }, []);
@@ -120,7 +119,7 @@ export default function X1Luta() {
 
   // ===== FINALIZADA =====
   if (l.status === "finished" && participo && !resultadoFechado && !localStorage.getItem(chaveVisto(l.id))) {
-    return <VitoriaScreen tipo={tipoResultado} eu={eu} ele={ele} recorde={recorde} meu={meu} dele={dele} aposta={l.stakes_amount} premio={l.prize_amount}
+    return <VitoriaScreen tipo={tipoResultado} eu={eu} ele={ele} recorde={recorde} meu={meu} dele={dele}
       onFechar={() => { localStorage.setItem(chaveVisto(l.id), "1"); setResultadoFechado(true); }}
       onProximo={() => { localStorage.setItem(chaveVisto(l.id), "1"); navigate("/x1/escolher"); }}
       onRevanche={() => { localStorage.setItem(chaveVisto(l.id), "1"); navigate(`/x1/escolher?alvo=${ele.user_id}`); }} />;
@@ -132,11 +131,7 @@ export default function X1Luta() {
       {l.status === "active" ? (
         <span className="flex-1 inline-flex items-center gap-2 text-[10px] font-black tracking-[.14em]" style={{ color: "#ff7d8c" }}><i className="w-[7px] h-[7px] rounded-full x1-live" style={{ background: RED }} /> AO VIVO · RODADA {rodada} DE 6</span>
       ) : <span className="flex-1 text-[10px] font-black tracking-[.14em]" style={{ color: "#8a8378" }}>{l.status === "finished" ? "LUTA FECHADA" : l.status === "pending" ? "DESAFIO" : "ENCERRADA"}</span>}
-      {participo ? (
-        <button type="button" onClick={() => navigate("/x1/carteira")} className="h-8 px-3 rounded-full inline-flex items-center gap-1.5 text-[12px] font-black" style={{ background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD }}><Wallet className="w-3.5 h-3.5" strokeWidth={2.6} /> {fmt(saldo)}</button>
-      ) : (
-        <span className="h-8 px-3 rounded-full inline-flex items-center text-[10px] font-black" style={{ background: "#1a1305", border: "1px solid #3a2f0c", color: GOLD }}>{l.stakes_amount > 0 ? `VOLTA ${fmt(voltaPraVoce(l.stakes_amount))}` : "AMISTOSO"}</span>
-      )}
+      <span className="h-8 px-3 rounded-full inline-flex items-center gap-1.5 text-[10px] font-black" style={{ background: "#1a1305", border: "1px solid #3a2f0c", color: GOLD }}><Star className="w-3.5 h-3.5" strokeWidth={2.6} /> VALE +{PONTOS_X1.vitoria} PONTOS</span>
     </div>
   );
 
@@ -153,13 +148,12 @@ export default function X1Luta() {
         </div>
         <p className="x1-up text-center text-[22px] font-black mt-6 tracking-tight" style={{ "--i": 6 } as React.CSSProperties}>{primeiroNome(l.ch_nome)} × {primeiroNome(l.op_nome)}</p>
         <p className="x1-up text-center text-[12.5px] mt-1" style={{ "--i": 8, color: "#b3ab9c" } as React.CSSProperties}>
-          Hoje · quem vende mais até 23:59 · {l.stakes_amount > 0 ? `valendo ${fmt(l.stakes_amount)} → volta ${fmt(voltaPraVoce(l.stakes_amount))}` : "amistoso · vale XP"} · {expiraEm(l.expires_at)}
+          Hoje · quem vende mais até 23:59 · vale pontos · {expiraEm(l.expires_at)}
         </p>
         {minhaVez ? (
           <div className="mt-8 space-y-2 x1-up" style={{ "--i": 10 } as React.CSSProperties}>
             <button type="button" disabled={agindo} onClick={() => responder("accept")} className="x1-btn ouro x1-pulse">{agindo ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" strokeWidth={3} />} LUTAR · ACEITAR</button>
             <button type="button" disabled={agindo} onClick={() => responder("decline")} className="x1-btn fantasma"><X className="w-4 h-4" strokeWidth={3} /> Hoje não</button>
-            {l.stakes_amount > saldo && l.stakes_amount > 0 && <p className="text-[11px] text-center" style={{ color: "#ff7d8c" }}>Falta saldo pra {fmt(l.stakes_amount)}. Deposite na carteira ou peça amistoso.</p>}
           </div>
         ) : (
           <div className="mt-8 rounded-[20px] border p-4 text-center x1-up" style={{ "--i": 10, background: "#0e0e10", borderColor: "#22201a" } as React.CSSProperties}>
@@ -179,7 +173,7 @@ export default function X1Luta() {
       <div className="min-h-screen px-4 pt-3 max-w-2xl mx-auto" style={{ background: "#000" }}>{Topo}
         <div className="rounded-[20px] border p-5 text-center mt-8" style={{ background: "#0e0e10", borderColor: "#22201a" }}>
           <p className="text-[14px] font-black">{l.status === "declined" ? "Desafio recusado" : l.status === "awaiting_result" ? "Resultado em revisão" : "Esse desafio expirou"}</p>
-          <p className="text-[11.5px] mt-1" style={{ color: "#8a8378" }}>{l.status === "awaiting_result" ? "Duelo com dinheiro e número fora do padrão: o admin confere antes de pagar." : "Chama outro oponente — a arena tá cheia."}</p>
+          <p className="text-[11.5px] mt-1" style={{ color: "#8a8378" }}>{l.status === "awaiting_result" ? "Número fora do padrão: a Vant confere antes de fechar o resultado." : "Chama outro oponente — a arena tá cheia."}</p>
           <button type="button" onClick={() => navigate("/x1/escolher")} className="x1-btn ouro mt-4"><Swords className="w-5 h-5" strokeWidth={2.6} /> ESCOLHER OPONENTE</button>
         </div>
       </div>

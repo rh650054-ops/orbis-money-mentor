@@ -1,15 +1,15 @@
 /* ============================================================
    ESCOLHER OPONENTE — grade de cards de lutador (não é lista).
    Filtros: Na sua liga · Acima de você · Revanche · Todos (+ busca por nome).
-   Toca num card → "tale of the tape" (você × ele) + valendo (Honra / R$ →
-   volta) → LUTAR HOJE. Amistoso com oponente "na arena" começa na hora;
+   Toca num card → "tale of the tape" (você × ele) → LUTAR HOJE. Vale pontos
+   (sem dinheiro, 14/10/2026). Oponente "na arena" começa na hora;
    senão ele recebe o desafio e precisa aceitar.
    ?alvo=uid pré-seleciona (vem do ranking, relatório, alertas).
    Todo hook acima do primeiro return. Sem API externa.
    ============================================================ */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Wallet, Swords, Search, Loader2 } from "lucide-react";
+import { ArrowLeft, Star, Swords, Search, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,12 +18,11 @@ import "@/components/x1/x1.css";
 import { useTravaBanco } from "@/components/x1/x1-trava-lib";
 import { X1Avatar } from "@/components/x1/X1Avatar";
 import { FighterCardMini } from "@/components/x1/FighterCard";
-import { fmt, primeiroNome, patenteCor, carregarRecorde, carregarPessoas, erroBonito, voltaPraVoce, type Pessoa, type Recorde, RECORDE_VAZIO } from "@/components/x1/x1-lib";
+import { fmt, primeiroNome, patenteCor, carregarRecorde, carregarPessoas, erroBonito, lutar as desafiar, PONTOS_X1, type Pessoa, type Recorde, RECORDE_VAZIO } from "@/components/x1/x1-lib";
 
 const GOLD = "#F5B800";
 const RED = "#F2465A";
 const OK = "#3DD68C";
-const APOSTAS = [0, 10, 20, 50];
 
 interface Oponente { user_id: string; nome: string; avatar_url: string | null; patente: string; vitorias: number; derrotas: number; posicao: number | null; diferenca: number; potencia: number; na_arena: boolean; vitorias_contra: number; derrotas_contra: number; revanche: boolean; o_que_vende: string | null; verificado: boolean }
 type Filtro = "liga" | "acima" | "revanche" | "todos";
@@ -54,22 +53,20 @@ export default function X1Escolher() {
 
   const [eu, setEu] = useState<Pessoa | null>(null);
   const [recorde, setRecorde] = useState<Recorde>(RECORDE_VAZIO);
-  const [saldo, setSaldo] = useState(0);
   const [filtro, setFiltro] = useState<Filtro>("liga");
   const [busca, setBusca] = useState("");
   const [lista, setLista] = useState<Oponente[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [sel, setSel] = useState<Oponente | null>(null);
-  const [aposta, setAposta] = useState(0);
   const [enviando, setEnviando] = useState(false);
   const [splash, setSplash] = useState<{ ele: Pessoa; id: string } | null>(null);
 
   useEffect(() => {
     if (!uid) return;
     let vivo = true;
-    Promise.all([carregarRecorde(uid), carregarPessoas([uid]), supabase.from("x1_wallets" as any).select("balance").eq("user_id", uid).maybeSingle()]).then(([r, m, w]) => {
+    Promise.all([carregarRecorde(uid), carregarPessoas([uid])]).then(([r, m]) => {
       if (!vivo) return;
-      setRecorde(r); setEu(m[uid] || { user_id: uid, nome: "Você", avatar_url: null }); setSaldo(Number((w.data as any)?.balance) || 0);
+      setRecorde(r); setEu(m[uid] || { user_id: uid, nome: "Você", avatar_url: null });
     });
     return () => { vivo = false; };
   }, [uid]);
@@ -98,13 +95,12 @@ export default function X1Escolher() {
     return () => { vivo = false; };
   }, [params, uid, lista, sel?.user_id]);
 
-  const limite = recorde.aposta_max;
   const eu_ = useMemo(() => eu || { user_id: uid || "", nome: "Você", avatar_url: null }, [eu, uid]);
 
   const lutar = async () => {
     if (!sel || enviando) return;
     setEnviando(true);
-    const { data, error } = await (supabase as any).rpc("x1_lutar", { p_opponent: sel.user_id, p_stakes: aposta });
+    const { data, error } = await desafiar(sel.user_id);
     setEnviando(false);
     if (error) { toast({ title: "Não rolou", description: erroBonito(error.message), variant: "destructive" }); return; }
     const r = data as { id: string; status: string; ja_existia: boolean };
@@ -127,7 +123,7 @@ export default function X1Escolher() {
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => navigate("/x1")} aria-label="Voltar" className="w-9 h-9 rounded-full flex items-center justify-center" style={{ color: "#b3ab9c" }}><ArrowLeft className="w-5 h-5" /></button>
         <p className="flex-1 text-[11px] font-black tracking-[.2em]" style={{ color: "#8a8378" }}>ESCOLHA SEU OPONENTE</p>
-        <button type="button" onClick={() => navigate("/x1/carteira")} className="h-8 px-3 rounded-full inline-flex items-center gap-1.5 text-[12px] font-black" style={{ background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD }}><Wallet className="w-3.5 h-3.5" strokeWidth={2.6} /> {fmt(saldo)}</button>
+        <span className="h-8 px-3 rounded-full inline-flex items-center gap-1.5 text-[12px] font-black tabular-nums" style={{ background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD }}><Star className="w-3.5 h-3.5" strokeWidth={2.6} /> {recorde.pontos} pontos</span>
       </div>
 
       <div className="relative">
@@ -181,22 +177,13 @@ export default function X1Escolher() {
             <div className="flex items-center justify-between mt-1 text-[11.5px] font-black tabular-nums">
               <span style={{ color: OK }}>{sel.vitorias_contra}</span><span className="text-[9px] tracking-[.14em]" style={{ color: "#8a8378" }}>ENTRE VOCÊS</span><span>{sel.derrotas_contra}</span>
             </div>
-            <div className="flex gap-1.5 mt-2.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-              {APOSTAS.map((v) => { const trava = v > limite; return (
-                <button key={v} type="button" disabled={trava} onClick={() => setAposta(v)} className="shrink-0 h-8 px-2.5 rounded-full text-[10.5px] font-extrabold whitespace-nowrap disabled:opacity-40" style={aposta === v ? { background: v === 0 ? "#1a1305" : "#2a0c11", border: `1px solid ${v === 0 ? GOLD : RED}`, color: v === 0 ? GOLD : "#ff7d8c" } : { background: "#16151a", border: "1px solid #2a2823", color: "#e9e4d8" }}>
-                  {v === 0 ? "Honra" : <>R$ {v} → <b style={{ color: OK }}>volta {voltaPraVoce(v)}</b></>}
-                </button>
-              ); })}
-            </div>
-            {limite <= 0 ? (
-              <p className="text-[10.5px] mt-1.5" style={{ color: "#8a8378" }}>Aposta em dinheiro libera em BRIGÃO (50 XP). Honra vale XP igual.</p>
-            ) : aposta > 0 && !sel.verificado ? (
-              <p className="text-[10.5px] mt-1.5" style={{ color: "#ff7d8c" }}>{primeiroNome(sel.nome)} ainda não conectou a conta dele — valendo dinheiro só entre contas verificadas. Chama na honra.</p>
-            ) : null}
+            <p className="text-[11px] font-extrabold mt-2.5 text-center" style={{ color: GOLD }}>
+              Vale pontos: quem vender mais leva +{PONTOS_X1.vitoria}. Ninguém perde ponto.
+            </p>
             <button type="button" onClick={lutar} disabled={enviando} className="x1-btn vermelho mt-2.5">
               {enviando ? <Loader2 className="w-5 h-5 animate-spin" /> : <Swords className="w-5 h-5" strokeWidth={2.6} />} LUTAR HOJE
             </button>
-            <p className="text-[10.5px] text-center mt-1.5" style={{ color: "#8a8378" }}>{sel.na_arena && aposta === 0 ? `${primeiroNome(sel.nome)} tá na arena · começa na hora` : `${primeiroNome(sel.nome)} recebe agora com sua foto · começa quando aceitar`}</p>
+            <p className="text-[10.5px] text-center mt-1.5" style={{ color: "#8a8378" }}>{sel.na_arena ? `${primeiroNome(sel.nome)} tá na arena · começa na hora` : `${primeiroNome(sel.nome)} recebe agora com sua foto · começa quando aceitar`}</p>
           </div>
         </div>
       )}

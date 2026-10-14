@@ -15,14 +15,24 @@ Tudo o que a Play Store e a App Store pedem, num lugar só. Textos prontos em
 
 ## Dinheiro dentro do app (o ponto mais importante)
 
-| Onde | Como assina | Por quê |
-|---|---|---|
-| Web / PWA (`app.orbis.inf.br`) | Hotmart, como hoje | Fora das lojas, vale a regra que você quiser |
-| App Android (Play Store) | **Google Play Billing** | O Brasil não está no programa de cobrança alternativa do Google (out/2026). Link pra Hotmart dentro do app = app recusado ou removido |
-| App iPhone (App Store) | **Compra no app da Apple** | Desde jun/2026 a Apple aceita link externo no Brasil, mas cobra comissão sobre ele também — pagar pela Apple sai quase igual e é mais simples |
+**Decisão do Rick (14/10/2026): modelo Néctar.** No app da loja, o botão de assinar
+abre a Hotmart **no navegador** (fora do app). É o padrão do build
+(`src/shared/lib/cobranca-loja.ts`, modo `link`).
 
-`src/shared/lib/platform.ts` tem `podeUsarCheckoutWeb()`: todo botão que abre a Hotmart
-precisa checar isso. A integração com as lojas (RevenueCat) entra no próximo PR.
+| Onde | Como assina | Risco / o que falta |
+|---|---|---|
+| Web / PWA (`app.orbis.inf.br`) | Hotmart, como hoje | Nenhum |
+| App iPhone (App Store) | Botão abre a Hotmart no navegador | Desde 18/06/2026 a Apple aceita link externo no Brasil, **com entitlement** (StoreKit External Purchase Link) e comissão de 15% (10% no Small Business) sobre essas vendas. Pedir o entitlement antes de enviar |
+| App Android (Play Store) | Botão abre a Hotmart no navegador | Na última checagem (out/2026) o Brasil não estava no programa de cobrança alternativa do Google: risco de recusa. Conferir de novo antes de enviar |
+
+**Plano B** (se uma loja recusar): build com a variável `VITE_COBRANCA_LOJA=fora` —
+o app da loja para de vender e só mostra "já assina? entra com a mesma conta".
+Não precisa mexer em código.
+
+**X1 no app da loja:** desde 14/10/2026 o X1 vale **só pontos** (sem carteira, depósito,
+aposta nem prêmio em dinheiro), igual na web, no Android e no iPhone. Ver
+`privacidade-e-dados.md`. Isso tira o X1 da regra de apostas, mas não quer dizer que
+o app esteja aprovado: a revisão das lojas ainda decide.
 
 ## Gerar o Android (.aab)
 

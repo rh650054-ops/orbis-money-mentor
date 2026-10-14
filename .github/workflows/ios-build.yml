@@ -17,8 +17,9 @@
 #   Secrets:   ASC_KEY_ID, ASC_ISSUER_ID,
 #              ASC_KEY_P8_BASE64   (the .p8 App Store Connect API key, base64; role Admin,
 #                                   so Xcode can create the signing certificate itself)
-#   Optional:  VITE_COBRANCA_LOJA = link   (Néctar model: subscribe button opens Hotmart;
-#                                          default is "fora": the store app does not sell)
+#   Optional:  VITE_COBRANCA_LOJA = fora   (plan B if a store rejects the Néctar model:
+#                                          the store app stops selling; default is "link":
+#                                          the subscribe button opens Hotmart in the browser)
 name: iOS build
 
 on:
