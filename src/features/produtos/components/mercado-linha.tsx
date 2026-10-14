@@ -2,13 +2,36 @@
    ingrediente vai em 2+ receitas, "pra qual produto?". */
 import { X } from "lucide-react";
 import type { LinhaMercado } from "../lib/mercado";
+import type { Comparacao } from "../lib/mercado-produto";
 import { CampoDinheiro, Contador, reais } from "./campos";
 import { Chip } from "./mercado-casca";
 
 export interface OpcaoPara { id: string; nome: string; emoji: string | null }
 
-export function MercadoLinha({ linha, porItem, subtotal, opcoesPara, unidade, emPacote, onMudar, onTirar }: {
+/** "Da última vez R$ 4,79 · R$ 0,20 mais caro (4%)": vermelho se subiu, verde se caiu. */
+function DaUltimaVez({ c }: { c: Comparacao }) {
+  const igual = Math.abs(c.diferenca) < 0.01;
+  const subiu = c.diferenca > 0;
+  const cor = igual ? "#7b766e" : subiu ? "#FF7A6B" : "#4ADE80";
+  return (
+    <span className="text-[12px] font-bold -mt-1" style={{ color: "#7b766e" }}>
+      Da última vez: {reais(c.antes)}
+      {!igual && (
+        <span style={{ color: cor }}>
+          {" · "}{subiu ? "▲" : "▼"} {reais(Math.abs(c.diferenca))} {subiu ? "mais caro" : "mais barato"} ({Math.abs(Math.round(c.pct))}%)
+        </span>
+      )}
+      {igual && " · mesmo preço"}
+    </span>
+  );
+}
+
+export function MercadoLinha({ linha, porItem, subtotal, opcoesPara, unidade, emPacote, comparacao, ultimoPreco, onMudar, onTirar }: {
   linha: LinhaMercado; porItem: boolean; subtotal: number; opcoesPara: OpcaoPara[]; unidade?: string; emPacote?: boolean;
+  /** pagou mais/menos que da última vez (só com preço digitado) */
+  comparacao?: Comparacao | null;
+  /** último preço do pacote, pra lembrar antes de digitar */
+  ultimoPreco?: number;
   onMudar: (patch: Partial<LinhaMercado>) => void; onTirar: () => void;
 }) {
   const escolher = opcoesPara.length > 1;
@@ -30,6 +53,10 @@ export function MercadoLinha({ linha, porItem, subtotal, opcoesPara, unidade, em
       {porItem && (
         <CampoDinheiro rotulo={emPacote ? "Preço do pacote (opcional)" : "Preço de 1 (opcional)"} valor={linha.precoUnit ?? 0}
           onChange={(n) => onMudar({ precoUnit: n > 0 ? n : null })} />
+      )}
+      {porItem && comparacao && <DaUltimaVez c={comparacao} />}
+      {porItem && !comparacao && !!ultimoPreco && (
+        <span className="text-[12px] font-bold -mt-1" style={{ color: "#7b766e" }}>Da última vez: {reais(ultimoPreco)}</span>
       )}
       {escolher && (
         <div className="flex flex-col gap-1.5">

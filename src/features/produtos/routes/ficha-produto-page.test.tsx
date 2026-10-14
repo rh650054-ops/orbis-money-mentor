@@ -20,6 +20,7 @@ vi.mock("../api/use-receita-query", () => ({
   useReceitaQuery: () => ({ isError: false, data: [{ id: "lc", nome: "Leite condensado", qtd: 1, preco: 6.5, estoque: 4, unidade: "un", pacote: 1 }] }),
 }));
 vi.mock("../api/use-mercado-query", () => ({ useMercadoQuery: () => ({ data: undefined }) }));
+vi.mock("../api/use-ingredientes-guardados-query", () => ({ useIngredientesGuardadosQuery: () => ({ data: [] }) }));
 const salvar = vi.fn();
 vi.mock("../api/use-salvar-ficha-mutation", () => ({ useSalvarFichaMutation: () => ({ mutate: salvar, isPending: false }) }));
 vi.mock("../api/use-subir-foto-mutation", () => ({ useSubirFotoMutation: () => ({ mutate: vi.fn(), isPending: false }) }));
