@@ -16,6 +16,7 @@
 // O item e conferido NA PLUGGY antes: o clientUserId tem que bater.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { importarEntradas } from "../_shared/pluggy-entradas.ts";
+import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -90,7 +91,7 @@ Deno.serve(async (req) => {
     let con: any = null;
     {
       const { data } = await admin.from("bank_connections")
-        .select("id, user_id").eq("item_id", itemId).maybeSingle();
+        .select("id, user_id, institution_name").eq("item_id", itemId).maybeSingle();
       con = data;
     }
 
@@ -127,7 +128,7 @@ Deno.serve(async (req) => {
         institution_logo: item?.connector?.imageUrl ?? null,
         status: status || "UPDATING",
         updated_at: new Date().toISOString(),
-      }, { onConflict: "item_id" }).select("id, user_id").maybeSingle();
+      }, { onConflict: "item_id" }).select("id, user_id, institution_name").maybeSingle();
       con = nova;
       console.log("pluggy-webhook: conexao criada pela auto-cura", itemId, dono);
       if (!con) return respond();
@@ -153,6 +154,18 @@ Deno.serve(async (req) => {
     if (eSelo) console.error("pluggy-webhook: selo", eSelo.message);
 
     const r = await importarEntradas(admin, apiKey, itemId, con.user_id, con.id, evento === "item/created" ? 7 : 2);
+
+    // 15/10/2026: balances, card and investments too. The robot and pluggy-sync read
+    // them right when they ask the bank to refresh, so they got the OLD numbers; the
+    // fresh ones only arrive with this event. Re-queried on Pluggy (no new refresh,
+    // no Open Finance budget spent).
+    if (eDeItem) {
+      try {
+        await importarPiloto(admin, apiKey, itemId, con.user_id, con.id, con.institution_name ?? null);
+      } catch (e) {
+        console.error("pluggy-webhook: piloto", (e as Error)?.message);
+      }
+    }
 
     await admin.from("bank_connections").update({
       last_synced_at: new Date().toISOString(),
