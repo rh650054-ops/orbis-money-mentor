@@ -21,7 +21,11 @@
 //                  Never closer than PEDIDO_MIN (Pluggy's API cap, 1/h until their
 //                  support lifts it); stretches only if the month's budget is short.
 //   • pós-foco   — when the Foco ends: the app reads right away (pluggy-sync);
-//                  the server makes sure of it and reads once more ~1h later
+//                  the server makes sure of it and reads once more ~1h later.
+//                  SLOW banks (C6, Itaú: a Pix shows up in Open Finance ~4-10h after
+//                  it lands — 0 of 39 C6 Pix within 1h, 16/10/2026) get a third
+//                  read 3h30-5h30 after the end, so the day's number is right
+//                  before midnight instead of the next morning
 //   • calma      — outside the Foco, 08h–20h: one read every CALMA_INTERVALO_MIN so the
 //                  daily goal moves, only while the day keeps a full Foco's worth aside
 //   • nothing else: a vendor who is not selling costs almost nothing.
@@ -68,6 +72,14 @@ export const CALMA_FECHA_MIN = 20 * 60;
 export const CALMA_SE_SOBRAR = Math.ceil(FOCO_TIPICO_MIN / FOCO_ALVO_MIN) + RESERVA_POS_FOCO + 1;
 /** Pluggy accepts 1 refresh (PATCH) per hour per item on new accounts (docs: updating-an-item). */
 export const PEDIDO_MIN_PADRAO_MIN = 61;
+/** Late after-Foco read for slow banks: window (minutes after the Foco ended). */
+export const POS_FOCO_TARDIO_DE_MIN = 210;
+export const POS_FOCO_TARDIO_ATE_MIN = 330;
+
+/** Banks whose Open Finance feed lags hours behind the Pix (measured on real data, 16/10/2026). */
+export function bancoLento(nome: string | null | undefined): boolean {
+  return /\bc6\b|ita[uú]/i.test(String(nome ?? ""));
+}
 
 const BRT_OFFSET_MIN = -3 * 60; // Brasília has no DST since 2019
 
@@ -95,6 +107,8 @@ export interface Contexto {
   cotaDoDia?: number;
   /** minimum minutes between two pulls (Pluggy's cap) */
   pedidoMinMin?: number;
+  /** C6/Itaú: a third after-Foco read, later in the evening */
+  bancoLento?: boolean;
 }
 
 /** Stable 0..span-1 offset per vendor: spreads everyone over the window. */
@@ -210,6 +224,11 @@ export function motivoDeLeitura(c: Contexto): Motivo | null {
     if (desdeFim >= 5 && desdeFim < 50 && !leuDepoisDoFim) return "pos_foco";
     const leuNaSegunda = !!ultima && minutosEntre(ultima, c.focoFimEm) >= 50;
     if (desdeFim >= 60 && desdeFim < 180 && !leuNaSegunda) return "pos_foco";
+    // slow bank: the Pix of the Foco only shows up hours later → one more read in the evening
+    if (c.bancoLento) {
+      const leuTarde = !!ultima && minutosEntre(ultima, c.focoFimEm) >= POS_FOCO_TARDIO_DE_MIN - 10;
+      if (desdeFim >= POS_FOCO_TARDIO_DE_MIN && desdeFim < POS_FOCO_TARDIO_ATE_MIN && !leuTarde) return "pos_foco";
+    }
   }
 
   // calma: outside the Foco, 08h–20h, one read every 4h so the daily goal moves — only

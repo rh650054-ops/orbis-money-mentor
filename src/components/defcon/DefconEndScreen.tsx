@@ -15,7 +15,7 @@ import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
 import { faltou, sobra } from "@/shared/lib/dinheiro";
 import { CaixinhaMeta } from "@/components/defcon/CaixinhaMeta";
-import { usePixDoBanco, puxarBancoAgora, pixQueEntraNoDia, horaDaLeitura } from "@/components/conectar/banco-pix";
+import { usePixDoBanco, puxarBancoAgora, pixQueEntraNoDia, horaDaLeitura, demoraDoBanco } from "@/components/conectar/banco-pix";
 import { usePixDestravado, BotaoDestravar, marcarDiaManual } from "./destravar-pix";
 
 // Revisitar cada HORA (bloco) do dia: helpers de horário/duração do bloco.
@@ -69,6 +69,7 @@ export function DefconEndScreen({
   // chamar o banco). TRAVAS 08/10: a leitura de ~1 h depois do Foco é do robot
   // (pluggy-hora) — antes esta tela pedia leitura nova a cada 5 min.
   const { pix: pixBanco, recarregar: relerBanco } = usePixDoBanco(!!userId, 60_000);
+  const demoraBanco = demoraDoBanco(pixBanco.banco);
   const [lendoBanco, setLendoBanco] = useState(false);
   const { podeDestravar, destravado, destravar } = usePixDestravado(!!userId && pixBanco.temBanco);
   useEffect(() => {
@@ -1114,6 +1115,12 @@ export function DefconEndScreen({
                       ? <><RefreshCw className="w-3 h-3 shrink-0 animate-spin" /> conferindo o banco agora…</>
                       : <><span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shrink-0" /> ao vivo{pixBanco.ultimaSync ? ` · lido ${horaDaLeitura(pixBanco.ultimaSync)}` : ""}</>}
                   </p>
+                  {/* banco lento (C6, Itaú): o Pix de hoje só aparece no Open Finance horas depois — não é que não caiu */}
+                  {demoraBanco != null && pixDoBancoNoDia.entra < pixLancado && (
+                    <p className="text-[10.5px] text-warning leading-snug whitespace-normal">
+                      O {pixBanco.banco} mostra o Pix ~{demoraBanco} h depois de cair. A Vant confere de novo à noite e à meia-noite.
+                    </p>
+                  )}
                 </div>
                 <span className={`text-base font-black tabular-nums ${pixDoBancoNoDia.entra > 0 ? "text-success" : "text-muted-foreground"}`}>{formatCurrency(pixDoBancoNoDia.entra)}</span>
               </div>

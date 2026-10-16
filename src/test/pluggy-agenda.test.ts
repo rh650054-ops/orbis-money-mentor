@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  motivoDeLeitura, deslocamento, relogioBRT, contarLeitura, podePuxarAgora,
+  motivoDeLeitura, deslocamento, relogioBRT, contarLeitura, podePuxarAgora, bancoLento,
   cotaDeHoje, diasRestantesNoMes, intervaloFocoMin, podePedir, orcamentoDaConexao, contarPedido, diasParaImportar,
   LIMITE_DIA, LIMITE_GLOBAL_DIA, ORCAMENTO_MES, LIMITE_OPEN_FINANCE_MES, FOCO_ALVO_MIN, TETO_DIA, CALMA_SE_SOBRAR, CALMA_MANHA_SE_SOBRAR,
   type Contexto,
@@ -56,6 +56,23 @@ describe("pluggy agenda — when the bank is read", () => {
     // second read done → quiet until midnight
     expect(motivoDeLeitura(base({ agora: brt("2026-10-08 17:00"), focoFimEm: fim, ultimaLeitura: brt("2026-10-08 15:05") }))).toBeNull();
     expect(motivoDeLeitura(base({ agora: brt("2026-10-08 21:00"), focoFimEm: fim, ultimaLeitura: brt("2026-10-08 15:05") }))).toBeNull();
+  });
+
+  it("slow bank (C6/Itaú): one more read 3h30-5h30 after the Foco, when the Pix finally shows up", () => {
+    const fim = brt("2026-10-16 17:37");
+    const lento = (o: Partial<Contexto>) => baseOrig({ disponivelHoje: 3, focoFimEm: fim, bancoLento: true, ...o });
+    expect(bancoLento("C6 Bank")).toBe(true);
+    expect(bancoLento("C6 Bank Empresas")).toBe(true);
+    expect(bancoLento("Itaú")).toBe(true);
+    expect(bancoLento("Nubank")).toBe(false);
+    expect(bancoLento("InfinitePay")).toBe(false);
+    // both ordinary after-Foco reads done → a fast bank sleeps until midnight, a slow one reads again at ~21h
+    expect(motivoDeLeitura(baseOrig({ disponivelHoje: 3, focoFimEm: fim, agora: brt("2026-10-16 21:10"), ultimaLeitura: brt("2026-10-16 18:40") }))).toBeNull();
+    expect(motivoDeLeitura(lento({ agora: brt("2026-10-16 20:30"), ultimaLeitura: brt("2026-10-16 18:40") }))).toBeNull();
+    expect(motivoDeLeitura(lento({ agora: brt("2026-10-16 21:10"), ultimaLeitura: brt("2026-10-16 18:40") }))).toBe("pos_foco");
+    // done once → quiet again; too late (after 5h30) → nothing, the closing read covers it
+    expect(motivoDeLeitura(lento({ agora: brt("2026-10-16 22:00"), ultimaLeitura: brt("2026-10-16 21:10") }))).toBeNull();
+    expect(motivoDeLeitura(lento({ agora: brt("2026-10-16 23:30"), ultimaLeitura: brt("2026-10-16 18:40") }))).toBeNull();
   });
 
   it("closing read after midnight, spread by vendor, once", () => {

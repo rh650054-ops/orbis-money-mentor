@@ -18,7 +18,7 @@ import { pluggyKey, importarEntradas, pedirAtualizacao } from "../_shared/pluggy
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import {
   precisaDoVendedor, motivoDeLeitura, contarLeitura, leiturasDeHoje, relogioBRT, orcamentoDaConexao, contarPedido,
-  podePedir, diasParaImportar, MAX_POR_RODADA, PEDIDO_MIN_PADRAO_MIN, PRIORIDADE, type Motivo,
+  podePedir, diasParaImportar, MAX_POR_RODADA, PEDIDO_MIN_PADRAO_MIN, PRIORIDADE, type Motivo, bancoLento,
 } from "../_shared/pluggy-agenda.ts";
 
 /** Minutes between two fresh pulls of one bank. Pluggy's API cap is 1/h on new
@@ -84,6 +84,7 @@ Deno.serve(async (req) => {
         pedidoMinMin: PEDIDO_MIN_MIN,
         focoAtivo: focoAtivo.has(c.user_id),
         focoFimEm: focoFim.get(c.user_id) ?? null,
+        bancoLento: bancoLento(c.institution_name),
         leiturasHoje: leiturasDeHoje(c.leituras_dia, c.leituras_qtd, hoje),
         leiturasGlobaisHoje: globais,
       });
