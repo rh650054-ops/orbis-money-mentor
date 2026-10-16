@@ -69,6 +69,16 @@ export async function puxarBancoAgora(): Promise<void> {
   catch (e) { avisar.silencioso("pluggy-sync", e); }
 }
 
+/** Bancos cujo Open Finance mostra o Pix horas depois de cair (medido 16/10/2026:
+ *  C6 mediana 4 h, nenhum em menos de 1 h; Itaú ~10 h). Nubank, InfinitePay e
+ *  Santander mostram em menos de 1 h. Devolve a demora típica em horas, ou null. */
+export function demoraDoBanco(nome: string | null | undefined): number | null {
+  const n = String(nome ?? "");
+  if (/\bc6\b/i.test(n)) return 4;
+  if (/ita[uú]/i.test(n)) return 10;
+  return null;
+}
+
 /** "13:40" no fuso de Brasília. */
 export const horaDaLeitura = (iso: string | null) =>
   iso ? new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }) : "";
