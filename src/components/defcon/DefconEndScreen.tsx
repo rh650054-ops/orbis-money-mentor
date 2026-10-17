@@ -15,7 +15,7 @@ import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
 import { faltou, sobra } from "@/shared/lib/dinheiro";
 import { CaixinhaMeta } from "@/components/defcon/CaixinhaMeta";
-import { usePixDoBanco, puxarBancoAgora, pixQueEntraNoDia, horaDaLeitura, demoraDoBanco } from "@/components/conectar/banco-pix";
+import { usePixDoBanco, puxarBancoAgora, pixQueEntraNoDia, horaDaLeitura, demoraDoBanco, proximoPedidoDoBanco } from "@/components/conectar/banco-pix";
 import { usePixDestravado, BotaoDestravar, marcarDiaManual } from "./destravar-pix";
 
 // Revisitar cada HORA (bloco) do dia: helpers de horário/duração do bloco.
@@ -70,6 +70,9 @@ export function DefconEndScreen({
   // (pluggy-hora) — antes esta tela pedia leitura nova a cada 5 min.
   const { pix: pixBanco, recarregar: relerBanco } = usePixDoBanco(!!userId, 60_000);
   const demoraBanco = demoraDoBanco(pixBanco.banco);
+  // Pluggy: 1 pedido de dados novos por hora por banco. Se o fechamento caiu dentro dessa
+  // hora, o número ainda é o do pedido anterior — diz quando o próximo acontece.
+  const proximoPedido = proximoPedidoDoBanco(pixBanco.ultimaSync);
   const [lendoBanco, setLendoBanco] = useState(false);
   const { podeDestravar, destravado, destravar } = usePixDestravado(!!userId && pixBanco.temBanco);
   useEffect(() => {
@@ -1113,7 +1116,7 @@ export function DefconEndScreen({
                   <p className="text-[10.5px] text-muted-foreground flex items-center gap-1 truncate">
                     {lendoBanco
                       ? <><RefreshCw className="w-3 h-3 shrink-0 animate-spin" /> conferindo o banco agora…</>
-                      : <><span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shrink-0" /> ao vivo{pixBanco.ultimaSync ? ` · lido ${horaDaLeitura(pixBanco.ultimaSync)}` : ""}</>}
+                      : <><span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shrink-0" /> ao vivo{pixBanco.ultimaSync ? ` · banco lido ${horaDaLeitura(pixBanco.ultimaSync)}` : ""}{proximoPedido ? ` · pede de novo ${horaDaLeitura(proximoPedido)}` : ""}</>}
                   </p>
                   {/* banco lento (C6, Itaú): o Pix de hoje só aparece no Open Finance horas depois — não é que não caiu */}
                   {demoraBanco != null && pixDoBancoNoDia.entra < pixLancado && (
