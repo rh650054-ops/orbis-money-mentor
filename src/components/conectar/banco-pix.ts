@@ -79,6 +79,17 @@ export function demoraDoBanco(nome: string | null | undefined): number | null {
   return null;
 }
 
+/** Pluggy aceita 1 pedido de dados novos por hora por banco. Se o último pedido foi há
+ *  menos de 61 min, devolve a hora em que o próximo pode ser feito (ISO); senão null. */
+export const PEDIDO_BANCO_MIN = 61;
+export function proximoPedidoDoBanco(ultimoPedidoIso: string | null, agora: Date = new Date()): string | null {
+  if (!ultimoPedidoIso) return null;
+  const t = new Date(ultimoPedidoIso).getTime();
+  if (Number.isNaN(t)) return null;
+  const prox = t + PEDIDO_BANCO_MIN * 60_000;
+  return prox > agora.getTime() ? new Date(prox).toISOString() : null;
+}
+
 /** "13:40" no fuso de Brasília. */
 export const horaDaLeitura = (iso: string | null) =>
   iso ? new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }) : "";

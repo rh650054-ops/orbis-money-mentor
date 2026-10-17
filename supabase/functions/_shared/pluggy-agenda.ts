@@ -222,6 +222,12 @@ export function motivoDeLeitura(c: Contexto): Motivo | null {
     const desdeFim = minutosEntre(c.agora, c.focoFimEm);
     const leuDepoisDoFim = !!ultima && ultima.getTime() >= c.focoFimEm.getTime();
     if (desdeFim >= 5 && desdeFim < 50 && !leuDepoisDoFim) return "pos_foco";
+    // the app's own read at the close often CANNOT ask the bank for fresh data (Pluggy:
+    // 1 refresh per hour per bank, and the Foco rhythm used it minutes before) — so the
+    // first moment a fresh pull is allowed after the end, take it (Rick, 17/10/2026:
+    // "sempre que eu encerro, tem que mostrar certinho o que caiu")
+    if (c.ultimoPedido && c.ultimoPedido.getTime() < c.focoFimEm.getTime()
+        && desdeFim >= 5 && desdeFim < 180 && minutosEntre(c.agora, c.ultimoPedido) >= pedidoMin) return "pos_foco";
     const leuNaSegunda = !!ultima && minutosEntre(ultima, c.focoFimEm) >= 50;
     if (desdeFim >= 60 && desdeFim < 180 && !leuNaSegunda) return "pos_foco";
     // slow bank: the Pix of the Foco only shows up hours later → one more read in the evening

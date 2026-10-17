@@ -58,6 +58,20 @@ describe("pluggy agenda — when the bank is read", () => {
     expect(motivoDeLeitura(base({ agora: brt("2026-10-08 21:00"), focoFimEm: fim, ultimaLeitura: brt("2026-10-08 15:05") }))).toBeNull();
   });
 
+  it("Foco closed minutes after a Foco pull: reads again the moment Pluggy allows a fresh pull", () => {
+    // Rick 16/10: Foco pull 16:55, closed 17:37 → the app read at 17:37 but could not ask the bank;
+    // the robot must not wait until 18:37 (60 min after the end)
+    const fim = brt("2026-10-16 17:37");
+    const pedido = brt("2026-10-16 16:55");
+    const ctx = (o: Partial<Contexto>) => baseOrig({ disponivelHoje: 3, focoFimEm: fim, ultimoPedido: pedido, ultimaLeitura: fim, ...o });
+    expect(motivoDeLeitura(ctx({ agora: brt("2026-10-16 17:50") }))).toBeNull();      // cap still on (55 min)
+    expect(motivoDeLeitura(ctx({ agora: brt("2026-10-16 17:57") }))).toBe("pos_foco"); // 62 min → go
+    // done (pull at 17:57) → quiet until the ~1h-after-the-end read
+    expect(motivoDeLeitura(ctx({ agora: brt("2026-10-16 18:10"), ultimoPedido: brt("2026-10-16 17:57"), ultimaLeitura: brt("2026-10-16 17:57") }))).toBeNull();
+    // unknown last pull → the old rules only (no guessing)
+    expect(motivoDeLeitura(ctx({ agora: brt("2026-10-16 17:57"), ultimoPedido: null }))).toBeNull();
+  });
+
   it("slow bank (C6/Itaú): one more read 3h30-5h30 after the Foco, when the Pix finally shows up", () => {
     const fim = brt("2026-10-16 17:37");
     const lento = (o: Partial<Contexto>) => baseOrig({ disponivelHoje: 3, focoFimEm: fim, bancoLento: true, ...o });
