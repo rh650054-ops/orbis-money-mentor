@@ -12,13 +12,13 @@ describe("cobrança no app da loja", () => {
     expect(modoCobranca("link")).toBe("web");
     expect(podeMostrarAssinatura()).toBe(true);
   });
-  it("app da loja não vende por padrão", () => {
+  it("app da loja usa o modelo Néctar por padrão (botão abre a Hotmart)", () => {
     plataforma.mockReturnValue("ios");
-    expect(modoCobranca(undefined)).toBe("fora");
-    expect(modoCobranca("qualquer")).toBe("fora");
+    expect(modoCobranca(undefined)).toBe("link");
+    expect(modoCobranca("qualquer")).toBe("link");
   });
-  it("modelo Néctar só com a chave ligada", () => {
+  it("plano B: a chave 'fora' tira a venda do app da loja", () => {
     plataforma.mockReturnValue("android");
-    expect(modoCobranca("link")).toBe("link");
+    expect(modoCobranca("fora")).toBe("fora");
   });
 });

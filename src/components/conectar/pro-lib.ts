@@ -12,7 +12,7 @@ export const brl = (v: number) => "R$ " + v.toFixed(2).replace(".", ",");
 export const SO_PRO: { nome: string; linha: string }[] = [
   { nome: "Selo Verificado", linha: "seu número com prova do banco, no ranking, no X1 e no perfil" },
   { nome: "Pix contado na rua", linha: "vê cair enquanto vende; entra no ranking até 23:59" },
-  { nome: "Arena Pro", linha: "X1 e Sala de Competição com prêmios" },
+  { nome: "Arena Pro", linha: "X1 e Sala de Competição valendo pontos e patente" },
   { nome: "Caça-Sinal", linha: "os melhores pontos pra vender, antes dos outros" },
   { nome: "IA de Ganhos", linha: "a Vant lê seu dia e diz onde, quando e o que vender mais" },
   { nome: "Financeiro Completo", linha: "saldo, cartão, dívidas e guardado, tudo lido do banco" },

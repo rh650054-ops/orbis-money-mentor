@@ -9,7 +9,6 @@ interface Duel {
   status: string;
   scheduled_date: string | null;
   goal_amount: number | null;
-  stakes_amount: number | null;
 }
 
 const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
@@ -34,7 +33,7 @@ export function X1Andamento({ onOpen }: { onOpen: () => void }) {
     (async () => {
       const { data } = await supabase
         .from("x1_challenges" as any)
-        .select("id, challenger_id, opponent_id, status, scheduled_date, goal_amount, stakes_amount")
+        .select("id, challenger_id, opponent_id, status, scheduled_date, goal_amount")
         .in("status", ["accepted", "awaiting_result"])
         .order("scheduled_date", { ascending: true })
         .limit(20);
@@ -102,7 +101,7 @@ export function X1Andamento({ onOpen }: { onOpen: () => void }) {
             <p className="text-[11px] text-muted-foreground text-center mt-1.5">
               {dateBR(d.scheduled_date)}
               {d.goal_amount ? ` · meta ${fmt(d.goal_amount)}` : ""}
-              {d.stakes_amount && d.stakes_amount > 0 ? ` · aposta ${fmt(d.stakes_amount)}` : " · amistoso"}
+              {" · vale pontos"}
             </p>
           </button>
         ))}

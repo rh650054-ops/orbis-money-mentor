@@ -1,6 +1,8 @@
 /* ============================================================
    ARENA X1 — pedaços compartilhados (helpers + tipos + chamadas ao banco).
    Regra do Rick: SEM API externa. Tudo aqui é Supabase (RPC/tabelas).
+   SÓ PONTOS (14/10/2026): o X1 não tem carteira, aposta nem prêmio em dinheiro.
+   Os pontos são calculados no servidor (x1_recorde) e não valem dinheiro.
    ============================================================ */
 import { supabase } from "@/integrations/supabase/client";
 import { fotoValida } from "@/shared/lib/avatar";
@@ -18,13 +20,13 @@ export interface Pessoa { user_id: string; nome: string; avatar_url: string | nu
 
 export interface Recorde {
   vitorias: number; derrotas: number; empates: number; sequencia: number;
-  patente: string; nivel: number; aposta_max: number; proxima: number | null; duelos: number;
-  /** XP: vitória = 10 pts, missão da semana = 2 pts. Patente sobe por pontos. */
+  patente: string; nivel: number; proxima: number | null; duelos: number;
+  /** Pontos (servidor): vitória 10, missão da semana 2, palpite certo 1. Patente sobe por pontos. */
   pontos: number; pontos_proxima: number | null;
   /** média vendida por dia trabalhado (30 dias) */
   potencia: number;
 }
-export const RECORDE_VAZIO: Recorde = { vitorias: 0, derrotas: 0, empates: 0, sequencia: 0, patente: "NOVATO", nivel: 1, aposta_max: 0, proxima: 5, duelos: 0, pontos: 0, pontos_proxima: 50, potencia: 0 };
+export const RECORDE_VAZIO: Recorde = { vitorias: 0, derrotas: 0, empates: 0, sequencia: 0, patente: "NOVATO", nivel: 1, proxima: 5, duelos: 0, pontos: 0, pontos_proxima: 50, potencia: 0 };
 export const PONTOS_BASE: Record<string, number> = { NOVATO: 0, BRIGÃO: 50, DUELISTA: 100, CAMPEÃO: 250, LENDA: 500 };
 export const proximaPatente = (p: string) => (p === "NOVATO" ? "BRIGÃO" : p === "BRIGÃO" ? "DUELISTA" : p === "DUELISTA" ? "CAMPEÃO" : p === "CAMPEÃO" ? "LENDA" : null);
 /** 0..1 do progresso dentro da patente atual */
@@ -34,15 +36,12 @@ export const xpPct = (r: Recorde) => {
   return Math.max(0, Math.min(1, (r.pontos - base) / Math.max(1, r.pontos_proxima - base)));
 };
 
-export const PATENTES: { nome: string; min: number; aposta: string }[] = [
-  { nome: "NOVATO", min: 0, aposta: "só honra" },
-  { nome: "BRIGÃO", min: 50, aposta: "até R$ 50" },
-  { nome: "DUELISTA", min: 100, aposta: "até R$ 100" },
-  { nome: "CAMPEÃO", min: 250, aposta: "até R$ 200" },
-  { nome: "LENDA", min: 500, aposta: "livre" },
-];
-/** "R$ 50 → volta 90": o que volta pro vencedor (aposta dos dois menos 10%) */
-export const voltaPraVoce = (aposta: number) => Math.round(aposta * 2 * 0.9);
+/** Regra de pontos do X1 (a mesma do x1_recorde no servidor; aqui só pra mostrar).
+    Ninguém perde ponto: não é aposta, não passa do perdedor pro vencedor. */
+export const PONTOS_X1 = { vitoria: 10, missao: 2, palpite: 1, derrota: 0, empate: 0, cancelado: 0 } as const;
+/** Pontos que um duelo deu pra `uid` (só duelo fechado conta). */
+export const pontosDoDuelo = (d: Pick<Duelo, "status" | "winner_user_id">, uid: string) =>
+  d.status === "finished" && d.winner_user_id === uid ? PONTOS_X1.vitoria : 0;
 /** rodada do dia (6 rodadas de 3h a partir das 6h) */
 export const rodadaAgora = () => {
   const h = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })).getHours();
@@ -54,9 +53,9 @@ export const patenteCor = (nome: string) =>
 
 export interface Duelo {
   id: string; challenger_id: string; opponent_id: string | null; status: string;
-  scheduled_date: string | null; stakes_amount: number; prize_amount: number;
+  scheduled_date: string | null;
   winner_user_id: string | null; last_proposed_by: string | null; tipo: string | null;
-  expires_at: string | null; created_at: string; money_status: string | null;
+  expires_at: string | null; created_at: string;
 }
 
 export const amanhaBR = () => {
@@ -94,7 +93,7 @@ export async function carregarRecorde(uid: string): Promise<Recorde> {
   return {
     vitorias: Number(r.vitorias) || 0, derrotas: Number(r.derrotas) || 0, empates: Number(r.empates) || 0,
     sequencia: Number(r.sequencia) || 0, patente: String(r.patente || "NOVATO"), nivel: Number(r.nivel) || 1,
-    aposta_max: Number(r.aposta_max) || 0, proxima: r.proxima == null ? null : Number(r.proxima), duelos: Number(r.duelos) || 0,
+    proxima: r.proxima == null ? null : Number(r.proxima), duelos: Number(r.duelos) || 0,
     pontos: Number(r.pontos) || 0, pontos_proxima: r.pontos_proxima == null ? null : Number(r.pontos_proxima), potencia: Number(r.potencia) || 0,
   };
 }
@@ -113,12 +112,9 @@ export async function carregarPessoa(uid: string): Promise<Pessoa> {
   return m[uid] || { user_id: uid, nome: "Vendedor", avatar_url: null };
 }
 
-export async function criarDuelo(opts: { oponente: string | null; data: string; aposta: number; tipo: "direto" | "aberto" }) {
-  const { data, error } = await (supabase as any).rpc("x1_criar", {
-    p_opponent: opts.oponente, p_date: opts.data, p_stakes: opts.aposta, p_tipo: opts.tipo,
-  });
-  if (error) throw new Error(erroBonito(error.message));
-  return data as string;
+/** Desafia alguém. Sempre sem aposta: o servidor também recusa qualquer valor. */
+export async function lutar(oponente: string) {
+  return (supabase as any).rpc("x1_lutar", { p_opponent: oponente, p_stakes: 0 }) as Promise<{ data: unknown; error: { message: string } | null }>;
 }
 
 /** Resultado de um duelo fechado, do ponto de vista de `uid`. */

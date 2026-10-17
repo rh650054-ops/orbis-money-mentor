@@ -82,7 +82,7 @@ const DailyGoals = lazyWithReload(() => import("@/pages/DailyGoals"));
 const Ranking = lazyWithReload(() => import("@/pages/Ranking"));
 const Competitions = lazyWithReload(() => import("@/pages/Competitions"));
 const X1 = lazyWithReload(() => import("@/pages/X1"));
-const X1Carteira = lazyWithReload(() => import("@/pages/X1Carteira"));
+const X1CarteiraEncerrada = lazyWithReload(() => import("@/features/x1/routes/carteira-encerrada-page"));
 const MpRetorno = lazyWithReload(() => import("@/pages/MpRetorno"));
 const Verificar = lazyWithReload(() => import("@/pages/Verificar"));
 const Pro = lazyWithReload(() => import("@/pages/Pro"));
@@ -166,7 +166,8 @@ export function AppRouter() {
                     <Route path="/ranking" element={<Ranking />} />
                     <Route path="/competitions" element={<Competitions />} />
                     <Route path="/x1" element={<X1 />} />
-                    <Route path="/x1/carteira" element={<X1Carteira />} />
+                    {/* X1 só pontos (14/10/2026): carteira fechada, endereço antigo mostra o aviso */}
+                    <Route path="/x1/carteira" element={<FeatureErrorBoundary title="X1"><X1CarteiraEncerrada /></FeatureErrorBoundary>} />
                     <Route path="/verificar" element={<Verificar />} />
                     <Route path="/pro" element={<Pro />} />
                     <Route path="/planos" element={<Planos />} />

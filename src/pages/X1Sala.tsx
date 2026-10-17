@@ -1,25 +1,24 @@
 /* ============================================================
    A SALA (/x1/sala/:id) — placar ao vivo da Sala de Competição.
-   • convidado → "fulano te chamou" + ENTRAR (trava a aposta) / Hoje não
+   • convidado → "fulano te chamou" + ENTRAR / Hoje não (vale pontos, sem dinheiro)
    • dentro    → ranking de todos com barra de energia, quem lidera, últimos
                  golpes (vendas do DEFCON), chamar mais gente, link, sair até 12h;
                  CTA DAR UM GOLPE · VENDER
    • de fora   → mesmo placar + ENTRAR pelo link (até lotar, até 18h)
-   • fechada   → colocação final e prêmio de cada um
+   • fechada   → colocação final de cada um
    Atualiza a cada 15 s. A + B unificadas em 02/10/2026 (lib única: x1-sala-lib.ts).
    Sem API externa. Todo hook acima do primeiro return.
    ============================================================ */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Wallet, Flame, Check, X, Loader2, Share2, UserPlus, LogOut, Trophy } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { ArrowLeft, Flame, Check, X, Loader2, Share2, UserPlus, LogOut, Trophy } from "lucide-react";
 import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
 import "@/components/x1/x1.css";
 import { X1Avatar } from "@/components/x1/X1Avatar";
 import { fmt, primeiroNome, horaBR, rodadaAgora, horasAteMeiaNoite, patenteCor } from "@/components/x1/x1-lib";
-import { type Sala, ordenarPlacar, divisaoPote, carregarSala, carregarGolpesSala, entrarSala, sairSala, aindaEntra, aindaSai, linkSala, SALA_HORA_ENTRADA, SALA_HORA_SAIDA } from "@/components/x1/x1-sala-lib";
+import { type Sala, ordenarPlacar, carregarSala, carregarGolpesSala, entrarSala, sairSala, aindaEntra, aindaSai, linkSala, SALA_HORA_ENTRADA } from "@/components/x1/x1-sala-lib";
 
 const GOLD = "#F5B800";
 const RED = "#F2465A";
@@ -34,7 +33,6 @@ export default function X1Sala() {
 
   const [s, setS] = useState<Sala | null>(null);
   const [golpes, setGolpes] = useState<Golpe[]>([]);
-  const [saldo, setSaldo] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
   const [agindo, setAgindo] = useState(false);
   const [hit, setHit] = useState<string | null>(null);
@@ -51,17 +49,12 @@ export default function X1Sala() {
     } catch (e) { setErro((e as Error).message); }
   }, [id, uid]);
   useEffect(() => { void carregar(); const t = setInterval(carregar, 15000); return () => clearInterval(t); }, [carregar]);
-  useEffect(() => {
-    if (!uid) return;
-    supabase.from("x1_wallets" as any).select("balance").eq("user_id", uid).maybeSingle().then(({ data }) => setSaldo(Number((data as any)?.balance) || 0));
-  }, [uid, s?.status, s?.lutadores.length]);
   useEffect(() => { if (!hit) return; try { navigator.vibrate?.(40); } catch (e) { avisar.silencioso("X1Sala: vibração", e); } const t = setTimeout(() => setHit(null), 500); return () => clearTimeout(t); }, [hit]);
 
   const eu = useMemo(() => s?.lutadores.find((m) => m.user_id === uid) ?? null, [s, uid]);
   const ranking = useMemo(() => (s ? ordenarPlacar(s.lutadores) : []), [s]);
   const convidados = useMemo(() => (s ? s.lutadores.filter((m) => m.status === "convidado") : []), [s]);
   const dentro = ranking.length;
-  const divisao = useMemo(() => (s ? divisaoPote(s.stakes_amount, Math.max(dentro, 2)) : null), [s, dentro]);
   const nomeDe = useCallback((userId: string) => (userId === uid ? "Você" : primeiroNome(s?.lutadores.find((m) => m.user_id === userId)?.nome)), [s, uid]);
 
   const entrar = async () => {
@@ -77,7 +70,7 @@ export default function X1Sala() {
   };
   const sair = async () => {
     if (!s || agindo) return;
-    if (eu?.status === "dentro" && !window.confirm(s.stakes_amount > 0 ? `Sair da sala? Seus ${fmt(s.stakes_amount)} voltam pra carteira.` : "Sair da sala?")) return;
+    if (eu?.status === "dentro" && !window.confirm("Sair da sala?")) return;
     setAgindo(true);
     try { await sairSala(s.id); toast({ title: eu?.status === "dentro" ? "Você saiu da sala" : "Chamado recusado" }); navigate("/x1"); }
     catch (e) { toast({ title: "Não rolou", description: (e as Error).message, variant: "destructive" }); }
@@ -85,13 +78,13 @@ export default function X1Sala() {
   };
   const compartilhar = async () => {
     if (!s) return;
-    const texto = `Sala "${s.nome}" na Vant: ${dentro} ${dentro === 1 ? "lutador" : "lutadores"}${s.stakes_amount > 0 ? `, ${fmt(s.stakes_amount)} cada` : ", na honra"}. Entra até ${SALA_HORA_ENTRADA}h — quem vende mais hoje leva. ${linkSala(s.id)}`;
+    const texto = `Sala "${s.nome}" na Vant: ${dentro} ${dentro === 1 ? "lutador" : "lutadores"}, vale pontos. Entra até ${SALA_HORA_ENTRADA}h — quem vende mais hoje leva. ${linkSala(s.id)}`;
     try { if (navigator.share) await navigator.share({ text: texto }); else { await navigator.clipboard.writeText(texto); toast({ title: "Link copiado!" }); } } catch (e) { avisar.silencioso("X1Sala: compartilhar (cancelado)", e); }
   };
 
   if (!uid) return null;
   if (erro) return <div className="min-h-screen px-6 pt-20 text-center" style={{ background: "#000" }}><p className="text-[15px] font-black">{erro}</p><button type="button" onClick={() => navigate("/x1")} className="x1-btn ouro mt-4">VOLTAR PRA ARENA</button></div>;
-  if (!s || !divisao) return <div className="min-h-screen flex items-center justify-center" style={{ background: "#000" }}><Loader2 className="w-6 h-6 animate-spin" style={{ color: "#8a8378" }} /></div>;
+  if (!s) return <div className="min-h-screen flex items-center justify-center" style={{ background: "#000" }}><Loader2 className="w-6 h-6 animate-spin" style={{ color: "#8a8378" }} /></div>;
 
   const aberta = s.status === "open";
   const fechada = s.status === "finished";
@@ -127,33 +120,28 @@ export default function X1Sala() {
         {aberta ? (
           <span className="flex-1 inline-flex items-center gap-2 text-[10px] font-black tracking-[.14em]" style={{ color: "#ff7d8c" }}><i className="w-[7px] h-[7px] rounded-full x1-live" style={{ background: RED }} /> AO VIVO · RODADA {rodada}/6</span>
         ) : <span className="flex-1 text-[10px] font-black tracking-[.14em]" style={{ color: "#8a8378" }}>{fechada ? "SALA FECHADA" : s.status === "awaiting_result" ? "EM REVISÃO" : "SALA CANCELADA"}</span>}
-        {souDentro || souConvidado ? (
-          <button type="button" onClick={() => navigate("/x1/carteira")} className="h-8 px-3 rounded-full inline-flex items-center gap-1.5 text-[12px] font-black" style={{ background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD }}><Wallet className="w-3.5 h-3.5" strokeWidth={2.6} /> {fmt(saldo)}</button>
-        ) : (
-          <span className="h-8 px-3 rounded-full inline-flex items-center text-[10px] font-black" style={{ background: "#1a1305", border: "1px solid #3a2f0c", color: GOLD }}>{s.stakes_amount > 0 ? `POTE ${fmt(fechada ? s.pote - s.fee_amount : divisao.pote)}` : "NA HONRA"}</span>
-        )}
+        <span className="h-8 px-3 rounded-full inline-flex items-center text-[10px] font-black" style={{ background: "#1a1305", border: "1px solid #3a2f0c", color: GOLD }}>VALE PONTOS</span>
       </div>
 
       <div className="text-center mt-2">
         <p className="text-[10px] font-black tracking-[.16em]" style={{ color: GOLD }}>SALA · {s.nome.toUpperCase()}</p>
         <p className="text-[22px] font-black italic tracking-[.02em] mt-0.5">{dentro} {dentro === 1 ? "LUTADOR" : "LUTADORES"} <span className="x1-vs x1-vs-glow inline-block text-[28px]" style={{ color: GOLD }}>VS</span> O DIA</p>
         <p className="text-[10px] font-black tracking-[.14em] mt-1" style={{ color: "#8a8378" }}>
-          {s.stakes_amount > 0 ? `${fmt(s.stakes_amount)} CADA · 1º LEVA ${fmt(divisao.primeiro)}${divisao.segundo > 0 ? ` · 2º ${fmt(divisao.segundo)}` : ""}` : "NA HONRA · VALE XP"} · {aberta ? "FECHA 23:59" : fechada ? "FECHADA" : s.result_notes?.toUpperCase() || ""}
+          QUEM VENDE MAIS FICA EM 1º · {aberta ? "FECHA 23:59" : fechada ? "FECHADA" : s.result_notes?.toUpperCase() || ""}
         </p>
       </div>
 
       {souConvidado && aberta && (
         <div className="rounded-[20px] border p-4 mt-3 x1-slam" style={{ borderColor: `${RED}66`, background: "linear-gradient(160deg,#2a0c11,#0e0e10)" }}>
           <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#ff7d8c" }}>TE CHAMOU PRA SALA</p>
-          <p className="text-[15px] font-black mt-0.5">{quemChamou} quer você nessa briga{s.stakes_amount > 0 ? ` · ${fmt(s.stakes_amount)}` : ""}</p>
-          <p className="text-[11.5px] mt-1" style={{ color: "#b3ab9c" }}>{dentro} dentro · {Math.max(0, s.vagas - dentro)} {s.vagas - dentro === 1 ? "vaga" : "vagas"} · entra até {SALA_HORA_ENTRADA}h{s.stakes_amount > 0 ? ` · trava ${fmt(s.stakes_amount)} da carteira` : ""}</p>
+          <p className="text-[15px] font-black mt-0.5">{quemChamou} quer você nessa briga</p>
+          <p className="text-[11.5px] mt-1" style={{ color: "#b3ab9c" }}>{dentro} dentro · {Math.max(0, s.vagas - dentro)} {s.vagas - dentro === 1 ? "vaga" : "vagas"} · entra até {SALA_HORA_ENTRADA}h</p>
           <div className="flex gap-2 mt-3">
             <button type="button" disabled={agindo || lotada || !aindaEntra()} onClick={entrar} className="x1-btn vermelho x1-pulse" style={{ height: 50, fontSize: 14 }}>{agindo ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" strokeWidth={3} />} ENTRAR</button>
             <button type="button" disabled={agindo} onClick={sair} aria-label="Recusar" className="w-14 h-[50px] rounded-[16px] inline-flex items-center justify-center shrink-0" style={{ background: "#16151a", border: "1px solid #2a2823", color: "#8a8378" }}><X className="w-5 h-5" strokeWidth={3} /></button>
           </div>
           {lotada && <p className="text-[11px] mt-2" style={{ color: "#ff7d8c" }}>Lotou antes de você entrar.</p>}
           {!lotada && !aindaEntra() && <p className="text-[11px] mt-2" style={{ color: "#ff7d8c" }}>Entrada fechou às {SALA_HORA_ENTRADA}h.</p>}
-          {s.stakes_amount > saldo && s.stakes_amount > 0 && <p className="text-[11px] mt-2" style={{ color: "#ff7d8c" }}>Falta saldo pra {fmt(s.stakes_amount)}. Deposita na carteira.</p>}
         </div>
       )}
 
@@ -162,7 +150,6 @@ export default function X1Sala() {
         {ranking.map((m, i) => {
           const sou = m.user_id === uid;
           const primeiro = m.pos === 1;
-          const premio = fechada ? m.premio : m.pos === 1 ? divisao.primeiro : m.pos === 2 ? divisao.segundo : 0;
           return (
             <div key={m.user_id} className={`grid items-center gap-2.5 rounded-[16px] border px-3 py-2.5 x1-up ${hit === m.user_id ? "x1-hit" : ""}`} style={{ "--i": i, gridTemplateColumns: "28px 44px 1fr auto",
               borderColor: primeiro ? `${GOLD}e6` : sou ? `${GOLD}99` : "#22201a",
@@ -181,7 +168,7 @@ export default function X1Sala() {
               </div>
               <div className="text-right">
                 <p className="text-[15px] font-black tabular-nums" style={{ color: primeiro ? GOLD : m.total === 0 ? "#8a8378" : "#fff" }}>{fmt(m.total)}</p>
-                <p className="text-[9.5px] font-black tracking-[.1em]" style={{ color: "#8a8378" }}>{premio > 0 ? (fechada ? `LEVOU ${fmt(premio)}` : `LEVA ${fmt(premio)}`) : " "}</p>
+                <p className="text-[9.5px] font-black tracking-[.1em]" style={{ color: "#8a8378" }}>{`${m.pos}º`}</p>
               </div>
             </div>
           );
@@ -226,13 +213,12 @@ export default function X1Sala() {
         </div>
       )}
       {aberta && souDentro && !aindaSai() && <p className="text-[10.5px] text-center mt-2" style={{ color: "#8a8378" }}>Depois do meio-dia ninguém sai da sala. Agora é vender.</p>}
-      {aberta && souDentro && aindaSai() && s.stakes_amount > 0 && <p className="text-[10.5px] text-center mt-2" style={{ color: "#8a8378" }}>Dá pra sair até {SALA_HORA_SAIDA}h com a aposta de volta.</p>}
 
-      {fechada && eu && eu.premio > 0 && (
+      {fechada && eu && ranking.find((m) => m.user_id === uid)?.pos === 1 && (
         <div className="rounded-[20px] border p-4 mt-3 text-center x1-slam" style={{ borderColor: `${GOLD}99`, background: "linear-gradient(160deg,#2a1f05,#0e0e10)" }}>
           <Trophy className="w-6 h-6 mx-auto" style={{ color: GOLD }} strokeWidth={2.4} />
-          <p className="text-[16px] font-black italic mt-1" style={{ color: GOLD }}>VOCÊ LEVOU {fmt(eu.premio)}</p>
-          <p className="text-[11px] mt-0.5" style={{ color: "#b3ab9c" }}>Já tá na carteira.</p>
+          <p className="text-[16px] font-black italic mt-1" style={{ color: GOLD }}>VOCÊ FICOU EM 1º</p>
+          <p className="text-[11px] mt-0.5" style={{ color: "#b3ab9c" }}>Quem vendeu mais hoje foi você.</p>
         </div>
       )}
 
@@ -247,7 +233,7 @@ export default function X1Sala() {
           ) : !aindaEntra() ? (
             <button type="button" disabled className="x1-btn fantasma">ENTRADA FECHOU ÀS {SALA_HORA_ENTRADA}H</button>
           ) : (
-            <button type="button" disabled={agindo} onClick={entrar} className="x1-btn ouro x1-pulse">{agindo ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" strokeWidth={3} />} ENTRAR NA SALA{s.stakes_amount > 0 ? ` · TRAVAR ${fmt(s.stakes_amount)}` : ""}</button>
+            <button type="button" disabled={agindo} onClick={entrar} className="x1-btn ouro x1-pulse">{agindo ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" strokeWidth={3} />} ENTRAR NA SALA</button>
           )}
         </div>
       </div>

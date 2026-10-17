@@ -1,16 +1,17 @@
 /* ============================================================
    ARENA X1 — "jogo de luta" (Rick, 08/09/2026).
-   Home da arena: seu CARD DE LUTADOR (foto, patente, XP), dois botões
+   Home da arena: seu CARD DE LUTADOR (foto, patente, pontos), dois botões
    (DESAFIAR 1×1 / ABRIR SALA), SUAS LUTAS DE HOJE (todas: X1 e salas — até
    3 ativas por pessoa, mais os chamados pra sala), MISSÕES DA SEMANA e o feed
-   LUTAS AO VIVO (duelos + salas abertas da galera). Carteira sempre no topo.
+   LUTAS AO VIVO (duelos + salas abertas da galera). Pontos sempre no topo.
+   SÓ PONTOS (14/10/2026): sem carteira, aposta nem prêmio em dinheiro.
    Fluxo: DESAFIAR → /x1/escolher → /x1/luta/:id · ABRIR SALA → /x1/sala/nova → /x1/sala/:id.
    A + B unificadas em 02/10/2026 (lib única: x1-sala-lib.ts).
    Sem API externa. Todo hook acima do primeiro return.
    ============================================================ */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Wallet, Swords, Users, Check, X, Loader2, Flame, Trophy, ChevronRight } from "lucide-react";
+import { ArrowLeft, Star, Swords, Users, Check, X, Loader2, Flame, Trophy, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,8 +21,8 @@ import "@/components/x1/x1.css";
 import { X1Avatar, X1Faces } from "@/components/x1/X1Avatar";
 import { FighterCardArena } from "@/components/x1/FighterCard";
 import { VitoriaScreen } from "@/components/x1/VitoriaScreen";
-import { fmt, primeiroNome, quandoTexto, expiraEm, erroBonito, carregarRecorde, carregarPessoas, resultadoDe, chaveVisto, voltaPraVoce, type Duelo, type Pessoa, type Recorde, RECORDE_VAZIO } from "@/components/x1/x1-lib";
-import { carregarSalasHoje, divisaoPote, aindaEntra, SALA_HORA_ENTRADA, type SalaResumo } from "@/components/x1/x1-sala-lib";
+import { fmt, primeiroNome, quandoTexto, expiraEm, erroBonito, carregarRecorde, carregarPessoas, resultadoDe, chaveVisto, lutar, type Duelo, type Pessoa, type Recorde, RECORDE_VAZIO } from "@/components/x1/x1-lib";
+import { carregarSalasHoje, aindaEntra, SALA_HORA_ENTRADA, type SalaResumo } from "@/components/x1/x1-sala-lib";
 import { PistaCard, Disponiveis, CinturaoCard } from "@/components/x1/X1Pista";
 import { TorcidaCerteira } from "@/components/x1/X1Provocacao";
 import { carregarPista, ligarPista, carregarDisponiveis, carregarCinturao, carregarPalpites, type Pista, type Disponivel, type Cinturao } from "@/components/x1/x1-lote5";
@@ -34,7 +35,7 @@ const OK = "#3DD68C";
 const HOT = "#ff7a1a";
 
 interface Missao { tipo: string; titulo: string; alvo: number; feito: number; concluida: boolean; dica: string }
-interface LutaViva { id: string; challenger_id: string; ch_nome: string; ch_avatar: string | null; ch_total: number; opponent_id: string; op_nome: string; op_avatar: string | null; op_total: number; stakes_amount: number; prize_amount: number; torcida_ch: number; torcida_op: number; minha_luta: boolean }
+interface LutaViva { id: string; challenger_id: string; ch_nome: string; ch_avatar: string | null; ch_total: number; opponent_id: string; op_nome: string; op_avatar: string | null; op_total: number; torcida_ch: number; torcida_op: number; minha_luta: boolean }
 
 function Card({ children, className = "", style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return <div className={`rounded-[20px] border p-3.5 ${className}`} style={{ background: "#0e0e10", borderColor: "#22201a", ...style }}>{children}</div>;
@@ -53,7 +54,6 @@ export default function X1() {
   const [eu, setEu] = useState<Pessoa | null>(null);
   const [recorde, setRecorde] = useState<Recorde>(RECORDE_VAZIO);
   const [arenaPos, setArenaPos] = useState<number | null>(null);
-  const [saldo, setSaldo] = useState(0);
   const [duelos, setDuelos] = useState<Duelo[]>([]);
   const [pessoas, setPessoas] = useState<Record<string, Pessoa>>({});
   const [missoes, setMissoes] = useState<Missao[]>([]);
@@ -81,12 +81,11 @@ export default function X1() {
 
   const carregar = useCallback(async () => {
     if (!uid) return;
-    const [rec, pos, w, d, ms, lv, pp, sl] = await Promise.all([
+    const [rec, pos, d, ms, lv, pp, sl] = await Promise.all([
       carregarRecorde(uid),
       (supabase as any).rpc("x1_arena_rank", { p_user: uid }),
-      supabase.from("x1_wallets" as any).select("balance").eq("user_id", uid).maybeSingle(),
       supabase.from("x1_challenges" as any)
-        .select("id, challenger_id, opponent_id, status, scheduled_date, stakes_amount, prize_amount, winner_user_id, last_proposed_by, tipo, expires_at, created_at, money_status")
+        .select("id, challenger_id, opponent_id, status, scheduled_date, winner_user_id, last_proposed_by, tipo, expires_at, created_at")
         .or(`challenger_id.eq.${uid},opponent_id.eq.${uid}`).order("created_at", { ascending: false }).limit(30),
       (supabase as any).rpc("x1_missoes"),
       (supabase as any).rpc("x1_lutas_ao_vivo"),
@@ -95,11 +94,10 @@ export default function X1() {
     ]);
     setRecorde(rec);
     setArenaPos(typeof pos.data === "number" && rec.duelos > 0 ? pos.data : null);
-    setSaldo(Number((w.data as any)?.balance) || 0);
-    const lista = ((d.data as any[]) || []).map((c) => ({ ...c, stakes_amount: Number(c.stakes_amount) || 0, prize_amount: Number(c.prize_amount) || 0 })) as Duelo[];
+    const lista = ((d.data as any[]) || []) as Duelo[];
     setDuelos(lista);
     setMissoes(((ms.data as any[]) || []) as Missao[]);
-    setVivas(((lv.data as any[]) || []).map((l) => ({ ...l, ch_total: Number(l.ch_total) || 0, op_total: Number(l.op_total) || 0, stakes_amount: Number(l.stakes_amount) || 0 })) as LutaViva[]);
+    setVivas(((lv.data as any[]) || []).map((l) => ({ ...l, ch_total: Number(l.ch_total) || 0, op_total: Number(l.op_total) || 0 })) as LutaViva[]);
     setSalas(sl);
     const p = pp.data as any;
     setEu({ user_id: uid, nome: p?.nickname || "Você", avatar_url: p?.avatar_url || null });
@@ -118,7 +116,7 @@ export default function X1() {
         (supabase as any).rpc("x1_lutas_ao_vivo"),
         carregarSalasHoje().catch(() => null),
       ]);
-      setVivas(((data as any[]) || []).map((l) => ({ ...l, ch_total: Number(l.ch_total) || 0, op_total: Number(l.op_total) || 0, stakes_amount: Number(l.stakes_amount) || 0 })) as LutaViva[]);
+      setVivas(((data as any[]) || []).map((l) => ({ ...l, ch_total: Number(l.ch_total) || 0, op_total: Number(l.op_total) || 0 })) as LutaViva[]);
       if (sl) setSalas(sl);
       setDisponiveis(await carregarDisponiveis());
     }, 30000);
@@ -175,7 +173,7 @@ export default function X1() {
   const encarar = async (d: Disponivel) => {
     if (semBanco) { travado(); return; }
     setEncarando(d.user_id);
-    const { data, error } = await (supabase as any).rpc("x1_lutar", { p_opponent: d.user_id, p_stakes: 0 });
+    const { data, error } = await lutar(d.user_id);
     setEncarando(null);
     if (error) { toast({ title: "Não rolou", description: erroBonito(error.message), variant: "destructive" }); return; }
     const r = data as { id: string; status: string };
@@ -192,9 +190,9 @@ export default function X1() {
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => navigate("/")} aria-label="Voltar" className="w-9 h-9 rounded-full flex items-center justify-center" style={{ color: "#b3ab9c" }}><ArrowLeft className="w-5 h-5" /></button>
         <p className="flex-1 text-[11px] font-black tracking-[.2em]" style={{ color: "#8a8378" }}>ARENA X1</p>
-        <button type="button" onClick={() => navigate("/x1/carteira")} className="h-8 px-3 rounded-full inline-flex items-center gap-1.5 text-[12px] font-black active:scale-95 transition-transform" style={{ background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD }}>
-          <Wallet className="w-3.5 h-3.5" strokeWidth={2.6} /> Carteira · {fmt(saldo)}
-        </button>
+        <span className="h-8 px-3 rounded-full inline-flex items-center gap-1.5 text-[12px] font-black tabular-nums" style={{ background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD }}>
+          <Star className="w-3.5 h-3.5" strokeWidth={2.6} /> {recorde.pontos} pontos
+        </span>
       </div>
 
       {/* SEU CARD */}
@@ -227,13 +225,13 @@ export default function X1() {
               <X1Avatar url={s.dono_avatar} nome={s.dono_nome} size={40} cor={RED} />
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#ff7d8c" }}>TE CHAMOU PRA SALA</p>
-                <p className="text-[13.5px] font-black truncate leading-tight">{primeiroNome(s.convidado_por_nome || s.dono_nome)} abriu "{s.nome}"{s.stakes_amount > 0 ? ` · ${fmt(s.stakes_amount)}` : ""}</p>
+                <p className="text-[13.5px] font-black truncate leading-tight">{primeiroNome(s.convidado_por_nome || s.dono_nome)} abriu "{s.nome}"</p>
                 <p className="text-[10px] font-black tracking-[.1em] mt-0.5" style={{ color: "#8a8378" }}>{s.dentro} DENTRO · {Math.max(0, s.vagas - s.dentro)} {s.vagas - s.dentro === 1 ? "VAGA" : "VAGAS"} · ENTRA ATÉ {SALA_HORA_ENTRADA}H</p>
               </div>
               <Chip cor="#ff7d8c" fundo="#2a0c11" borda={RED}>ENTRAR</Chip>
             </button>
           ))}
-          {salasMinhas.map((s) => { const div = divisaoPote(s.stakes_amount, Math.max(s.dentro, 2)); const lidero = s.lider_id === uid; return (
+          {salasMinhas.map((s) => { const lidero = s.lider_id === uid; return (
             <button key={s.id} type="button" onClick={() => navigate(`/x1/sala/${s.id}`)} className="w-full flex items-center gap-2.5 rounded-[16px] border px-3 py-2.5 text-left" style={{ borderColor: `${GOLD}73`, background: "linear-gradient(160deg,#1a1305,#0e0e10)" }}>
               <div className="flex -space-x-2.5 shrink-0">
                 {s.rostos.slice(0, 3).map((r, i) => <X1Avatar key={i} url={r.avatar} nome={r.nome} size={30} cor={i === 0 ? OK : "#3a3833"} />)}
@@ -241,7 +239,7 @@ export default function X1() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] font-black tracking-[.14em]" style={{ color: GOLD }}>SALA · {s.minha_posicao ? `VOCÊ EM ${s.minha_posicao}º` : "VOCÊ DENTRO"}</p>
-                <p className="text-[13.5px] font-black truncate leading-tight">{s.nome} · {s.stakes_amount > 0 ? `pote ${fmt(div.pote)}` : "na honra"}</p>
+                <p className="text-[13.5px] font-black truncate leading-tight">{s.nome} · vale pontos</p>
                 <p className="text-[10px] font-black tracking-[.1em] mt-0.5 truncate" style={{ color: lidero ? OK : "#8a8378" }}>
                   {s.dentro < 2 ? `SÓ VOCÊ DENTRO · CHAMA ALGUÉM` : s.lider_total > 0 ? `${lidero ? "VOCÊ LIDERA" : `${primeiroNome(s.lider_nome || "").toUpperCase()} LIDERA`} · ${fmt(s.lider_total)}` : `${s.dentro}/${s.vagas} DENTRO · NINGUÉM VENDEU AINDA`}
                 </p>
@@ -253,7 +251,7 @@ export default function X1() {
             <button key={c.id} type="button" onClick={() => navigate(`/x1/luta/${c.id}`)} className="w-full flex items-center gap-2.5 rounded-[16px] border px-3 py-2.5 text-left" style={{ borderColor: "#22201a", background: "#0e0e10" }}>
               <X1Faces eu={{ url: eu_.avatar_url, nome: eu_.nome }} ele={{ url: ele.avatar_url, nome: ele.nome }} size={30} />
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#8a8378" }}>X1 · {c.stakes_amount > 0 ? `${fmt(c.stakes_amount)} · VOLTA ${fmt(voltaPraVoce(c.stakes_amount))}` : "AMISTOSO"}</p>
+                <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#8a8378" }}>X1 · VALE PONTOS</p>
                 <p className="text-[13.5px] font-black truncate tabular-nums leading-tight">
                   <span style={{ color: meu > dele ? OK : "#fff" }}>Você {Math.round(meu)}</span> <span style={{ color: GOLD }}>×</span> <span style={{ color: dele > meu ? OK : "#fff" }}>{Math.round(dele)} {primeiroNome(ele.nome)}</span>
                 </p>
@@ -271,7 +269,7 @@ export default function X1() {
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#ff7d8c" }}>TE DESAFIOU</p>
               <p className="text-[15px] font-black truncate leading-tight">{primeiroNome(ele.nome)} quer lutar {quandoTexto(c.scheduled_date)}</p>
-              <p className="text-[11px]" style={{ color: "#8a8378" }}>{c.stakes_amount > 0 ? `valendo ${fmt(c.stakes_amount)} · volta ${fmt(voltaPraVoce(c.stakes_amount))}` : "amistoso · vale XP"} · {expiraEm(c.expires_at)}</p>
+              <p className="text-[11px]" style={{ color: "#8a8378" }}>vale pontos · {expiraEm(c.expires_at)}</p>
             </div>
             <button type="button" disabled={ocupado} onClick={() => responder(c, "accept")} className="h-10 px-3.5 rounded-[12px] inline-flex items-center gap-1 text-[12.5px] font-black italic" style={{ background: "linear-gradient(180deg,#FFC63A,#F5B800)", color: "#1a1305", boxShadow: "0 4px 0 #B88700" }}>
               {ocupado ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4" strokeWidth={3} /> LUTAR</>}
@@ -283,7 +281,7 @@ export default function X1() {
       {esperando.map((c, i) => { const ele = pessoa(outro(c)); return (
         <Card key={c.id} className="flex items-center gap-3 x1-up" style={{ "--i": 3 + i } as React.CSSProperties}>
           <X1Avatar url={ele.avatar_url} nome={ele.nome} size={36} cor="#8a8378" />
-          <div className="flex-1 min-w-0"><p className="text-[13px] font-black truncate">Esperando {primeiroNome(ele.nome)} aceitar</p><p className="text-[11px]" style={{ color: "#8a8378" }}>{quandoTexto(c.scheduled_date)} · {c.stakes_amount > 0 ? `${fmt(c.stakes_amount)} cada` : "amistoso"} · {expiraEm(c.expires_at)}</p></div>
+          <div className="flex-1 min-w-0"><p className="text-[13px] font-black truncate">Esperando {primeiroNome(ele.nome)} aceitar</p><p className="text-[11px]" style={{ color: "#8a8378" }}>{quandoTexto(c.scheduled_date)} · vale pontos · {expiraEm(c.expires_at)}</p></div>
           <Chip>ENVIADO</Chip>
         </Card>
       ); })}
@@ -292,7 +290,7 @@ export default function X1() {
       <Card className="x1-up" style={{ "--i": 4 } as React.CSSProperties}>
         <div className="flex items-center justify-between">
           <p className="text-[10px] font-black tracking-[.16em]" style={{ color: GOLD }}>MISSÕES DA SEMANA</p>
-          <Chip cor={GOLD} fundo="#1a1305" borda="#3a2f0c">+2 XP cada</Chip>
+          <Chip cor={GOLD} fundo="#1a1305" borda="#3a2f0c">+2 pontos cada</Chip>
         </div>
         <div className="mt-2">
           {missoes.map((m) => (
@@ -302,7 +300,7 @@ export default function X1() {
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-black">{m.titulo}</p>
-                {m.concluida ? <p className="text-[11px]" style={{ color: OK }}>feita · +2 XP</p> : (
+                {m.concluida ? <p className="text-[11px]" style={{ color: OK }}>feita · +2 pontos</p> : (
                   <>
                     <div className="h-[6px] rounded-full overflow-hidden mt-1" style={{ background: "#1c1b20" }}><i className="block h-full" style={{ width: `${Math.round((m.feito / m.alvo) * 100)}%`, background: GOLD }} /></div>
                     <p className="text-[10.5px] mt-1" style={{ color: "#8a8378" }}>{m.dica}</p>
@@ -331,7 +329,7 @@ export default function X1() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[12.5px] font-black truncate"><span style={{ color: GOLD }}>SALA</span> · {s.nome} · {s.dentro}/{s.vagas}</p>
-              <p className="text-[10.5px] truncate" style={{ color: "#8a8378" }}>{s.stakes_amount > 0 ? `${fmt(s.stakes_amount)} cada` : "na honra"}{s.lider_total > 0 && s.lider_nome ? ` · ${primeiroNome(s.lider_nome)} lidera com ${fmt(s.lider_total)}` : ` · de ${primeiroNome(s.dono_nome)}`}</p>
+              <p className="text-[10.5px] truncate" style={{ color: "#8a8378" }}>vale pontos{s.lider_total > 0 && s.lider_nome ? ` · ${primeiroNome(s.lider_nome)} lidera com ${fmt(s.lider_total)}` : ` · de ${primeiroNome(s.dono_nome)}`}</p>
             </div>
             {temVaga ? <Chip cor={GOLD} fundo="#1a1305" borda="#3a2f0c">ENTRAR</Chip> : <Chip>VER</Chip>}
           </button>
@@ -346,7 +344,7 @@ export default function X1() {
                   <span style={{ color: chLidera ? OK : "#fff" }}>{primeiroNome(l.ch_nome)} {Math.round(l.ch_total)}</span> <span style={{ color: GOLD }}>×</span> <span style={{ color: !chLidera && l.op_total > l.ch_total ? OK : "#fff" }}>{Math.round(l.op_total)} {primeiroNome(l.op_nome)}</span>
                 </p>
                 <p className="text-[10.5px] truncate" style={{ color: "#8a8378" }}>
-                  {l.minha_luta ? "sua luta · " : ""}{l.stakes_amount > 0 ? `valendo ${fmt(l.stakes_amount)} · volta ${fmt(voltaPraVoce(l.stakes_amount))}` : "amistoso"}{l.torcida_ch + l.torcida_op > 0 ? ` · torcida ${l.torcida_ch} × ${l.torcida_op}` : ""}
+                  {l.minha_luta ? "sua luta" : "vale pontos"}{l.torcida_ch + l.torcida_op > 0 ? ` · torcida ${l.torcida_ch} × ${l.torcida_op}` : ""}
                 </p>
               </div>
               <Chip cor="#ff7d8c" fundo="#2a0c11" borda={`${RED}66`}>VER</Chip>
@@ -366,7 +364,7 @@ export default function X1() {
             return (
               <button key={c.id} type="button" onClick={() => navigate(`/x1/luta/${c.id}`)} className="w-full flex items-center gap-2.5 py-2.5 text-left" style={{ borderTop: "1px solid #22201a" }}>
                 <X1Avatar url={ele.avatar_url} nome={ele.nome} size={32} cor={cor} />
-                <div className="flex-1 min-w-0"><p className="text-[12.5px] font-black truncate">{res === "vitoria" ? "Venceu" : res === "derrota" ? "Perdeu pra" : "Empatou com"} {primeiroNome(ele.nome)}</p><p className="text-[10.5px]" style={{ color: "#8a8378" }}>{quandoTexto(c.scheduled_date)} · {c.stakes_amount > 0 ? `${fmt(c.stakes_amount)} cada` : "amistoso"}</p></div>
+                <div className="flex-1 min-w-0"><p className="text-[12.5px] font-black truncate">{res === "vitoria" ? "Venceu" : res === "derrota" ? "Perdeu pra" : "Empatou com"} {primeiroNome(ele.nome)}</p><p className="text-[10.5px]" style={{ color: "#8a8378" }}>{quandoTexto(c.scheduled_date)}</p></div>
                 {res === "vitoria" ? <Trophy className="w-4 h-4" style={{ color: GOLD }} strokeWidth={2.4} /> : <ChevronRight className="w-4 h-4" style={{ color: "#8a8378" }} />}
               </button>
             );
@@ -384,7 +382,7 @@ export default function X1() {
         <VitoriaScreen
           tipo={resultadoDe(resultado.d, uid)}
           eu={eu_} ele={resultado.ele} recorde={recorde}
-          meu={resultado.meu} dele={resultado.dele} aposta={resultado.d.stakes_amount} premio={resultado.d.prize_amount}
+          meu={resultado.meu} dele={resultado.dele}
           onFechar={() => { localStorage.setItem(chaveVisto(resultado.d.id), "1"); setResultado(null); }}
           onProximo={() => { localStorage.setItem(chaveVisto(resultado.d.id), "1"); setResultado(null); navigate("/x1/escolher"); }}
           onRevanche={() => { localStorage.setItem(chaveVisto(resultado.d.id), "1"); const id = resultado.ele.user_id; setResultado(null); navigate(`/x1/escolher?alvo=${id}`); }}

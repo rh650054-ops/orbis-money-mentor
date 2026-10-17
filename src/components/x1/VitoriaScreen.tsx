@@ -2,7 +2,7 @@
    TELA DE RESULTADO — VITÓRIA / DERROTA / EMPATE (tela cheia, animada).
    Vitória: raios girando, "VITÓRIA" letra por letra, card entra com soco +
    faíscas, faixa "CAMPEÃO DO DUELO" GIRANDO ao redor da foto (pedido do Rick),
-   confete, XP enchendo, brilho no card, botão pulsando.
+   confete, pontos enchendo, brilho no card, botão pulsando.
    Derrota: raios vermelhos, card treme e escurece, "REVANCHE" em destaque.
    ============================================================ */
 import { useEffect, useState } from "react";
@@ -12,7 +12,7 @@ import { toast } from "@/shared/hooks/use-toast";
 import { avisar } from "@/shared/lib/avisar";
 import { X1Avatar } from "./X1Avatar";
 import { XpBar } from "./FighterCard";
-import { fmt, primeiroNome, proximaPatente, type Pessoa, type Recorde } from "./x1-lib";
+import { fmt, primeiroNome, proximaPatente, PONTOS_X1, type Pessoa, type Recorde } from "./x1-lib";
 
 const GOLD = "#F5B800";
 const RED = "#F2465A";
@@ -39,9 +39,9 @@ function FaixaOrbita({ texto, cor, raio = 78 }: { texto: string; cor: string; ra
   );
 }
 
-export function VitoriaScreen({ tipo, eu, ele, recorde, meu, dele, aposta, premio, onFechar, onProximo, onRevanche }: {
+export function VitoriaScreen({ tipo, eu, ele, recorde, meu, dele, onFechar, onProximo, onRevanche }: {
   tipo: "vitoria" | "derrota" | "empate"; eu: Pessoa; ele: Pessoa; recorde: Recorde;
-  meu: number; dele: number; aposta: number; premio: number;
+  meu: number; dele: number;
   onFechar: () => void; onProximo: () => void; onRevanche: () => void;
 }) {
   const [xpAnimado, setXpAnimado] = useState(false);
@@ -109,19 +109,18 @@ export function VitoriaScreen({ tipo, eu, ele, recorde, meu, dele, aposta, premi
           </div>
           <div className="relative text-left">
             <XpBar r={xpAnimado ? recorde : rAntes} animar />
-            {venci && xpAnimado && <span className="x1-float absolute right-0 -top-1 text-[11px] font-black" style={{ color: OK }}>+10 XP · VITÓRIA</span>}
+            {venci && xpAnimado && <span className="x1-float absolute right-0 -top-1 text-[11px] font-black" style={{ color: OK }}>+{PONTOS_X1.vitoria} PONTOS · VITÓRIA</span>}
           </div>
           <p className="text-[11.5px] mt-2" style={{ color: "#b3ab9c" }}>
-            {prox ? <>Faltam <b style={{ color: GOLD }}>{faltam} XP</b> pra virar <b style={{ color: "#4FD8F5" }}>{prox}</b>{prox === "BRIGÃO" ? " e liberar aposta" : ""}.</> : <>Você é <b style={{ color: "#B47CFF" }}>LENDA</b> da arena.</>}
+            {prox ? <>Faltam <b style={{ color: GOLD }}>{faltam} pontos</b> pra virar <b style={{ color: "#4FD8F5" }}>{prox}</b>.</> : <>Você é <b style={{ color: "#B47CFF" }}>LENDA</b> da arena.</>}
           </p>
         </div>
 
         {/* TILES */}
         <div className="flex gap-2 w-full mt-3.5">
           {[
-            venci && premio > 0 ? { k: "CARTEIRA", v: `+ ${fmt(premio)}`, s: `aposta ${Math.round(aposta)} · voltou ${Math.round(premio)}`, c: OK }
-              : tipo === "derrota" && aposta > 0 ? { k: "CARTEIRA", v: `− ${fmt(aposta)}`, s: "foi pro vencedor", c: "#ff7d8c" }
-              : { k: "MODO", v: aposta > 0 ? "devolvido" : "HONRA", s: aposta > 0 ? "empate devolve" : "amistoso vale XP", c: GOLD },
+            venci ? { k: "PONTOS", v: `+${PONTOS_X1.vitoria}`, s: "pela vitória", c: OK }
+              : { k: "PONTOS", v: "+0", s: tipo === "derrota" ? "derrota não tira ponto" : "empate não tira ponto", c: GOLD },
             { k: "SEQUÊNCIA", v: String(recorde.sequencia), s: recorde.sequencia >= 2 ? "em chamas" : venci ? "começou agora" : "zerou · volta amanhã", c: HOT },
             { k: "RECORDE", v: `${recorde.vitorias}V ${recorde.derrotas}D`, s: `${recorde.duelos} ${recorde.duelos === 1 ? "luta" : "lutas"}`, c: GOLD },
           ].map((t, i) => (

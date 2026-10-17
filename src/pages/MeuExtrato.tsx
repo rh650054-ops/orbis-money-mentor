@@ -165,7 +165,6 @@ export default function MeuExtrato() {
             Cansou de mandar todo dia? Manda o extrato da <b className="text-foreground">semana</b> (ou do mês)
             <b className="text-foreground"> a qualquer hora</b>. A IA separa por dia e preenche o que entrou em cada
             dia que você trabalhou (DEFCON iniciado) e ainda está sem extrato. Não mexe nos dias já enviados.
-            <b className="text-foreground"> Só dia de X1 valendo dinheiro exige o extrato do dia até as 9h</b> — o duelo paga às 9h05.
           </p>
           <div className="grid grid-cols-2 gap-2">
             {(["pix", "cartao"] as const).map((t) => (

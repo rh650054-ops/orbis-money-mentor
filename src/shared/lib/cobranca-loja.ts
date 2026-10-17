@@ -1,12 +1,13 @@
-/* Como o app da LOJA (Play Store / App Store) lida com assinatura (Rick, 14/10).
+/* Como o app da LOJA (Play Store / App Store) lida com assinatura.
  *  - "web":  site / PWA — Hotmart normal.
- *  - "fora": app da loja NÃO vende. Botões e preços somem; quem cai numa tela de
- *            pagamento vê um aviso neutro. É o formato que a Apple aprova mais rápido
- *            (sem botão = 0% pra Apple) e o que o Google aceita no Brasil hoje.
- *  - "link": modelo Néctar — o botão abre a Hotmart no navegador do celular.
- *            Na Apple (Brasil, desde 18/06/2026) exige o entitlement de compra
- *            externa e paga 10%; no Google ainda não há programa pro Brasil.
- * Troca sem mexer no código: VITE_COBRANCA_LOJA=link no build da loja. */
+ *  - "link": PADRÃO (decisão do Rick, 14/10 15h08) — modelo Néctar: o botão de
+ *            assinar abre a Hotmart no navegador do celular. Na Apple (Brasil, desde
+ *            18/06/2026) pede o entitlement de compra externa e paga 10% (Small
+ *            Business) das compras em até 7 dias do toque; no Google ainda não há
+ *            programa pro Brasil — risco de reprovação conhecido e aceito.
+ *  - "fora": plano B se uma loja reprovar — o app da loja não vende: botões e preços
+ *            somem e quem cai numa tela de pagamento vê um aviso neutro.
+ * Troca sem mexer no código: VITE_COBRANCA_LOJA=fora no build da loja. */
 import { plataforma } from "./platform";
 
 export type ModoCobranca = "web" | "fora" | "link";
@@ -14,7 +15,7 @@ export const EVENTO_ASSINATURA_LOJA = "vant:assinatura-loja";
 
 export function modoCobranca(env: string | undefined = import.meta.env.VITE_COBRANCA_LOJA): ModoCobranca {
   if (plataforma() === "web") return "web";
-  return env === "link" ? "link" : "fora";
+  return env === "fora" ? "fora" : "link";
 }
 
 /** Botão de assinar, preço e oferta podem aparecer nesta tela? */

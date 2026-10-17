@@ -23,7 +23,7 @@ export function TravaX1({ className = "" }: { className?: string }) {
       </span>
       <p className="text-[16px] font-black leading-tight text-balance">O X1 é só entre vendedores conferidos</p>
       <p className="text-[11.5px] leading-relaxed" style={{ color: "#b9b3a6" }}>
-        O placar da luta é o Pix que cai no banco. Sem banco ligado, não tem como saber quem vendeu de verdade.
+        O placar da luta são as vendas do dia. Sem banco ligado, não tem como conferir quem vendeu de verdade.
       </p>
       <button type="button" onClick={() => navigate("/verificar")} className="x1-btn ouro mt-1" style={{ height: 50, fontSize: 13.5 }}>
         <Landmark className="w-4 h-4" strokeWidth={2.6} /> LIGAR MEU BANCO

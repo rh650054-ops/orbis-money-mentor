@@ -27,9 +27,13 @@ formulário é declaração sua, e informação errada dá remoção do app.
 Marcar: **gestão financeira pessoal / de pequenos negócios** e **agregação de contas
 (Open Finance)**. Não oferecemos empréstimo, investimento, cripto nem pagamento.
 
-> Atenção ao X1 com depósito/saque (tabelas `x1_wallets`, `x1_deposit_requests`):
-> carteira com dinheiro real entre usuários é tratada como pagamento ou aposta.
-> No app da loja, deixar o X1 sem dinheiro (só pontos) ou escondido.
+> **X1 só por pontos (14/10/2026), em todas as plataformas.** A carteira do X1
+> (`x1_wallets`, `x1_deposit_requests`, `x1_withdraw_requests`, `x1_mp_payments`) foi
+> fechada: o app não deposita, não aposta e não saca mais, e o servidor recusa
+> operação nova (migração `20261015090000_x1_so_pontos.sql`). As tabelas e o
+> histórico **ficam guardados** (não foram apagados) só pra resolver saldo antigo
+> pelo suporte. Os pontos do X1 não têm valor em dinheiro.
+> Não declarar "pagamentos entre usuários" nem "apostas".
 
 ## Conta de teste pro revisor
 As duas lojas exigem login funcionando. Ver `revisao-apple.md`.

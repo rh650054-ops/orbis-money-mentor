@@ -1,22 +1,42 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
+const rpc = vi.fn();
+vi.mock("@/integrations/supabase/client", () => ({ supabase: { rpc: (...a: unknown[]) => rpc(...a) } }));
 
-import { divisaoPote, ordenarPlacar, type SalaLutador } from "./x1-sala-lib";
+import { criarSala, ordenarPlacar, type SalaLutador } from "./x1-sala-lib";
+import { lutar, pontosDoDuelo, PONTOS_X1 } from "./x1-lib";
 
 const lut = (id: string, total: number, status: SalaLutador["status"] = "dentro"): SalaLutador => ({
-  user_id: id, status, nome: id, avatar: null, patente: "NOVATO", total, posicao: null, premio: 0, convidado_por: null,
+  user_id: id, status, nome: id, avatar: null, patente: "NOVATO", total, posicao: null, convidado_por: null,
 });
 
-describe("divisaoPote", () => {
-  it("2 fighters: winner takes the pot minus 10%", () => {
-    expect(divisaoPote(20, 2)).toEqual({ pote: 36, casa: 4, primeiro: 36, segundo: 0 });
+beforeEach(() => { rpc.mockReset(); rpc.mockResolvedValue({ data: "id", error: null }); });
+
+describe("X1 só pontos: o app nunca manda aposta", () => {
+  it("desafio 1×1 vai sempre com p_stakes 0", async () => {
+    await lutar("ele");
+    expect(rpc).toHaveBeenCalledWith("x1_lutar", { p_opponent: "ele", p_stakes: 0 });
   });
-  it("4 fighters at R$20: R$72 pot, 70/30", () => {
-    expect(divisaoPote(20, 4)).toEqual({ pote: 72, casa: 8, primeiro: 50.4, segundo: 21.6 });
+  it("sala nova vai sempre com p_stakes 0", async () => {
+    await criarSala({ nome: "Sala", vagas: 4, convidados: ["a"] });
+    expect(rpc).toHaveBeenCalledWith("x1_sala_criar", { p_nome: "Sala", p_stakes: 0, p_vagas: 4, p_convidados: ["a"] });
   });
-  it("honor room has no money", () => {
-    expect(divisaoPote(0, 6)).toEqual({ pote: 0, casa: 0, primeiro: 0, segundo: 0 });
+  it("erro do servidor (x1_so_pontos) vira frase pro vendedor", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "x1_so_pontos: o X1 agora vale só pontos" } });
+    await expect(criarSala({ nome: "S", vagas: 2, convidados: [] })).rejects.toThrow("o X1 agora vale só pontos");
+  });
+});
+
+describe("pontos do duelo (mesma regra do x1_recorde)", () => {
+  it("vitória dá 10; derrota, empate, cancelado e em andamento dão 0", () => {
+    expect(pontosDoDuelo({ status: "finished", winner_user_id: "eu" }, "eu")).toBe(PONTOS_X1.vitoria);
+    expect(pontosDoDuelo({ status: "finished", winner_user_id: "ele" }, "eu")).toBe(0);
+    expect(pontosDoDuelo({ status: "finished", winner_user_id: null }, "eu")).toBe(0);
+    expect(pontosDoDuelo({ status: "cancelled", winner_user_id: null }, "eu")).toBe(0);
+    expect(pontosDoDuelo({ status: "active", winner_user_id: "eu" }, "eu")).toBe(0);
+  });
+  it("ninguém perde ponto (não é aposta)", () => {
+    expect(Object.values(PONTOS_X1).every((v) => v >= 0)).toBe(true);
   });
 });
 
