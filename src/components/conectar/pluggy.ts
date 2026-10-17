@@ -170,7 +170,7 @@ export function saudeDoBanco(status: string | null, ultimaSync: string | null) {
   if (s === "UPDATED") return { texto: "em dia", cor: "#3DD68C", alerta: false };
   // 09/10: WAITING_USER_INPUT aparecia como "atualizando…" pra sempre. É o banco
   // esperando o VENDEDOR aprovar no app do banco (André: nunca aprovou, 0 entradas).
-  if (s === "WAITING_USER_INPUT" || s === "LOGIN_ERROR" || s === "INVALID_CREDENTIALS" || s === "USER_INPUT_TIMEOUT")
+  if (s === "WAITING_USER_INPUT" || s === "WAITING_USER_ACTION" || s === "LOGIN_ERROR" || s === "INVALID_CREDENTIALS" || s === "USER_INPUT_TIMEOUT")
     return { texto: "falta autorizar no app do banco", cor: "#F2465A", alerta: true, autorizar: true };
   if (s === "UPDATING" || s === "LOGIN_IN_PROGRESS")
     return { texto: "atualizando…", cor: "#F5B800", alerta: false };
