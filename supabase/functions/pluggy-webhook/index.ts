@@ -134,8 +134,11 @@ Deno.serve(async (req) => {
       if (!con) return respond();
     } else if (item) {
       // conexao existe: so mantem o status honesto (LOGIN_ERROR, OUTDATED, UPDATED...)
+      // 17/10/2026: "waiting_user_action" events come with the item still OUTDATED — record
+      // the real state so the robot stops pulling and the app asks the vendor to re-authorize
+      const esperaVendedor = evento === "item/waiting_user_action" || evento === "item/waiting_user_input";
       await admin.from("bank_connections").update({
-        status: status || undefined,
+        status: esperaVendedor ? "WAITING_USER_ACTION" : (status || undefined),
         institution_name: item?.connector?.name ?? undefined,
         institution_logo: item?.connector?.imageUrl ?? undefined,
         updated_at: new Date().toISOString(),

@@ -183,7 +183,9 @@ const minutosEntre = (a: Date, b: Date) => (a.getTime() - b.getTime()) / 60_000;
  *  until the vendor authorizes again in the app. */
 export function precisaDoVendedor(status: string | null | undefined): boolean {
   const s = String(status ?? "").toUpperCase();
-  return s === "WAITING_USER_INPUT" || s === "LOGIN_ERROR" || s === "INVALID_CREDENTIALS" || s === "USER_INPUT_TIMEOUT";
+  // WAITING_USER_ACTION (17/10/2026): Open Finance consent to approve in the bank's own app
+  // — Inter/Mateus got 32 of these in a day while the robot kept asking (21 pulls, 0 data)
+  return s === "WAITING_USER_INPUT" || s === "WAITING_USER_ACTION" || s === "LOGIN_ERROR" || s === "INVALID_CREDENTIALS" || s === "USER_INPUT_TIMEOUT";
 }
 
 /** Why this bank should be read now — or null (most of the time). */
