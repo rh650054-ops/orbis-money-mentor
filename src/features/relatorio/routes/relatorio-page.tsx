@@ -1,0 +1,108 @@
+import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import FeatureErrorBoundary from "@/shared/components/feature-error-boundary";
+import { useAuth } from "@/hooks/useAuth";
+import FirstTimeCard from "@/components/FirstTimeCard";
+import { useMarcarPasso } from "@/components/jornada/useJornada";
+import { ConferenciaBanco, useConferenciaBanco } from "@/components/relatorio/ConferenciaBanco";
+import { FechamentoDoDia } from "@/components/relatorio/FechamentoDoDia";
+import { useRelatorioQuery, relatorioKeys } from "../api/use-relatorio-query";
+import { derivar } from "../lib/derivar";
+import { hojeBR, periodoDoPreset, rotuloAnterior } from "../lib/periodo";
+import type { Periodo } from "../types";
+import { Acoes } from "../components/acoes";
+import { BlocoCalote } from "../components/bloco-calote";
+import { BlocoDiaADia } from "../components/bloco-dia-a-dia";
+import { BlocoGastos } from "../components/bloco-gastos";
+import { BlocoHoraAHora } from "../components/bloco-hora-a-hora";
+import { BlocoRecebeu } from "../components/bloco-recebeu";
+import { BlocoTempo } from "../components/bloco-tempo";
+import { BlocoVantViu } from "../components/bloco-vant-viu";
+import { CardDinheiro } from "../components/card-dinheiro";
+import { CardVendas } from "../components/card-vendas";
+import { FiltroPeriodo } from "../components/filtro-periodo";
+import { RelatorioSkeleton } from "../components/relatorio-skeleton";
+
+/**
+ * Relatório (redesign 18/10/2026, mockup v10 approved by Rick).
+ * Dashboard answers "quanto estou fazendo?"; this screen answers "como estou vendendo?".
+ * Order: filtro → dinheiro (the card people screenshot) → conferido pelo banco →
+ * [fechamento do dia] → vendas → dia a dia → hora a hora → seu tempo → como recebeu →
+ * seus gastos → calote → o que a Vant viu → compartilhar / exportar.
+ * Rule of the whole page: every number appears once.
+ */
+function RelatorioConteudo() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const [periodo, setPeriodo] = useState<Periodo>(() => periodoDoPreset("semana", hojeBR()));
+  useMarcarPasso("relatorio");
+
+  const rel = useRelatorioQuery(periodo.de, periodo.ate);
+  const banco = useConferenciaBanco(periodo.de, periodo.ate);
+  const resumo = useMemo(() => (rel.data ? derivar(rel.data, banco, periodo, rotuloAnterior(periodo)) : null), [rel.data, banco, periodo]);
+
+  const hoje = hojeBR();
+  const bancoDoDia = resumo?.umDia ? banco.find((d) => d.dia === periodo.de) ?? null : null;
+
+  return (
+    <div className="orbis-stagger space-y-5 pb-4 text-foreground md:pb-8">
+      <FirstTimeCard tela="relatorio" userId={user?.id} />
+      <h1 className="font-display text-2xl font-extrabold tracking-tight">Relatório</h1>
+      <FiltroPeriodo periodo={periodo} onChange={setPeriodo} diasNaRua={resumo?.diasNaRua ?? 0} />
+
+      {rel.isPending && <RelatorioSkeleton />}
+      {rel.isError && (
+        <div className="rounded-2xl border border-border bg-card p-4 text-sm">
+          <p className="font-semibold">Não consegui montar o relatório.</p>
+          <p className="mt-1 text-muted-foreground">{rel.error instanceof Error ? rel.error.message : "Tenta de novo em instantes."}</p>
+          <button className="orbis-press mt-3 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground" onClick={() => rel.refetch()}>Tentar de novo</button>
+        </div>
+      )}
+
+      {resumo && (
+        <>
+          <CardDinheiro r={resumo} />
+          <ConferenciaBanco de={periodo.de} ate={periodo.ate} />
+          {resumo.umDia && user && (
+            <FechamentoDoDia
+              userId={user.id}
+              date={periodo.de}
+              dia={resumo.semDados ? null : { total_profit: rel.data!.atual.dinheiro.caiu, total_debt: rel.data!.atual.dinheiro.faltou, cash_sales: rel.data!.atual.dinheiro.dinheiro, pix_sales: rel.data!.atual.dinheiro.pix, card_sales: rel.data!.atual.dinheiro.cartao, unpaid_units: rel.data!.atual.calote.unidades }}
+              banco={bancoDoDia ? { pix: bancoDoDia.caiu - bancoDoDia.maquininha, cartao: bancoDoDia.maquininha, hoje: periodo.de === hoje } : null}
+              onChanged={() => { void qc.invalidateQueries({ queryKey: relatorioKeys.all }); void qc.invalidateQueries({ queryKey: ["relatorio", "banco-conferencia"] }); }}
+            />
+          )}
+
+          {resumo.semDados ? (
+            <div className="rounded-2xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
+              Nada registrado nesse período. Liga o <b className="font-semibold text-foreground">Modo Foco</b> no próximo dia de rua e o relatório se monta sozinho.
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2.5 pt-1 text-[11px] font-bold uppercase tracking-[.12em] text-primary">
+                <span className="h-px flex-1 bg-[rgba(245,184,0,.25)]" />Como você vendeu<span className="h-px flex-1 bg-[rgba(245,184,0,.25)]" />
+              </div>
+              <CardVendas r={resumo} />
+              {!resumo.umDia && <BlocoDiaADia r={resumo} />}
+              <BlocoHoraAHora r={resumo} />
+              <BlocoTempo r={resumo} />
+              <BlocoRecebeu r={resumo} />
+              <BlocoGastos r={resumo} />
+              <BlocoCalote r={resumo} />
+              <BlocoVantViu r={resumo} />
+              {user && <Acoes r={resumo} userId={user.id} />}
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function RelatorioPage() {
+  return (
+    <FeatureErrorBoundary title="Relatório">
+      <RelatorioConteudo />
+    </FeatureErrorBoundary>
+  );
+}

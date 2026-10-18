@@ -2,6 +2,29 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 18/10/2026 — Relatório: redesign completo ("quanto" fica na Dashboard, "como" fica aqui)
+
+**O que mudou pro vendedor**
+- **Filtro:** Hoje · **Ontem** (voltou) · Semana (segunda até hoje) · Mês (dia 1 até hoje) · Outro ▾ (7 dias, 30 dias, personalizado). Tudo compara com o período anterior do mesmo tamanho.
+- **Dinheiro** (o card de printar): um número grande — o que já caiu no bolso — e o extrato Vendeu → Caiu no bolso → Gastou → Sobrou pra você, com a barra sobrou / gastou / não caiu. Cada número aparece **uma vez** na tela inteira.
+- **Conferido pelo banco** e **Fechamento do dia** continuam como eram.
+- **Vendas:** anel de conversão + frase ("vendeu pra 65 de cada 100 que abordou"), Abordou (por dia, 1 a cada X min), Vendeu (por dia, ticket) e Ritmo (1 venda a cada X min **vendendo**).
+- **Dia a dia:** frase com o melhor dia, faixa da semana com 7 bolinhas grandes (toca e vê o dia), lista completa com conversão e R$, mais eficiente e mais fraco.
+- **Hora a hora:** 4 blocos grandes — Manhã 8–11h, Almoço 11–14h, Tarde 14–18h, Noite 18–24h — com R$, vendas e conversão; desenho das horas embaixo; melhor e pior hora.
+- **Seu tempo:** "de cada 10 min, 8 vendendo", por dia na rua, % vendendo, barra vendendo / pausas (por motivo) / parado, dia mais longo e mais curto.
+- **Como você recebeu:** Pix, dinheiro e cartão com **quantidade de vendas + valor + %**, gorjetas e Pix que caiu depois.
+- **Seus gastos:** "R$ X de cada R$ 10", mercadoria em destaque (vermelho-custo), transporte e alimentação em cinza, por dia e comparação com o período anterior.
+- **Calote:** quanto ficou **perdido**, calote total × **caiu depois** (taxa de recuperação), perdido por dia, 1 a cada N vendas, % da semana contra o **seu normal** (30 dias). Sem calote vira uma linha verde.
+- **O que a Vant viu:** 1–3 frases nascidas dos números (sem botão vazio de IA); "Ver análise completa" chama a análise que já existia.
+- **Compartilhar / Exportar:** as artes continuam; exportar usa o período da tela (PDF, CSV, Excel).
+
+**Por dentro**
+- Migration `20261018150000_relatorio_periodo.sql` (aplicada 18/10): `relatorio_periodo(p_de, p_ate)` devolve `{ atual, anterior, normal }` calculado no servidor; `relatorio_bloco(user, de, até)` é interna (sem execute pra anon/authenticated). Toda a conta saiu do celular (`Insights.tsx`, 1.582 linhas, apagado) pra uma função só.
+- Regras mantidas: caiu = `daily_sales.total_profit`, faltou = `total_debt`, vendeu = caiu + faltou, gastos = `cost/transport_cost/food_cost` + `personal_expenses` por categoria, ajuste do banco (`banco_conferencia`) continua no cliente, igual antes.
+- Regras que mudaram de propósito: **vendas** = linhas de `defcon_sales` sem gorjeta e sem Pix atrasado (antes gorjeta e Pix atrasado contavam como venda no ritmo e nos horários); **calote em R$** = o valor lançado (`total_debt`), um só número na tela; **parado** = tempo além de 20 min entre uma venda e outra dentro do Foco, menos as pausas (antes "ocioso" era só pausa declarada, com legenda "sem abordar").
+- Feature nova `src/features/relatorio/` (A1–A10): `api/use-relatorio-query.ts` (React Query + Zod), `lib/periodo.ts` e `lib/derivar.ts` (toda a conta da tela, pura), 11 componentes ≤ 150 linhas, rota `routes/relatorio-page.tsx`. Apagados: `Insights.tsx`, `ContaDoPeriodo`, `HoraAHora`, `OrbisViu`, `tempo-ocioso` (lógica agora no SQL).
+- Testes: 20 novos (períodos, derivação com os números do mockup v10, render da página); suíte toda 252 passando. `tsc`: 65 erros, igual à base; `eslint`: 8 erros, iguais à base (nenhum nos arquivos novos).
+- Segurança: função nova só lê dados do próprio `auth.uid()`, nada de escrita; advisors do Supabase: nenhum apontamento novo (o `relatorio_periodo` entra na lista geral de SECURITY DEFINER executável por `authenticated`, como `banco_conferencia` e as demais).
 ## 18/10/2026 — Pesquisa de satisfação (app.orbis.inf.br/pesquisa)
 - **Página nova `/pesquisa`** (`public/pesquisa.html` + `pesquisa.js`), visual VANT (preto + amarelo, mascote), uma pergunta por tela, ~3 min, pode pular, salva o progresso no celular. Perguntas no espírito da Startup Enxuta: tempo de uso e frequência, função que MAIS usa, quais já usou, **por que não usa** as importantes que não usou (adaptativa: até 2 entre Foco, Ranking, Finanças e IA), por que não registrou venda, "se a VANT sumisse amanhã" (Sean Ellis), maior ganho, o que irrita, o que quer no app (até 3) e **por qual pagaria a mais**, uma coisa que mudaria, nota 0–10 com motivo, e se pode ser chamado no WhatsApp.
 - Quem abre logado no app (mesmo navegador) tem a resposta ligada à conta sem digitar nada; quem não está, pode deixar nome e WhatsApp (opcional). Link pra divulgar: `/pesquisa?o=whatsapp` (a origem fica gravada).
