@@ -21,23 +21,23 @@ export function mensagem(d: DiaConc, estado: Estado, bancos: (string | null)[]):
     case "ok": {
       const extra = aMais(d);
       return extra >= 1
-        ? { titulo: "Tudo que você lançou caiu.", apoio: `Caiu ${reais(extra)} a mais. Esqueceu de lançar alguma venda?` }
-        : { titulo: "Tudo que você lançou caiu.", apoio: "Conciliação fechada." };
+        ? { titulo: "Tudo que você lançou caiu.", apoio: `Caiu ${reais(extra)} a mais do que você lançou.` }
+        : { titulo: "Tudo que você lançou caiu.", apoio: "" };
     }
     case "depois":
-      return { titulo: "Tudo caiu.", apoio: `${reais(d.depois)} apareceram depois do fim do dia e já entraram na conta.` };
+      return { titulo: "Tudo caiu.", apoio: `${reais(d.depois)} caíram depois e já contam.` };
     case "aguardando": {
       const lento = bancos.map((b) => ({ b, h: demoraDoBanco(b) })).find((x) => x.h);
       return {
         titulo: `Faltam ${f} pra conciliar`,
-        apoio: lento ? `Podem cair depois: o ${lento.b} costuma mostrar o Pix umas ${lento.h} h depois.` : "Podem cair depois. A Vant confere sozinha a cada leitura.",
+        apoio: lento ? `Ainda podem cair (o ${lento.b} demora ~${lento.h} h).` : "Ainda podem cair hoje.",
       };
     }
     case "parcial":
-      return { titulo: `Faltam ${f} pra conciliar`, apoio: "Confira no relatório do dia: pode ser fiado, venda fora do Pix ou compensação atrasada." };
+      return { titulo: `Faltam ${f} pra conciliar`, apoio: "Confira no relatório do dia." };
     case "nada":
-      return { titulo: "Nada do que você lançou caiu", apoio: "Pode ser conta marcada como pessoal, banco desconectado ou venda que não foi Pix." };
+      return { titulo: "Nada caiu na conta", apoio: "Confira se a conta certa está como Trabalho." };
     default:
-      return { titulo: "Nenhuma venda lançada", apoio: "Lance suas vendas no Foco e a Vant compara com o que cai no banco." };
+      return { titulo: "Nenhuma venda lançada", apoio: "Lance no Foco pra comparar com o banco." };
   }
 }

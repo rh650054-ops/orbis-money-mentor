@@ -13,10 +13,19 @@ function Logo({ b }: { b: BancoLigado }) {
 
 interface Props { bancos: BancoLigado[]; ligando: boolean; onLigar: () => void; onAbrir: () => void; onAutorizar: (b: BancoLigado) => void }
 
+const classificar = (n: number) => (n === 1 ? "1 conta sem classificação" : `${n} contas sem classificação`);
+
 export function OndeRecebe({ bancos, ligando, onLigar, onAbrir, onAutorizar }: Props) {
+  const faltam = bancos.filter((b) => !b.papel).length;
   return (
     <Secao titulo="ONDE VOCÊ RECEBE" id="sec-bancos"
-      acao={<span className="text-[11px] font-bold" style={{ color: COR.apagado }}>{bancos.length} {bancos.length === 1 ? "conta conectada" : "contas conectadas"}</span>}>
+      acao={<button type="button" onClick={onAbrir} className="text-[12px] font-extrabold active:opacity-70" style={{ color: COR.ouro }}>Gerenciar</button>}>
+      {faltam > 0 && (
+        <button type="button" onClick={onAbrir} className="w-full mb-2 rounded-xl px-3 py-2.5 flex items-center justify-between text-[12.5px] font-extrabold active:scale-[0.98] transition-transform"
+          style={{ background: "rgba(245,184,0,.08)", border: "1px solid rgba(245,184,0,.35)", color: COR.ouro }}>
+          {classificar(faltam)} <span>Classificar →</span>
+        </button>
+      )}
       <div className="flex flex-col divide-y divide-[#1b1a17] -my-1">
         {bancos.map((b) => {
           const st = statusDoBanco(b.status, b.last_synced_at);
@@ -37,9 +46,7 @@ export function OndeRecebe({ bancos, ligando, onLigar, onAbrir, onAutorizar }: P
               <Logo b={b} />
               <div className="flex-1 min-w-0">
                 <p className="text-[14px] font-black truncate">{b.institution_name || "Banco"}</p>
-                <p className="text-[11.5px] truncate" style={{ color: sem ? COR.ouro : COR.apagado }}>
-                  {papelTexto(b.papel)} · {st.detalhe}
-                </p>
+                <p className="text-[11.5px] truncate" style={{ color: sem ? COR.ouro : COR.apagado }}>{papelTexto(b.papel)}</p>
               </div>
               <Pilula tom={st.tom}>{st.rotulo}</Pilula>
             </LinhaToque>
@@ -52,7 +59,6 @@ export function OndeRecebe({ bancos, ligando, onLigar, onAbrir, onAutorizar }: P
           </span>
           <span className="flex-1 min-w-0">
             <span className="block text-[14px] font-black">Ligar outro banco</span>
-            <span className="block text-[11.5px]" style={{ color: COR.apagado }}>quem liga todos comprova tudo que vende</span>
           </span>
         </button>
       </div>

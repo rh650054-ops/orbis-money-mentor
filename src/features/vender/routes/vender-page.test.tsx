@@ -42,9 +42,9 @@ describe("vender", () => {
     render(<MemoryRouter><VenderPage /></MemoryRouter>);
     expect(screen.getByText("CONCILIADO HOJE")).toBeTruthy();
     expect(screen.getByText("Faltam R$ 132 pra conciliar")).toBeTruthy();
-    expect(screen.getByText(/Última sincronização às/)).toBeTruthy();
-    for (const t of ["VOCÊ FEZ × CAIU · 7 DIAS", "COMPROVANTE DE RENDA", "ONDE VOCÊ RECEBE", "CLASSIFICAÇÃO DAS CONTAS"]) expect(screen.getByText(t)).toBeTruthy();
+    expect(screen.getByText(/Lido às/)).toBeTruthy();
+    for (const t of ["VOCÊ FEZ × CAIU · 7 DIAS", "COMPROVANTE DE RENDA", "ONDE VOCÊ RECEBE"]) expect(screen.getByText(t)).toBeTruthy();
     expect(screen.getAllByText("ATIVO")).toHaveLength(2);
-    expect(screen.getByText("Falta dizer pra que serve 1 conta")).toBeTruthy();
+    expect(screen.getByText("1 conta sem classificação")).toBeTruthy();
   });
 });

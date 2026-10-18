@@ -51,7 +51,7 @@ describe("bancos", () => {
     const b = [{ id: "1", item_id: "i", institution_name: "C6", institution_logo: null, status: "OUTDATED", last_synced_at: "2026-10-18T14:00:00Z" }];
     expect(dicasDoDia(dia({}), b)).toEqual([]);
     const h = dicasDoDia(dia({ caiu: 200, pessoal: 100 }), b);
-    expect(h).toHaveLength(2);
-    expect(h[0]).toMatch(/pessoal/);
+    expect(h).toHaveLength(1);
+    expect(h[0]).toMatch(/Pessoal/);
   });
 });

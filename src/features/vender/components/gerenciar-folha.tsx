@@ -29,7 +29,7 @@ export function GerenciarFolha({ aberta, onFechar, bancos, contas, atualizando, 
   });
 
   return (
-    <Folha aberta={aberta} onFechar={onFechar} titulo="Gerenciar conexões" sub="Defina o que é trabalho e o que é pessoal. A Vant só lê o que entrou: não move dinheiro e não vê senha.">
+    <Folha aberta={aberta} onFechar={onFechar} titulo="Gerenciar conexões" sub="Trabalho entra nas vendas e no ranking. Pessoal fica fora.">
       <Botao onClick={onAtualizar} disabled={atualizando} className="w-full inline-flex items-center justify-center gap-2">
         <RefreshCw className={`w-4 h-4 ${atualizando ? "animate-spin" : ""}`} /> {atualizando ? "Lendo os bancos…" : "Conferir de novo agora"}
       </Botao>
@@ -42,7 +42,7 @@ export function GerenciarFolha({ aberta, onFechar, bancos, contas, atualizando, 
         ))}
       </div>
       <p className="text-[11px] leading-relaxed" style={{ color: COR.apagado }}>
-        Virou trabalho agora? Vale daqui pra frente: Pix antigo não entra no ranking. Desconectando, a Vant para de ler o banco na hora{bancos.length <= 1 ? " e o selo de verificado sai" : ""}.
+        Cada conta troca 1 vez por semana. A Vant só lê o que entrou: não move dinheiro nem vê senha.
       </p>
     </Folha>
   );

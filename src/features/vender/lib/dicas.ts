@@ -3,14 +3,11 @@
 import type { BancoLigado } from "@/components/conectar/pluggy";
 import type { DiaConc } from "../types";
 import { falta } from "./conciliacao";
-import { statusDoBanco } from "./bancos";
 import { reais } from "./textos";
 
-export function dicasDoDia(d: DiaConc, bancos: BancoLigado[]): string[] {
+export function dicasDoDia(d: DiaConc, _bancos: BancoLigado[]): string[] {
   if (falta(d) < 1) return [];
   const out: string[] = [];
-  if (d.pessoal >= 1) out.push(`${reais(d.pessoal)} caíram numa conta marcada como pessoal. Se era venda, mude ela pra Trabalho.`);
-  const ruim = bancos.find((b) => statusDoBanco(b.status, b.last_synced_at).rotulo !== "ATIVO");
-  if (ruim) out.push(`O ${ruim.institution_name ?? "banco"} precisa de atenção: o que caiu nele pode estar fora da conciliação.`);
+  if (d.pessoal >= 1) out.push(`${reais(d.pessoal)} caíram numa conta Pessoal. Se era venda, mude pra Trabalho.`);
   return out;
 }

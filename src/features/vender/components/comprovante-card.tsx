@@ -26,7 +26,7 @@ export function ComprovanteCard() {
       <div className="flex items-start gap-3">
         <FileText className="w-5 h-5 shrink-0 mt-0.5" style={{ color: COR.ouro }} />
         <p className="text-[12.5px] leading-snug" style={{ color: COR.suave }}>
-          PDF com o que caiu no banco, mês a mês. Escolha os últimos 3 ou 6 meses. Serve pra aluguel, cartão, crediário ou empréstimo.
+          PDF do que caiu no banco. Serve pra aluguel e crédito.
         </p>
       </div>
       <div className="grid grid-cols-[1fr_auto] gap-2 mt-3 items-center">

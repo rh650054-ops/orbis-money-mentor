@@ -4,7 +4,7 @@
    work × personal → manage. Three cases: not Pro, Pro without bank, with bank. */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, ShieldCheck } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { SkeletonCard } from "@/shared/components/skeletons";
 import { COR } from "@/shared/components/vant-ui";
@@ -23,7 +23,6 @@ import { HeroiConciliacao } from "../components/heroi-conciliacao";
 import { SemanaCard } from "../components/semana-card";
 import { ComprovanteCard } from "../components/comprovante-card";
 import { OndeRecebe } from "../components/onde-recebe";
-import { ClassificacaoCard } from "../components/classificacao-card";
 import { GerenciarFolha } from "../components/gerenciar-folha";
 import { PrimeiroBanco } from "../components/primeiro-banco";
 
@@ -95,14 +94,6 @@ export default function VenderPage() {
       {banco.precisaExtra && <BancoExtra usados={d.bancos.length} email={user.email} onFechar={banco.fecharExtra} />}
       <OndeRecebe bancos={d.bancos} ligando={banco.ligando} onLigar={() => void banco.ligar()}
         onAbrir={() => setGerenciar(true)} onAutorizar={(b) => void banco.ligar(b.item_id)} />
-      {d.contas.length > 0 && <ClassificacaoCard contas={d.contas} onClassificar={() => setGerenciar(true)} />}
-
-      <button type="button" onClick={() => setGerenciar(true)}
-        className="h-12 rounded-2xl text-[14px] font-black transition-transform duration-100 active:scale-[0.97]"
-        style={{ background: COR.card, border: `1px solid ${COR.borda}` }}>
-        Gerenciar conexões
-      </button>
-
       {d.cobraPix && (
         <button type="button" onClick={() => navigate("/cobrar")}
           className="group flex items-center gap-3 rounded-2xl p-4 text-left transition-colors active:bg-white/[.04]"
@@ -114,11 +105,6 @@ export default function VenderPage() {
           <ChevronRight className="w-5 h-5 transition-transform group-active:translate-x-[2px]" style={{ color: COR.apagado }} />
         </button>
       )}
-
-      <p className="flex items-start gap-2 text-[11.5px] leading-relaxed px-1" style={{ color: COR.apagado }}>
-        <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: COR.ok }} />
-        <span>A Vant <b style={{ color: COR.suave }}>só lê</b> o que entrou. Não move dinheiro, não vê senha. Você desliga quando quiser.</span>
-      </p>
 
       <GerenciarFolha aberta={gerenciar} onFechar={() => setGerenciar(false)} bancos={d.bancos} contas={d.contas}
         atualizando={atualizar.isPending} onAtualizar={atualizarAgora} />

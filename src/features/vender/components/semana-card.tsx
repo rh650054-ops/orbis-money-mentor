@@ -4,7 +4,7 @@ import { Lock } from "lucide-react";
 import { COR, Secao } from "@/shared/components/vant-ui";
 import { Pilula } from "@/shared/components/vant-status";
 import type { DiaConc } from "../types";
-import { estadoDoDia, falta, recebido, resumoSemana } from "../lib/conciliacao";
+import { estadoDoDia, recebido, resumoSemana } from "../lib/conciliacao";
 import { ROTULO_DO_ESTADO, TOM_DO_ESTADO, reais } from "../lib/textos";
 
 const SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
@@ -29,7 +29,7 @@ export function SemanaCard({ dias, travado, onDesbloquear }: { dias: DiaConc[]; 
     <Secao titulo="VOCÊ FEZ × CAIU · 7 DIAS" id="sec-semana">
       <div className="flex gap-3">
         <Total valor={inteiro(t.fez)} texto="você fez" cor={COR.texto} />
-        <Total valor={travado ? "R$ 0.000" : inteiro(t.caiu)} texto="caiu de verdade" cor={COR.ok} borrado={travado} />
+        <Total valor={travado ? "R$ 0.000" : inteiro(t.caiu)} texto="caiu" cor={COR.ok} borrado={travado} />
         <Total valor={travado ? "R$ 000" : t.diferenca >= 1 ? inteiro(t.diferenca) : "—"} texto="diferença" cor={t.diferenca >= 1 ? COR.ouro : COR.apagado} borrado={travado} />
       </div>
 
@@ -39,7 +39,6 @@ export function SemanaCard({ dias, travado, onDesbloquear }: { dias: DiaConc[]; 
         </div>
         {lista.map((d) => {
           const e = estadoDoDia(d);
-          const dif = falta(d);
           return (
             <div key={d.dia} className="grid grid-cols-[1fr_72px_66px_88px] gap-x-2 items-center py-2 text-[12.5px] tabular-nums" style={{ borderBottom: "1px solid #1b1a17" }}>
               <span className="font-bold truncate">{rotulo(d.dia)}</span>
@@ -47,7 +46,6 @@ export function SemanaCard({ dias, travado, onDesbloquear }: { dias: DiaConc[]; 
               <span className={`text-right font-extrabold ${travado ? "blur-[5px] select-none" : ""}`} style={{ color: COR.ok }}>{travado ? "R$ 000" : d.caiu === null ? "—" : reais(recebido(d))}</span>
               <span className="flex flex-col items-end gap-0.5">
                 {travado ? <span className="text-[11px]" style={{ color: COR.apagado }}>—</span> : <Pilula tom={TOM_DO_ESTADO[e]}>{ROTULO_DO_ESTADO[e]}</Pilula>}
-                {!travado && dif >= 1 && <span className="text-[10.5px] font-bold" style={{ color: COR.apagado }}>−{reais(dif)}</span>}
               </span>
             </div>
           );
@@ -61,9 +59,6 @@ export function SemanaCard({ dias, travado, onDesbloquear }: { dias: DiaConc[]; 
           </button>
         )}
       </div>
-      <p className="text-[11px] mt-2.5 leading-relaxed" style={{ color: COR.apagado }}>
-        Caiu = Pix e maquininha que o banco viu + o dinheiro na mão. Durante o dia o ranking conta o que você lançou; à meia-noite vale o que caiu.
-      </p>
     </Secao>
   );
 }
