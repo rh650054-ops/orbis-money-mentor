@@ -39,7 +39,7 @@ interface Passo {
 const PASSO_INICIO: Passo = {
   anchor: "defcon-iniciar", rotulo: "Treino", titulo: "Isso aqui é um treino",
   texto: "Nada que você fizer nesta tela vai pro ranking nem pro seu faturamento. É só pra você conhecer o DEFCON 4 sem medo.",
-  espera: "inicio", dica: "Toca em INICIAR DEFCON 4",
+  espera: "inicio", dica: "Toca em COMEÇAR",
 };
 
 const PASSOS: Passo[] = [
