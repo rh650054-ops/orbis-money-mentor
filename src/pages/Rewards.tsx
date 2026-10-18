@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { vendidoTotal } from "@/shared/lib/vendido";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Lock, Check, Sparkles, Trophy, Zap, Crown, Star, Target, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -120,12 +121,9 @@ export default function Rewards() {
     (async () => {
       const { data } = await supabase
         .from("daily_sales")
-        .select("total_profit")
+        .select("total_profit, total_debt")
         .eq("user_id", user.id);
-      const total = (data || []).reduce(
-        (s, d) => s + (d.total_profit || 0),
-        0
-      );
+      const total = vendidoTotal(data);
       setTotalRevenue(total);
     })();
   }, [user]);

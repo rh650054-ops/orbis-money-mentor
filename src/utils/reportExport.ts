@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { vendidoDoDia } from "@/shared/lib/vendido";
 import { supabase } from "@/integrations/supabase/client";
 import { formatBrazilDate } from "@/shared/lib/date-utils";
 
@@ -178,7 +179,7 @@ export async function fetchReportData(
   }
 
   return ((salesRes.data as DailySaleRow[]) || []).map((r) => {
-    const vendido = n(r.total_profit);
+    const vendido = vendidoDoDia(r); // caiu + faltou cair (18/10)
     const mercadoria = n(r.cost);
     const transporte = n(r.transport_cost);
     const alimentacao = n(r.food_cost);

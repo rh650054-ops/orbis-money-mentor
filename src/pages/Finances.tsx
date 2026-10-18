@@ -46,6 +46,7 @@ import {
   Receipt
 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
+import { vendidoDoDia } from "@/shared/lib/vendido";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import FirstTimeCard from "@/components/FirstTimeCard";
@@ -445,7 +446,8 @@ export default function Finances() {
           (Number(s.cash_sales) || 0) +
           (Number(s.pix_sales) || 0) +
           (Number(s.card_sales) || 0);
-        const dayGross = Number(s.total_profit) > 0 ? Number(s.total_profit) : payments;
+        // vendido = caiu + faltou cair (18/10); fallback pros métodos quando o total vier zerado
+        const dayGross = vendidoDoDia(s) > 0 ? vendidoDoDia(s) : payments;
         return sum + dayGross;
       }, 0) || 0;
       const totalCostMonth = salesData?.reduce((sum, s) => sum + (Number(s.cost) || 0), 0) || 0;
@@ -464,7 +466,7 @@ export default function Finances() {
         Number(todaySale?.pix_sales || 0) +
         Number(todaySale?.card_sales || 0);
       const grossToday =
-        Number(todaySale?.total_profit) > 0 ? Number(todaySale?.total_profit) : paymentsToday;
+        vendidoDoDia(todaySale) > 0 ? vendidoDoDia(todaySale) : paymentsToday;
       const costToday = Number(todaySale?.cost || 0);
       const transportToday = Number(todaySale?.transport_cost || 0);
       const foodToday = Number(todaySale?.food_cost || 0);
@@ -483,7 +485,7 @@ export default function Finances() {
 
       // Média diária líquida = lucro do mês ÷ dias que teve venda (pra estimar
       // quanto sobra por dia e recomendar prazo de metas).
-      const diasComVenda = (salesData || []).filter((s) => Number(s.total_profit) > 0).length;
+      const diasComVenda = (salesData || []).filter((s) => vendidoDoDia(s) > 0).length;
       const mediaDiariaLiquida = diasComVenda > 0 ? monthlyNetProfit / diasComVenda : 0;
 
       setSummary({

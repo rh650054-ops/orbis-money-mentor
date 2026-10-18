@@ -35,6 +35,8 @@
  *    - Celebra conquistas e marcos
  */
 
+import { vendidoDoDia } from "@/shared/lib/vendido";
+
 // Tipos para estrutura de dados da IA
 export interface RoutineInsights {
   suggestions: string[];
@@ -101,14 +103,14 @@ export async function analyzeSales(salesHistory: any[]): Promise<SalesInsights> 
     return { patterns: { bestDays: [], bestPaymentMethods: [], averageDailyProfit: 0 }, predictions: { nextWeekTrend: "stable", expectedProfit: 0 }, recommendations: ["Registre suas vendas diariamente para obter análises precisas."] };
   }
 
-  const avg = salesHistory.reduce((s, d) => s + (d.total_profit || 0), 0) / salesHistory.length;
+  const avg = salesHistory.reduce((s, d) => s + vendidoDoDia(d), 0) / salesHistory.length;
   const recent = salesHistory.slice(0, 7);
-  const recentAvg = recent.reduce((s, d) => s + (d.total_profit || 0), 0) / recent.length;
+  const recentAvg = recent.reduce((s, d) => s + vendidoDoDia(d), 0) / recent.length;
   const trend: "up" | "down" | "stable" = recentAvg > avg * 1.1 ? "up" : recentAvg < avg * 0.9 ? "down" : "stable";
 
   const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
   const byDay: Record<number, number[]> = {};
-  for (const d of salesHistory) { const dow = new Date(d.date).getDay(); if (!byDay[dow]) byDay[dow] = []; byDay[dow].push(d.total_profit || 0); }
+  for (const d of salesHistory) { const dow = new Date(d.date).getDay(); if (!byDay[dow]) byDay[dow] = []; byDay[dow].push(vendidoDoDia(d)); }
   const bestDayIndex = Object.entries(byDay).sort(([, a], [, b]) => b.reduce((x, y) => x + y, 0) / b.length - a.reduce((x, y) => x + y, 0) / a.length)[0];
   const bestDays: string[] = bestDayIndex ? [dayNames[parseInt(bestDayIndex[0])] ?? "dia útil"] : [];
 
@@ -133,7 +135,7 @@ export async function generatePersonalizedGoals(userData: any): Promise<Goals> {
   if (history.length < 7) {
     return { daily: currentMonthly / 22, weekly: currentMonthly / 4.3, monthly: currentMonthly, adjustmentReason: "Dados insuficientes — meta baseada no seu planejamento atual." };
   }
-  const avg = history.reduce((s: number, d: any) => s + (d.total_profit || 0), 0) / history.length;
+  const avg = history.reduce((s: number, d: any) => s + vendidoDoDia(d), 0) / history.length;
   const suggested = Math.round(avg * 1.15 * 22);
   return { daily: Math.round(avg * 1.15), weekly: Math.round(avg * 1.15 * 5), monthly: suggested, adjustmentReason: `Meta sugerida 15% acima da sua média diária de R$${avg.toFixed(2)}.` };
 }

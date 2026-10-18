@@ -36,6 +36,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatBrazilDate, getBrazilDate } from "@/shared/lib/date-utils";
+import { vendidoDoDia, vendidoTotal } from "@/shared/lib/vendido";
 import {
   generateAndDownloadReport,
   type ReportFormat,
@@ -236,13 +237,13 @@ export default function Insights() {
           .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString()),
         supabase
           .from("daily_sales")
-          .select("total_profit")
+          .select("total_profit,total_debt")
           .eq("user_id", user.id)
           .eq("date", yesterdayISO)
           .maybeSingle(),
         supabase
           .from("daily_sales")
-          .select("total_profit")
+          .select("total_profit,total_debt")
           .eq("user_id", user.id)
           .gte("date", isoDate(prevStart))
           .lte("date", isoDate(prevEnd)),
@@ -297,10 +298,8 @@ export default function Insights() {
       setBlocks(blocksRes.data || []);
       setExpenses((expensesRes.data as { category: string; amount: number; icon: string | null; name: string }[]) || []);
       setChallengeBlocks((chBlocksRes.data as any) || []);
-      setYesterdayProfit(ydRes.data?.total_profit || 0);
-      setPrevRangeProfit(
-        (prevRes.data || []).reduce((s, d) => s + (d.total_profit || 0), 0),
-      );
+      setYesterdayProfit(vendidoDoDia(ydRes.data));
+      setPrevRangeProfit(vendidoTotal(prevRes.data));
       setLatePix((lateRes.data as any) || []);
       setDefconSales((defconRes.data as any) || []);
       setProdSales((prodRes.data as any) || []);
@@ -320,7 +319,8 @@ export default function Insights() {
   }
 
   const summary = useMemo(() => {
-    const faturamento = sales.reduce((s, d) => s + (d.total_profit || 0), 0);
+    // 18/10 (Rick): faturamento é o VENDIDO (caiu + faltou cair), não só o que caiu.
+    const faturamento = vendidoTotal(sales);
     const caloteUnidades = sales.reduce((s, d) => s + (Number((d as any).unpaid_units) || 0), 0);
     // Custos lançados no botão "Custos do dia" (personal_expenses) ENTRAM no líquido,
     // separados por categoria: mercadoria -> custo de mercadoria; transporte/almoço ->
@@ -529,7 +529,7 @@ export default function Insights() {
   const custosCategoriaTotal = custosPorCategoria.reduce((s, c) => s + c.total, 0);
 
   const chartData = useMemo(() => {
-    const map = new Map(sales.map((d) => [d.date, d.total_profit || 0]));
+    const map = new Map(sales.map((d) => [d.date, vendidoDoDia(d)]));
     const result: { label: string; valor: number; iso: string }[] = [];
     for (let i = 0; i < rangeDays; i++) {
       const d = new Date(range.start);
@@ -551,7 +551,7 @@ export default function Insights() {
 
   const compareYesterday = useMemo(() => {
     const todayProfit =
-      sales.find((d) => d.date === isoDate(new Date()))?.total_profit || 0;
+      vendidoDoDia(sales.find((d) => d.date === isoDate(new Date())));
     if (!yesterdayProfit) return { pct: 0, valid: false, todayProfit };
     const pct = ((todayProfit - yesterdayProfit) / yesterdayProfit) * 100;
     return { pct, valid: true, todayProfit };
@@ -637,7 +637,7 @@ export default function Insights() {
       faturamento: summary.faturamento,
       lucro: summary.lucro,
       dias,
-      diasTrabalhados: sales.filter((d) => (d.total_profit || 0) > 0).length,
+      diasTrabalhados: sales.filter((d) => vendidoDoDia(d) > 0).length,
       melhorDia: best && bestDt ? { label: `${DIAS_SEM[bestDt.getDay()]} ${fmtBR(bestDt)}`, valor: best.valor } : null,
       vendas: summary.totalVendas,
       ticketMedio: summary.ticketMedio,

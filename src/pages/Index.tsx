@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import AntiProcrastination from "@/components/AntiProcrastination";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { formatCurrency } from "@/shared/lib/utils";
+import { vendidoDoDia } from "@/shared/lib/vendido";
 import { getBrazilDate, getBrazilMonthStart, getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import { MissaoDoDia } from "@/components/jornada/MissaoDoDia";
@@ -253,14 +254,16 @@ export default function Index() {
         name: new Date(day.date).toLocaleDateString("pt-BR", {
           weekday: "short"
         }),
-        value: day.total_profit || 0
+        value: vendidoDoDia(day) // vendido, não só o que caiu (18/10)
       }));
       setWeeklyData(formattedWeekData);
     }
 
     if (monthData) {
-      const totalIncome = monthData.reduce((sum, day) => sum + (day.total_profit || 0), 0);
-      const totalExpenses = monthData.reduce((sum, day) => sum + (day.total_debt || 0), 0); // fiado: mostrado à parte, NÃO entra no líquido
+      // 18/10 (Rick): "vendido" é o que caiu + o que faltou cair (total_profit + total_debt).
+      // Desde que o banco confere o dia, total_profit é só o que o banco viu.
+      const totalIncome = monthData.reduce((sum, day) => sum + vendidoDoDia(day), 0);
+      const totalExpenses = monthData.reduce((sum, day) => sum + (day.total_debt || 0), 0); // o que faltou cair: mostrado à parte
       const totalCost = monthData.reduce((sum, day) => sum + (day.cost || 0), 0);
       const totalTransport = monthData.reduce((sum, day) => sum + (Number((day as any).transport_cost) || 0), 0);
       const totalFood = monthData.reduce((sum, day) => sum + (Number((day as any).food_cost) || 0), 0);
@@ -270,7 +273,7 @@ export default function Index() {
       const balance = totalIncome - totalCost - totalTransport - totalFood - custosLancados;
       
       // Calculate real daily average from NET PROFIT (lucro líquido)
-      const activeDays = monthData.filter(day => (day.total_profit ?? 0) > 0).length;
+      const activeDays = monthData.filter(day => vendidoDoDia(day) > 0).length;
       const netProfitPerDay = activeDays > 0 ? balance / activeDays : 0;
       
       setActiveDaysCount(activeDays);
@@ -432,8 +435,8 @@ export default function Index() {
   const recebidoHoje = todaySales?.total_profit || 0;
   const naoCaiuHoje = todaySales?.total_debt || 0;
   const dailyProfit = recebidoHoje + naoCaiuHoje;
-  const faturamentoMes = monthlyStats.totalIncome + (monthlyStats.totalExpenses || 0);
-  const recebidoMes = monthlyStats.totalIncome;
+  const faturamentoMes = monthlyStats.totalIncome;
+  const recebidoMes = Math.max(0, monthlyStats.totalIncome - (monthlyStats.totalExpenses || 0));
   const lucroLiquido = monthlyStats.totalIncome - monthlyStats.totalCost - monthlyStats.totalTransport - monthlyStats.totalFood - monthExpensesTotal;
   const progressoMeta = calculateGoalProgress();
 

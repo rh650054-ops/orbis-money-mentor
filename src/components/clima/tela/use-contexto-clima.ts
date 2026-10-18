@@ -2,6 +2,7 @@
    meta de hoje, vendido, contas vencendo, horas em que ELE mais vende (blocos do
    DEFCON dos últimos 90 dias) e o que a Vant já aprendeu do clima dele. */
 import { useEffect, useState } from "react";
+import { vendidoTotal } from "@/shared/lib/vendido";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import type { ContextoClima } from "@/hooks/useClima";
@@ -29,7 +30,7 @@ export function useContextoClima(userId: string | undefined) {
       const [plano, perfil, vendas, contas, ficha, blocos, apr] = await Promise.all([
         db.from("daily_goal_plans").select("daily_goal").eq("user_id", userId).eq("date", hoje).maybeSingle(),
         db.from("profiles").select("monthly_goal").eq("user_id", userId).maybeSingle(),
-        db.from("daily_sales").select("total_profit").eq("user_id", userId).eq("date", hoje).limit(50),
+        db.from("daily_sales").select("total_profit, total_debt").eq("user_id", userId).eq("date", hoje).limit(50),
         db.from("planned_bills").select("name, amount, due_date").eq("user_id", userId).eq("paid", false).not("due_date", "is", null).lte("due_date", ate).order("due_date").limit(4),
         db.from("orbis_ficha").select("melhor_hora").eq("user_id", userId).maybeSingle(),
         db.from("challenge_blocks").select("started_at, sales_count").eq("user_id", userId).gte("started_at", desde).limit(1000),
@@ -39,7 +40,7 @@ export function useContextoClima(userId: string | undefined) {
       const metaPlano = Number(plano.data?.daily_goal ?? 0);
       const mensal = Number(perfil.data?.monthly_goal ?? 0);
       const meta = metaPlano > 0 ? metaPlano : mensal > 0 ? Math.round(mensal / 26) : 0;
-      const vendidoHoje = (vendas.data ?? []).reduce((s, r) => s + (Number(r.total_profit) || 0), 0);
+      const vendidoHoje = vendidoTotal(vendas.data);
       const mapa = new Map<number, { vendas: number; blocos: number }>();
       for (const b of blocos.data ?? []) {
         if (!b.started_at) continue;

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { vendidoDoDia, type LinhaVendida } from "@/shared/lib/vendido";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 
 // FASE 1 do Agente Vant: monta um retrato COMPLETO e compacto do vendedor
@@ -62,7 +63,7 @@ export async function buildOrbisUserContext(userId: string): Promise<string> {
 
     // ---- Faturamento: hoje, 7 dias, 30 dias e TENDÊNCIA (semana atual vs anterior) ----
     const fatDe = (ini: string, fim: string) =>
-      sales.filter((d) => String(d.date) >= ini && String(d.date) <= fim).reduce((s, d) => s + num(d.total_profit), 0);
+      sales.filter((d) => String(d.date) >= ini && String(d.date) <= fim).reduce((s, d) => s + vendidoDoDia(d as LinhaVendida), 0);
     const fat7 = fatDe(d7ISO, todayISO);
     const fat30 = fatDe(d30ISO, todayISO);
     const fatSemAnt = fatDe(d14ISO, back(7));
@@ -79,7 +80,7 @@ export async function buildOrbisUserContext(userId: string): Promise<string> {
     for (const d of sales) {
       const dt = new Date(`${d.date}T12:00:00Z`).getUTCDay();
       const s2 = porDia[dt] || (porDia[dt] = { t: 0, c: 0 });
-      s2.t += num(d.total_profit); s2.c++;
+      s2.t += vendidoDoDia(d as LinhaVendida); s2.c++;
     }
     const melhorDia = Object.entries(porDia)
       .map(([k, v]) => ({ k: DIAS[+k], avg: v.c ? v.t / v.c : 0 }))
