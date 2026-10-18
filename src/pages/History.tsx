@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { vendidoDoDia, vendidoTotal } from "@/shared/lib/vendido";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -100,7 +101,7 @@ export default function History() {
       const date = new Date(sale.date + 'T12:00:00');
       return {
         name: weekDays[date.getDay()] ?? "",
-        value: sale.total_profit,
+        value: vendidoDoDia(sale),
       };
     });
 
@@ -185,7 +186,7 @@ export default function History() {
   };
 
   const calculateTotals = () => {
-    const totalSales = filteredHistory.reduce((sum, sale) => sum + (sale.total_profit || 0), 0);
+    const totalSales = vendidoTotal(filteredHistory);
     const totalCost = filteredHistory.reduce((sum, sale) => sum + (sale.cost || 0), 0);
     const totalDebt = filteredHistory.reduce((sum, sale) => sum + (sale.total_debt || 0), 0);
     const netProfit = totalSales - totalCost - totalDebt;
@@ -333,7 +334,7 @@ export default function History() {
           </Card>
         ) : (
           filteredHistory.map((sale) => {
-            const totalSold = sale.total_profit || 0;
+            const totalSold = vendidoDoDia(sale);
             const cost = sale.cost || 0;
             const debt = sale.total_debt || 0;
             const netProfit = totalSold - cost - debt;

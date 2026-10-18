@@ -1,6 +1,7 @@
 /* Estado da jornada do teste: em que dia a pessoa está, o que já cumpriu e,
    no último dia, quanto vendeu nos 3 dias (o argumento da tela de planos). */
 import { useCallback, useEffect, useState } from "react";
+import { vendidoDoDia, vendidoTotal, type LinhaVendida } from "@/shared/lib/vendido";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -97,8 +98,8 @@ export function useJornada(): EstadoJornada {
         let vendidoNoTeste: number | null = null;
         if (sim >= 3) {
           const ini = new Date(Date.parse(hoje + "T12:00:00-03:00") - Math.min(sim, 3) * 86_400_000).toISOString().slice(0, 10);
-          const { data: vendas } = await tabela("daily_sales").select("total_profit, date").eq("user_id", uid).gte("date", ini);
-          vendidoNoTeste = (vendas ?? []).reduce((s, v) => s + (Number(v.total_profit) || 0), 0);
+          const { data: vendas } = await tabela("daily_sales").select("total_profit, total_debt, date").eq("user_id", uid).gte("date", ini);
+          vendidoNoTeste = vendidoTotal(vendas as LinhaVendida[] | null);
         }
         const emTeste = sim <= 3;
         setEstado({ carregando: false, emTeste, dia: emTeste ? sim : null, feitos: new Set(passosSimulados(uid)), vendidoNoTeste });
@@ -130,10 +131,10 @@ export function useJornada(): EstadoJornada {
       let vendidoNoTeste: number | null = null;
       const expirou = !pagante && !!fim && hoje > fim;
       if (inicio && !pagante && ((emTeste && dia === 3) || expirou)) {
-        const { data: vendas } = await tabela("daily_sales").select("total_profit, date").eq("user_id", uid).gte("date", inicio.slice(0, 10));
+        const { data: vendas } = await tabela("daily_sales").select("total_profit, total_debt, date").eq("user_id", uid).gte("date", inicio.slice(0, 10));
         vendidoNoTeste = (vendas ?? [])
           .filter((v) => !fim || String(v.date) <= fim)
-          .reduce((s, v) => s + (Number(v.total_profit) || 0), 0);
+          .reduce((s, v) => s + vendidoDoDia(v as LinhaVendida), 0);
       }
       DIA_ATUAL = emTeste ? dia : null;
       setEstado({ carregando: false, emTeste, dia: emTeste ? dia : null, feitos, vendidoNoTeste });
