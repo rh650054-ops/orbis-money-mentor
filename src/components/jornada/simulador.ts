@@ -13,6 +13,10 @@ const CHAVE = "vant_simular_teste";
 const EVENTO = "vant:simulacao";
 const chavePassos = (uid: string) => `vant_simular_passos_${uid}`;
 
+/* 18/10/2026: the "Simulador do teste" screen was removed from the app (Rick).
+   Clear any simulation left on a device, so nobody stays stuck in a simulated day. */
+try { if (typeof localStorage !== "undefined") localStorage.removeItem(CHAVE); } catch { /* no storage */ }
+
 export function lerSimulacao(uid: string | null | undefined): DiaSimulado | null {
   if (!uid) return null;
   try {

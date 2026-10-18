@@ -33,8 +33,6 @@ const FREE_PATHS = [
   "/offline",
   // Caixa da Vant: painel dos sócios, com trava própria (caixa_socios no banco).
   "/caixa",
-  // Simulador do teste (admin): precisa abrir pra trocar o dia mesmo no "teste acabou".
-  "/simular-teste",
 ];
 
 export default function PaywallGate() {
