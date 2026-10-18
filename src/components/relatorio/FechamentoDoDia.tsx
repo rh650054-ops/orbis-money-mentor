@@ -29,6 +29,9 @@ interface Props {
   userId: string;
   date: string;            // ISO yyyy-mm-dd
   dia: DiaResumo | null;   // null = nada lançado nesse dia
+  /** Banco conferiu o dia (17/10): Pix e cartão são o que CAIU na conta, não o digitado.
+   *  `hoje` = ainda pode cair (banco lento) — não chama de calote. */
+  banco?: { pix: number; cartao: number; hoje: boolean } | null;
   onChanged: () => void;   // recarrega o Relatório
 }
 
@@ -47,7 +50,7 @@ const prettyWhen = (iso: string) => {
  * direta "Você tomou R$ X de calote", e dá dois botões: "Caiu mais dinheiro" (cliente
  * pagou depois) e "Ajustar o dia" (corrigir os números do dia inteiro).
  */
-export function FechamentoDoDia({ userId, date, dia, onChanged }: Props) {
+export function FechamentoDoDia({ userId, date, dia, banco = null, onChanged }: Props) {
   const { toast } = useToast();
   const [openReceb, setOpenReceb] = useState(false);
   const [openAjustar, setOpenAjustar] = useState(false);
@@ -56,11 +59,15 @@ export function FechamentoDoDia({ userId, date, dia, onChanged }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const dinheiro = Number(dia?.cash_sales) || 0;
-  const pix = Number(dia?.pix_sales) || 0;
-  const cartao = Number(dia?.card_sales) || 0;
+  const pixLancado = Number(dia?.pix_sales) || 0;
+  const cartaoLancado = Number(dia?.card_sales) || 0;
+  // vendido = o que foi lançado (dinheiro + pix + cartão + o que ficou faltando)
+  const vendido = Math.round((dinheiro + pixLancado + cartaoLancado + Math.max(0, Number(dia?.total_debt) || 0)) * 100) / 100;
+  const pix = banco ? banco.pix : pixLancado;
+  const cartao = banco ? banco.cartao : cartaoLancado;
   const caiu = Math.round((dinheiro + pix + cartao) * 100) / 100;
-  const faltou = Math.max(0, Number(dia?.total_debt) || 0);
-  const vendido = Math.round((caiu + faltou) * 100) / 100;
+  const faltou = Math.max(0, Math.round((vendido - caiu) * 100) / 100);
+  const aindaPodeCair = !!banco?.hoje && faltou > 0;
   const unidades = Number(dia?.unpaid_units) || 0;
   const pctCalote = vendido > 0 ? (faltou / vendido) * 100 : 0;
   const semLancamento = !dia || (vendido <= 0 && (Number(dia?.total_profit) || 0) <= 0);
@@ -136,7 +143,7 @@ export function FechamentoDoDia({ userId, date, dia, onChanged }: Props) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-foreground leading-tight">Fechamento do dia {prettyDate(date)}</p>
-          <p className="text-[11px] text-muted-foreground leading-tight">Vendeu × caiu × calote — e o que caiu depois</p>
+          <p className="text-[11px] text-muted-foreground leading-tight">{banco ? "Vendeu × o que caiu no banco × o que faltou" : "Vendeu × caiu × calote — e o que caiu depois"}</p>
         </div>
         <button
           onClick={() => setOpenAjustar(true)}
@@ -156,6 +163,17 @@ export function FechamentoDoDia({ userId, date, dia, onChanged }: Props) {
           >
             Lançar quanto vendeu e quanto caiu →
           </button>
+        </div>
+      ) : aindaPodeCair ? (
+        <div className="rounded-xl bg-destructive/10 border border-destructive/30 px-4 py-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-destructive/15 border border-destructive/30 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-5 h-5 text-destructive" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-wider text-destructive font-bold">Falta cair</p>
+            <p className="text-2xl font-black text-destructive tabular-nums leading-tight">{formatCurrency(faltou)} ainda não caiu</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{pctCalote.toFixed(0)}% do que vendeu o banco ainda não mostrou · a Vant confere de novo à meia-noite</p>
+          </div>
         </div>
       ) : faltou > 0 ? (
         <div className="rounded-xl bg-destructive/10 border border-destructive/30 px-4 py-4 flex items-center gap-3">
@@ -194,7 +212,7 @@ export function FechamentoDoDia({ userId, date, dia, onChanged }: Props) {
           <div className="grid grid-cols-3 gap-2">
             <Cell label="Vendeu" value={formatCurrency(vendido)} />
             <Cell label="Caiu" value={formatCurrency(caiu)} tone="success" />
-            <Cell label="Faltou" value={formatCurrency(faltou)} tone={faltou > 0 ? "destructive" : "muted"} />
+            <Cell label={aindaPodeCair ? "Falta cair" : "Faltou"} value={formatCurrency(faltou)} tone={faltou > 0 ? "destructive" : "muted"} />
           </div>
 
           {/* Por forma de pagamento */}
