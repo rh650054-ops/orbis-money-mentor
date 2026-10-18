@@ -110,7 +110,8 @@ textarea::placeholder,input::placeholder{color:var(--faint)}
 
 /* intro / fim */
 .hero{flex:1;display:flex;flex-direction:column;justify-content:center;text-align:left;padding:10px 0}
-.hero img.masc{height:190px;width:auto;align-self:center;margin:4px 0 18px;filter:drop-shadow(0 18px 30px rgba(255,176,32,.18))}
+.hero img.masc{height:clamp(84px,20vw,120px);width:auto;align-self:flex-start;margin:0 0 14px;filter:drop-shadow(0 10px 18px rgba(255,176,32,.18))}
+@media(min-width:560px){.hero img.masc{height:140px}}
 .hero h1{font-size:36px}
 .hero .sub{font-size:16px}
 .chips{display:flex;gap:7px;flex-wrap:wrap;margin:4px 0 20px}
