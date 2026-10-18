@@ -5,7 +5,7 @@ import { toast } from "@/shared/hooks/use-toast";
 import { avisar } from "@/shared/lib/avisar";
 import type { Conta, PerfilPublico } from "../types";
 import { useRankingVisivelMutation, useSalvarPerfilMutation } from "../api/use-conta-mutations";
-import { Botao, Campo, COR, Folha, INPUT, LinhaToggle } from "./base";
+import { Botao, Campo, COR, Folha, INPUT, LinhaToggle } from "@/shared/components/vant-ui";
 import { FotoConta } from "./foto-conta";
 
 const doConta = (c: Conta): PerfilPublico => ({

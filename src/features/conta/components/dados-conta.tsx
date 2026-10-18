@@ -6,7 +6,7 @@ import { avisar } from "@/shared/lib/avisar";
 import { useBrazilCities } from "@/shared/hooks/use-brazil-cities";
 import type { Conta, DadosConta } from "../types";
 import { useSalvarDadosMutation } from "../api/use-conta-mutations";
-import { Botao, Campo, Folha, INPUT, LinhaDado, Secao } from "./base";
+import { Botao, Campo, Folha, INPUT, LinhaDado, Secao } from "@/shared/components/vant-ui";
 
 const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 const fmtTel = (v: string | null) => { const d = (v ?? "").replace(/\D/g, ""); return d.length >= 10 ? d.replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3") : v; };

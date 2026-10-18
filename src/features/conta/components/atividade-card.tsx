@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { SkeletonStat } from "@/shared/components/skeletons";
 import type { Atividade } from "../types";
 import { conversao } from "../lib/atividade";
-import { Botao, COR, Secao } from "./base";
+import { Botao, COR, Secao } from "@/shared/components/vant-ui";
 
 function Numero({ valor, rotulo }: { valor: string; rotulo: string }) {
   return (

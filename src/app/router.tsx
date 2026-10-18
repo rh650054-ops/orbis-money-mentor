@@ -82,7 +82,7 @@ const Competitions = lazyWithReload(() => import("@/pages/Competitions"));
 const X1 = lazyWithReload(() => import("@/pages/X1"));
 const X1Carteira = lazyWithReload(() => import("@/pages/X1Carteira"));
 const MpRetorno = lazyWithReload(() => import("@/pages/MpRetorno"));
-const Verificar = lazyWithReload(() => import("@/pages/Verificar"));
+const VenderPage = lazyWithReload(() => import("@/features/vender/routes/vender-page"));
 const Pro = lazyWithReload(() => import("@/pages/Pro"));
 const Planos = lazyWithReload(() => import("@/pages/Planos"));
 const Cobrar = lazyWithReload(() => import("@/pages/Cobrar"));
@@ -164,7 +164,7 @@ export function AppRouter() {
                     <Route path="/competitions" element={<Competitions />} />
                     <Route path="/x1" element={<X1 />} />
                     <Route path="/x1/carteira" element={<X1Carteira />} />
-                    <Route path="/verificar" element={<Verificar />} />
+                    <Route path="/verificar" element={<FeatureErrorBoundary title="Vender"><VenderPage /></FeatureErrorBoundary>} />
                     <Route path="/pro" element={<Pro />} />
                     <Route path="/planos" element={<Planos />} />
                     <Route path="/cobrar" element={<Cobrar />} />

@@ -1,11 +1,11 @@
-/* Building blocks of the account screen: section card, bottom sheet, toggle,
-   press button and list row — all in the VANT look (black, gold, dark cards). */
+/* VANT UI primitives (black, gold, dark cards): section card, bottom sheet, toggle,
+   press button and list rows. Born in Minha Conta; shared so every screen matches. */
 import type { ReactNode } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/shared/ui/sheet";
 
 export const COR = {
   ouro: "#F5B800", texto: "#F4F1EA", apagado: "#8a8378", suave: "#b9b3a6",
-  card: "#0e0e10", borda: "#22201a", coral: "#FF6B5B", ok: "#3DD68C",
+  card: "#0e0e10", borda: "#22201a", coral: "#FF6B5B", ok: "#3DD68C", info: "#7DB7FF",
 } as const;
 
 /** Light haptic tick where the phone supports it. */

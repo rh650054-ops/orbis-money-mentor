@@ -1,0 +1,127 @@
+/* /verificar — the "Vender" tab: the vendor's Open Finance control panel
+   (Rick, 18/10/2026). Not a dashboard, not a report. Order follows the brief:
+   reconciliation today → 7 days → income proof → where you receive →
+   work × personal → manage. Three cases: not Pro, Pro without bank, with bank. */
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ChevronRight, ShieldCheck } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { SkeletonCard } from "@/shared/components/skeletons";
+import { COR } from "@/shared/components/vant-ui";
+import { Pilula } from "@/shared/components/vant-status";
+import { SeloVerificado } from "@/components/ranking/AvatarRanking";
+import { ConviteBanco } from "@/components/conectar/ConviteBanco";
+import { BancoExtra } from "@/components/conectar/PapelContas";
+import { useBancosQuery } from "../api/use-bancos-query";
+import { useConciliacaoQuery } from "../api/use-conciliacao-query";
+import { useAtualizarAgoraMutation } from "../api/use-vender-mutations";
+import { useLigarBanco } from "../api/use-ligar-banco";
+import { useLeituraAoAbrir } from "../api/use-leitura-ao-abrir";
+import { diaDoHeroi } from "../lib/conciliacao";
+import { dicasDoDia } from "../lib/dicas";
+import { HeroiConciliacao } from "../components/heroi-conciliacao";
+import { SemanaCard } from "../components/semana-card";
+import { ComprovanteCard } from "../components/comprovante-card";
+import { OndeRecebe } from "../components/onde-recebe";
+import { ClassificacaoCard } from "../components/classificacao-card";
+import { GerenciarFolha } from "../components/gerenciar-folha";
+import { PrimeiroBanco } from "../components/primeiro-banco";
+
+export default function VenderPage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const bancosQ = useBancosQuery(user?.id);
+  const temBanco = (bancosQ.data?.bancos.length ?? 0) > 0;
+  const concQ = useConciliacaoQuery(user?.id, !!bancosQ.data);
+  const atualizar = useAtualizarAgoraMutation();
+  const banco = useLigarBanco(temBanco);
+  const [gerenciar, setGerenciar] = useState(false);
+  useLeituraAoAbrir(bancosQ.data?.bancos);
+
+  const d = bancosQ.data;
+  const pro = d?.pro;
+  const cabecalho = (
+    <header className="flex items-center justify-between px-1">
+      <div>
+        <p className="text-[10.5px] font-black tracking-[.16em]" style={{ color: COR.apagado }}>VENDER</p>
+        <h1 className="text-[21px] font-black leading-tight flex items-center gap-1.5">
+          Open Finance {pro?.verificado && <SeloVerificado size={17} />}
+        </h1>
+      </div>
+      {pro?.pro && <Pilula tom="ok">PRO ATIVO</Pilula>}
+    </header>
+  );
+
+  if (!user?.id || bancosQ.isLoading || !d || !pro) {
+    return <div className="max-w-md mx-auto flex flex-col gap-3">{cabecalho}<SkeletonCard /><SkeletonCard /><SkeletonCard /></div>;
+  }
+
+  // A) no Open Finance yet: the invitation, then the paywall in /pro
+  if (!pro.pro && !pro.liberado) {
+    return (
+      <div className="max-w-md mx-auto flex flex-col gap-4" style={{ color: COR.texto }}>
+        {cabecalho}
+        <div data-tour="conectar-banco"><ConviteBanco onConectar={() => navigate("/pro")} /></div>
+        <SemanaCard dias={concQ.data?.dias ?? []} travado onDesbloquear={() => navigate("/pro")} />
+      </div>
+    );
+  }
+
+  // B) Pro without a bank: one goal only
+  if (!temBanco) {
+    return (
+      <div className="max-w-md mx-auto flex flex-col gap-4" style={{ color: COR.texto }}>
+        {cabecalho}
+        <PrimeiroBanco pro={pro.pro} ligando={banco.ligando} onLigar={() => void banco.ligar()} onConferir={() => void bancosQ.refetch()} />
+      </div>
+    );
+  }
+
+  // C) with bank
+  const conc = concQ.data;
+  const heroi = conc ? diaDoHeroi(conc.dias, conc.hoje) : null;
+  const nomes = d.bancos.map((b) => b.institution_name);
+  const atualizarAgora = () => atualizar.mutate();
+
+  return (
+    <div className="max-w-md mx-auto flex flex-col gap-5" style={{ color: COR.texto }}>
+      {cabecalho}
+      {heroi && conc
+        ? <HeroiConciliacao dia={heroi} ehHoje={heroi.dia === conc.hoje} ultimaLeitura={conc.ultima_leitura} bancos={nomes}
+            dicas={dicasDoDia(heroi, d.bancos)} atualizando={atualizar.isPending} onAtualizar={atualizarAgora} />
+        : <SkeletonCard />}
+      {conc && <SemanaCard dias={conc.dias} />}
+      <ComprovanteCard />
+      {banco.precisaExtra && <BancoExtra usados={d.bancos.length} email={user.email} onFechar={banco.fecharExtra} />}
+      <OndeRecebe bancos={d.bancos} ligando={banco.ligando} onLigar={() => void banco.ligar()}
+        onAbrir={() => setGerenciar(true)} onAutorizar={(b) => void banco.ligar(b.item_id)} />
+      {d.contas.length > 0 && <ClassificacaoCard contas={d.contas} onClassificar={() => setGerenciar(true)} />}
+
+      <button type="button" onClick={() => setGerenciar(true)}
+        className="h-12 rounded-2xl text-[14px] font-black transition-transform duration-100 active:scale-[0.97]"
+        style={{ background: COR.card, border: `1px solid ${COR.borda}` }}>
+        Gerenciar conexões
+      </button>
+
+      {d.cobraPix && (
+        <button type="button" onClick={() => navigate("/cobrar")}
+          className="group flex items-center gap-3 rounded-2xl p-4 text-left transition-colors active:bg-white/[.04]"
+          style={{ background: COR.card, border: `1px solid ${COR.borda}` }}>
+          <span className="flex-1 min-w-0">
+            <span className="block text-[14px] font-extrabold">Cobrar quem ficou devendo</span>
+            <span className="block text-[12px] mt-0.5" style={{ color: COR.apagado }}>A Vant gera o Pix e abre seu WhatsApp.</span>
+          </span>
+          <ChevronRight className="w-5 h-5 transition-transform group-active:translate-x-[2px]" style={{ color: COR.apagado }} />
+        </button>
+      )}
+
+      <p className="flex items-start gap-2 text-[11.5px] leading-relaxed px-1" style={{ color: COR.apagado }}>
+        <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: COR.ok }} />
+        <span>A Vant <b style={{ color: COR.suave }}>só lê</b> o que entrou. Não move dinheiro, não vê senha. Você desliga quando quiser.</span>
+      </p>
+
+      <GerenciarFolha aberta={gerenciar} onFechar={() => setGerenciar(false)} bancos={d.bancos} contas={d.contas}
+        atualizando={atualizar.isPending} onAtualizar={atualizarAgora} />
+    </div>
+  );
+}

@@ -1,7 +1,7 @@
 /* "Seu plano": name, status, renewal and where to manage it. */
 import { useNavigate } from "react-router-dom";
 import type { Plano } from "../lib/plano";
-import { Botao, COR, Secao } from "./base";
+import { Botao, COR, Secao } from "@/shared/components/vant-ui";
 
 const STATUS: Record<Plano["status"], { txt: string; cor: string }> = {
   ativo: { txt: "Ativo", cor: COR.ok },

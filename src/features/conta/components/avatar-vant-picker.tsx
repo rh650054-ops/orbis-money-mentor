@@ -1,7 +1,7 @@
 /* The VANT avatar family: same stroke, same geometry. Selected = gold outline,
    soft glow, scale 1.05; press = scale .96. */
 import { AVATARES_VANT, caminhoAvatar } from "../lib/avatares";
-import { COR, tique } from "./base";
+import { COR, tique } from "@/shared/components/vant-ui";
 
 export function AvatarVantPicker({ atual, onEscolher, disabled }: { atual: string | null; onEscolher: (caminho: string) => void; disabled?: boolean }) {
   return (
