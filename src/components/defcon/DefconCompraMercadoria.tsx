@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/shared/lib/utils";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { useToast } from "@/shared/hooks/use-toast";
-import { ShoppingCart, Package, Beaker, Plus, X, TrendingDown, TrendingUp, Sparkles, Trash2 } from "lucide-react";
+import { Package, Beaker, Plus, X, TrendingDown, TrendingUp, Sparkles, Check, Loader2 } from "lucide-react";
 
 // Compra de mercadoria com custo automático.
 // Modo "Total da compra": valor final gasto -> produto -> quantas unidades -> estoque + custo médio.
@@ -20,15 +20,13 @@ interface CartItem {
   qtd: number; valorUn: number; total: number; media: number | null;
   destinoId: string | null; destinoNome: string | null;
 }
-interface CompraRow {
-  id: string; item_tipo: string; ingredient_id: string | null; product_id: string | null;
-  quantidade: number; total_pago: number; custo_unitario: number; data: string;
-}
 
 const UNIDADES = ["un", "kg", "g", "L", "ml", "cx", "dz", "pct"];
 const norm = (s: string) => s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-export function DefconCompraMercadoria({ userId, onChanged }: { userId: string; onChanged?: () => void }) {
+/** Formulário puro da compra (sem cabeçalho nem "Últimas compras" — essas moram no Foco).
+ *  `produtoInicial`: nome do produto pra já vir selecionado (botão "Repor X"). `onSalvo`: fecha o sheet. */
+export function DefconCompraMercadoria({ userId, onChanged, produtoInicial, onSalvo }: { userId: string; onChanged?: () => void; produtoInicial?: string | null; onSalvo?: () => void }) {
   const { toast } = useToast();
   const [modo, setModo] = useState<"total" | "insumos">("total");
   const [products, setProducts] = useState<Prod[]>([]);
@@ -49,24 +47,23 @@ export function DefconCompraMercadoria({ userId, onChanged }: { userId: string; 
   const [aviso, setAviso] = useState<{ texto: string; caro: boolean } | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [producaoQtde, setProducaoQtde] = useState<Record<string, number>>({});
-  const [compras, setCompras] = useState<CompraRow[]>([]);
-  const [excluindoId, setExcluindoId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [{ data: prods }, { data: ii }, { data: cps }] = await Promise.all([
+    const [{ data: prods }, { data: ii }] = await Promise.all([
       supabase.from("products").select("id, name, cost, sale_price, stock_quantity")
         .eq("user_id", userId).eq("is_active", true).order("name"),
       supabase.from("ingredients").select("id, name, unit, stock_quantity, cost_per_unit")
         .eq("user_id", userId).order("name"),
-      sb.from("compras_mercadoria")
-        .select("id, item_tipo, ingredient_id, product_id, quantidade, total_pago, custo_unitario, data")
-        .eq("user_id", userId).order("created_at", { ascending: false }).limit(5),
     ]);
     setProducts((prods as Prod[]) ?? []);
     setIngs((ii as Ing[]) ?? []);
-    setCompras((cps as CompraRow[]) ?? []);
   }, [userId]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!produtoInicial || tProd) return;
+    const p = products.find((x) => norm(x.name) === norm(produtoInicial));
+    if (p) setTProd(p.id);
+  }, [produtoInicial, products, tProd]);
 
   const ingAtual = useMemo(() => ings.find((i) => norm(i.name) === norm(iNome)) ?? null, [ings, iNome]);
 
@@ -133,7 +130,7 @@ export function DefconCompraMercadoria({ userId, onChanged }: { userId: string; 
         description: `+${unidades} no estoque · custo médio ${formatCurrency(Number(data.custo_novo))} · lançado como Mercadoria no relatório`,
       });
       setTValor(0); setTProd(""); setTUnidades("");
-      await load(); onChanged?.();
+      await load(); onChanged?.(); onSalvo?.();
     } catch (e) {
       console.warn("[compra] erro", e);
       toast({ title: "Erro ao lançar a compra", variant: "destructive" });
@@ -183,7 +180,7 @@ export function DefconCompraMercadoria({ userId, onChanged }: { userId: string; 
         description: frases.length ? frases.join(" · ") : "Estoque de insumos e relatório atualizados",
       });
       setCart([]); setProducaoQtde({});
-      await load(); onChanged?.();
+      await load(); onChanged?.(); onSalvo?.();
     } catch (e) {
       console.warn("[compra insumos] erro", e);
       toast({ title: "Erro ao lançar a compra", variant: "destructive" });
@@ -191,77 +188,62 @@ export function DefconCompraMercadoria({ userId, onChanged }: { userId: string; 
     setSaving(false);
   };
 
-  // Excluir compra: o banco reverte estoque, custo médio e o custo do dia no relatório.
-  const excluirCompra = async (id: string) => {
-    if (excluindoId !== id) { setExcluindoId(id); setTimeout(() => setExcluindoId((c) => (c === id ? null : c)), 3500); return; }
-    setExcluindoId(null);
-    try {
-      const { error } = await sb.from("compras_mercadoria").delete().eq("id", id);
-      if (error) throw error;
-      toast({ title: "Compra excluída", description: "Estoque, custo e relatório revertidos" });
-      await load(); onChanged?.();
-    } catch (e) {
-      console.warn("[compra] erro ao excluir", e);
-      toast({ title: "Erro ao excluir a compra", variant: "destructive" });
-    }
-  };
-
-  const nomeCompra = (c: CompraRow) =>
-    c.item_tipo === "ingrediente"
-      ? ings.find((i) => i.id === c.ingredient_id)?.name ?? "insumo"
-      : products.find((p) => p.id === c.product_id)?.name ?? "produto";
-
   const previewTotal = (() => {
     const u = parseInt(tUnidades, 10);
     return tValor > 0 && u > 0 ? tValor / u : null;
   })();
+  const prodEscolhido = products.find((p) => p.id === tProd) ?? null;
+  const margemUn = previewTotal !== null && prodEscolhido && prodEscolhido.sale_price > 0 ? prodEscolhido.sale_price - previewTotal : null;
   const cartTotal = cart.reduce((s, c) => s + c.total, 0);
 
-  const inputCls = "w-full h-11 bg-background border border-border rounded-xl px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground";
+  const inputCls = "w-full h-12 bg-background border border-border rounded-[14px] px-3.5 text-[15px] font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground placeholder:font-medium";
+  const labelCls = "block text-[11px] font-bold uppercase tracking-[.06em] mb-1.5 text-muted-foreground";
 
   return (
-    <div className="rounded-2xl bg-card border border-border p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <ShoppingCart className="w-4 h-4 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">Compra de mercadoria</h3>
-      </div>
-      <p className="text-xs text-muted-foreground -mt-1">
-        Anota a compra uma vez — estoque, custo por produto e relatório se resolvem sozinhos.
-      </p>
-
-      <div className="grid grid-cols-2 gap-2">
+    <div className="space-y-3">
+      {/* segmented control: troca de visão, não ação (HIG) */}
+      <div className="grid grid-cols-2 gap-1 p-1 rounded-[14px]" style={{ background: "rgba(0,0,0,.5)", border: "1px solid var(--orbis-line)" }} role="tablist">
         {([
-          { id: "total", label: "Total da compra", Icon: Package },
+          { id: "total", label: "Compra total", Icon: Package },
           { id: "insumos", label: "Compra de insumos", Icon: Beaker },
         ] as const).map(({ id, label, Icon }) => (
-          <button key={id} type="button" onClick={() => setModo(id)}
-            className={`flex items-center justify-center gap-1.5 h-11 rounded-xl border text-xs font-semibold transition active:scale-95 ${
-              modo === id ? "border-primary bg-primary/10 text-foreground" : "border-border/60 bg-background text-muted-foreground"
-            }`}>
+          <button key={id} type="button" role="tab" aria-selected={modo === id} onClick={() => setModo(id)}
+            className="flex items-center justify-center gap-1.5 h-10 rounded-[11px] text-[13px] font-bold transition-colors duration-150"
+            style={modo === id ? { background: "#232323", color: "var(--orbis-fg)" } : { color: "var(--orbis-fg-3)" }}>
             <Icon className="w-3.5 h-3.5" />{label}
           </button>
         ))}
       </div>
 
       {modo === "total" ? (
-        <div className="space-y-2">
-          <MoneyInput value={tValor} onChange={setTValor} placeholder="Valor final da compra (R$)" className={inputCls} />
-          <select value={tProd} onChange={(e) => setTProd(e.target.value)} className={inputCls}>
-            <option value="">Isso vira qual produto?</option>
-            {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-          <input type="number" inputMode="numeric" min={1} value={tUnidades}
-            onChange={(e) => setTUnidades(e.target.value)}
-            placeholder="Quantas unidades você faz com essa compra?" className={inputCls} />
+        <div className="space-y-3">
+          <label className="block">
+            <span className={labelCls}>Valor final da compra</span>
+            <MoneyInput value={tValor} onChange={setTValor} placeholder="R$ 0,00" className={inputCls} autoFocus />
+          </label>
+          <label className="block">
+            <span className={labelCls}>Produto final</span>
+            <select value={tProd} onChange={(e) => setTProd(e.target.value)} className={inputCls}>
+              <option value="">Escolher produto</option>
+              {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className={labelCls}>Rendimento estimado (unidades)</span>
+            <input type="number" inputMode="numeric" min={1} value={tUnidades}
+              onChange={(e) => setTUnidades(e.target.value)}
+              placeholder="ex: 250" className={inputCls} />
+          </label>
           {previewTotal !== null && (
-            <p className="text-xs text-center text-primary font-semibold">
-              <Sparkles className="w-3 h-3 inline mr-1" />
-              Cada unidade vai te custar {formatCurrency(previewTotal)}
+            <p className="flex items-center justify-between text-[12.5px] rounded-[14px] px-3.5 py-2.5" style={{ background: "rgba(61,214,140,.07)", border: "1px solid rgba(61,214,140,.25)", color: "var(--orbis-fg-2)" }}>
+              <span>Custo por unidade <b style={{ color: "var(--orbis-ok)" }}>{formatCurrency(previewTotal)}</b></span>
+              {margemUn !== null && <span>margem/un <b style={{ color: margemUn > 0 ? "var(--orbis-ok)" : "var(--orbis-custo)" }}>{formatCurrency(margemUn)}</b></span>}
             </p>
           )}
           <button onClick={lancarTotal} disabled={saving}
-            className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-1.5 disabled:opacity-40 active:scale-95">
-            <Plus className="w-4 h-4" />Lançar compra
+            className="w-full h-[54px] rounded-[17px] font-extrabold text-[15px] flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[.97] transition-transform duration-100"
+            style={{ background: "linear-gradient(180deg,var(--orbis-gold-light),var(--orbis-gold))", color: "#1a1200", boxShadow: "0 12px 28px -10px rgba(245,184,0,.5)" }}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" strokeWidth={3} />}Lançar compra
           </button>
         </div>
       ) : (
@@ -330,32 +312,6 @@ export function DefconCompraMercadoria({ userId, onChanged }: { userId: string; 
         </div>
       )}
 
-      {compras.length > 0 && (
-        <div className="space-y-1.5 pt-1 border-t border-border/60">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground pt-2">Últimas compras</p>
-          {compras.map((c) => (
-            <div key={c.id} className="flex items-center gap-2 rounded-xl bg-background border border-border px-3 py-2 text-xs">
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-foreground truncate">{nomeCompra(c)}</p>
-                <p className="text-muted-foreground">
-                  {Number(c.quantidade)} × {formatCurrency(Number(c.custo_unitario))} · {c.data.split("-").reverse().join("/")}
-                </p>
-              </div>
-              <span className="font-bold text-foreground">{formatCurrency(Number(c.total_pago))}</span>
-              <button
-                onClick={() => excluirCompra(c.id)}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition-colors ${
-                  excluindoId === c.id ? "bg-destructive text-destructive-foreground" : "text-muted-foreground hover:text-destructive"
-                }`}
-                aria-label={excluindoId === c.id ? "Toque de novo para confirmar a exclusão" : "Excluir compra"}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
-          {excluindoId && <p className="text-[11px] text-destructive font-medium">Toque de novo na lixeira para confirmar — estoque e relatório serão revertidos.</p>}
-        </div>
-      )}
     </div>
   );
 }
