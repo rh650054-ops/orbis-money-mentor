@@ -28,12 +28,20 @@ async function carregar(de: string, ate: string): Promise<DiaConferido[]> {
   }));
 }
 
-export function ConferenciaBanco({ de, ate }: { de: string; ate: string }) {
-  const { data: dias = [] } = useQuery({
+/** Dias conferidos pelo banco no período (inclui HOJE pra quem tem banco que conta — 17/10).
+ *  Quem não tem banco recebe lista vazia. O Relatório usa isso pra "Caiu no bolso" e
+ *  pro Fechamento do dia mostrarem o que CAIU, não o que foi digitado. */
+export function useConferenciaBanco(de: string, ate: string) {
+  const { data = [] } = useQuery({
     queryKey: ["relatorio", "banco-conferencia", de, ate],
     queryFn: () => carregar(de, ate),
     staleTime: 30_000, retry: 1, refetchOnWindowFocus: false,
   });
+  return data;
+}
+
+export function ConferenciaBanco({ de, ate }: { de: string; ate: string }) {
+  const dias = useConferenciaBanco(de, ate);
   if (dias.length === 0) return null;
   const tot = dias.reduce((t, d) => ({ lancou: t.lancou + d.lancou, caiu: t.caiu + d.caiu, ranking: t.ranking + d.conta_ranking, faltou: t.faltou + d.faltou }),
     { lancou: 0, caiu: 0, ranking: 0, faltou: 0 });

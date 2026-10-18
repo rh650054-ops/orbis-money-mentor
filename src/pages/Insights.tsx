@@ -35,14 +35,15 @@ import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import { useToast } from "@/shared/hooks/use-toast";
-import { formatBrazilDate } from "@/shared/lib/date-utils";
+import { formatBrazilDate, getBrazilDate } from "@/shared/lib/date-utils";
 import {
   generateAndDownloadReport,
   type ReportFormat,
 } from "@/utils/reportExport";
 import { FechamentoDoDia } from "@/components/relatorio/FechamentoDoDia";
 import { ContaDoPeriodo } from "@/components/relatorio/ContaDoPeriodo";
-import { ConferenciaBanco } from "@/components/relatorio/ConferenciaBanco";
+import { ConferenciaBanco, useConferenciaBanco } from "@/components/relatorio/ConferenciaBanco";
+import { CaiuNoBolso } from "@/components/relatorio/CaiuNoBolso";
 import { minutosOciososDoPeriodo, type PausaOcio } from "@/components/relatorio/tempo-ocioso";
 import { HoraAHora, montarHoraAHora } from "@/components/relatorio/HoraAHora";
 import { OrbisViu, type FichaResumo } from "@/components/relatorio/OrbisViu";
@@ -472,11 +473,16 @@ export default function Insights() {
   // CAIU = o que já entrou (dinheiro+pix+cartão, = total_profit). FALTOU CAIR = o que
   // ainda não caiu (total_debt do DEFCON). ERA PRA CAIR = os dois somados = o vendido.
   // Sem custo nenhum. Ex.: caiu 1277 + faltou 153 = era pra cair 1430.
-  const recebidoDeFato = summary.dinheiro + summary.pix + summary.cartao;
-  const naoRecebido = Math.max(0, summary.naoCaiu);
+  // 17/10 21:29 (Rick): "caiu no bolso 561" num dia em que o banco só viu 424. Nos
+  // dias que o banco confere (inclusive HOJE), Pix+cartão são o que CAIU no banco;
+  // o que foi digitado e não caiu entra como "faltou cair". Sem banco, nada muda.
+  const conferidos = useConferenciaBanco(isoDate(range.start), isoDate(range.end));
+  const ajusteBanco = conferidos.reduce((t, d) => ({ caiu: t.caiu + (d.caiu - d.pix_cartao), faltou: t.faltou + d.faltou }), { caiu: 0, faltou: 0 });
+  const recebidoDeFato = Math.max(0, Math.round((summary.dinheiro + summary.pix + summary.cartao + ajusteBanco.caiu) * 100) / 100);
+  const naoRecebido = Math.max(0, Math.round((summary.naoCaiu + ajusteBanco.faltou) * 100) / 100);
+  const conferidoDia = isSingleDay ? (conferidos.find((d) => d.dia === isoDate(range.start)) ?? null) : null;
   const esperadoReceber = recebidoDeFato + naoRecebido;
   const pctRecebido = esperadoReceber > 0 ? (recebidoDeFato / esperadoReceber) * 100 : 0;
-  const pctCalote = esperadoReceber > 0 ? (naoRecebido / esperadoReceber) * 100 : 0;
 
   // Formata minutos: "0h", "3h", "2h 30min" — reusado por horas trabalhadas e tempo ocioso.
   const fmtMin = (min: number) => {
@@ -845,29 +851,8 @@ export default function Insights() {
             sobrou={summary.lucro}
           />
 
-          {/* CAIU NO BOLSO — verde herói, barra que enche, calote em vermelho vivo */}
-          <section className="orbis-card-in rounded-2xl border border-border/60 bg-card p-4 space-y-3">
-            <p className="orbis-label" style={{ color: "var(--orbis-ok,#3DD68C)" }}>Caiu no bolso</p>
-            <p className="font-display text-[30px] font-extrabold leading-none" style={{ color: "var(--orbis-ok,#3DD68C)" }}>
-              <AnimatedCurrency value={recebidoDeFato} />
-            </p>
-            <p className="text-[12.5px] text-muted-foreground -mt-1">
-              {pctRecebido.toFixed(0)}% de tudo que você vendeu já entrou
-            </p>
-            <div className="flex h-2 w-full rounded-full overflow-hidden bg-white/10">
-              <div
-                className="orbis-fill h-full"
-                style={{ width: `${Math.min(100, Math.max(0, pctRecebido))}%`, background: "var(--orbis-ok,#3DD68C)" }}
-              />
-              <div className="h-full flex-1" style={{ background: naoRecebido > 0 ? "var(--orbis-calote,#FF5C5C)" : "transparent" }} />
-            </div>
-            <div className="flex items-center justify-between text-[12px]">
-              <span className="text-muted-foreground">Vendido {formatCurrency(esperadoReceber)}</span>
-              <span className="font-bold" style={{ color: naoRecebido > 0 ? "var(--orbis-calote,#FF5C5C)" : "hsl(var(--muted-foreground))" }}>
-                {naoRecebido > 0 ? `Faltou cair ${formatCurrency(naoRecebido)}` : "caiu tudo 🎉"}
-              </span>
-            </div>
-          </section>
+          {/* CAIU NO BOLSO — verde herói, barra que enche, calote em vermelho vivo (bloco compartilhado com o fim do Foco) */}
+          <CaiuNoBolso vendido={esperadoReceber} caiu={recebidoDeFato} rotuloFaltou={conferidoDia?.dia === getBrazilDate() ? "Falta cair" : "Faltou cair"} />
 
           {/* CONFERIDO PELO BANCO — Pro com banco: lançou × caiu × o que vai pro ranking (10/10) */}
           <ConferenciaBanco de={isoDate(range.start)} ate={isoDate(range.end)} />
@@ -878,6 +863,7 @@ export default function Insights() {
               userId={user.id}
               date={isoDate(range.start)}
               dia={sales.find((d) => d.date === isoDate(range.start)) ?? null}
+              banco={conferidoDia ? { pix: conferidoDia.caiu - conferidoDia.maquininha, cartao: conferidoDia.maquininha, hoje: isoDate(range.start) === getBrazilDate() } : null}
               onChanged={loadData}
             />
           )}

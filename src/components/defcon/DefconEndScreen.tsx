@@ -15,7 +15,8 @@ import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
 import { faltou, sobra } from "@/shared/lib/dinheiro";
 import { CaixinhaMeta } from "@/components/defcon/CaixinhaMeta";
-import { usePixDoBanco, puxarBancoAgora, pixQueEntraNoDia, horaDaLeitura, demoraDoBanco, proximoPedidoDoBanco } from "@/components/conectar/banco-pix";
+import { usePixDoBanco, puxarBancoAgora, pixQueEntraNoDia, horaDaLeitura } from "@/components/conectar/banco-pix";
+import { CaiuNoBolso } from "@/components/relatorio/CaiuNoBolso";
 import { usePixDestravado, BotaoDestravar, marcarDiaManual } from "./destravar-pix";
 
 // Revisitar cada HORA (bloco) do dia: helpers de horário/duração do bloco.
@@ -69,10 +70,6 @@ export function DefconEndScreen({
   // chamar o banco). TRAVAS 08/10: a leitura de ~1 h depois do Foco é do robot
   // (pluggy-hora) — antes esta tela pedia leitura nova a cada 5 min.
   const { pix: pixBanco, recarregar: relerBanco } = usePixDoBanco(!!userId, 60_000);
-  const demoraBanco = demoraDoBanco(pixBanco.banco);
-  // Pluggy: 1 pedido de dados novos por hora por banco. Se o fechamento caiu dentro dessa
-  // hora, o número ainda é o do pedido anterior — diz quando o próximo acontece.
-  const proximoPedido = proximoPedidoDoBanco(pixBanco.ultimaSync);
   const [lendoBanco, setLendoBanco] = useState(false);
   const { podeDestravar, destravado, destravar } = usePixDestravado(!!userId && pixBanco.temBanco);
   useEffect(() => {
@@ -585,7 +582,6 @@ export function DefconEndScreen({
   const recebidoNaTela = travado
     ? Math.round((pixDoBancoNoDia.entra + cartaoNum + dinheiroNum) * 100) / 100
     : totalRecebido;
-  const tudoRecebidoNaTela = fullyReceived && aindaNaoCaiu <= 0;
 
   // Salva a CONTAGEM de kits não pagos na linha do dia (mesma data do sync do DEFCON).
   // O valor do calote já está em total_debt; aqui guardamos só a quantidade pro relatório.
@@ -1110,20 +1106,12 @@ export function DefconEndScreen({
                   <p className="text-[11px] text-success font-semibold flex items-center gap-1 truncate">
                     <Lock className="w-3 h-3 shrink-0" /> o que caiu no banco · {pixBanco.qtd} {pixBanco.qtd === 1 ? "entrada" : "entradas"}
                   </p>
-                  <p className="text-[11px] text-muted-foreground truncate">
-                    lançado no Foco: <b className="text-foreground tabular-nums">{formatCurrency(pixLancado)}</b>
-                  </p>
+                  {/* 17/10 21:28 (Rick): só a hora que o banco foi lido. Sem "lançado", sem "ao vivo", sem aviso de banco lento. */}
                   <p className="text-[10.5px] text-muted-foreground flex items-center gap-1 truncate">
                     {lendoBanco
                       ? <><RefreshCw className="w-3 h-3 shrink-0 animate-spin" /> conferindo o banco agora…</>
-                      : <><span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shrink-0" /> ao vivo{pixBanco.ultimaSync ? ` · banco lido ${horaDaLeitura(pixBanco.ultimaSync)}` : ""}{proximoPedido ? ` · pede de novo ${horaDaLeitura(proximoPedido)}` : ""}</>}
+                      : pixBanco.ultimaSync ? `banco lido ${horaDaLeitura(pixBanco.ultimaSync)}` : null}
                   </p>
-                  {/* banco lento (C6, Itaú): o Pix de hoje só aparece no Open Finance horas depois — não é que não caiu */}
-                  {demoraBanco != null && pixDoBancoNoDia.entra < pixLancado && (
-                    <p className="text-[10.5px] text-warning leading-snug whitespace-normal">
-                      O {pixBanco.banco} mostra o Pix ~{demoraBanco} h depois de cair. A Vant confere de novo à noite e à meia-noite.
-                    </p>
-                  )}
                 </div>
                 <span className={`text-base font-black tabular-nums ${pixDoBancoNoDia.entra > 0 ? "text-success" : "text-muted-foreground"}`}>{formatCurrency(pixDoBancoNoDia.entra)}</span>
               </div>
@@ -1162,27 +1150,11 @@ export function DefconEndScreen({
             {travado && podeDestravar && <BotaoDestravar onDestravar={() => { destravar(); setMexeu(true); }} />}
             <PaymentInput emoji="💵" label="Dinheiro" value={dinheiro} onChange={(v) => { setMexeu(true); setDinheiro(v); }} accent="text-muted-foreground" />
 
-            {/* Resumo total recebido vs vendido */}
-            {(totalRecebido > 0 || recebidoNaTela > 0) && (
-              <div className="rounded-xl bg-card border border-border px-3.5 py-2.5 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total recebido</span>
-                <span className={`text-sm font-bold tabular-nums ${tudoRecebidoNaTela ? 'text-success' : hasCalote ? 'text-destructive/80' : 'text-foreground'}`}>
-                  {formatCurrency(recebidoNaTela)} <span className="text-muted-foreground font-normal">/ {formatCurrency(totalSold)}</span>
-                </span>
-              </div>
-            )}
-
-            {aindaNaoCaiu > 0 && (
-              <div className="rounded-xl bg-warning/10 border border-warning/30 px-3.5 py-2.5 text-xs leading-relaxed">
-                <span className="font-semibold text-foreground">{formatCurrency(aindaNaoCaiu)} do Pix ainda não apareceram no banco</span>
-                <span className="text-muted-foreground"> · hoje o ranking conta o que você lançou. À meia-noite a Vant confere com o banco: o que não tiver caído sai do ranking e do lucro.</span>
-              </div>
-            )}
-
-            {tudoRecebidoNaTela && (
-              <div className="text-xs text-success font-semibold text-center pt-0.5">
-                ✔ 100% recebido
-              </div>
+            {/* CAIU NO BOLSO — o mesmo bloco do Financeiro (Rick, 17/10 21:29): vendido,
+                verde = o que caiu, vermelho = o que não caiu. Com banco, "caiu" é o que o
+                banco mostrou; o Pix lançado que ainda não apareceu entra no vermelho. */}
+            {(totalSold > 0 || recebidoNaTela > 0) && (
+              <CaiuNoBolso vendido={totalSold} caiu={recebidoNaTela} rotuloFaltou={travado ? "Falta cair" : "Faltou cair"} compacto />
             )}
 
             {hasCalote && (
