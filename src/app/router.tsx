@@ -44,7 +44,7 @@ const Index = lazyWithReload(() => import("@/pages/Index"));
 const EntrarNovoDominio = lazyWithReload(() => import("@/features/novo-dominio/routes/entrar-page"));
 const Transactions = lazyWithReload(() => import("@/pages/Transactions"));
 const History = lazyWithReload(() => import("@/pages/History"));
-const Insights = lazyWithReload(() => import("@/pages/Insights"));
+const RelatorioPage = lazyWithReload(() => import("@/features/relatorio/routes/relatorio-page"));
 const Profile = lazyWithReload(() => import("@/pages/Profile"));
 const ContaPage = lazyWithReload(() => import("@/features/conta/routes/conta-page"));
 const Settings = lazyWithReload(() => import("@/pages/Settings"));
@@ -153,7 +153,7 @@ export function AppRouter() {
                     <Route path="/" element={<Index />} />
                     <Route path="/transactions" element={<Transactions />} />
                     <Route path="/history" element={<History />} />
-                    <Route path="/insights" element={<Insights />} />
+                    <Route path="/insights" element={<RelatorioPage />} />
                     <Route path="/chat" element={<Chat />} />
                     <Route path="/finances" element={<Finances />} />
                     <Route path="/financas/extrato" element={<RaioXExtrato />} />
