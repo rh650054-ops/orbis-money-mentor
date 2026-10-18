@@ -113,7 +113,6 @@ function render(dir){
 function intro(){
  const nome=PERFIL?.nickname?PERFIL.nickname.split(" ")[0]:null;
  return `<div class="hero">
-  <img class="masc" src="/vant-mascote.webp" alt="">
   <div class="eyebrow">Pesquisa da VANT</div>
   <h1>${nome?`${esc(nome)}, me conta a real.`:"Me conta a real."}</h1>
   <p class="sub">A gente poderia ficar inventando função nova. Preferimos perguntar <b>o que você usa, o que não usa e por quê</b>. Sua resposta decide o que entra primeiro.</p>
@@ -296,8 +295,9 @@ async function enviar(){
 
 /* ================= ADMIN ================= */
 const adm=$("admin");
-$("btEquipe").onclick=()=>abrirAdmin();
+/* painel só por /pesquisa#admin — sem link na página; e mesmo assim exige login de admin/comercial */
 if(location.hash==="#admin") abrirAdmin();
+addEventListener("hashchange",()=>{ if(location.hash==="#admin") abrirAdmin(); });
 async function abrirAdmin(){
  $("app").hidden=true; adm.hidden=false; history.replaceState(null,"","#admin");
  if(!sb){ adm.innerHTML='<p class="erro">Sem conexão com o servidor.</p>'; return; }
