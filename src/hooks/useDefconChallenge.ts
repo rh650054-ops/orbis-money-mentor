@@ -746,6 +746,26 @@ export function useDefconChallenge(userId: string | undefined) {
     };
   }, [userId, loadData]);
 
+  /* PULSO DO FOCO (BUG-008, 18/10): o robô do banco (pluggy-hora) só lê o banco
+     de hora em hora enquanto a sessão foi tocada nos últimos 30 min — e ela só era
+     tocada quando entrava VENDA. Meia hora sem vender (almoço, movimento fraco) e o
+     robô achava que o Foco tinha morrido: a tela ficava horas com a leitura velha.
+     Agora, com a tela do Foco aberta, a sessão recebe um toque a cada 10 min
+     (sem gastar leitura do banco: é só um update que roda o gatilho de updated_at). */
+  useEffect(() => {
+    if (!userId || !sessionId) return;
+    if (!["running", "break", "block_report", "lunch_pause"].includes(phase)) return;
+    const toque = () => {
+      if (document.visibilityState !== "visible") return;
+      void supabase.from("challenge_sessions").update({ updated_at: new Date().toISOString() } as never).eq("id", sessionId)
+        .then(({ error }) => { if (error) avisar.silencioso("DEFCON: pulso da sessão", error); });
+    };
+    toque();
+    const t = setInterval(toque, 10 * 60_000);
+    document.addEventListener("visibilitychange", toque);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", toque); };
+  }, [userId, sessionId, phase]);
+
   // Pausa (almoço/descanso) — DISPONÍVEL QUANTAS VEZES precisar durante o corre.
   const startLunchPause = async (durationMinutes: number, motivo: MotivoPausa = "almoco") => {
     if (!userId || phase !== "running") return;
