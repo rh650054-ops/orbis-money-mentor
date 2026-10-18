@@ -1,7 +1,8 @@
 /* Ajustes e utilitários: o administrativo no fim da tela, em cinza-azulado, sem competir
-   com DEFCON, custo, compra e mercadoria. Linhas simples; as que têm conteúdo expandem. */
+   com DEFCON, custo, compra e mercadoria. Linhas simples; as que têm conteúdo expandem.
+   "Ajustar ontem" vive só nas ações rápidas (não repete aqui). */
 import { useState, type ReactNode } from "react";
-import { Calendar, ChevronDown, ChevronRight, Clock, FileDown, History, Loader2, MapPin } from "lucide-react";
+import { ChevronDown, ChevronRight, Clock, FileDown, History, Loader2, MapPin } from "lucide-react";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { PixDepois } from "./pix-depois";
 import { PRESS } from "./foco-tipos";
@@ -15,20 +16,18 @@ interface Props {
   exporting: boolean;
   onPdfDate: (d: string) => void;
   onPDF: () => void;
-  onAjustarOntem: () => void;
   onHistorico: () => void;
 }
 
 const km = (v: number) => (v < 1 ? `${Math.round(v * 1000)} m` : `${v.toFixed(1)} km`);
 
-export function Utilitarios({ temBancoTrabalho, gps, pdfDate, exporting, onPdfDate, onPDF, onAjustarOntem, onHistorico }: Props) {
+export function Utilitarios({ temBancoTrabalho, gps, pdfDate, exporting, onPdfDate, onPDF, onHistorico }: Props) {
   const [aberto, setAberto] = useState<string | null>(null);
   const toggle = (k: string) => setAberto((v) => (v === k ? null : k));
   return (
     <section className="mt-6 px-0.5" aria-label="Ajustes e utilitários">
       <p className="orbis-mini">Ajustes e utilitários</p>
       <div className="rounded-[18px] border mt-2.5 px-3" style={{ borderColor: "var(--orbis-line)", background: "rgba(143,163,184,.04)" }}>
-        <Linha icone={<Calendar className="w-3.5 h-3.5" />} titulo="Ajustar dia anterior" sub="fechou depois da meia-noite?" onClick={onAjustarOntem} />
         <Linha icone={<FileDown className="w-3.5 h-3.5" />} titulo="Baixar relatório em PDF" sub="de hoje ou de qualquer dia" aberto={aberto === "pdf"} onClick={() => toggle("pdf")}>
           <div className="flex gap-2">
             <input type="date" value={pdfDate} max={getBrazilDate()} onChange={(e) => onPdfDate(e.target.value)} aria-label="Dia do relatório" className="h-11 w-36 shrink-0 bg-background border border-border rounded-xl px-3 text-sm text-foreground" />
@@ -52,7 +51,7 @@ export function Utilitarios({ temBancoTrabalho, gps, pdfDate, exporting, onPdfDa
             <p className="text-[11px] text-center mt-2" style={{ color: "var(--orbis-fg-3)" }}>Total geral: <b className="text-foreground">{gps.kmTotal.toFixed(1)} km</b>{gps.diasSemana > 0 && <> · {gps.diasSemana} {gps.diasSemana === 1 ? "dia" : "dias"} com GPS na semana</>}</p>
           </Linha>
         )}
-        <Linha icone={<History className="w-3.5 h-3.5" />} titulo="Histórico e relatórios" sub="todos os dias, com filtros" onClick={onHistorico} />
+        <Linha icone={<History className="w-3.5 h-3.5" />} titulo="Relatórios e histórico" sub="todos os dias, com filtros" onClick={onHistorico} />
       </div>
       {exporting && <p className="text-center text-[11.5px] mt-3 inline-flex items-center gap-1.5 w-full justify-center" style={{ color: "var(--orbis-fg-3)" }}><Loader2 className="w-3 h-3 animate-spin" /> gerando o PDF…</p>}
     </section>

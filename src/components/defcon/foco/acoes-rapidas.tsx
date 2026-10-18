@@ -1,18 +1,18 @@
-/* Ações rápidas: 4 atalhos logo abaixo do DEFCON (linha de atalhos do Nubank / quick
-   actions do iOS). Amarelo = ação do dia; cinza-azulado = utilitário. */
-import { Calendar, Package, Plus, ShoppingCart } from "lucide-react";
+/* Ações rápidas: 3 atalhos logo abaixo do DEFCON (linha de atalhos do Nubank / quick
+   actions do iOS) — só o que NÃO tem outro lugar na tela: compra (sheet), carga de hoje
+   e o dia de ontem. Custo rápido já está logo abaixo, então não repete aqui.
+   Amarelo = ação do dia; cinza-azulado = utilitário. */
+import { Calendar, Package, ShoppingCart } from "lucide-react";
 import { PRESS } from "./foco-tipos";
 
 interface Props {
-  onLancarCusto: () => void;
   onComprar: () => void;
   onEstoque: () => void;
   onAjustarOntem: () => void;
 }
 
-export function AcoesRapidas({ onLancarCusto, onComprar, onEstoque, onAjustarOntem }: Props) {
+export function AcoesRapidas({ onComprar, onEstoque, onAjustarOntem }: Props) {
   const itens = [
-    { k: "custo", label: ["Lançar", "custo"], Icon: Plus, on: onLancarCusto, neutro: false },
     { k: "compra", label: ["Comprar", "mercadoria"], Icon: ShoppingCart, on: onComprar, neutro: false },
     { k: "estoque", label: ["Atualizar", "estoque"], Icon: Package, on: onEstoque, neutro: false },
     { k: "ontem", label: ["Ajustar", "ontem"], Icon: Calendar, on: onAjustarOntem, neutro: true },
@@ -20,7 +20,7 @@ export function AcoesRapidas({ onLancarCusto, onComprar, onEstoque, onAjustarOnt
   return (
     <section className="mt-6 px-0.5" aria-label="Ações rápidas">
       <p className="orbis-mini">Ações rápidas</p>
-      <div className="grid grid-cols-4 gap-2 mt-2.5">
+      <div className="grid grid-cols-3 gap-2 mt-2.5">
         {itens.map(({ k, label, Icon, on, neutro }) => (
           <button key={k} type="button" onClick={on}
             className={`h-[76px] rounded-[16px] flex flex-col items-center justify-center gap-1.5 text-[11.5px] font-bold leading-[1.1] text-center ${PRESS}`}
