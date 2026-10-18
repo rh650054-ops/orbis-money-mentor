@@ -1,0 +1,171 @@
+/* ============================================================
+   CARD PRINCIPAL DO FOCO — o DEFCON. Muda de tom com o momento do dia:
+   antes (vinho: pressão/meta), rodando (verde: ao vivo), encerrado (ouro).
+   Regras que vieram da pesquisa (18/10/2026):
+   - um único CTA dominante, com a meta no rótulo ("INICIAR DEFCON 4 · R$ 600");
+   - estado dito em TEXTO embaixo do botão, nunca só por cor (NN/g);
+   - faixa escolhida pelo vendedor antes de apertar (Uber Quest / Duolingo);
+   - olho pra esconder valores (Uber Privacy Mode / Nubank).
+   Puro: recebe tudo por props do DefconHub.
+   ============================================================ */
+import { Check, Eye, EyeOff, FileDown, FileText, Loader2, Pencil, Play, Zap } from "lucide-react";
+import { FaixasDaMeta } from "@/components/metas/FaixasDaMeta";
+import { DIAS_PT, type MetaDoDia } from "@/shared/lib/meta-viavel";
+import type { FaixaDoDia } from "@/shared/lib/faixa-do-dia";
+import { FaixasEscolha } from "./faixas-escolha";
+import { AnelProgresso, MesCompacto, Trio } from "./foco-hero-partes";
+import { brlOculto, PRESS, type EstadoFoco } from "./foco-tipos";
+
+export interface HeroNumeros {
+  dailyGoal: number; totalVendido: number; totalCaiu: number; faltaCair: number; lucro: number;
+  workHours: number; blocosTot: number; projecao: number;
+  ontem: number; pctOntem: number; semana: number;
+  vendas: number; abord: number; conv: number;
+  rankPos: number | null; ligaCor: string | null; ligaLabel: string;
+  horaInicio: number | null; ativoDesde: string | null;
+}
+
+interface Props {
+  estado: EstadoFoco;
+  n: HeroNumeros;
+  meta: MetaDoDia | null;
+  temFaixas: boolean;
+  faixa: FaixaDoDia;
+  salvandoFaixa: boolean;
+  overnightOpen: boolean;
+  exporting: boolean;
+  oculto: boolean;
+  onAlternarOculto: () => void;
+  onEscolherFaixa: (f: FaixaDoDia) => void;
+  onEditar: () => void;
+  onReplanejar: () => void;
+  onIrDefcon: () => void;
+  onPDF: () => void;
+}
+
+const TOM = {
+  antes: { borda: "rgba(242,70,90,.35)", fundo: "radial-gradient(120% 80% at 80% -10%, rgba(242,70,90,.22), transparent 60%), linear-gradient(170deg,#170a0c 0%,#0b0b0b 70%)", tag: "#F2465A" },
+  rodando: { borda: "rgba(61,214,140,.35)", fundo: "radial-gradient(120% 80% at 80% -10%, rgba(61,214,140,.18), transparent 60%), linear-gradient(170deg,#0a140e 0%,#0b0b0b 70%)", tag: "#3DD68C" },
+  encerrado: { borda: "rgba(245,184,0,.35)", fundo: "radial-gradient(120% 80% at 80% -10%, rgba(245,184,0,.18), transparent 60%), linear-gradient(170deg,#1a1408 0%,#0b0b0b 70%)", tag: "#F5B800" },
+} as const;
+
+function ativoHa(iso: string | null): string | null {
+  if (!iso) return null;
+  const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  return `${Math.floor(min / 60)}h${String(min % 60).padStart(2, "0")}`;
+}
+
+export function FocoHero(p: Props) {
+  const { estado, n, meta, temFaixas, oculto } = p;
+  const tom = TOM[estado];
+  const v = (x: number) => brlOculto(x, oculto);
+  const progresso = n.dailyGoal > 0 ? Math.min(100, (n.totalVendido / n.dailyGoal) * 100) : 0;
+  const bateu = n.dailyGoal > 0 && n.totalVendido >= n.dailyGoal;
+  const falta = Math.max(0, n.dailyGoal - n.totalVendido);
+  const diaNome = meta ? DIAS_PT[meta.diaSemana] ?? "hoje" : "hoje";
+  const pctMeta = n.dailyGoal > 0 ? Math.round((n.totalVendido / n.dailyGoal) * 100) : 0;
+
+  return (
+    <section className="relative overflow-hidden rounded-[26px] border mt-4 px-5 pt-5 pb-[18px]" style={{ borderColor: tom.borda, background: tom.fundo }} aria-label="DEFCON de hoje">
+      <span className="inline-flex items-center gap-1.5 text-[10.5px] font-extrabold tracking-[.2em] uppercase" style={{ color: tom.tag }}>
+        {estado === "rodando" ? <span className="inline-block w-2 h-2 rounded-full" style={{ background: "#3DD68C", boxShadow: "0 0 0 4px rgba(61,214,140,.18)" }} /> : estado === "encerrado" ? <Check className="w-3 h-3" strokeWidth={3} /> : <Zap className="w-3 h-3" fill="currentColor" strokeWidth={0} />}
+        DEFCON 4 · {estado === "rodando" ? "ao vivo" : estado === "encerrado" ? "encerrado" : "Modo desafio"}
+      </span>
+      <div className="absolute right-[18px] top-[18px] flex gap-1.5">
+        <button type="button" onClick={p.onAlternarOculto} aria-label={oculto ? "Mostrar valores" : "Esconder valores"} aria-pressed={oculto} className={`w-[34px] h-[34px] rounded-[11px] flex items-center justify-center ${PRESS}`} style={{ border: "1px solid rgba(255,255,255,.10)", background: "rgba(255,255,255,.05)", color: "var(--orbis-fg-2)" }}>
+          {oculto ? <EyeOff className="w-[15px] h-[15px]" /> : <Eye className="w-[15px] h-[15px]" />}
+        </button>
+        {estado === "antes" && (
+          <button type="button" onClick={p.onEditar} aria-label="Editar meta" className={`w-[34px] h-[34px] rounded-[11px] flex items-center justify-center ${PRESS}`} style={{ border: "1px solid rgba(255,255,255,.10)", background: "rgba(255,255,255,.05)", color: "var(--orbis-fg-2)" }}><Pencil className="w-3.5 h-3.5" /></button>
+        )}
+      </div>
+
+      {/* número do dia */}
+      {estado === "rodando" ? (
+        <div className="flex items-center gap-4 mt-3.5">
+          <AnelProgresso pct={progresso} valor={v(n.totalVendido)} cor={bateu ? "#3DD68C" : "#F5B800"} />
+          <div className="flex-1 min-w-0">
+            <p className="orbis-mini">Meta de hoje</p>
+            <p className="orbis-num text-[22px] font-extrabold leading-none mt-1">{v(n.dailyGoal)}</p>
+            <p className="text-[11.5px] mt-1" style={{ color: "var(--orbis-fg-3)" }}>{v(n.dailyGoal / Math.max(1, n.blocosTot || n.workHours))} por bloco</p>
+            <div className="mt-2.5 pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,.08)" }}>
+              <p className="orbis-mini">{bateu ? "Meta batida" : "Falta"}</p>
+              <p className="orbis-num text-[20px] font-extrabold leading-none mt-1" style={bateu ? { color: "var(--orbis-ok)" } : undefined}>{bateu ? `+${v(n.totalVendido - n.dailyGoal)}` : v(falta)}</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p className="orbis-mini mt-3.5">{estado === "encerrado" ? "Vendido hoje" : `Meta de ${diaNome}`}</p>
+          <p className="orbis-num text-[42px] font-extrabold leading-none mt-1.5 tracking-[-1.5px]" style={estado === "encerrado" ? { color: "var(--orbis-ok)" } : undefined}>
+            {v(estado === "antes" ? n.dailyGoal : n.totalVendido)}
+            {estado === "antes" && <span className="text-[16px] font-bold tracking-normal ml-2" style={{ color: "var(--orbis-fg-2)" }}>em {n.workHours} blocos</span>}
+          </p>
+        </>
+      )}
+
+      {/* faixas: escolha (antes) ou régua (rodando/encerrado) */}
+      {temFaixas && meta && estado === "antes" && (
+        <div className="mt-4"><FaixasEscolha m={meta} escolhida={p.faixa} salvando={p.salvandoFaixa} oculto={oculto} onEscolher={p.onEscolherFaixa} /></div>
+      )}
+      {temFaixas && meta && estado !== "antes" && <div className="mt-3.5"><FaixasDaMeta m={meta} vendido={n.totalVendido} compacta /></div>}
+      {!temFaixas && (
+        <>
+          <div className="h-1.5 rounded-full mt-3.5 overflow-hidden" style={{ background: "rgba(255,255,255,.08)" }}>
+            <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${progresso}%`, background: bateu || estado === "rodando" ? "linear-gradient(90deg,#3DD68C,#46E09A)" : "linear-gradient(90deg,#F5B800,#FFC63A)" }} />
+          </div>
+          <div className="flex justify-between text-[11px] font-semibold mt-1.5" style={{ color: "var(--orbis-fg-3)" }}>
+            <span>Vendido <b className="text-foreground">{v(n.totalVendido)}</b></span><span>{bateu ? "meta batida" : `falta ${v(falta)}`}</span>
+          </div>
+        </>
+      )}
+
+      <p className="text-[12.5px] mt-2.5" style={{ color: "var(--orbis-fg-2)" }}>
+        {estado === "antes" && (temFaixas && meta
+          ? <>{meta.status === "aprendendo" ? "a Vant ainda está aprendendo seu ritmo" : <>Toque pra escolher a faixa · seu {diaNome} normal é <b className="text-foreground">{v(meta.ritmo)}</b></>} · ontem <b className="text-foreground">{n.ontem > 0 ? v(n.ontem) : "—"}</b></>
+          : <><b className="text-foreground">{n.workHours} blocos</b> de 1h · ritmo de <b className="text-foreground">{v(n.dailyGoal / Math.max(1, n.workHours))}</b> por hora</>)}
+        {estado === "rodando" && <>Meta <b className="text-foreground">{v(n.dailyGoal)}</b>{n.projecao > 0 ? <> · nesse ritmo você fecha em <b className="text-foreground">{v(n.projecao)}</b></> : null}</>}
+        {estado === "encerrado" && <><b className="text-foreground">{pctMeta}%</b> da meta{n.faltaCair > 0
+          ? <> · caiu <b style={{ color: "var(--orbis-ok)" }}>{v(n.totalCaiu)}</b> · falta cair <b style={{ color: "var(--orbis-gold)" }}>{v(n.faltaCair)}</b></>
+          : n.lucro > 0 ? <> · sobrou <b style={{ color: "var(--orbis-ok)" }}>{v(n.lucro)}</b> pra você</> : null}</>}
+      </p>
+
+      {/* CTA — único botão dominante da tela */}
+      {estado === "rodando" ? (
+        <button type="button" onClick={p.onIrDefcon} data-tour="defcon-banner" className={`w-full h-[56px] rounded-[17px] mt-4 font-extrabold text-[16px] flex items-center justify-center gap-2 ${PRESS}`} style={{ background: "linear-gradient(180deg,#46E09A,#3DD68C)", color: "#06170e", boxShadow: "0 12px 28px -12px rgba(61,214,140,.8)" }}>
+          <Play className="w-[18px] h-[18px]" fill="#06170e" strokeWidth={0} /> VOLTAR PRO DEFCON
+        </button>
+      ) : estado === "encerrado" ? (
+        <>
+          <button type="button" onClick={p.onIrDefcon} data-tour="defcon-banner" className={`orbis-cta w-full mt-4 ${PRESS}`}><FileText className="w-4 h-4" strokeWidth={2.4} /> VER O RELATÓRIO DE HOJE</button>
+          <button type="button" onClick={p.onPDF} disabled={p.exporting} className={`w-full h-[50px] rounded-[16px] mt-2.5 text-[14px] font-bold inline-flex items-center justify-center gap-2 ${PRESS}`} style={{ border: "1px solid rgba(245,184,0,.45)", color: "var(--orbis-gold)" }}>
+            {p.exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><FileDown className="w-4 h-4" /> Baixar PDF de hoje</>}
+          </button>
+        </>
+      ) : (
+        <button type="button" onClick={p.onIrDefcon} data-tour="defcon-banner" className={`w-full h-[58px] rounded-[17px] mt-4 font-extrabold text-[16px] tracking-wide flex items-center justify-center gap-2 ${PRESS}`} style={{ background: "linear-gradient(180deg,#F2465A,#E5354A)", color: "#FFF", boxShadow: "0 14px 30px -10px rgba(229,53,74,.85), inset 0 1px 0 rgba(255,255,255,.18)" }}>
+          <Zap className="w-[18px] h-[18px]" fill="#fff" strokeWidth={0} /> {p.overnightOpen ? "CONTINUAR O DEFCON DE ONTEM" : `INICIAR DEFCON 4${n.dailyGoal > 0 && !oculto ? ` · ${brlOculto(n.dailyGoal, false)}` : ""}`}
+        </button>
+      )}
+
+      {/* estado em texto — nunca só a cor */}
+      <p className="mt-2.5 text-[11.5px] text-center leading-snug" style={{ color: "var(--orbis-fg-3)" }}>
+        {estado === "antes" && (p.overnightOpen
+          ? <>Seu DEFCON de <b className="text-foreground">ontem</b> ainda está aberto — o que vender continua contando pra ontem até você encerrar.</>
+          : <>Você está <b style={{ color: "var(--orbis-fg-2)" }}>fora de operação</b> · o dia conta no streak quando você abre</>)}
+        {estado === "rodando" && <><b style={{ color: "var(--orbis-ok)" }}>Ativo há {ativoHa(n.ativoDesde) ?? "—"}</b> · cada venda entra no relatório na hora</>}
+        {estado === "encerrado" && <>Dia <b style={{ color: "var(--orbis-fg-2)" }}>encerrado</b> · o relatório de hoje já está pronto</>}
+      </p>
+
+      {estado === "rodando" ? (
+        <Trio itens={[["Vendas", n.vendas], ["Abord.", n.abord], ["Conv.", <span key="c" style={{ color: "var(--orbis-gold)" }}>{n.conv}%</span>]]} />
+      ) : estado === "encerrado" ? (
+        <Trio itens={[["Ranking", n.ligaCor ? <span key="r" style={{ color: n.ligaCor }}>#{n.rankPos} · {n.ligaLabel}</span> : "—"], ["Semana", v(n.semana)], ["Amanhã", <span key="a" className="text-[13px]">{n.horaInicio != null ? `${String(n.horaInicio).padStart(2, "0")}h · ` : ""}{v(n.dailyGoal)}</span>]]} />
+      ) : (
+        <Trio itens={[["Ontem", n.ontem > 0 ? <>{v(n.ontem)} {n.pctOntem > 0 && <small className="text-[11px]" style={{ color: n.pctOntem >= 100 ? "var(--orbis-ok)" : "var(--orbis-fg-3)" }}>{n.pctOntem}%</small>}</> : "—"], ["Semana", n.semana > 0 ? v(n.semana) : "—"], ["Ranking", n.ligaCor ? <span key="r" style={{ color: n.ligaCor }}>#{n.rankPos} · {n.ligaLabel}</span> : "—"]]} />
+      )}
+
+      {temFaixas && meta && meta.metaMensal > 0 && <MesCompacto m={meta} oculto={oculto} onReplanejar={p.onReplanejar} />}
+    </section>
+  );
+}
