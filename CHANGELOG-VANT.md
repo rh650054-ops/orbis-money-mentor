@@ -2,6 +2,12 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 18/10/2026 — Pesquisa de satisfação (app.orbis.inf.br/pesquisa)
+- **Página nova `/pesquisa`** (`public/pesquisa.html` + `pesquisa.js`), visual VANT (preto + amarelo, mascote), uma pergunta por tela, ~3 min, pode pular, salva o progresso no celular. Perguntas no espírito da Startup Enxuta: tempo de uso e frequência, função que MAIS usa, quais já usou, **por que não usa** as importantes que não usou (adaptativa: até 2 entre Foco, Ranking, Finanças e IA), por que não registrou venda, "se a VANT sumisse amanhã" (Sean Ellis), maior ganho, o que irrita, o que quer no app (até 3) e **por qual pagaria a mais**, uma coisa que mudaria, nota 0–10 com motivo, e se pode ser chamado no WhatsApp.
+- Quem abre logado no app (mesmo navegador) tem a resposta ligada à conta sem digitar nada; quem não está, pode deixar nome e WhatsApp (opcional). Link pra divulgar: `/pesquisa?o=whatsapp` (a origem fica gravada).
+- **Resultados pra equipe:** rodapé "equipe VANT" → login CPF/senha do app (só admin e comercial) → NPS, % "muito chateado", funções mais usadas, motivos de não usar, desejos × "pagaria por", textos livres, tabela por pessoa (expande) com botão de WhatsApp pra quem topou conversar, filtro por período e busca, CSV.
+- Banco: tabela `pesquisa_respostas` (RLS, sem policy), RPC `pesquisa_enviar` (anon e logado; 1 por conta a cada 30 dias, a nova substitui; trava de 300/hora; tamanho máx. 20 KB) e `pesquisa_listar` (só `is_orbis_crm()`). Rewrite `/pesquisa` no `vercel.json`.
+
 ## 09/10/2026 — CRM (app.orbis.inf.br/crm.html): datas, meta, mensagens editáveis, afiliados, contato errado
 - **Métricas › Números do período:** filtro de datas (Hoje · 7 dias · 30 dias · Este mês · Mês passado · Escolher) com contatos feitos, meta de contatos, vendas Hotmart, leads, contas da safra, conversão da safra e taxa de resposta, mais o gráfico de pessoas contatadas por dia. RPC nova `crm_numeros_periodo(de, até)`.
 - **Meta de hoje corrigida:** antes só contava quem recebia um "desfecho" (Resolvido/Respondeu/…), e o Yan nunca clica nisso — mandava 30 mensagens e a meta ficava em 0. Agora contato = pessoa que recebeu mensagem pelo CRM no dia **ou** teve desfecho marcado. A meta (contatos e vendas por dia) virou editável pelo dono em Métricas e fica no banco (`crm_ajustes.metas`), valendo pros dois.

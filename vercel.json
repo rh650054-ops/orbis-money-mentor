@@ -17,6 +17,14 @@
       "destination": "/excluir-conta.html"
     },
     {
+      "source": "/pesquisa",
+      "destination": "/pesquisa.html"
+    },
+    {
+      "source": "/pesquisa/",
+      "destination": "/pesquisa.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
