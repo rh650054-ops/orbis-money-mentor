@@ -110,6 +110,9 @@ export function DefconAjustarDiaModal({ open, onOpenChange, userId, onSaved, ini
         .from("daily_sales")
         .upsert(row as never, { onConflict: "user_id,date" });
       if (error) throw error;
+      // BUG-007 (18/10): quem tem banco ligado não espera a próxima leitura do robô —
+      // reconfere o dia agora com o que o banco já mandou (Pix que caiu depois entra na hora).
+      try { await (supabase as any).rpc("banco_reconciliar_me"); } catch { /* sem banco: nada a fazer */ }
       await syncLeaderboardRevenue(userId);
       toast({ title: "Dia ajustado ✓", description: `${formatCurrency(faturamento)} de faturamento salvos.` });
       onSaved?.();

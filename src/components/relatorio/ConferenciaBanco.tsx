@@ -19,6 +19,10 @@ const n = (v: unknown) => Number(v) || 0;
 const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
 async function carregar(de: string, ate: string): Promise<DiaConferido[]> {
+  // BUG-007 (18/10): antes de mostrar, reconfere os dias passados com o que o banco já
+  // mandou (não pede dados novos, não gasta cota). Assim o Pix que caiu depois do ajuste
+  // à mão aparece aqui na hora, sem esperar a próxima leitura do robô.
+  try { await (supabase as any).rpc("banco_reconciliar_me"); } catch { /* sem banco */ }
   const { data, error } = await (supabase as unknown as { rpc: (f: string, a: object) => Promise<{ data: unknown; error: unknown }> })
     .rpc("banco_conferencia", { p_de: de, p_ate: ate });
   if (error) throw error;

@@ -550,8 +550,10 @@ export function DefconRunning({
       ? "Mais abordagem = mais venda."
       : "Mais 1 venda agora.";
 
-  // Confirm end screen
-  if (showConfirmEnd) {
+  // Confirm end screen — SÓ no treino (onboarding). No dia real a confirmação é a
+  // "tela 7" da página (DefconChallenge.confirmarFim). BUG-006 (18/10): as duas
+  // empilhadas faziam o usuário confirmar o encerramento duas vezes.
+  if (showConfirmEnd && onboardingMode) {
     return (
       <div className="min-h-[100dvh] bg-background pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
         <div className="text-center space-y-3 mb-8">
@@ -811,7 +813,7 @@ export function DefconRunning({
           <span className="text-foreground/10">|</span>
           <button
             data-tour="defcon-encerrar"
-            onClick={() => setShowConfirmEnd(true)}
+            onClick={() => (onboardingMode ? setShowConfirmEnd(true) : onEnd())}
             className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-destructive/10 transition-[colors,transform,opacity]"
           >
             <span className="text-xs font-mono text-destructive/70 tracking-wider uppercase font-bold">Encerrar</span>
