@@ -1710,12 +1710,14 @@ function renderAfiliados(){
 /* ===== abas ===== */
 function aplicarPapel(){
  document.querySelectorAll('[data-tab="parceiros"]').forEach(b=>b.hidden=false);
+ /* aba Admin (18/10): tudo que era admin no app. Só pra quem é admin (orbis_papel='admin'). */
+ document.querySelectorAll('[data-tab="admin"]').forEach(b=>b.hidden=!ehDono());
  const av=document.getElementById("quemSou");
  if(av) av.title = ehDono()? "Dono — vê tudo" : "Comercial — sem faturamento; gera os links e manda o kit dos parceiros";
 }
 function aba(t){
  document.querySelectorAll("[data-tab]").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));
- ["hoje","alertas","esteiras","metricas","parceiros","afiliados"].forEach(k=>document.getElementById("p-"+k).hidden=k!==t);
+ ["hoje","alertas","esteiras","metricas","parceiros","afiliados","admin"].forEach(k=>{const el=document.getElementById("p-"+k); if(el) el.hidden=k!==t;});
  if(t==="metricas"&&!PERIODO) carregarPeriodo();
 }
 document.querySelectorAll("[data-tab]").forEach(b=>{
@@ -1739,6 +1741,11 @@ async function depoisDoLogin(){
   catch(e){ PROBLEMAS.push("carregamento: "+(e.message||e)); mostrarProblemas(); }
   try{ aplicarPapel(); render(); renderParceiros(); renderAfiliados(); }
   catch(e){ PROBLEMAS.push("desenho da tela: "+(e.message||e)); mostrarProblemas(); }
+  /* aba Admin: crm-admin.js + seções (crm-admin-*.js). Recebe o mesmo cliente logado. */
+  if(ehDono() && window.CRMAdmin){
+    try{ window.CRMAdmin.iniciar({sb, papel:PAPEL, user}); }
+    catch(e){ PROBLEMAS.push("aba admin: "+(e.message||e)); mostrarProblemas(); }
+  }
   document.getElementById("carregando").hidden=true;
 }
 function erroLogin(t, andamento){ const e=document.getElementById("erroLogin"); e.className=andamento?"andamento":""; e.textContent=t||""; }
