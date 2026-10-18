@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Wallet, Package, Settings as SettingsIcon, MessageCircle, ChevronRight, LogOut, Target, Radar, Sun, Moon, ShieldCheck, Landmark } from "lucide-react";
+import { User, Wallet, Package, Settings as SettingsIcon, MessageCircle, ChevronRight, LogOut, Target, Radar, Sun, Moon, Landmark } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { useToast } from "@/shared/hooks/use-toast";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { supabase } from "@/integrations/supabase/client";
@@ -86,9 +85,6 @@ export default function Profile() {
   const { theme, setTheme } = useTheme();
   const [planningOpen, setPlanningOpen] = useState(false);
   const isLight = theme === "light";
-  // Admin-only shortcuts (the admin area itself lives in the CRM site since 18/10/2026).
-  const { whitelisted, role } = useAdminAccess(user?.id);
-  const isAdmin = whitelisted && role === "admin";
 
   const handleSignOut = async () => {
     await signOut();
@@ -111,20 +107,6 @@ export default function Profile() {
         <p className="text-muted-foreground mt-1">Acesse e gerencie sua conta</p>
       </div>
 
-      {isAdmin && (
-        <Card className="cursor-pointer border-primary/25 hover:border-primary/50" onClick={() => navigate("/simular-teste")}>
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-foreground">Simulador do teste</p>
-              <p className="text-xs text-muted-foreground truncate">Escolha o dia 0, 1, 2, 3 ou fim e veja o que o vendedor vê</p>
-            </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-          </CardContent>
-        </Card>
-      )}
 
       <div className="space-y-3">
         {menuItems.map((item) => {
