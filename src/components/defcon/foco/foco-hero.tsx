@@ -3,13 +3,14 @@
    antes (vinho: pressão/meta), rodando (verde: ao vivo), encerrado (ouro).
    Só o que importa pra APERTAR: a meta de hoje, a régua Mínimo · Meta · Turbo
    (acende conforme passa — não é escolha), o botão e três números de contexto.
-   O mês mora no card de baixo (MesCard). Puro: recebe tudo por props.
+   O mês mora no card de baixo (MesCard). Sem "olho" de esconder valores (Rick, 18/10).
+   Puro: recebe tudo por props.
    ============================================================ */
-import { Check, Eye, EyeOff, FileDown, FileText, Loader2, Pencil, Play, Zap } from "lucide-react";
+import { Check, FileDown, FileText, Loader2, Pencil, Play, Zap } from "lucide-react";
 import { FaixasDaMeta } from "@/components/metas/FaixasDaMeta";
 import { DIAS_PT, type MetaDoDia } from "@/shared/lib/meta-viavel";
 import { AnelProgresso, Trio } from "./foco-hero-partes";
-import { brlOculto, PRESS, type EstadoFoco } from "./foco-tipos";
+import { brl0, PRESS, type EstadoFoco } from "./foco-tipos";
 
 export interface HeroNumeros {
   dailyGoal: number; totalVendido: number; totalCaiu: number; faltaCair: number; lucro: number;
@@ -27,8 +28,6 @@ interface Props {
   temFaixas: boolean;
   overnightOpen: boolean;
   exporting: boolean;
-  oculto: boolean;
-  onAlternarOculto: () => void;
   onEditar: () => void;
   onIrDefcon: () => void;
   onPDF: () => void;
@@ -47,9 +46,9 @@ function ativoHa(iso: string | null): string | null {
 }
 
 export function FocoHero(p: Props) {
-  const { estado, n, meta, temFaixas, oculto } = p;
+  const { estado, n, meta, temFaixas } = p;
   const tom = TOM[estado];
-  const v = (x: number) => brlOculto(x, oculto);
+  const v = brl0;
   const progresso = n.dailyGoal > 0 ? Math.min(100, (n.totalVendido / n.dailyGoal) * 100) : 0;
   const bateu = n.dailyGoal > 0 && n.totalVendido >= n.dailyGoal;
   const falta = Math.max(0, n.dailyGoal - n.totalVendido);
@@ -63,14 +62,9 @@ export function FocoHero(p: Props) {
         {estado === "rodando" ? <span className="inline-block w-2 h-2 rounded-full" style={{ background: "#3DD68C", boxShadow: "0 0 0 4px rgba(61,214,140,.18)" }} /> : estado === "encerrado" ? <Check className="w-3 h-3" strokeWidth={3} /> : <Zap className="w-3 h-3" fill="currentColor" strokeWidth={0} />}
         DEFCON 4 · {estado === "rodando" ? "ao vivo" : estado === "encerrado" ? "encerrado" : "Modo desafio"}
       </span>
-      <div className="absolute right-[18px] top-[18px] flex gap-1.5">
-        <button type="button" onClick={p.onAlternarOculto} aria-label={oculto ? "Mostrar valores" : "Esconder valores"} aria-pressed={oculto} className={`w-[34px] h-[34px] rounded-[11px] flex items-center justify-center ${PRESS}`} style={{ border: "1px solid rgba(255,255,255,.10)", background: "rgba(255,255,255,.05)", color: "var(--orbis-fg-2)" }}>
-          {oculto ? <EyeOff className="w-[15px] h-[15px]" /> : <Eye className="w-[15px] h-[15px]" />}
-        </button>
-        {estado === "antes" && (
-          <button type="button" onClick={p.onEditar} aria-label="Editar meta" className={`w-[34px] h-[34px] rounded-[11px] flex items-center justify-center ${PRESS}`} style={{ border: "1px solid rgba(255,255,255,.10)", background: "rgba(255,255,255,.05)", color: "var(--orbis-fg-2)" }}><Pencil className="w-3.5 h-3.5" /></button>
-        )}
-      </div>
+      {estado === "antes" && (
+        <button type="button" onClick={p.onEditar} aria-label="Editar meta" className={`absolute right-[18px] top-[18px] w-[34px] h-[34px] rounded-[11px] flex items-center justify-center ${PRESS}`} style={{ border: "1px solid rgba(255,255,255,.10)", background: "rgba(255,255,255,.05)", color: "var(--orbis-fg-2)" }}><Pencil className="w-3.5 h-3.5" /></button>
+      )}
 
       {/* número do dia */}
       {estado === "rodando" ? (

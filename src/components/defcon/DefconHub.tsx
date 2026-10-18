@@ -32,7 +32,7 @@ import { CompraSheet } from "./foco/compra-sheet";
 import { UltimasCompras } from "./foco/ultimas-compras";
 import { Utilitarios } from "./foco/utilitarios";
 import { BlocosDeHoje } from "./foco/blocos-de-hoje";
-import { CATEGORIAS_CUSTO, PRESS, useOcultarValores, type CategoriaCusto, type DayTotals, type ItemCarga } from "./foco/foco-tipos";
+import { CATEGORIAS_CUSTO, PRESS, type CategoriaCusto, type DayTotals, type ItemCarga } from "./foco/foco-tipos";
 
 /* ============================================================
    FOCO — a central de execução do dia (redesign 18/10/2026).
@@ -61,13 +61,12 @@ export default function DefconHub() {
   const [quickCostCat, setQuickCostCat] = useState<CategoriaCusto>("mercadoria");
   const [showEdit, setShowEdit] = useState(false);
   const [ajustarDiaOpen, setAjustarDiaOpen] = useState(false);
-  // Foco redesign (18/10): sheet da compra, carga em edição, olho
+  // Foco redesign (18/10): sheet da compra, carga em edição
   const [compraAberta, setCompraAberta] = useState(false);
   const [compraProduto, setCompraProduto] = useState<string | null>(null);
   const [versaoCompras, setVersaoCompras] = useState(0);
   const [editandoCarga, setEditandoCarga] = useState(false);
   const [custosOntem, setCustosOntem] = useState<CustosDia>({ mercadoria: 0, transporte: 0, alimentacao: 0 });
-  const [oculto, alternarOculto] = useOcultarValores();
   const today = getBrazilDate();
   // meta viável (11/10): a meta do cérebro, as faixas e o replanejamento do mês
   const qc = useQueryClient();
@@ -403,7 +402,7 @@ export default function DefconHub() {
         blocoN={blocoN} blocosTot={blocosTot} minRestantes={minRestantes} naRua={naRua} vendas={contadores.vendas} />
 
       <FocoHero estado={estado} meta={metaViavel} temFaixas={temFaixas}
-        overnightOpen={overnightOpen} exporting={exporting} oculto={oculto} onAlternarOculto={alternarOculto}
+        overnightOpen={overnightOpen} exporting={exporting}
         onEditar={() => setShowEdit(true)} onIrDefcon={() => navigate("/defcon")} onPDF={() => void handlePDF()}
         n={{
           dailyGoal, totalVendido, totalCaiu, faltaCair, lucro: totals.profit, workHours, blocosTot, projecao,
@@ -412,7 +411,7 @@ export default function DefconHub() {
         }} />
 
       {/* o mês: com o que ele faz por dia, bate a meta final? (bloco próprio, não embola com a meta de hoje) */}
-      {temFaixas && metaViavel && <MesCard m={metaViavel} oculto={oculto} onReplanejar={() => setReplanOpen(true)} />}
+      {temFaixas && metaViavel && <MesCard m={metaViavel} onReplanejar={() => setReplanOpen(true)} />}
 
       <AcoesRapidas onComprar={() => abrirCompra(null)} onEstoque={atualizarEstoque} onAjustarOntem={() => setAjustarDiaOpen(true)} />
 

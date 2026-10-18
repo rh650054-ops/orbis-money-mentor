@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { BatteryLow, BatteryFull, MapPin, MapPinOff } from "lucide-react";
 import { useGpsTracking } from "@/shared/hooks/use-gps-tracking";
 import { formatCurrency } from "@/shared/lib/utils";
@@ -14,10 +13,9 @@ interface DefconStartScreenProps {
   primeiroDia?: boolean;
 }
 
-export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onboardingMode, primeiroDia }: DefconStartScreenProps) {
+export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, primeiroDia }: DefconStartScreenProps) {
   const { enabled: battery, toggle: toggleBattery } = useBatterySaver();
   const { enabled: gps, toggle: toggleGps } = useGpsTracking();
-  const [confirming, setConfirming] = useState(false);
 
   return (
     // min-h + overflow-y-auto: em telas baixas (celular pequeno / paisagem) a tela
@@ -119,16 +117,13 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onb
 
       {/* Bottom: actions */}
       <div className="pb-4 space-y-2">
+        {/* Um toque só: quem chegou aqui já apertou "Iniciar DEFCON" no Foco (Rick, 18/10) */}
         <button
           data-tour="defcon-iniciar"
-          onClick={() => (onboardingMode || primeiroDia ? onStart() : confirming ? onStart() : setConfirming(true))}
-          className={`w-full h-14 rounded-2xl font-black text-base active:scale-[0.98] transition-[colors,transform,opacity] ${
-            confirming
-              ? "bg-destructive text-destructive-foreground shadow-[0_0_30px_-5px_hsl(var(--destructive)/0.6)]"
-              : "bg-destructive text-destructive-foreground"
-          }`}
+          onClick={onStart}
+          className="w-full h-14 rounded-2xl font-black text-base bg-destructive text-destructive-foreground active:scale-[0.98] transition-[colors,transform,opacity] shadow-[0_0_30px_-5px_hsl(var(--destructive)/0.6)]"
         >
-          {!onboardingMode && confirming ? "CONFIRMAR — INICIAR AGORA" : "INICIAR DEFCON 4"}
+          COMEÇAR
         </button>
         <button
           onClick={onExit}
