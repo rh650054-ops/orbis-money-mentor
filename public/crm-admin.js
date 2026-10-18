@@ -88,6 +88,7 @@
         <button class="btn ghost" data-adm-fechar style="padding:6px 11px;font-size:12px">Fechar</button></div>
       <div class="dr-body" style="overflow:auto;padding:14px 16px 28px">${html}</div>`;
     dr.dataset.on = "1"; veu.dataset.on = "1";
+    veu.onclick = fecharPainel;
     dr.querySelector("[data-adm-fechar]").addEventListener("click", fecharPainel);
     if (ligar) ligar(dr.querySelector(".dr-body"));
   }

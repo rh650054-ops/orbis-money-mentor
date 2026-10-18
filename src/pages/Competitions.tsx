@@ -144,7 +144,7 @@ export default function Competitions() {
         <h1 className="text-xl sm:text-2xl font-bold text-foreground flex-1 min-w-0 truncate">Competições</h1>
         {isAdmin && (
           <button
-            onClick={() => navigate("/admin/competitions")}
+            onClick={() => window.open("/crm.html", "_blank", "noopener")}
             className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-primary/15 border border-primary/40 text-primary text-sm font-bold whitespace-nowrap active:scale-[0.97] transition-transform"
           >
             <Plus className="w-4 h-4" /> Criar

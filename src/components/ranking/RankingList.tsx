@@ -84,10 +84,10 @@ function Row({ entry, position, isMe, subtitle, suspect, formatCurrency, onOpenP
         {suspect && (
           <span
             role="button"
-            onClick={(e) => { e.stopPropagation(); navigate("/admin/anti-trapaca"); }}
-            title={`⚠️ Suspeito: ${suspect} — toque pra revisar/remover`}
+            onClick={(e) => { e.stopPropagation(); window.open("/crm.html", "_blank", "noopener"); }}
+            title={`⚠️ Suspeito: ${suspect} — revise no CRM (Admin › Anti-trapaça)`}
             className="shrink-0 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center animate-pulse shadow-[0_0_8px_rgba(239,68,68,.7)]"
-            aria-label="Suspeito de fraude — abrir anti-trapaça"
+            aria-label="Suspeito de fraude — abrir o CRM"
           >
             <span className="text-[9px] leading-none">!</span>
           </span>

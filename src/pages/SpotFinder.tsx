@@ -10,9 +10,8 @@
    ============================================================ */
 import { useMarcarPasso } from "@/components/jornada/useJornada";
 import { useEffect, useMemo, useState } from "react";
-import { Navigation, LocateFixed, Flame, Loader2, MapPin, Search, Check, Download, ChevronDown, Trophy, X } from "lucide-react";
+import { Navigation, LocateFixed, Flame, Loader2, MapPin, Search, Check, ChevronDown, Trophy, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { useToast } from "@/shared/hooks/use-toast";
@@ -215,8 +214,6 @@ export default function SpotFinder() {
   // jornada do teste: abrir esta tela cumpre o passo "sinal" do dia
   useMarcarPasso("sinal");
   const { user } = useAuth();
-  const { whitelisted, role } = useAdminAccess(user?.id);
-  const isAdmin = whitelisted && role === "admin";
   const { toast } = useToast();
 
   const [city, setCity] = useState("");
@@ -231,7 +228,6 @@ export default function SpotFinder() {
   const [meus, setMeus] = useState<Meu[]>([]);
   const [naRua, setNaRua] = useState(0);
   const [nota, setNota] = useState<string | null>(null);
-  const [importing, setImporting] = useState(false);
   const [cidades, setCidades] = useState<Cidade[]>([]);
   const [escolhendoCidade, setEscolhendoCidade] = useState(false);
 
@@ -352,19 +348,6 @@ export default function SpotFinder() {
     }
     toast({ title: `${nomeDoSinal(s)} ligado ao seu DEFCON de ${String(ultima.date).slice(8, 10)}/${String(ultima.date).slice(5, 7)}`, description: "Entrou no seu histórico." });
     carregarMeus();
-  };
-
-  const importSignals = async () => {
-    if (!city || !uf) { setEscolhendoCidade(true); return; }
-    setImporting(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("importar-semaforos", { body: { city, state: uf, radius_km: Math.max(raio, 10) } });
-      if (error) throw error;
-      toast({ title: `${data?.total_salvos ?? 0} semáforos importados`, description: `${city}/${uf}` });
-      if (center) carregar(center, raio);
-    } catch (e: any) {
-      toast({ title: "Erro no import", description: e?.message ?? "Falha", variant: "destructive" });
-    } finally { setImporting(false); }
   };
 
   // ===== inteligência =====
@@ -539,12 +522,6 @@ export default function SpotFinder() {
         </div>
       )}
 
-      {isAdmin && (
-        <button type="button" onClick={importSignals} disabled={importing} className="w-full h-9 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5" style={{ color: "#8a8378", border: "1px dashed #2a2823" }}>
-          {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-          {importing ? "Importando semáforos…" : "Importar semáforos desta cidade (admin)"}
-        </button>
-      )}
     </div>
   );
 }

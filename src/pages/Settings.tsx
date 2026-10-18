@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Bell, Volume2, Shield, HelpCircle, Info, ChevronRight, Check, X, Gift, Ticket, ShieldAlert, Clock } from "lucide-react";
+import { ArrowLeft, Bell, Volume2, Shield, HelpCircle, Info, ChevronRight, Check, X, Ticket } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Switch } from "@/shared/ui/switch";
@@ -178,45 +178,6 @@ export default function Settings() {
       {isAdmin && (
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">Admin</p>
-
-          <Card className="cursor-pointer hover:bg-muted/10 transition-colors" onClick={() => navigate("/admin/competitions")}>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary">
-                <Gift className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold">Competições</p>
-                <p className="text-xs text-muted-foreground">Criar e gerenciar os desafios mensais e semanais</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:bg-muted/10 transition-colors" onClick={() => navigate("/admin/anti-trapaca")}>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary">
-                <ShieldAlert className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold">Anti-trapaça</p>
-                <p className="text-xs text-muted-foreground">Ver quem fez um dia muito acima da média e ocultar do ranking</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:bg-muted/10 transition-colors" onClick={() => navigate("/admin/extrato-config")}>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold">Horário do extrato</p>
-                <p className="text-xs text-muted-foreground">Definir até que horas o extrato do dia pode ser enviado</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </CardContent>
-          </Card>
 
           <Card className="cursor-pointer hover:bg-muted/10 transition-colors" onClick={() => navigate("/bilhete")}>
             <CardContent className="p-4 flex items-center gap-4">

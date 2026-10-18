@@ -387,12 +387,15 @@
       } else if (act === "vencedor-x1" && c) {
         // Same as X1Carteira's admin "premiar": scores from the live board.
         // Prize/fee use the duel's stored values (10% rake), not x1_settings.fee_flat.
-        if (!U.confirmar(`Premiar ${nome(b.dataset.w)} como vencedor deste X1?${c.stakes_amount > 0 ? " Prêmio " + brl(c.prize_amount) + "." : ""}`)) return;
+        // A duel whose stake was set but prize never filled in falls back to pot − fee.
+        const fee = Number(c.fee_amount) || 0;
+        const premio = Number(c.prize_amount) > 0 ? Number(c.prize_amount) : Math.max(0, (Number(c.stakes_amount) || 0) * 2 - fee);
+        if (!U.confirmar(`Premiar ${nome(b.dataset.w)} como vencedor deste X1?${c.stakes_amount > 0 ? " Prêmio " + brl(premio) + "." : ""}`)) return;
         const p = await lerPlacar(c.id);
         rodar("x1_admin_set_result", {
           p_id: c.id, p_winner: b.dataset.w,
           p_challenger_score: p.erro ? 0 : p.ch, p_opponent_score: p.erro ? 0 : p.op,
-          p_prize: Number(c.prize_amount) || 0, p_fee: Number(c.fee_amount) || 0,
+          p_prize: premio, p_fee: fee,
           p_notes: "definido pelo admin no X1",
         }, "Vencedor premiado! 🏆");
       } else if (act === "placar" && c) {

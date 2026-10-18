@@ -172,7 +172,7 @@
           <summary class="mini-h" style="padding:8px 10px;cursor:pointer">Dia a dia</summary>
           <div style="max-height:260px;overflow:auto;border-top:1px solid var(--line)">
             <table class="tabela"><tbody>${porDia.filter((d) => d.cadastros > 0 || d.assinaturas > 0).slice().reverse().map((d) =>
-              `<tr><td>${isoBR(d.dia)}</td><td class="n">${U.esc(d.cadastros)} cadastro(s)</td><td class="n" style="color:var(--ok);font-weight:700">${U.esc(d.assinaturas)} venda(s)</td></tr>`).join("")}</tbody></table>
+              `<tr><td>${U.esc(isoBR(d.dia))}</td><td class="n">${U.esc(d.cadastros)} cadastro(s)</td><td class="n" style="color:var(--ok);font-weight:700">${U.esc(d.assinaturas)} venda(s)</td></tr>`).join("")}</tbody></table>
           </div>
         </details>` : ""}
     </div>`;
@@ -469,6 +469,7 @@
       </div>
 
       <div id="cl-ficha"></div>
+      <div id="cl-ganhos"></div>
 
       <div class="mini-h" style="margin:14px 0 8px">Perfil</div>
       <div style="display:grid;gap:10px">
@@ -507,7 +508,7 @@
     if (ce) ce.addEventListener("click", () => U.copiar(f.email, "E-mail copiado"));
     dr.querySelector("#cl-cancelar").addEventListener("click", () => { P = null; A.fecharPainel(); });
     dr.querySelector("#cl-salvar").addEventListener("click", salvarPerfil);
-    desenharComp(); desenharRank(); desenharSenha(); desenharVendas(); desenharFicha();
+    desenharComp(); desenharRank(); desenharSenha(); desenharVendas(); desenharFicha(); desenharGanhos();
   }
   const sub = (id) => document.querySelector("#drawer #" + id);
 
@@ -774,6 +775,47 @@
       ${copiar && v !== "—" ? `<button class="btn ghost" data-copiar-ficha="${U.esc(v)}" style="padding:3px 8px;font-size:11px">Copiar</button>` : ""}
     </div>`;
   }
+
+  /* ---- winnings (was the admin view of PublicProfileModal "Ganhos"): total, X1 history, competition prizes ---- */
+  async function desenharGanhos() {
+    const box = sub("cl-ganhos"); if (!box || !P) return;
+    const uid = P.u.user_id, alvo = P;
+    box.innerHTML = `<div class="box" style="padding:12px 14px;margin-top:12px"><b style="font-size:13px">Ganhos</b>
+      <div style="font-size:12px;color:var(--dim);margin-top:6px">Carregando…</div></div>`;
+    const [w, x1, cw] = await Promise.all([
+      U.rpc("get_user_winnings", { p_user: uid }),
+      ctxSb().from("x1_challenges").select("id, challenger_id, opponent_id, winner_user_id, prize_amount, created_at")
+        .eq("status", "finished").or(`challenger_id.eq.${uid},opponent_id.eq.${uid}`)
+        .order("created_at", { ascending: false }).limit(20),
+      ctxSb().from("competition_winners").select("id, prize_label, prize_value, awarded_at")
+        .eq("user_id", uid).order("awarded_at", { ascending: false }).limit(20),
+    ]);
+    if (P !== alvo) return;
+    const total = w.data && typeof w.data.total === "number" ? w.data.total : 0;
+    const hist = (x1.data || []).map((r) => ({ other: r.challenger_id === uid ? r.opponent_id : r.challenger_id, won: r.winner_user_id === uid, prize: Number(r.prize_amount) || 0 }));
+    const ids = [...new Set(hist.map((h) => h.other))];
+    const nomes = new Map();
+    if (ids.length) {
+      const { data: ps } = await ctxSb().from("public_profiles").select("user_id, nickname").in("user_id", ids);
+      (ps || []).forEach((p) => nomes.set(p.user_id, p.nickname || "Vendedor"));
+    }
+    if (P !== alvo) return;
+    const comps = cw.data || [];
+    box.innerHTML = `<div class="box" style="padding:12px 14px;margin-top:12px">
+      <div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px;flex:1">Ganhos</b>
+        <b style="color:var(--ok)">${U.esc(U.brl(total))}</b></div>
+      ${w.error ? `<div style="font-size:11px;color:var(--bad)">${U.esc(w.error)}</div>` : ""}
+      ${hist.length ? `<div class="mini-h" style="margin-top:10px">X1 (últimos ${hist.length})</div>
+        ${hist.map((h) => `<div style="display:flex;gap:8px;font-size:12px;padding:3px 0">
+          <span style="flex:1">vs ${U.esc(nomes.get(h.other) || "Vendedor")}</span>
+          <span style="font-weight:700;color:${h.won ? "var(--ok)" : "var(--bad)"}">${h.won ? "venceu" + (h.prize ? " · " + U.esc(U.brl(h.prize)) : "") : "perdeu"}</span></div>`).join("")}` : ""}
+      ${comps.length ? `<div class="mini-h" style="margin-top:10px">Competições</div>
+        ${comps.map((c) => `<div style="display:flex;gap:8px;font-size:12px;padding:3px 0"><span style="flex:1">${U.esc(c.prize_label || "Prêmio")}</span>
+          <span style="font-weight:700">${U.esc(U.brl(Number(c.prize_value) || 0))}</span></div>`).join("")}` : ""}
+      ${!hist.length && !comps.length ? `<div style="font-size:12px;color:var(--dim);margin-top:6px">Nenhum X1 ou prêmio ainda.</div>` : ""}
+    </div>`;
+  }
+  const ctxSb = () => window.CRMAdmin.ctx.sb;
 
   function desenharFicha() {
     const box = sub("cl-ficha"); if (!box || !P) return;
