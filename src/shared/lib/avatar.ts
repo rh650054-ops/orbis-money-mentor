@@ -32,6 +32,8 @@ export function avatarThumb(url: string | null | undefined, size = 96): string |
 export function fotoValida(url: string | null | undefined): string | null {
   if (!url) return null;
   const u = url.trim();
+  // VANT avatar icons live in /public/avatares (18/10/2026)
+  if (/^\/avatares\/[a-z]+\.svg$/.test(u)) return u;
   return /^https?:\/\//i.test(u) ? u : null;
 }
 

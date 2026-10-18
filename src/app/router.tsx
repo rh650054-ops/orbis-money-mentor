@@ -46,7 +46,7 @@ const Transactions = lazyWithReload(() => import("@/pages/Transactions"));
 const History = lazyWithReload(() => import("@/pages/History"));
 const Insights = lazyWithReload(() => import("@/pages/Insights"));
 const Profile = lazyWithReload(() => import("@/pages/Profile"));
-const MyAccount = lazyWithReload(() => import("@/pages/MyAccount"));
+const ContaPage = lazyWithReload(() => import("@/features/conta/routes/conta-page"));
 const Settings = lazyWithReload(() => import("@/pages/Settings"));
 const Products = lazyWithReload(() => import("@/pages/Products"));
 const ProdutosPage = lazyWithReload(() => import("@/features/produtos/routes/produtos-page"));
@@ -178,7 +178,7 @@ export function AppRouter() {
                     <Route path="/x1/sala/:id/chamar" element={<X1SalaNova />} />
                     <Route path="/rewards" element={<Rewards />} />
                     <Route path="/profile" element={<Profile />} />
-                    <Route path="/my-account" element={<MyAccount />} />
+                    <Route path="/my-account" element={<FeatureErrorBoundary title="Minha conta"><ContaPage /></FeatureErrorBoundary>} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/products" element={<FeatureErrorBoundary title="Produtos"><ProdutosPage /></FeatureErrorBoundary>} />
                     <Route path="/products/novo" element={<FeatureErrorBoundary title="Produtos"><QuizProdutoPage /></FeatureErrorBoundary>} />
