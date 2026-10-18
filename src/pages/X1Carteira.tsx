@@ -7,7 +7,7 @@ import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { toast } from "@/shared/hooks/use-toast";
 import PublicProfileModal from "@/components/PublicProfileModal";
-import { ArrowLeft, Swords, Plus, Check, X, Search, Copy, Upload, Loader2, ChevronRight, Trash2 } from "lucide-react";
+import { ArrowLeft, Swords, Plus, Check, X, Search, Copy, Upload, Loader2, ChevronRight } from "lucide-react";
 
 interface X1 {
   id: string;
@@ -364,33 +364,7 @@ export default function X1Carteira() {
   const markPaid = (id: string) => rpc("x1_mark_paid", { p_id: id }, "Marcado como pago — admin vai confirmar");
   const cancelX1 = (id: string) => rpc("x1_cancel", { p_id: id }, "Desafio cancelado");
 
-  // Admin: EXCLUIR o X1 de vez (limpa os públicos/teste). Diferente do cancelar
-  // (que é só pro desafiante e só em pendente/aceito).
-  const adminDeleteX1 = (id: string) => {
-    if (!confirm("Excluir este X1 de vez? Não dá pra desfazer.")) return;
-    return rpc("admin_delete_x1", { p_id: id }, "X1 excluído");
-  };
-
-  // Admin: premiar o vencedor. Prêmio = pote (2x aposta) − taxa Vant; placar do ao-vivo se houver.
-  const adminPremiar = (c: X1, winnerId: string) => {
-    if (!confirm(`Premiar ${name(winnerId)} como vencedor deste X1?`)) return;
-    const fee = Number(settings?.fee_flat ?? 0);
-    const prize = Math.max(0, Number(c.stakes_amount || 0) * 2 - fee);
-    const p = placar[c.id];
-    return rpc(
-      "x1_admin_set_result",
-      {
-        p_id: c.id,
-        p_winner: winnerId,
-        p_challenger_score: Number(p?.ch ?? 0),
-        p_opponent_score: Number(p?.op ?? 0),
-        p_prize: prize,
-        p_fee: fee,
-        p_notes: "definido pelo admin no X1",
-      },
-      "Vencedor premiado! 🏆",
-    );
-  };
+  // Admin actions (excluir X1, premiar vencedor) moved to the CRM on 18/10/2026.
 
   // Sobe o comprovante do Pix pro bucket privado, grava no desafio e marca como pago.
   const uploadProof = async (c: X1, file: File) => {
@@ -1193,25 +1167,6 @@ export default function X1Carteira() {
                       {dateBR(c.scheduled_date)}
                       {c.stakes_amount > 0 ? ` · ${fmt(c.stakes_amount * 2)} no pote · resultado às 9h pelo extrato` : ""}
                     </p>
-                    {isAdmin && (
-                      <div className="pt-2 mt-1 border-t border-border/20 space-y-1.5">
-                        <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Admin</p>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <button
-                            onClick={() => adminPremiar(c, c.challenger_id)}
-                            className="h-9 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[11px] font-bold inline-flex items-center justify-center gap-1 active:scale-[0.98] transition-transform"
-                          >
-                            🏆 <span className="truncate">{name(c.challenger_id)}</span>
-                          </button>
-                          <button
-                            onClick={() => adminPremiar(c, c.opponent_id)}
-                            className="h-9 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[11px] font-bold inline-flex items-center justify-center gap-1 active:scale-[0.98] transition-transform"
-                          >
-                            🏆 <span className="truncate">{name(c.opponent_id)}</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -1240,15 +1195,6 @@ export default function X1Carteira() {
                   </p>
                 )}
 
-                {/* Admin: excluir este X1 (limpa públicos/teste) — qualquer status. */}
-                {isAdmin && (
-                  <button
-                    onClick={() => adminDeleteX1(c.id)}
-                    className="mt-2 w-full h-8 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" /> Excluir X1
-                  </button>
-                )}
               </div>
             );
           })}
