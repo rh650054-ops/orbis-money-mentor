@@ -22,10 +22,10 @@ function recapDe(r: Resumo): RecapStats {
   const melhor = r.dias.melhor;
   return {
     titulo, subtitulo,
-    faturamento: r.dinheiro.caiu, lucro: r.dinheiro.sobrou,
-    dias: r.dias.lista.map((d) => ({ label: r.dias.lista.length <= 7 ? semanaCurta(d.dia)[0]!.toUpperCase() : String(+d.dia.slice(8, 10)), valor: d.caiu, iso: d.dia })),
+    faturamento: r.dinheiro.vendeu, lucro: r.dinheiro.sobrou,
+    dias: r.dias.lista.map((d) => ({ label: r.dias.lista.length <= 7 ? semanaCurta(d.dia)[0]!.toUpperCase() : String(+d.dia.slice(8, 10)), valor: d.vendido, iso: d.dia })),
     diasTrabalhados: r.diasNaRua,
-    melhorDia: melhor ? { label: `${semanaCurta(melhor.dia)} ${ddmm(melhor.dia)}`, valor: melhor.caiu } : null,
+    melhorDia: melhor ? { label: `${semanaCurta(melhor.dia)} ${ddmm(melhor.dia)}`, valor: melhor.vendido } : null,
     vendas: r.vendas.vendas, ticketMedio: r.vendas.ticket ?? 0, horasMin: r.tempo.worked,
     caiuPct: r.dinheiro.vendeu > 0 ? r.dinheiro.pctCaiu : null,
   };
@@ -54,9 +54,9 @@ export function Acoes({ r, userId }: { r: Resumo; userId: string }) {
 
   return (
     <div className="space-y-3">
-      {r.dinheiro.caiu > 0 && (
+      {r.dinheiro.vendeu > 0 && (
         r.umDia
-          ? <DefconShareCarousel stats={{ faturamento: r.dinheiro.caiu, vendas: r.vendas.vendas, conversao: r.vendas.conv ?? 0, horas: fmtHorasCurto(r.tempo.worked), periodo: rotuloDia }} />
+          ? <DefconShareCarousel stats={{ faturamento: r.dinheiro.vendeu, vendas: r.vendas.vendas, conversao: r.vendas.conv ?? 0, horas: fmtHorasCurto(r.tempo.worked), periodo: rotuloDia }} />
           : <RelatorioShareCard stats={recapDe(r)} />
       )}
       <div className="relative">

@@ -7,6 +7,9 @@ import { addDias, brl, diaDaSemana, ehUmDia, fmtMinSeg, pct, semanaCurta, semana
 
 export interface Delta { valor: number; texto: string; tom: "up" | "down" | "flat" }
 
+/** A day row with what was sold (caiu + faltou) and its conversion. */
+export type DiaLista = DiaRel & { vendido: number; conv: number | null };
+
 export interface Insight { tom: "gold" | "ok" | "bad"; titulo: string; texto: string }
 
 export interface PeriodoDia { nome: string; faixa: string; de: number; ate: number; valor: number; vendas: number; abordagens: number; conv: number | null }
@@ -28,10 +31,10 @@ export interface Resumo {
     melhorRitmo: { dia: string; min: number } | null;
   };
   dias: {
-    lista: (DiaRel & { conv: number | null })[];
-    melhor: DiaRel | null; maisEficiente: (DiaRel & { conv: number }) | null; maisFraco: DiaRel | null;
-    semana: { dia: string; letra: string; row: DiaRel | null; futuro: boolean }[] | null;
-    maxCaiu: number;
+    lista: DiaLista[];
+    melhor: DiaLista | null; maisEficiente: (DiaLista & { conv: number }) | null; maisFraco: DiaLista | null;
+    semana: { dia: string; letra: string; row: DiaLista | null; futuro: boolean }[] | null;
+    maxCaiu: number; // max "vendido" of a day (bar scale)
   };
   horas: { periodos: PeriodoDia[]; melhorPeriodo: PeriodoDia | null; shareMelhor: number; barras: { h: number; valor: number }[]; melhorHora: { h: number; valor: number; vendas: number } | null; piorHora: { h: number; valor: number } | null };
   tempo: {
@@ -87,15 +90,17 @@ export function derivar(rel: Relatorio, banco: DiaBanco[], periodo: Periodo, rot
 
   const conv = a.vendas.conversao;
   const ativo = a.tempo.ativo_min;
-  const ticket = vendas > 0 ? caiu / vendas : null;
+  // PR #126 (18/10): "faturamento" is what was SOLD (caiu + faltou). Ticket, best day and
+  // the day list follow that; "sobrou" stays caiu − gastos (money really in the pocket).
+  const ticket = vendas > 0 ? vendeu / vendas : null;
 
-  const lista = a.dias.map((d) => ({ ...d, conv: d.abordagens > 0 ? Math.round((d.vendas / d.abordagens) * 100) : null }));
-  const comVenda = lista.filter((d) => d.caiu > 0 || d.vendas > 0);
-  const melhor = comVenda.reduce<DiaRel | null>((m, d) => (!m || d.caiu > m.caiu ? d : m), null);
-  const maisEficiente = lista.filter((d): d is DiaRel & { conv: number } => d.conv != null && d.vendas >= 5)
-    .reduce<(DiaRel & { conv: number }) | null>((m, d) => (!m || d.conv > m.conv ? d : m), null);
-  const maisFraco = comVenda.length > 1 ? comVenda.reduce<DiaRel | null>((m, d) => (!m || d.caiu < m.caiu ? d : m), null) : null;
-  const maxCaiu = Math.max(0, ...lista.map((d) => d.caiu));
+  const lista = a.dias.map((d) => ({ ...d, vendido: Math.round((d.caiu + d.faltou) * 100) / 100, conv: d.abordagens > 0 ? Math.round((d.vendas / d.abordagens) * 100) : null }));
+  const comVenda = lista.filter((d) => d.vendido > 0 || d.vendas > 0);
+  const melhor = comVenda.reduce<DiaLista | null>((m, d) => (!m || d.vendido > m.vendido ? d : m), null);
+  const maisEficiente = lista.filter((d): d is DiaLista & { conv: number } => d.conv != null && d.vendas >= 5)
+    .reduce<(DiaLista & { conv: number }) | null>((m, d) => (!m || d.conv > m.conv ? d : m), null);
+  const maisFraco = comVenda.length > 1 ? comVenda.reduce<DiaLista | null>((m, d) => (!m || d.vendido < m.vendido ? d : m), null) : null;
+  const maxCaiu = Math.max(0, ...lista.map((d) => d.vendido));
   const semana = periodo.preset === "semana"
     ? Array.from({ length: 7 }, (_, i) => {
         const dia = addDias(periodo.de, i);
@@ -216,7 +221,7 @@ export function montarInsights(r: Resumo, rel: Relatorio, rotuloAnt: string): In
   // 6. Best day
   if (r.dias.melhor && !r.umDia && out.length < 3) {
     const m = r.dias.melhor;
-    out.push({ tom: "gold", titulo: `${semanaLonga(m.dia)[0]!.toUpperCase()}${semanaLonga(m.dia).slice(1)} ${ddmm(m.dia)} foi seu melhor dia.`, texto: `${brl(m.caiu)} em ${m.vendas} vendas${m.abordagens > 0 ? `, ${Math.round((m.vendas / m.abordagens) * 100)}% de conversão` : ""}.` });
+    out.push({ tom: "gold", titulo: `${semanaLonga(m.dia)[0]!.toUpperCase()}${semanaLonga(m.dia).slice(1)} ${ddmm(m.dia)} foi seu melhor dia.`, texto: `${brl(m.vendido)} em ${m.vendas} vendas${m.abordagens > 0 ? `, ${Math.round((m.vendas / m.abordagens) * 100)}% de conversão` : ""}.` });
   }
   return out.slice(0, 3);
 }

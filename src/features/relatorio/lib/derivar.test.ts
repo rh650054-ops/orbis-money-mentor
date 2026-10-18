@@ -26,10 +26,12 @@ describe("derivar — o que cada card mostra", () => {
     expect(r.vendas.ritmoMin).toBeCloseTo(940 / 106, 3);
     expect(r.vendas.abordagemCadaMin).toBeCloseTo(940 / 162, 3);
     expect(r.vendas.abordDia).toBe(27);
+    expect(r.vendas.ticket).toBeCloseTo(4506 / 106, 2); // ticket sobre o VENDIDO (PR #126)
   });
 
   it("dias: melhor por R$, mais eficiente por conversão (≥ 5 vendas), faixa da semana com 7 posições", () => {
     expect(r.dias.melhor?.dia).toBe("2026-10-12");
+    expect(r.dias.lista[1]?.vendido).toBe(637); // caiu 537 + faltou 100
     expect(r.dias.maisEficiente?.dia).toBe("2026-10-13"); // 70% > 68%
     expect(r.dias.maisFraco?.dia).toBe("2026-10-16");
     expect(r.dias.semana?.map((d) => d.letra).join("")).toBe("STQQSSD");
