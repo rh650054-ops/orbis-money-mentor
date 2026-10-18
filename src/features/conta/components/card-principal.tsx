@@ -3,7 +3,7 @@ import { Camera, MapPin } from "lucide-react";
 import type { Conta } from "../types";
 import type { Plano } from "../lib/plano";
 import { membroDesde } from "../lib/plano";
-import { Botao, COR } from "./base";
+import { Botao, COR } from "@/shared/components/vant-ui";
 import { FotoConta } from "./foto-conta";
 
 export function CardPrincipal({ conta, plano, onFoto, onEditar }: { conta: Conta; plano: Plano; onFoto: () => void; onEditar: () => void }) {

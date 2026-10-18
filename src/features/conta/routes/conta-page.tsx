@@ -11,7 +11,7 @@ import { useContaQuery } from "../api/use-conta-query";
 import { useAtividadeQuery } from "../api/use-atividade-query";
 import { planoDe } from "../lib/plano";
 import { ehFoto } from "../lib/avatares";
-import { COR } from "../components/base";
+import { COR } from "@/shared/components/vant-ui";
 import { CardPrincipal } from "../components/card-principal";
 import { PerfilPublicoCard } from "../components/perfil-publico-card";
 import { AtividadeCard } from "../components/atividade-card";
@@ -59,7 +59,7 @@ export default function ContaPage() {
   const fecharFoto = () => { setFolha(voltarPraPerfil ? "perfil" : null); setVoltarPraPerfil(false); };
 
   return (
-    <div className="max-w-md mx-auto flex flex-col gap-5 pt-2 pb-28" style={{ color: COR.texto }}>
+    <div className="max-w-md mx-auto flex flex-col gap-5 pt-2 pb-2" style={{ color: COR.texto }}>
       {cabecalho}
       <CardPrincipal conta={conta} plano={plano} onFoto={() => setFolha("foto")} onEditar={() => setFolha("dados")} />
       <PerfilPublicoCard conta={conta} onVer={() => setFolha("ver")} onEditar={() => setFolha("perfil")} />

@@ -1,7 +1,7 @@
 /* The vendor's picture anywhere on this screen: photo, VANT icon, old emoji or initial. */
 import { useState } from "react";
 import { fotoValida } from "@/shared/lib/avatar";
-import { COR } from "./base";
+import { COR } from "@/shared/components/vant-ui";
 
 export function FotoConta({ url, nome, tamanho = 64, destaque = false }: { url: string | null; nome: string | null; tamanho?: number; destaque?: boolean }) {
   const [quebrou, setQuebrou] = useState(false);

@@ -1,7 +1,7 @@
 /* "Seu perfil público": a real preview of how other vendors see you. */
 import { Instagram, MapPin, MessageCircle, Package, Store } from "lucide-react";
 import type { Conta } from "../types";
-import { Botao, COR, Secao } from "./base";
+import { Botao, COR, Secao } from "@/shared/components/vant-ui";
 import { FotoConta } from "./foto-conta";
 
 export function PerfilPublicoCard({ conta, onVer, onEditar }: { conta: Conta; onVer: () => void; onEditar: () => void }) {

@@ -6,7 +6,7 @@ import { supabase } from "@/shared/api";
 import { toast } from "@/shared/hooks/use-toast";
 import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
-import { Botao, COR, Folha, INPUT } from "./base";
+import { Botao, COR, Folha, INPUT } from "@/shared/components/vant-ui";
 
 export function AcoesConta() {
   const navigate = useNavigate();

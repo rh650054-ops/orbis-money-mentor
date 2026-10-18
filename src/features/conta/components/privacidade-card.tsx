@@ -4,7 +4,7 @@ import { Users } from "lucide-react";
 import { toast } from "@/shared/hooks/use-toast";
 import type { Conta } from "../types";
 import { useRankingVisivelMutation, useSalvarPerfilMutation } from "../api/use-conta-mutations";
-import { COR, LinhaToggle, Secao } from "./base";
+import { COR, LinhaToggle, Secao } from "@/shared/components/vant-ui";
 
 export function PrivacidadeCard({ conta }: { conta: Conta }) {
   const perfil = useSalvarPerfilMutation(conta.user_id);

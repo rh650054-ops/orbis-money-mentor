@@ -6,7 +6,7 @@ import { avisar } from "@/shared/lib/avisar";
 import { AvatarCropper } from "@/components/AvatarCropper";
 import { useFotoMutation, type MudancaFoto } from "../api/use-foto-mutation";
 import { AvatarVantPicker } from "./avatar-vant-picker";
-import { COR, Folha } from "./base";
+import { COR, Folha } from "@/shared/components/vant-ui";
 
 type Props = { aberta: boolean; onFechar: () => void; userId: string; atual: string | null; temFoto: boolean };
 
