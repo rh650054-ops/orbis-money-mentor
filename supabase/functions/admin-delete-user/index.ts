@@ -56,16 +56,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // admin = CPF do caller esta na tabela admin_access
-    const { data: adminRole } = await adminClient.from("admin_access").select("cpf").limit(200);
-    const { data: callerProfile } = await adminClient
-      .from("profiles")
-      .select("cpf")
-      .eq("user_id", caller.id)
-      .single();
-    const isAdmin =
-      callerProfile?.cpf &&
-      adminRole?.some((a: { cpf: string }) => a.cpf === callerProfile.cpf);
+    // Admin = the same rule as the database (is_orbis_dono: enabled admin_access
+    // row or user_roles admin). Before 18/10/2026 this compared raw CPFs and
+    // ignored admin_access.enabled, so a disabled admin kept this power.
+    const { data: ehDono } = await anonClient.rpc("is_orbis_dono");
+    const isAdmin = ehDono === true;
 
     if (!isAdmin) {
       return new Response(JSON.stringify({ error: "Admin access required" }), {
