@@ -23,8 +23,6 @@ interface Props {
   onChanged: () => void;
 }
 
-export const ID_INPUT_CUSTO = "foco-custo-input";
-
 export function CustoRapido({ estado, categoria, valor, hoje, ontem, onCategoria, onValor, onLancar, onRepetir, onChanged }: Props) {
   const totalHoje = hoje.mercadoria + hoje.transporte + hoje.alimentacao;
   const deOntem = ontem[categoria];
@@ -34,7 +32,7 @@ export function CustoRapido({ estado, categoria, valor, hoje, ontem, onCategoria
     <div className="rounded-[20px] border px-4 py-3.5" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-[14.5px] font-extrabold">Custo rápido</p>
-        <p className="text-[11.5px]" style={{ color: "var(--orbis-fg-3)" }}>{estado === "encerrado" ? "esqueceu algum custo?" : "hoje:"} {totalHoje > 0 && <b className="orbis-num" style={{ color: "var(--orbis-custo)" }}>{brl0(totalHoje)}</b>}</p>
+        {estado === "encerrado" && <p className="text-[11.5px]" style={{ color: "var(--orbis-fg-3)" }}>esqueceu algum custo?</p>}
       </div>
       <div className="grid grid-cols-3 gap-1.5 mt-3 p-1 rounded-[14px]" style={{ background: "rgba(0,0,0,.4)", border: "1px solid var(--orbis-line)" }} role="tablist" aria-label="Tipo de custo">
         {CATEGORIAS_CUSTO.map((c) => {
@@ -50,7 +48,7 @@ export function CustoRapido({ estado, categoria, valor, hoje, ontem, onCategoria
         })}
       </div>
       <div className="flex gap-2 mt-2.5">
-        <MoneyInput id={ID_INPUT_CUSTO} value={parseFloat(valor) || 0} onChange={(n) => onValor(n ? String(n) : "")} placeholder={cat.placeholder}
+        <MoneyInput value={parseFloat(valor) || 0} onChange={(n) => onValor(n ? String(n) : "")} placeholder={cat.placeholder}
           className="flex-1 min-w-0 h-12 bg-background border border-border rounded-[14px] px-3.5 text-[15px] font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground placeholder:font-medium placeholder:text-[13px]" />
         <button type="button" onClick={onLancar} disabled={!valor || parseFloat(valor) <= 0} className={`shrink-0 h-12 px-4 rounded-[14px] font-extrabold text-[13.5px] inline-flex items-center gap-1.5 disabled:opacity-40 ${PRESS}`} style={{ background: "linear-gradient(180deg,var(--orbis-gold-light),var(--orbis-gold))", color: "#1a1200" }}>
           <Plus className="w-4 h-4" strokeWidth={3} /> Lançar
@@ -63,6 +61,7 @@ export function CustoRapido({ estado, categoria, valor, hoje, ontem, onCategoria
       )}
       <div className="flex items-center justify-between gap-2 mt-3 text-[12px]" style={{ color: "var(--orbis-fg-3)" }}>
         <span className="truncate">{lancados.length ? <>Hoje: {lancados.map((c, i) => <span key={c.id}>{i ? " · " : ""}<b style={{ color: "var(--orbis-fg-2)" }}>{c.label} {brl0(hoje[c.id])}</b></span>)}</> : "Nenhum custo lançado hoje"}</span>
+        {totalHoje > 0 && lancados.length > 1 && <b className="orbis-num shrink-0" style={{ color: "var(--orbis-custo)" }}>{brl0(totalHoje)}</b>}
       </div>
       <div className="mt-2"><CustoRapidoHistorico onChanged={onChanged} /></div>
     </div>

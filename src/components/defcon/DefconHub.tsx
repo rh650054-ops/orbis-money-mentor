@@ -15,17 +15,18 @@ import { WeeklyChallengeIcon } from "@/components/competitions/WeeklyChallenge";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { RetomarLugar, SinalDeHoje } from "@/components/defcon/FocoExtras";
 import { MissaoDoDia } from "@/components/jornada/MissaoDoDia";
-import { escolherFaixaDoDia, garantirPlanoDoDia, type FaixaDoDia } from "@/shared/lib/plano-do-dia";
+import { garantirPlanoDoDia } from "@/shared/lib/plano-do-dia";
 import { useMetaDoDia } from "@/hooks/useMetaDoDia";
 import { useQueryClient } from "@tanstack/react-query";
 import { ReplanejarMes } from "@/components/metas/ReplanejarMes";
 import { conferirLugar, gravarMelhor, lerMelhor } from "@/components/defcon/retomar-lugar";
-import { ArrowRight, Plus, ShoppingCart } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { FocoCabecalho } from "./foco/foco-cabecalho";
 import { FocoHero } from "./foco/foco-hero";
 import { AcoesRapidas } from "./foco/acoes-rapidas";
 import { MercadoriaDoDia } from "./foco/mercadoria-do-dia";
-import { CustoRapido, ID_INPUT_CUSTO, type CustosDia } from "./foco/custo-rapido";
+import { CustoRapido, type CustosDia } from "./foco/custo-rapido";
+import { MesCard } from "./foco/mes-card";
 import { ComoRecebeu } from "./foco/como-recebeu";
 import { CompraSheet } from "./foco/compra-sheet";
 import { UltimasCompras } from "./foco/ultimas-compras";
@@ -35,8 +36,10 @@ import { CATEGORIAS_CUSTO, PRESS, useOcultarValores, type CategoriaCusto, type D
 
 /* ============================================================
    FOCO — a central de execução do dia (redesign 18/10/2026).
-   Ordem: cabeçalho → DEFCON → ações rápidas → mercadoria → operação do dia
-   (custo rápido, como recebeu) → compra → últimas compras → utilitários.
+   Ordem: cabeçalho → DEFCON → seu mês → ações rápidas → mercadoria → operação
+   do dia (custo rápido, como recebeu) → últimas compras → utilitários.
+   Cada função aparece UMA vez: compra só pelo atalho (e "Repor X"), ajustar a
+   carga só pelo atalho, ajustar ontem só pelo atalho.
    Este arquivo carrega os dados e orquestra; cada bloco mora em ./foco/.
    ============================================================ */
 export default function DefconHub() {
@@ -58,9 +61,7 @@ export default function DefconHub() {
   const [quickCostCat, setQuickCostCat] = useState<CategoriaCusto>("mercadoria");
   const [showEdit, setShowEdit] = useState(false);
   const [ajustarDiaOpen, setAjustarDiaOpen] = useState(false);
-  // Foco redesign (18/10): faixa escolhida pro dia, sheet da compra, carga em edição, olho
-  const [faixa, setFaixa] = useState<FaixaDoDia>("normal");
-  const [salvandoFaixa, setSalvandoFaixa] = useState(false);
+  // Foco redesign (18/10): sheet da compra, carga em edição, olho
   const [compraAberta, setCompraAberta] = useState(false);
   const [compraProduto, setCompraProduto] = useState<string | null>(null);
   const [versaoCompras, setVersaoCompras] = useState(0);
@@ -171,7 +172,6 @@ export default function DefconHub() {
         setDailyGoal(Number(p.daily_goal));
         setPlanId(p.id);
         setWorkHours(Number(p.work_hours) || 8);
-        setFaixa(p.faixa ?? "normal");
       }
       void qc.invalidateQueries({ queryKey: ["meta-do-dia"] });
     }
@@ -388,28 +388,12 @@ export default function DefconHub() {
   const dataLabel = new Date(`${today}T12:00:00`).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "short" }).replace(/\./g, "").replace("-feira", "");
   if (loading || !user) return null;
 
-  const irParaCusto = () => {
-    document.getElementById("foco-operacao")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    window.setTimeout(() => document.getElementById(ID_INPUT_CUSTO)?.focus(), 350);
-  };
   const abrirCompra = (produto: string | null) => { setCompraProduto(produto); setCompraAberta(true); };
   const atualizarEstoque = () => {
     if (estado === "antes") {
       setEditandoCarga(true);
       document.getElementById("foco-mercadoria")?.scrollIntoView({ behavior: "smooth", block: "start" });
     } else navigate("/products");
-  };
-  const escolherFaixa = async (f: FaixaDoDia) => {
-    if (!user) return;
-    setSalvandoFaixa(true);
-    const p = await escolherFaixaDoDia(user.id, today, f);
-    setSalvandoFaixa(false);
-    if (!p) { toast({ title: "A faixa de hoje já está travada", description: "O DEFCON de hoje já começou." }); return; }
-    setFaixa(p.faixa ?? f); setDailyGoal(Number(p.daily_goal));
-    const rotulo = f === "minimo" ? "Mínimo" : f === "turbo" ? "Turbo" : "Meta";
-    toast({ title: `Faixa de hoje: ${rotulo}`, description: `Sua meta agora é ${formatCurrency(Number(p.daily_goal))}` });
-    void qc.invalidateQueries({ queryKey: ["meta-do-dia"] });
-    void loadAll();
   };
   const custosHoje: CustosDia = { mercadoria: totals.cost, transporte: totals.transport, alimentacao: totals.food };
 
@@ -418,17 +402,19 @@ export default function DefconHub() {
       <FocoCabecalho estado={estado} dataLabel={dataLabel} nome={nome} diasNoMes={rank.dias} horaInicio={horaInicio}
         blocoN={blocoN} blocosTot={blocosTot} minRestantes={minRestantes} naRua={naRua} vendas={contadores.vendas} />
 
-      <FocoHero estado={estado} meta={metaViavel} temFaixas={temFaixas} faixa={faixa} salvandoFaixa={salvandoFaixa}
+      <FocoHero estado={estado} meta={metaViavel} temFaixas={temFaixas}
         overnightOpen={overnightOpen} exporting={exporting} oculto={oculto} onAlternarOculto={alternarOculto}
-        onEscolherFaixa={(f) => void escolherFaixa(f)} onEditar={() => setShowEdit(true)} onReplanejar={() => setReplanOpen(true)}
-        onIrDefcon={() => navigate("/defcon")} onPDF={() => void handlePDF()}
+        onEditar={() => setShowEdit(true)} onIrDefcon={() => navigate("/defcon")} onPDF={() => void handlePDF()}
         n={{
           dailyGoal, totalVendido, totalCaiu, faltaCair, lucro: totals.profit, workHours, blocosTot, projecao,
           ontem: ontem.vendido, pctOntem, semana, vendas: contadores.vendas, abord: contadores.abord, conv,
           rankPos: rank.pos, ligaCor: liga?.color ?? null, ligaLabel, horaInicio, ativoDesde: sessao?.started_at ?? null,
         }} />
 
-      <AcoesRapidas onLancarCusto={irParaCusto} onComprar={() => abrirCompra(null)} onEstoque={atualizarEstoque} onAjustarOntem={() => setAjustarDiaOpen(true)} />
+      {/* o mês: com o que ele faz por dia, bate a meta final? (bloco próprio, não embola com a meta de hoje) */}
+      {temFaixas && metaViavel && <MesCard m={metaViavel} oculto={oculto} onReplanejar={() => setReplanOpen(true)} />}
+
+      <AcoesRapidas onComprar={() => abrirCompra(null)} onEstoque={atualizarEstoque} onAjustarOntem={() => setAjustarDiaOpen(true)} />
 
       {estado !== "antes" && <BlocosDeHoje blocos={blocosHoje} total={blocosTot || workHours} dailyGoal={dailyGoal} rodandoAgora={estado === "rodando"} />}
 
@@ -445,7 +431,7 @@ export default function DefconHub() {
 
       <div id="foco-mercadoria">
         <MercadoriaDoDia estado={estado} carga={carga} editando={editandoCarga && estado === "antes"}
-          onEditar={() => setEditandoCarga(true)} onVerEstoque={() => navigate("/products")} onRepor={(nome) => abrirCompra(nome)}>
+          onVerEstoque={() => navigate("/products")} onRepor={(nome) => abrirCompra(nome)}>
           <DefconLoadoutManager userId={user.id} />
           <button type="button" onClick={() => { setEditandoCarga(false); void loadAll(); }} className="mt-2 text-[12px] font-bold" style={{ color: "var(--orbis-gold)" }}>fechar</button>
         </MercadoriaDoDia>
@@ -461,26 +447,11 @@ export default function DefconHub() {
         {totalVendido > 0 && <ComoRecebeu userId={user.id} planId={planId} totals={totals} totalVendido={totalVendido} onChanged={() => void loadAll()} />}
       </section>
 
-      <section className="mt-6 px-0.5" aria-label="Compra de mercadoria">
-        <p className="orbis-mini">Compra de mercadoria</p>
-        <div className="rounded-[20px] border mt-2.5 px-4 py-3.5" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
-          <div className="flex items-center gap-3">
-            <span className="w-10 h-10 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(245,184,0,.13)", color: "var(--orbis-gold)" }}><ShoppingCart className="w-[19px] h-[19px]" strokeWidth={2.3} /></span>
-            <span className="flex-1 min-w-0"><b className="block text-[14.5px] font-extrabold">Comprou hoje? Lança aqui</b><small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>atualiza estoque, custo por produto e o resumo do dia</small></span>
-          </div>
-          <button type="button" onClick={() => abrirCompra(null)} className={`w-full h-[46px] rounded-[13px] mt-3 inline-flex items-center justify-center gap-1.5 text-[13.5px] font-extrabold ${PRESS}`} style={{ background: "linear-gradient(180deg,var(--orbis-gold-light),var(--orbis-gold))", color: "#1a1200" }}>
-            <Plus className="w-4 h-4" strokeWidth={3} /> Lançar compra
-          </button>
-        </div>
-      </section>
-
       <UltimasCompras userId={user.id} versao={versaoCompras} onChanged={() => void loadAll()} />
 
       <Utilitarios temBancoTrabalho={temBancoTrabalho} gps={{ kmSemana: gps.kmSemana, kmTotal: gps.kmTotal, diasSemana: gps.diasSemana, velocidade: gpsVelocidade, pace: gpsPaceLabel }}
         pdfDate={pdfDate} exporting={exporting} onPdfDate={setPdfDate} onPDF={() => void handlePDF()}
-        onAjustarOntem={() => setAjustarDiaOpen(true)} onHistorico={() => navigate("/history")} />
-
-      <p className="text-center text-[11.5px] mt-4" style={{ color: "var(--orbis-fg-3)" }}>Relatórios completos e filtros ficam na aba <span style={{ color: "var(--orbis-gold)" }}>Relatório</span>.</p>
+        onHistorico={() => navigate("/history")} />
 
       <CompraSheet aberto={compraAberta} userId={user.id} produtoInicial={compraProduto} onFechar={() => setCompraAberta(false)}
         onChanged={() => { setVersaoCompras((v) => v + 1); void loadAll(); }} />

@@ -1,7 +1,9 @@
 /* "Sua mercadoria de hoje" — bloco de ACOMPANHAMENTO, não de sugestão: produto
    principal com estoque, custo/un, preço e rendimento; os outros em linhas curtas
-   com status (saudável / acabando / acabou). Vazio útil: explica e tem botão. */
-import { ChevronRight, Package, Pencil, Plus } from "lucide-react";
+   com status (saudável / acabando / acabou). Vazio útil: explica e tem botão.
+   Ajustar a carga é o atalho "Atualizar estoque" (não repete botão aqui); o único
+   botão próprio é "Repor X", e só quando algo acabou/está acabando. */
+import { ChevronRight, Package, Plus } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { brl0, PRESS, type EstadoFoco, type ItemCarga } from "./foco-tipos";
 
@@ -22,13 +24,12 @@ interface Props {
   estado: EstadoFoco;
   carga: ItemCarga[];
   editando: boolean;
-  onEditar: () => void;
   onVerEstoque: () => void;
   onRepor: (nome: string) => void;
   children?: React.ReactNode; // o gerenciador de carga, quando aberto
 }
 
-export function MercadoriaDoDia({ estado, carga, editando, onEditar, onVerEstoque, onRepor, children }: Props) {
+export function MercadoriaDoDia({ estado, carga, editando, onVerEstoque, onRepor, children }: Props) {
   const tot = carga.reduce((t, c) => t + c.levou, 0);
   const vend = carga.reduce((t, c) => t + c.vendeu, 0);
   const entra = carga.reduce((t, c) => t + c.levou * c.preco, 0);
@@ -46,10 +47,7 @@ export function MercadoriaDoDia({ estado, carga, editando, onEditar, onVerEstoqu
 
   return (
     <section className="mt-6 px-0.5" aria-label="Sua mercadoria de hoje">
-      <div className="flex items-center justify-between">
-        <p className="orbis-mini">{estado === "encerrado" ? "Sua mercadoria" : "Sua mercadoria de hoje"}</p>
-        {carga.length > 0 && <button type="button" onClick={onVerEstoque} className="text-[11.5px] font-bold" style={{ color: "var(--orbis-gold)" }}>ver estoque ›</button>}
-      </div>
+      <p className="orbis-mini">{estado === "encerrado" ? "Sua mercadoria" : "Sua mercadoria de hoje"}</p>
       <div className="rounded-[20px] border mt-2.5 px-4 py-3.5" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
         {!principal ? (
           <button type="button" onClick={onVerEstoque} className={`w-full flex items-center gap-3 text-left ${PRESS}`}>
@@ -66,7 +64,7 @@ export function MercadoriaDoDia({ estado, carga, editando, onEditar, onVerEstoqu
                 <small className="block text-[12px] mt-0.5 truncate" style={{ color: "var(--orbis-fg-3)" }}>
                   {estado === "rodando" ? carga.map((c) => `${c.nome} ${c.vendeu} de ${c.levou}`).join(" · ")
                     : estado === "encerrado" ? `${vend} unidades vendidas hoje${faltando.length ? ` · ${faltando.map((c) => c.nome.toLowerCase()).join(", ")} ${faltando.length === 1 ? "acabou" : "acabaram"}` : ""}`
-                    : `produto principal · ${principal.levou} un na carga`}
+                    : "produto principal de hoje"}
                 </small>
               </span>
               {estado === "rodando"
@@ -102,15 +100,8 @@ export function MercadoriaDoDia({ estado, carga, editando, onEditar, onVerEstoqu
                 ))}
               </div>
             )}
-            {estado !== "rodando" && !editando && (
-              <div className="flex gap-2 mt-3">
-                {estado === "antes" && (
-                  <button type="button" onClick={onEditar} className={`flex-1 h-[42px] rounded-[13px] inline-flex items-center justify-center gap-1.5 text-[13px] font-bold ${PRESS}`} style={{ border: "1px solid rgba(245,184,0,.4)", color: "var(--orbis-gold)" }}><Pencil className="w-3.5 h-3.5" /> Atualizar mercadoria</button>
-                )}
-                {faltando.length > 0 && (
-                  <button type="button" onClick={() => onRepor(faltando[0]!.nome)} className={`flex-1 h-[42px] rounded-[13px] inline-flex items-center justify-center gap-1.5 text-[13px] font-extrabold ${PRESS}`} style={{ background: "linear-gradient(180deg,var(--orbis-gold-light),var(--orbis-gold))", color: "#1a1200" }}><Plus className="w-3.5 h-3.5" strokeWidth={3} /> Repor {faltando[0]!.nome.toLowerCase()}</button>
-                )}
-              </div>
+            {estado !== "rodando" && !editando && faltando.length > 0 && (
+              <button type="button" onClick={() => onRepor(faltando[0]!.nome)} className={`w-full h-[42px] rounded-[13px] mt-3 inline-flex items-center justify-center gap-1.5 text-[13px] font-extrabold ${PRESS}`} style={{ background: "linear-gradient(180deg,var(--orbis-gold-light),var(--orbis-gold))", color: "#1a1200" }}><Plus className="w-3.5 h-3.5" strokeWidth={3} /> Repor {faltando[0]!.nome.toLowerCase()}</button>
             )}
             {editando && <div className="mt-3">{children}</div>}
           </>
