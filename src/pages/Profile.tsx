@@ -86,7 +86,7 @@ export default function Profile() {
   const { theme, setTheme } = useTheme();
   const [planningOpen, setPlanningOpen] = useState(false);
   const isLight = theme === "light";
-  // Central de Administração: só aparece pra admin (a segurança real é no banco).
+  // Admin-only shortcuts (the admin area itself lives in the CRM site since 18/10/2026).
   const { whitelisted, role } = useAdminAccess(user?.id);
   const isAdmin = whitelisted && role === "admin";
 
@@ -111,25 +111,6 @@ export default function Profile() {
         <p className="text-muted-foreground mt-1">Acesse e gerencie sua conta</p>
       </div>
 
-      {/* Administração mudou pro CRM da Vant (18/10/2026): senha, dados de cliente,
-          carteiras e o resto ficam fora do app. Aqui só o atalho pro site. */}
-      {isAdmin && (
-        <Card
-          className="cursor-pointer border-primary/40 bg-primary/5 hover:border-primary/60 transition-[colors,transform,opacity] hover:scale-[1.01]"
-          onClick={() => window.open("/crm.html", "_blank", "noopener")}
-        >
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-full bg-primary/15 flex items-center justify-center text-primary">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-foreground">Administração</p>
-              <p className="text-xs text-muted-foreground truncate">Agora fica no CRM da Vant · abre o site</p>
-            </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-          </CardContent>
-        </Card>
-      )}
       {isAdmin && (
         <Card className="cursor-pointer border-primary/25 hover:border-primary/50" onClick={() => navigate("/simular-teste")}>
           <CardContent className="p-4 flex items-center gap-4">
