@@ -23,3 +23,21 @@ export function useRelatorioQuery(de: string, ate: string) {
     refetchOnWindowFocus: false,
   });
 }
+
+/** Pix que caiu DEPOIS de fechar o Foco, lido do banco (só dias com Open Finance).
+ *  Sem a função no banco ainda (ou sem banco) volta null e a tela usa o manual. */
+export function useCaloteBancoQuery(de: string, ate: string, enabled: boolean) {
+  return useQuery({
+    queryKey: relatorioKeys.list({ de, ate, tela: "calote-banco" }),
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await (supabase as unknown as RpcClient).rpc("relatorio_calote_banco", { p_de: de, p_ate: ate });
+      if (error) return null;
+      const linhas = (Array.isArray(data) ? data : []) as { recuperado?: unknown; n?: unknown }[];
+      return linhas.reduce<{ total: number; n: number }>((t, l) => ({ total: t.total + (Number(l.recuperado) || 0), n: t.n + (Number(l.n) || 0) }), { total: 0, n: 0 });
+    },
+    staleTime: 30_000,
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+}

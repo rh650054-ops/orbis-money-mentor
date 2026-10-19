@@ -81,3 +81,15 @@ describe("derivar — o que cada card mostra", () => {
     expect(derivar({ atual: vazio, anterior: vazio, normal: vazio }, [], periodo, "x").semDados).toBe(true);
   });
 });
+
+describe("calote com Open Finance", () => {
+  it("caiu depois vem do banco: total = faltou + o que caiu depois; perdido = faltou", () => {
+    const base = derivar(rel(), [], periodo, "7 dias anteriores");
+    const r = derivar(rel(), [], periodo, "7 dias anteriores", { total: 131, n: 5 });
+    expect(r.calote.peloBanco).toBe(true);
+    expect(r.calote.recuperado).toBe(131);
+    expect(r.calote.perdido).toBe(base.dinheiro.faltou);
+    expect(r.calote.total).toBe(base.dinheiro.faltou + 131);
+    expect(base.calote.peloBanco).toBe(false);
+  });
+});

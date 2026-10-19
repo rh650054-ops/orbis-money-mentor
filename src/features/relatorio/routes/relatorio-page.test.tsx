@@ -21,6 +21,7 @@ vi.mock("@/utils/reportExport", () => ({ generateAndDownloadReport: vi.fn(async 
 vi.mock("../api/use-relatorio-query", () => ({
   relatorioKeys: { all: ["relatorio"] },
   useRelatorioQuery: () => ({ data: relatorioExemplo(), isPending: false, isError: false, error: null, refetch: vi.fn() }),
+  useCaloteBancoQuery: () => ({ data: null }),
 }));
 
 import RelatorioPage from "./relatorio-page";
