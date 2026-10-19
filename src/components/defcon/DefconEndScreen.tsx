@@ -15,7 +15,7 @@ import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
 import { faltou, sobra } from "@/shared/lib/dinheiro";
 import { CaixinhaMeta } from "@/components/defcon/CaixinhaMeta";
-import { usePixDoBanco, puxarBancoAgora, pixQueEntraNoDia, horaDaLeitura } from "@/components/conectar/banco-pix";
+import { usePixDoBanco, puxarBancoAgora, horaDaLeitura } from "@/components/conectar/banco-pix";
 import { CaiuNoBolso } from "@/components/relatorio/CaiuNoBolso";
 import { usePixDestravado, BotaoDestravar, marcarDiaManual } from "./destravar-pix";
 
@@ -89,6 +89,7 @@ export function DefconEndScreen({
   }, [userId, relerBanco]);
   const [cartao, setCartao] = useState("");
   const [dinheiro, setDinheiro] = useState("");
+  const [dinheiroLancado, setDinheiroLancado] = useState("");
   // O vendedor encostou nos campos de recebimento? Sem isso não dá pra
   // diferenciar "ainda não carregou" de "ele zerou porque ninguém pagou".
   const [mexeu, setMexeu] = useState(false);
@@ -212,7 +213,9 @@ export function DefconEndScreen({
         const c = Number((data as any)?.cash_sales || 0);
         const cd = Number((data as any)?.card_sales || 0);
         const px = Number((data as any)?.pix_sales || 0);
-        if (c) setDinheiro(String(c));
+        // 18/10 23:10 (Rick): com Open Finance o lançado é só base — o dinheiro ele INFORMA
+        // no fechamento. O pré-preenchimento só vale pra quem não tem banco (efeito abaixo).
+        setDinheiroLancado(c ? String(c) : "");
         if (cd) setCartao(String(cd));
         if (px) setPix(String(px));
       });
@@ -554,11 +557,18 @@ export function DefconEndScreen({
   // 09/10 18:46 (Rick): Pix E maquininha travados pra todo Pro com banco, sem
   // exceção. Só os sócios destravam, respondendo a pergunta (destravar-pix.tsx).
   const travado = pixBanco.temBanco && !destravado;
+  // Dinheiro do fechamento: sem banco, vem o que foi lançado no Foco; com banco, começa
+  // vazio e o vendedor digita quanto recebeu em dinheiro de verdade (Rick, 18/10 23:10).
+  useEffect(() => {
+    if (mexeu) return;
+    setDinheiro(travado ? "" : dinheiroLancado);
+  }, [travado, dinheiroLancado, mexeu]);
   // maquininha que caiu = cartão (travado), até o que falta depois do dinheiro
   const cartaoNum = travado
-    ? Math.min(pixBanco.maquininha, Math.max(0, Math.round((totalSold - dinheiroNum) * 100) / 100))
+    ? Math.max(0, pixBanco.maquininha) // tudo que caiu na maquininha (sem teto — Rick, 18/10)
     : (parseFloat(cartao) || 0);
-  const pixDoBancoNoDia = pixQueEntraNoDia(pixBanco.pix, totalSold, dinheiroNum, cartaoNum);
+  // 18/10 23:10 (Rick): com banco, o Pix do dia é TUDO que caiu — sem teto no lançado.
+  const pixDoBancoNoDia = { entra: Math.max(0, pixBanco.pix), aMais: 0 };
   // 10/10 15:55 (Rick): no dia, o ranking conta o que ele LANÇOU, pra todo mundo.
   // O Pix travado é o resto do vendido (não se digita); o banco só informa quanto
   // já caiu. À meia-noite banco_reconciliar troca pelo que caiu de verdade.
