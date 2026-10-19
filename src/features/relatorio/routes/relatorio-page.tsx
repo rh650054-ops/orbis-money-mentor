@@ -4,7 +4,8 @@ import FeatureErrorBoundary from "@/shared/components/feature-error-boundary";
 import { useAuth } from "@/hooks/useAuth";
 import FirstTimeCard from "@/components/FirstTimeCard";
 import { useMarcarPasso } from "@/components/jornada/useJornada";
-import { ConferenciaBanco, useConferenciaBanco } from "@/components/relatorio/ConferenciaBanco";
+import { useConferenciaBanco } from "@/components/relatorio/ConferenciaBanco";
+import { usePixDoBanco } from "@/components/conectar/banco-pix";
 import { FechamentoDoDia } from "@/components/relatorio/FechamentoDoDia";
 import { useRelatorioQuery, relatorioKeys } from "../api/use-relatorio-query";
 import { derivar } from "../lib/derivar";
@@ -39,6 +40,8 @@ function RelatorioConteudo() {
 
   const rel = useRelatorioQuery(periodo.de, periodo.ate);
   const banco = useConferenciaBanco(periodo.de, periodo.ate);
+  // "Conferido pelo banco" mora só na aba Vender (Rick, 18/10); aqui só sabemos se tem banco.
+  const { pix: pixBanco } = usePixDoBanco(!!user, 10 * 60_000);
   const resumo = useMemo(() => (rel.data ? derivar(rel.data, banco, periodo, rotuloAnterior(periodo)) : null), [rel.data, banco, periodo]);
 
   const hoje = hojeBR();
@@ -62,12 +65,12 @@ function RelatorioConteudo() {
       {resumo && (
         <>
           <CardDinheiro r={resumo} />
-          <ConferenciaBanco de={periodo.de} ate={periodo.ate} />
           {resumo.umDia && user && (
             <FechamentoDoDia
               userId={user.id}
               date={periodo.de}
               dia={resumo.semDados ? null : { total_profit: rel.data!.atual.dinheiro.caiu, total_debt: rel.data!.atual.dinheiro.faltou, cash_sales: rel.data!.atual.dinheiro.dinheiro, pix_sales: rel.data!.atual.dinheiro.pix, card_sales: rel.data!.atual.dinheiro.cartao, unpaid_units: rel.data!.atual.calote.unidades }}
+              travado={pixBanco.temBanco}
               banco={bancoDoDia ? { pix: bancoDoDia.caiu - bancoDoDia.maquininha, cartao: bancoDoDia.maquininha, hoje: periodo.de === hoje } : null}
               onChanged={() => { void qc.invalidateQueries({ queryKey: relatorioKeys.all }); void qc.invalidateQueries({ queryKey: ["relatorio", "banco-conferencia"] }); }}
             />

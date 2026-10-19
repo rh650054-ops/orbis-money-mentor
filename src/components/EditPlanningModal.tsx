@@ -145,28 +145,36 @@ export function EditPlanningModal({ userId, isOpen, onClose, onSalvo, isRequired
         .eq("plan_id", todayPlan.id);
 
       if (blocks) {
-        // If hours changed, recreate blocks
+        // 18/10/2026 (Jonathan, R$ 1.440 → R$ 208): mudar as horas no meio do dia APAGAVA
+        // todos os blocos e recriava zerados — as vendas do dia sumiam do total e do
+        // ranking. Agora nunca apaga bloco com venda: só cria as horas que faltam e
+        // remove as horas vazias do fim.
         if (blocks.length !== workHours) {
-          // Delete old blocks
-          const { error: delErr } = await supabase
-            .from("hourly_goal_blocks")
-            .delete()
-            .eq("plan_id", todayPlan.id);
-          planErr ??= delErr;
-
-          // Create new blocks
-          const newBlocks = Array.from({ length: workHours }, (_, i) => ({
-            plan_id: todayPlan.id,
-            user_id: userId,
-            hour_index: i,
-            hour_label: `H${i + 1}`,
-            target_amount: hourlyGoal,
-          }));
-
-          const { error: insErr } = await supabase
-            .from("hourly_goal_blocks")
-            .insert(newBlocks);
-          planErr ??= insErr;
+          const temValor = (b: Record<string, unknown>) =>
+            ["achieved_amount", "valor_dinheiro", "valor_pix", "valor_cartao", "valor_calote", "valor_gorjeta"]
+              .some((k) => (Number(b[k]) || 0) > 0);
+          const existentes = new Set(blocks.map((b) => Number(b.hour_index)));
+          const sobrando = blocks.filter((b) => Number(b.hour_index) >= workHours && !temValor(b as Record<string, unknown>));
+          if (sobrando.length > 0) {
+            const { error: delErr } = await supabase
+              .from("hourly_goal_blocks")
+              .delete()
+              .in("id", sobrando.map((b) => b.id));
+            planErr ??= delErr;
+          }
+          const novos = Array.from({ length: workHours }, (_, i) => i)
+            .filter((i) => !existentes.has(i))
+            .map((i) => ({ plan_id: todayPlan.id, user_id: userId, hour_index: i, hour_label: `H${i + 1}`, target_amount: hourlyGoal }));
+          if (novos.length > 0) {
+            const { error: insErr } = await supabase.from("hourly_goal_blocks").insert(novos);
+            planErr ??= insErr;
+          }
+          for (const block of blocks) {
+            if (!block.is_completed && Number(block.hour_index) < workHours) {
+              const { error: updErr } = await supabase.from("hourly_goal_blocks").update({ target_amount: hourlyGoal }).eq("id", block.id);
+              planErr ??= updErr;
+            }
+          }
         } else {
           // Just update target amounts
           for (const block of blocks) {

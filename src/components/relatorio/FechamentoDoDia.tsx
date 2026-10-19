@@ -32,6 +32,9 @@ interface Props {
   /** Banco conferiu o dia (17/10): Pix e cartão são o que CAIU na conta, não o digitado.
    *  `hoje` = ainda pode cair (banco lento) — não chama de calote. */
   banco?: { pix: number; cartao: number; hoje: boolean } | null;
+  /** Tem banco que conta (Open Finance): Pix/cartão/calote vêm do banco à meia-noite,
+   *  então "Caiu mais dinheiro" e "Ajustar o dia" ficam só pra quem não tem banco (Rick, 18/10). */
+  travado?: boolean;
   onChanged: () => void;   // recarrega o Relatório
 }
 
@@ -50,7 +53,7 @@ const prettyWhen = (iso: string) => {
  * direta "Você tomou R$ X de calote", e dá dois botões: "Caiu mais dinheiro" (cliente
  * pagou depois) e "Ajustar o dia" (corrigir os números do dia inteiro).
  */
-export function FechamentoDoDia({ userId, date, dia, banco = null, onChanged }: Props) {
+export function FechamentoDoDia({ userId, date, dia, banco = null, travado = false, onChanged }: Props) {
   const { toast } = useToast();
   const [openReceb, setOpenReceb] = useState(false);
   const [openAjustar, setOpenAjustar] = useState(false);
@@ -145,24 +148,24 @@ export function FechamentoDoDia({ userId, date, dia, banco = null, onChanged }: 
           <p className="text-sm font-semibold text-foreground leading-tight">Fechamento do dia {prettyDate(date)}</p>
           <p className="text-[11px] text-muted-foreground leading-tight">{banco ? "Vendeu × o que caiu no banco × o que faltou" : "Vendeu × caiu × calote — e o que caiu depois"}</p>
         </div>
-        <button
+        {!travado && <button
           onClick={() => setOpenAjustar(true)}
           className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline shrink-0"
         >
           <PencilLine className="w-3.5 h-3.5" /> {semLancamento ? "Lançar o dia" : "Ajustar o dia"}
-        </button>
+        </button>}
       </div>
 
       {/* Frase direta do calote */}
       {semLancamento ? (
         <div className="rounded-xl border border-dashed border-border px-4 py-5 text-center space-y-2">
           <p className="text-sm text-muted-foreground">Nenhum lançamento nesse dia.</p>
-          <button
+          {!travado && <button
             onClick={() => setOpenAjustar(true)}
             className="text-sm font-bold text-primary hover:underline"
           >
             Lançar quanto vendeu e quanto caiu →
-          </button>
+          </button>}
         </div>
       ) : aindaPodeCair ? (
         <div className="rounded-xl bg-destructive/10 border border-destructive/30 px-4 py-4 flex items-center gap-3">
@@ -230,8 +233,8 @@ export function FechamentoDoDia({ userId, date, dia, banco = null, onChanged }: 
         </>
       )}
 
-      {/* Botão principal: caiu mais dinheiro */}
-      {!semLancamento && (
+      {/* Botão principal: caiu mais dinheiro (só sem banco — com banco o Pix entra sozinho) */}
+      {!semLancamento && !travado && (
         <button
           onClick={() => setOpenReceb(true)}
           className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
