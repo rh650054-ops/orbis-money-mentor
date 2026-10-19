@@ -39,6 +39,9 @@ const mutate = vi.fn((_c: ConcluirCompra, opts: { onSuccess: (r: ResultadoCompra
     compra_id: "c1", total: 415.06,
     produtos: [{ id: "b", nome: "Batida", receitas: 57, unidades: 1140, custo_antes: 0.6, custo_depois: 0.36 }],
   }));
+vi.mock("../api/use-compra-mercado", () => ({
+  useCompraAbertaQuery: () => ({ data: null, isLoading: false }),
+}));
 vi.mock("../api/use-concluir-compra-mutation", () => ({
   useConcluirCompraMutation: () => ({ mutate, isPending: false }),
 }));
@@ -67,9 +70,18 @@ describe("Tô no mercado", () => {
     expect(screen.getAllByText(/414,96/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Cada um sai a/)).toBeTruthy();
 
+    // fim da compra: "Teve algum desconto?" → teve R$ 40 (clube)
     fireEvent.click(screen.getByText("CONCLUIR COMPRA"));
+    expect(screen.getByText("Teve algum desconto?")).toBeTruthy();
+    fireEvent.click(screen.getByText("Teve"));
+    fireEvent.change(screen.getByLabelText("Quanto foi o desconto? (tá na notinha)"), { target: { value: "40" } });
+    expect(screen.getByText("R$ 374,96")).toBeTruthy();
+    fireEvent.click(screen.getByText("PRONTO, CONCLUIR"));
     const enviado = mutate.mock.calls[0]?.[0];
-    expect(enviado?.itens).toEqual([
+    expect(enviado?.desconto).toBe(40);
+    const pago = (enviado?.itens ?? []).reduce((t, i) => t + i.qtd * (i.preco_unit ?? 0), 0);
+    expect(Math.abs(pago - 374.96)).toBeLessThan(0.05);
+    expect(enviado?.itensOrig).toEqual([
       { tipo: "ingrediente", id: "lc", nome: "Leite condensado", qtd: 57, preco_unit: 4.99, para: ["b"] },
       { tipo: "ingrediente", id: "cl", nome: "Creme de leite", qtd: 57, preco_unit: 2.29, para: ["b"] },
     ]);
@@ -94,6 +106,8 @@ describe("Tô no mercado", () => {
     expect(screen.getAllByText(/1,00/).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByText("CONCLUIR COMPRA"));
+    fireEvent.click(screen.getByText("Não teve"));
+    expect(mutate.mock.calls[0]?.[0]?.desconto).toBe(0);
     expect(mutate.mock.calls[0]?.[0]?.novaReceita).toEqual({ produto: "t", rende: 60, itens: [{ nome: "Chocolate 1kg", qtd: 2, preco: 30 }] });
   });
 });

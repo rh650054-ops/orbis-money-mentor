@@ -37,3 +37,19 @@ describe("desconto no caixa", () => {
     expect(aplicarDesconto(itens, 10, 50)[0]!.preco_unit).toBe(0);
   });
 });
+
+import { linhasDaCompra } from "./mercado-produto";
+describe("editar compra", () => {
+  it("volta as linhas em pacotes e o item digitado vira o ingrediente salvo", () => {
+    const base = { ingredientes: [
+      { id: "can", name: "Canudo", unit: "un", stock_quantity: 0, cost_per_unit: 0, pacote_qtd: 100 },
+      { id: "nut", name: "Nutella", unit: "un", stock_quantity: 0, cost_per_unit: 0 },
+    ], receitas: [], produtos: [] };
+    const r = linhasDaCompra([
+      { tipo: "ingrediente", id: "can", nome: "Canudo", qtd: 200, preco_unit: 0.08, para: [] },
+      { tipo: "novo", id: null, nome: "nutella ", qtd: 1, preco_unit: 55, para: [] },
+    ], base);
+    expect(r[0]).toMatchObject({ tipo: "ingrediente", id: "can", qtd: 2, precoUnit: 8 });
+    expect(r[1]).toMatchObject({ tipo: "ingrediente", id: "nut", qtd: 1, precoUnit: 55 });
+  });
+});

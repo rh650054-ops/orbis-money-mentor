@@ -99,3 +99,24 @@ export function aplicarDesconto<T extends { qtd: number; preco_unit: number | nu
     ? { ...i, preco_unit: Math.round(i.preco_unit * fator * 10000) / 10000 }
     : i));
 }
+
+/** Compra salva (na unidade de medida, como foi pro banco) → linhas da tela de novo,
+ *  em pacotes. Item digitado à mão ("novo") que já virou ingrediente volta como ele. */
+export function linhasDaCompra(
+  itens: { tipo: "ingrediente" | "produto" | "novo"; id: string | null; nome: string; qtd: number; preco_unit: number | null; para: string[] }[],
+  base: BaseMercado,
+): Omit<LinhaMercado, "key">[] {
+  return itens.filter((i) => i.qtd > 0).map((i) => {
+    const ing = i.tipo === "produto" ? undefined
+      : base.ingredientes.find((x) => (i.id && x.id === i.id) || (!i.id && x.name.trim().toLowerCase() === i.nome.trim().toLowerCase()));
+    if (i.tipo === "produto") return { tipo: "produto" as const, id: i.id, nome: i.nome, qtd: i.qtd, precoUnit: i.preco_unit, para: [] };
+    if (!ing) return { tipo: "novo" as const, id: null, nome: i.nome, qtd: i.qtd, precoUnit: i.preco_unit, para: [] };
+    const pac = Math.max(ing.pacote_qtd ?? 1, 1);
+    return {
+      tipo: "ingrediente" as const, id: ing.id, nome: ing.name,
+      qtd: Math.round((i.qtd / pac) * 1000) / 1000,
+      precoUnit: i.preco_unit != null ? Math.round(i.preco_unit * pac * 100) / 100 : null,
+      para: i.para,
+    };
+  });
+}

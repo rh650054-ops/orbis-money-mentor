@@ -7,6 +7,8 @@ import type { PreviaMercado } from "../lib/mercado";
 import { reais } from "./campos";
 import { BotaoOuro } from "./quiz-casca";
 import { MercadoBanco } from "./mercado-banco";
+import { MercadoRendimento } from "./mercado-rendimento";
+import type { ProdutoMercado } from "../lib/mercado";
 
 const un = (n: number) => n.toLocaleString("pt-BR");
 const OURO = "#F5B800";
@@ -19,11 +21,13 @@ export interface PrecoDaCompra { nome: string; antes: number; agora: number; dif
 export interface ResumoCompra {
   quando: Date; itens: number; precos: PrecoDaCompra[]; vendas: Record<string, number>;
   receitaNova: { nome: string; rende: number } | null;
+  /** desconto no caixa (clube, cupom) */
+  desconto?: number;
 }
 
-export function MercadoPronto({ resultado, prontos, resumo, onProdutos, onDia, onLigarBanco }: {
-  resultado: ResultadoCompra; prontos: PreviaMercado["prontos"]; resumo: ResumoCompra;
-  onProdutos: () => void; onDia: () => void; onLigarBanco: () => void;
+export function MercadoPronto({ resultado, prontos, resumo, faz = [], onProdutos, onDia, onLigarBanco, onEditar }: {
+  resultado: ResultadoCompra; prontos: PreviaMercado["prontos"]; resumo: ResumoCompra; faz?: ProdutoMercado[];
+  onProdutos: () => void; onDia: () => void; onLigarBanco: () => void; onEditar?: () => void;
 }) {
   const feitos = resultado.produtos.filter((p) => p.unidades > 0);
   const hora = resumo.quando.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).replace(":", "h");
@@ -46,6 +50,13 @@ export function MercadoPronto({ resultado, prontos, resumo, onProdutos, onDia, o
           <span className="text-[13px] font-bold" style={{ color: "#b9b3a6" }}>
             {resumo.itens} {resumo.itens === 1 ? "item" : "itens"} · hoje às {hora}
           </span>
+          {(resumo.desconto ?? 0) > 0 && (
+            <span className="text-[13px] font-extrabold" style={{ color: "#4ADE80" }}>com {reais(resumo.desconto ?? 0)} de desconto</span>
+          )}
+          {onEditar && (
+            <button type="button" onClick={onEditar} className="mt-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-black"
+              style={{ background: "rgba(245,184,0,.14)", color: OURO }}>Editar compra</button>
+          )}
         </section>
 
         {/* o que virou estoque */}
@@ -90,7 +101,10 @@ export function MercadoPronto({ resultado, prontos, resumo, onProdutos, onDia, o
             ))}
           </section>
         )}
-        {feitos.length === 0 && prontos.length === 0 && (
+        {feitos.length === 0 && prontos.length === 0 && faz.length > 0 && resultado.total > 0 && (
+          <MercadoRendimento compraId={resultado.compra_id} total={resultado.total} faz={faz} />
+        )}
+        {feitos.length === 0 && prontos.length === 0 && faz.length === 0 && (
           <section className="rounded-[18px] px-4 py-3.5 text-[13px] font-bold" style={{ ...CARTAO, color: "#b9b3a6" }}>
             Tudo guardado no estoque de ingredientes. Quando a receita fechar, vira produto pronto.
           </section>
