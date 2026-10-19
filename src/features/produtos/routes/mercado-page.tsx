@@ -3,14 +3,14 @@
    preço, vê o custo de cada unidade e se pagou mais caro, e ao concluir o
    estoque sobe na hora e a VANT confere a compra no banco. */
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
 import { useMercadoQuery } from "../api/use-mercado-query";
 import { useConcluirCompraMutation, type ResultadoCompra } from "../api/use-concluir-compra-mutation";
 import { useMercado, type ModoPreco } from "../hooks/use-mercado";
 import { produtosDoIngrediente, type PreviaMercado } from "../lib/mercado";
-import { compararPreco } from "../lib/mercado-produto";
+import { compararPreco, sugestaoPorReceita } from "../lib/mercado-produto";
 import { CarregandoProdutos } from "../components/carregando-produtos";
 import { CampoDinheiro, DuasAbas } from "../components/campos";
 import { BotaoOuro } from "../components/quiz-casca";
@@ -24,6 +24,9 @@ import { MercadoTotal } from "../components/mercado-total";
 
 export default function MercadoPage() {
   const navigate = useNavigate();
+  // veio do "Tô no mercado" do Foco: voltar e concluir devolvem pro Foco (Rick, 19/10)
+  const [params] = useSearchParams();
+  const doFoco = params.get("de") === "foco";
   const { user } = useAuth();
   const { data: base, isLoading, isError, refetch } = useMercadoQuery(user?.id);
   const m = useMercado(base);
@@ -43,7 +46,7 @@ export default function MercadoPage() {
     };
   }, [base]);
 
-  const voltar = () => navigate("/products");
+  const voltar = () => navigate(doFoco ? "/daily-goals" : "/products");
   if (isLoading) return <CarregandoProdutos />;
   if (isError || !base) {
     return (
@@ -127,7 +130,14 @@ export default function MercadoPage() {
       ))}
       <MercadoChips base={base} noCarrinho={m.linhas.flatMap((l) => (l.tipo === "ingrediente" && l.id ? [l.id] : []))} onAdicionar={m.adicionar} />
       {m.primeiraVez && m.temItem && (
-        <PrimeiraCompra nome={nomeFoco} unidades={m.unidades} total={m.totalCompra} onUnidades={m.setUnidades} />
+        <PrimeiraCompra nome={nomeFoco} unidades={m.unidades} rende={m.rende} total={m.totalCompra}
+          onUnidades={m.setUnidades} onRende={m.setRende} onItem={m.mudarPorReceita}
+          itens={m.emUn.filter((l) => l.qtd > 0 && (l.tipo === "ingrediente" || l.tipo === "novo")).map((l) => ({
+            key: l.key, nome: l.nome,
+            unidade: l.tipo === "ingrediente" ? ingDe(l.id)?.unit ?? "" : "",
+            sugestao: sugestaoPorReceita(l.qtd, m.unidades, m.rende),
+            valor: m.porReceita[l.key],
+          }))} />
       )}
       {!m.primeiraVez && m.temItem && <MercadoPrevia previa={m.previa} custos={m.custos} />}
     </MercadoCasca>

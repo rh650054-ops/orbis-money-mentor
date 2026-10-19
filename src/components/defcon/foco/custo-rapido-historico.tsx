@@ -29,7 +29,7 @@ export function CustoRapidoHistorico({ onChanged }: { onChanged?: () => void }) 
   const [editing, setEditing] = useState<{ id: string; col: Col } | null>(null);
   const [editVal, setEditVal] = useState("");
   const [busy, setBusy] = useState(false);
-  const [addCol, setAddCol] = useState<Col>("cost");
+  const [addCol, setAddCol] = useState<Col>("transport_cost");
   const [addVal, setAddVal] = useState("");
   const [addDate, setAddDate] = useState(getBrazilDate());
   const [adding, setAdding] = useState(false);
@@ -99,7 +99,7 @@ export function CustoRapidoHistorico({ onChanged }: { onChanged?: () => void }) 
           <div className="mb-3 rounded-lg bg-background border border-border/50 p-2.5 space-y-2">
             <p className="text-[11px] font-semibold text-muted-foreground">Lançar em outro dia</p>
             <div className="grid grid-cols-3 gap-1">
-              {CATS.map(({ col, label, Icon }) => (
+              {CATS.filter((c) => c.col !== "cost").map(({ col, label, Icon }) => (
                 <button key={col} type="button" onClick={() => setAddCol(col)} className={`flex items-center justify-center gap-1 h-8 rounded-lg border text-[11px] font-medium transition ${addCol === col ? "border-primary bg-primary/10 text-foreground" : "border-border/60 bg-card text-muted-foreground"}`}>
                   <Icon className="w-3 h-3" />{label}
                 </button>

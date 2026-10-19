@@ -1,31 +1,36 @@
-/* Custo rápido: abas Mercadoria / Transporte / Almoço, um campo, um botão, e o
+/* Custo rápido: abas Transporte / Almoço / Outro (com descrição), um campo, um botão, e o
    atalho "Repetir R$ X de ontem" (Kyte: duplicar a saída é o jeito mais rápido de
    lançar o custo que se repete). Histórico discreto embaixo. */
-import { Bus, Package, Plus, RotateCcw, Utensils } from "lucide-react";
+import { Bus, MoreHorizontal, Plus, RotateCcw, Utensils } from "lucide-react";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { CustoRapidoHistorico } from "./custo-rapido-historico";
 import { brl0, CATEGORIAS_CUSTO, PRESS, type CategoriaCusto, type EstadoFoco } from "./foco-tipos";
 
-const ICONE: Record<CategoriaCusto, typeof Package> = { mercadoria: Package, transporte: Bus, alimentacao: Utensils };
+const ICONE: Record<CategoriaCusto, typeof Bus> = { transporte: Bus, alimentacao: Utensils, outro: MoreHorizontal };
 
-export interface CustosDia { mercadoria: number; transporte: number; alimentacao: number }
+export interface CustosDia { transporte: number; alimentacao: number; outro: number }
 
 interface Props {
   estado: EstadoFoco;
   categoria: CategoriaCusto;
   valor: string;
+  /** "Outro": com o que gastou (ex.: gelo, copo, estacionamento) */
+  descricao: string;
   hoje: CustosDia;
   ontem: CustosDia;
   onCategoria: (c: CategoriaCusto) => void;
   onValor: (v: string) => void;
+  onDescricao: (v: string) => void;
   onLancar: () => void;
   onRepetir: (c: CategoriaCusto, v: number) => void;
   onChanged: () => void;
 }
 
-export function CustoRapido({ estado, categoria, valor, hoje, ontem, onCategoria, onValor, onLancar, onRepetir, onChanged }: Props) {
-  const totalHoje = hoje.mercadoria + hoje.transporte + hoje.alimentacao;
-  const deOntem = ontem[categoria];
+export function CustoRapido({ estado, categoria, valor, descricao, hoje, ontem, onCategoria, onValor, onDescricao, onLancar, onRepetir, onChanged }: Props) {
+  const totalHoje = hoje.transporte + hoje.alimentacao + hoje.outro;
+  const outro = categoria === "outro";
+  const deOntem = outro ? 0 : ontem[categoria];
+  const podeLancar = !!valor && parseFloat(valor) > 0 && (!outro || descricao.trim().length > 0);
   const cat = CATEGORIAS_CUSTO.find((c) => c.id === categoria)!;
   const lancados = CATEGORIAS_CUSTO.filter((c) => hoje[c.id] > 0);
   return (
@@ -47,10 +52,15 @@ export function CustoRapido({ estado, categoria, valor, hoje, ontem, onCategoria
           );
         })}
       </div>
+      {outro && (
+        <input type="text" value={descricao} onChange={(e) => onDescricao(e.target.value)} maxLength={60}
+          placeholder="Com o que gastou? (ex.: gelo, copo, estacionamento)" aria-label="Com o que gastou"
+          className="w-full mt-2.5 h-12 bg-background border border-border rounded-[14px] px-3.5 text-[14px] font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground placeholder:font-medium placeholder:text-[13px]" />
+      )}
       <div className="flex gap-2 mt-2.5">
         <MoneyInput value={parseFloat(valor) || 0} onChange={(n) => onValor(n ? String(n) : "")} placeholder={cat.placeholder}
           className="flex-1 min-w-0 h-12 bg-background border border-border rounded-[14px] px-3.5 text-[15px] font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground placeholder:font-medium placeholder:text-[13px]" />
-        <button type="button" onClick={onLancar} disabled={!valor || parseFloat(valor) <= 0} className={`shrink-0 h-12 px-4 rounded-[14px] font-extrabold text-[13.5px] inline-flex items-center gap-1.5 disabled:opacity-40 ${PRESS}`} style={{ background: "linear-gradient(180deg,var(--orbis-gold-light),var(--orbis-gold))", color: "#1a1200" }}>
+        <button type="button" onClick={onLancar} disabled={!podeLancar} className={`shrink-0 h-12 px-4 rounded-[14px] font-extrabold text-[13.5px] inline-flex items-center gap-1.5 disabled:opacity-40 ${PRESS}`} style={{ background: "linear-gradient(180deg,var(--orbis-gold-light),var(--orbis-gold))", color: "#1a1200" }}>
           <Plus className="w-4 h-4" strokeWidth={3} /> Lançar
         </button>
       </div>

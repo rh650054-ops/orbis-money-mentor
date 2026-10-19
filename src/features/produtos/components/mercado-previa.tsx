@@ -25,17 +25,47 @@ function CustoDeCada({ c }: { c: CustoProduto }) {
   );
 }
 
-export function PrimeiraCompra({ nome, unidades, total, onUnidades }: {
-  nome: string; unidades: number; total: number; onUnidades: (n: number) => void;
+export interface ItemReceita { key: string; nome: string; unidade: string; sugestao: number; valor: number | undefined }
+
+/** 1ª compra de um produto sem receita (Rick, 19/10): quantas dá pra fazer com a compra,
+ *  quantas saem de UMA receita, e o que vai em uma receita — com isso a VANT desconta os
+ *  insumos do estoque a cada lote e sabe o custo de cada unidade. */
+export function PrimeiraCompra({ nome, unidades, rende, total, itens, onUnidades, onRende, onItem }: {
+  nome: string; unidades: number; rende: number; total: number; itens: ItemReceita[];
+  onUnidades: (n: number) => void; onRende: (n: number) => void; onItem: (key: string, n: number) => void;
 }) {
+  const lotes = unidades > 0 && rende > 0 ? unidades / rende : 0;
   return (
-    <div className="rounded-[18px] px-4 py-3.5 flex flex-col gap-2.5" style={CAIXA}>
+    <div className="rounded-[18px] px-4 py-3.5 flex flex-col gap-3" style={CAIXA}>
       <span className="text-[10.5px] font-black tracking-[.14em]" style={{ color: "#F5B800" }}>QUANTO RENDE</span>
       <Contador rotulo={`Com essa compra, dá pra fazer quantas ${nome}?`} valor={unidades} onChange={onUnidades} />
       {unidades > 0 && total > 0 && (
-        <span className="text-[13px] font-bold" style={{ color: "#b9b3a6" }}>
+        <span className="text-[13px] font-bold -mt-1" style={{ color: "#b9b3a6" }}>
           Cada uma vai te custar <b style={{ color: "#F5B800", fontSize: 17 }}>{reais(total / unidades)}</b>
         </span>
+      )}
+      {unidades > 0 && <Contador rotulo={`Uma receita sai quantas ${nome}?`} valor={rende} onChange={onRende} />}
+      {lotes > 0 && itens.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-extrabold" style={{ color: "#b9b3a6" }}>
+            O que vai em UMA receita? <span style={{ color: "#7b766e" }}>(essa compra dá {lotes.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} receitas)</span>
+          </span>
+          {itens.map((it) => (
+            <label key={it.key} className="flex items-center gap-2.5">
+              <span className="flex-1 min-w-0 text-[13.5px] font-bold truncate">{it.nome}</span>
+              <input type="text" inputMode="decimal" aria-label={`${it.nome} por receita`}
+                value={it.valor != null ? String(it.valor).replace(".", ",") : ""}
+                placeholder={it.sugestao > 0 ? it.sugestao.toLocaleString("pt-BR") : "0"}
+                onFocus={(e) => e.currentTarget.select()}
+                onChange={(e) => onItem(it.key, Number(e.target.value.replace(",", ".")) || 0)}
+                className="w-[76px] h-11 rounded-xl text-center text-[15px] font-extrabold tabular-nums bg-[#121211] border border-[#26241f] focus-visible:outline-none focus-visible:border-[#F5B800]" />
+              <span className="w-12 text-[12px] font-bold truncate" style={{ color: "#7b766e" }}>{it.unidade}</span>
+            </label>
+          ))}
+          <span className="text-[11.5px] font-bold" style={{ color: "#7b766e" }}>
+            Já deixei sugerido pela compra; corrige se for diferente. A cada lote a VANT desconta isso do estoque de insumos.
+          </span>
+        </div>
       )}
       <span className="text-[11.5px] font-bold" style={{ color: "#7b766e" }}>
         {unidades > 0 ? `Vou guardar isso como a receita de ${nome}. Pode ser aproximado.` : "Não sabe ainda? Pode deixar em branco: vai tudo pro estoque de ingredientes."}

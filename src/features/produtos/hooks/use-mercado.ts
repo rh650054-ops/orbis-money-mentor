@@ -5,7 +5,7 @@ import {
   calcularMercado, emUnidades, itensParaRpc, totaisDasLinhas,
   type BaseMercado, type LinhaMercado, type TipoLinha,
 } from "../lib/mercado";
-import { custoDosProdutos, ingredientesDaReceita, receitaDaCompra, semReceita } from "../lib/mercado-produto";
+import { custoDosProdutos, ingredientesDaReceita, receitaDaCompra, receitaPorLote, semReceita } from "../lib/mercado-produto";
 
 export type ModoPreco = "item" | "total";
 
@@ -20,6 +20,10 @@ export function useMercado(base: BaseMercado | undefined) {
   // pra qual produto ele está comprando (null = compra solta) e, sem receita, quanto rende
   const [foco, setFoco] = useState<string | null>(null);
   const [unidades, setUnidades] = useState(0);
+  // 19/10 (Rick): na 1ª compra, além de "quantas dá pra fazer", pergunta quantas saem de
+  // UMA receita e o que vai em uma receita — é isso que desconta do estoque de insumos.
+  const [rende, setRende] = useState(0);
+  const [porReceita, setPorReceita] = useState<Record<string, number>>({});
 
   // a tela conta pacotes; a conta (igual à do banco) usa a unidade de medida
   const emUn = useMemo(() => linhas.map((l) => emUnidades(l, b)), [linhas, b]);
@@ -39,7 +43,7 @@ export function useMercado(base: BaseMercado | undefined) {
   };
   /** Escolheu o produto: a receita dele já entra no carrinho, só falta quantidade e preço. */
   const escolherProduto = (pid: string | null) => {
-    setFoco(pid); setUnidades(0);
+    setFoco(pid); setUnidades(0); setRende(0); setPorReceita({});
     if (!pid) return;
     setLinhas((ls) => {
       const novas = ingredientesDaReceita(pid, b).filter((i) => !ls.some((l) => l.tipo === "ingrediente" && l.id === i.id));
@@ -58,12 +62,16 @@ export function useMercado(base: BaseMercado | undefined) {
   const temItem = linhas.some((l) => l.qtd > 0);
   const podeConcluir = temItem && previa.pendentes.length === 0;
   const itens = () => itensParaRpc(emUn, modo === "item", b);
-  const novaReceita = () => (primeiraVez && foco ? receitaDaCompra(foco, unidades, emUn) : null);
+  const novaReceita = () => {
+    if (!primeiraVez || !foco) return null;
+    return rende >= 1 ? receitaPorLote(foco, unidades, rende, emUn, porReceita) : receitaDaCompra(foco, unidades, emUn);
+  };
+  const mudarPorReceita = (key: string, qtd: number) => setPorReceita((p) => ({ ...p, [key]: qtd }));
   const totalCompra = modo === "item" ? totalItens : total;
 
   return {
     linhas, modo, setModo, total, setTotal, previa, subtotais, totalItens, totalCompra, custos,
-    foco, escolherProduto, primeiraVez, unidades, setUnidades, novaReceita,
+    foco, escolherProduto, primeiraVez, unidades, setUnidades, rende, setRende, porReceita, mudarPorReceita, emUn, novaReceita,
     adicionar, mudar, tirar, temItem, podeConcluir, itens,
   };
 }
