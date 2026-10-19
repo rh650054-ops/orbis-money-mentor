@@ -10,7 +10,8 @@ import { useMercadoQuery } from "../api/use-mercado-query";
 import { useConcluirCompraMutation, type ResultadoCompra } from "../api/use-concluir-compra-mutation";
 import { useMercado, type ModoPreco } from "../hooks/use-mercado";
 import { produtosDoIngrediente, type PreviaMercado } from "../lib/mercado";
-import { compararPreco, sugestaoPorReceita } from "../lib/mercado-produto";
+import { aplicarDesconto, compararPreco, sugestaoPorReceita } from "../lib/mercado-produto";
+import { reais } from "../components/campos";
 import { CarregandoProdutos } from "../components/carregando-produtos";
 import { CampoDinheiro, DuasAbas } from "../components/campos";
 import { BotaoOuro } from "../components/quiz-casca";
@@ -31,6 +32,9 @@ export default function MercadoPage() {
   const { data: base, isLoading, isError, refetch } = useMercadoQuery(user?.id);
   const m = useMercado(base);
   const concluir = useConcluirCompraMutation();
+  // desconto no caixa (clube, cupom) — só no fim da compra
+  const [desconto, setDesconto] = useState(0);
+  const [comDesconto, setComDesconto] = useState(false);
   const [feito, setFeito] = useState<{ r: ResultadoCompra; prontos: PreviaMercado["prontos"]; resumo: ResumoCompra } | null>(null);
 
   const opcoesDe = useMemo(() => {
@@ -100,7 +104,10 @@ export default function MercadoPage() {
       vendas: Object.fromEntries(base.produtos.map((p) => [p.id, p.sale_price ?? 0])),
       receitaNova: nova ? { nome: nomeFoco, rende: nova.rende } : null,
     };
-    concluir.mutate({ itens: m.itens(), porItem, total: porItem ? null : m.total || null, novaReceita: nova }, {
+    const desc = comDesconto ? Math.min(desconto, m.totalCompra) : 0;
+    const itens = porItem ? aplicarDesconto(m.itens(), m.totalCompra, desc) : m.itens();
+    const total = porItem ? null : (m.total - desc) || null;
+    concluir.mutate({ itens, porItem, total, novaReceita: nova }, {
       onSuccess: (r) => setFeito({ r, prontos, resumo }),
       onError: () => toast({ title: "Não consegui concluir a compra", description: "Tenta de novo.", variant: "destructive" }),
     });
@@ -112,6 +119,21 @@ export default function MercadoPage() {
         <>
           {porItem ? <MercadoTotal total={m.totalCompra} itens={comValor.length} porItem />
             : <CampoDinheiro rotulo="Quanto deu a compra?" valor={m.total} onChange={m.setTotal} />}
+          {m.totalCompra > 0 && (comDesconto ? (
+            <div className="flex flex-col gap-1.5">
+              <CampoDinheiro rotulo="Quanto foi o desconto? (clube, cupom…)" valor={desconto} onChange={setDesconto} />
+              {desconto > 0 && (
+                <span className="text-[13px] font-bold text-center" style={{ color: "#b9b3a6" }}>
+                  Você pagou <b style={{ color: "#4ADE80" }}>{reais(Math.max(0, m.totalCompra - desconto))}</b>
+                  <button type="button" onClick={() => { setComDesconto(false); setDesconto(0); }} className="ml-2 underline" style={{ color: "#7b766e" }}>tirar</button>
+                </span>
+              )}
+            </div>
+          ) : (
+            <button type="button" onClick={() => setComDesconto(true)} className="text-[13px] font-extrabold" style={{ color: "#F5B800" }}>
+              Teve desconto no caixa?
+            </button>
+          ))}
           {pendente && <span className="text-[12px] font-bold text-center" style={{ color: "#F5B800" }}>Falta escolher pra qual produto vai.</span>}
           <BotaoOuro onClick={fechar} disabled={!m.podeConcluir || concluir.isPending}>
             {concluir.isPending ? "CONCLUINDO…" : "CONCLUIR COMPRA"}

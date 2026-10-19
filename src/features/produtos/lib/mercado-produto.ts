@@ -88,3 +88,14 @@ export function receitaDaCompra(pid: string, unidades: number, linhasEmUn: Linha
   if (!(unidades >= 1) || itens.length === 0) return null;
   return { produto: pid, rende: Math.round(unidades), itens };
 }
+
+/** Desconto no caixa (Rick, 19/10: "clube do Atacadão deu R$ 40"): reparte o desconto
+ *  entre os itens na proporção do que cada um custou, pra o custo de cada produto já
+ *  sair com o desconto. Nunca deixa preço negativo. */
+export function aplicarDesconto<T extends { qtd: number; preco_unit: number | null }>(itens: T[], total: number, desconto: number): T[] {
+  if (!(desconto > 0) || !(total > 0)) return itens;
+  const fator = Math.max(0, (total - Math.min(desconto, total)) / total);
+  return itens.map((i) => (i.preco_unit != null && i.preco_unit > 0
+    ? { ...i, preco_unit: Math.round(i.preco_unit * fator * 10000) / 10000 }
+    : i));
+}
