@@ -2,7 +2,7 @@
    produto está comprando (a receita já traz os ingredientes), anota quantidade e
    preço, vê o custo de cada unidade e se pagou mais caro, e ao concluir o
    estoque sobe na hora e a VANT confere a compra no banco. */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
@@ -10,8 +10,9 @@ import { useMercadoQuery } from "../api/use-mercado-query";
 import { useConcluirCompraMutation, type ResultadoCompra } from "../api/use-concluir-compra-mutation";
 import { useMercado, type ModoPreco } from "../hooks/use-mercado";
 import { produtosDoIngrediente, type PreviaMercado } from "../lib/mercado";
-import { aplicarDesconto, compararPreco, sugestaoPorReceita } from "../lib/mercado-produto";
-import { reais } from "../components/campos";
+import { aplicarDesconto, compararPreco, linhasDaCompra, sugestaoPorReceita } from "../lib/mercado-produto";
+import { useCompraAbertaQuery } from "../api/use-compra-mercado";
+import { MercadoDesconto } from "../components/mercado-desconto";
 import { CarregandoProdutos } from "../components/carregando-produtos";
 import { CampoDinheiro, DuasAbas } from "../components/campos";
 import { BotaoOuro } from "../components/quiz-casca";
@@ -32,9 +33,20 @@ export default function MercadoPage() {
   const { data: base, isLoading, isError, refetch } = useMercadoQuery(user?.id);
   const m = useMercado(base);
   const concluir = useConcluirCompraMutation();
-  // desconto no caixa (clube, cupom) — só no fim da compra
+  // editar compra (Rick, 19/10): volta tudo preenchido; ao concluir, a antiga é desfeita e esta entra no lugar
+  const [editId, setEditId] = useState<string | null>(params.get("editar"));
+  const aberta = useCompraAbertaQuery(params.get("editar"));
+  const carregou = useRef(false);
+  useEffect(() => {
+    const c = aberta.data;
+    if (!c || !base || carregou.current) return;
+    carregou.current = true;
+    m.carregar(linhasDaCompra(c.itens, base), c.por_item, c.total + c.desconto);
+    setDesconto(c.desconto);
+  }, [aberta.data, base, m]);
+  // desconto no caixa (clube, cupom): perguntado no fim, depois do CONCLUIR
   const [desconto, setDesconto] = useState(0);
-  const [comDesconto, setComDesconto] = useState(false);
+  const [perguntando, setPerguntando] = useState(false);
   const [feito, setFeito] = useState<{ r: ResultadoCompra; prontos: PreviaMercado["prontos"]; resumo: ResumoCompra } | null>(null);
 
   const opcoesDe = useMemo(() => {
@@ -51,8 +63,8 @@ export default function MercadoPage() {
   }, [base]);
 
   const voltar = () => navigate(doFoco ? "/daily-goals" : "/products");
-  if (isLoading) return <CarregandoProdutos />;
-  if (isError || !base) {
+  if (isLoading || aberta.isLoading) return <CarregandoProdutos />;
+  if (isError || !base || aberta.isError) {
     return (
       <div className="min-h-[100dvh] bg-black text-[#F4F1EA] flex flex-col items-center justify-center gap-3 px-6 text-center">
         <p className="font-bold">Não consegui abrir o mercado.</p>
@@ -62,6 +74,8 @@ export default function MercadoPage() {
   }
   if (feito) {
     return <MercadoPronto resultado={feito.r} prontos={feito.prontos} resumo={feito.resumo} onProdutos={voltar}
+      faz={base.produtos.filter((p) => p.origem === "faz" || p.recipe_mode === "batch")}
+      onEditar={() => { setEditId(feito.r.compra_id); setFeito(null); }}
       onDia={() => navigate("/daily-goals")} onLigarBanco={() => navigate("/verificar")} />;
   }
   if (base.produtos.length === 0) {
@@ -91,7 +105,7 @@ export default function MercadoPage() {
   const nomeFoco = base.produtos.find((p) => p.id === m.foco)?.name ?? "";
   const comValor = m.linhas.filter((l) => l.qtd > 0);
 
-  const fechar = () => {
+  const fechar = (desc: number) => {
     const prontos = m.previa.prontos;
     const nova = m.novaReceita();
     const resumo: ResumoCompra = {
@@ -103,40 +117,27 @@ export default function MercadoPage() {
       }) : [],
       vendas: Object.fromEntries(base.produtos.map((p) => [p.id, p.sale_price ?? 0])),
       receitaNova: nova ? { nome: nomeFoco, rende: nova.rende } : null,
+      desconto: desc,
     };
-    const desc = comDesconto ? Math.min(desconto, m.totalCompra) : 0;
-    const itens = porItem ? aplicarDesconto(m.itens(), m.totalCompra, desc) : m.itens();
+    const orig = m.itens();
+    const itens = porItem ? aplicarDesconto(orig, m.totalCompra, desc) : orig;
     const total = porItem ? null : (m.total - desc) || null;
-    concluir.mutate({ itens, porItem, total, novaReceita: nova }, {
-      onSuccess: (r) => setFeito({ r, prontos, resumo }),
+    concluir.mutate({ itens, porItem, total, novaReceita: nova, desconto: desc, itensOrig: orig, editar: editId }, {
+      onSuccess: (r) => { setPerguntando(false); setDesconto(desc); setFeito({ r, prontos, resumo }); },
       onError: () => toast({ title: "Não consegui concluir a compra", description: "Tenta de novo.", variant: "destructive" }),
     });
   };
 
   return (
-    <MercadoCasca titulo="Tô no mercado" sub="Anota o que você tá comprando. O estoque sobe sozinho." onVoltar={voltar}
+    <MercadoCasca titulo={editId ? "Editar compra" : "Tô no mercado"}
+      sub={editId ? "Muda o que precisar. Ao concluir, a compra antiga é trocada por esta." : "Anota o que você tá comprando. O estoque sobe sozinho."} onVoltar={voltar}
       rodape={(
         <>
           {porItem ? <MercadoTotal total={m.totalCompra} itens={comValor.length} porItem />
             : <CampoDinheiro rotulo="Quanto deu a compra?" valor={m.total} onChange={m.setTotal} />}
-          {m.totalCompra > 0 && (comDesconto ? (
-            <div className="flex flex-col gap-1.5">
-              <CampoDinheiro rotulo="Quanto foi o desconto? (clube, cupom…)" valor={desconto} onChange={setDesconto} />
-              {desconto > 0 && (
-                <span className="text-[13px] font-bold text-center" style={{ color: "#b9b3a6" }}>
-                  Você pagou <b style={{ color: "#4ADE80" }}>{reais(Math.max(0, m.totalCompra - desconto))}</b>
-                  <button type="button" onClick={() => { setComDesconto(false); setDesconto(0); }} className="ml-2 underline" style={{ color: "#7b766e" }}>tirar</button>
-                </span>
-              )}
-            </div>
-          ) : (
-            <button type="button" onClick={() => setComDesconto(true)} className="text-[13px] font-extrabold" style={{ color: "#F5B800" }}>
-              Teve desconto no caixa?
-            </button>
-          ))}
           {pendente && <span className="text-[12px] font-bold text-center" style={{ color: "#F5B800" }}>Falta escolher pra qual produto vai.</span>}
-          <BotaoOuro onClick={fechar} disabled={!m.podeConcluir || concluir.isPending}>
-            {concluir.isPending ? "CONCLUINDO…" : "CONCLUIR COMPRA"}
+          <BotaoOuro onClick={() => setPerguntando(true)} disabled={!m.podeConcluir || concluir.isPending}>
+            {editId ? "SALVAR COMPRA" : "CONCLUIR COMPRA"}
           </BotaoOuro>
         </>
       )}>
@@ -162,6 +163,10 @@ export default function MercadoPage() {
           }))} />
       )}
       {!m.primeiraVez && m.temItem && <MercadoPrevia previa={m.previa} custos={m.custos} />}
+      {perguntando && (
+        <MercadoDesconto total={m.totalCompra} inicial={desconto} salvando={concluir.isPending}
+          onConcluir={fechar} onFechar={() => setPerguntando(false)} />
+      )}
     </MercadoCasca>
   );
 }

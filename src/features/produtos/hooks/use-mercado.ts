@@ -55,6 +55,12 @@ export function useMercado(base: BaseMercado | undefined) {
       })];
     });
   };
+  /** Editar compra: a tela volta com as linhas, o modo e o total da compra salva. */
+  const carregar = (ls: Omit<LinhaMercado, "key">[], porItem: boolean, totalAntes: number) => {
+    setLinhas(ls.map((l) => { seq.current += 1; return { ...l, key: `l${seq.current}` }; }));
+    setModo(porItem ? "item" : "total");
+    setTotal(porItem ? 0 : totalAntes);
+  };
   const mudar = (key: string, patch: Partial<LinhaMercado>) =>
     setLinhas((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   const tirar = (key: string) => setLinhas((ls) => ls.filter((l) => l.key !== key));
@@ -72,6 +78,6 @@ export function useMercado(base: BaseMercado | undefined) {
   return {
     linhas, modo, setModo, total, setTotal, previa, subtotais, totalItens, totalCompra, custos,
     foco, escolherProduto, primeiraVez, unidades, setUnidades, rende, setRende, porReceita, mudarPorReceita, emUn, novaReceita,
-    adicionar, mudar, tirar, temItem, podeConcluir, itens,
+    adicionar, carregar, mudar, tirar, temItem, podeConcluir, itens,
   };
 }
