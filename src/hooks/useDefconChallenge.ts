@@ -7,8 +7,13 @@ import { celebrationSounds } from "@/shared/lib/celebration-sounds";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
 import { addOfflineRecord } from "@/shared/lib/offline-db";
 import {
-  novaLinhaVenda, gravarLinhaVenda, guardarVendaOffline, esquecerTotalSessaoOffline, type LinhaVenda,
+  novaLinhaVenda, guardarVendaOffline, guardarTotalSessaoOffline, apagarVendaOffline, type LinhaVenda,
 } from "@/shared/lib/venda-offline";
+import { enviarFila } from "@/shared/lib/offline-sync";
+import {
+  temSinal, filaAtualizar, filaContadoresBloco, lerFilaDoDia, aplicarFilaNosBlocos, juntarVendas,
+  salvarRetrato, lerRetrato, retratoValido, contarPendentes, type TabelaFila,
+} from "@/shared/lib/fila-defcon";
 
 const BLOCK_DURATION = 60 * 60; // 60 minutes
 const BREAK_DURATION = 5 * 60;  // 5 minutes
@@ -53,6 +58,7 @@ async function queueBlockOffline(
   },
   userId: string,
   planId: string | null,
+  planDate?: string,
 ) {
   try {
     await addOfflineRecord("pending_sales", {
@@ -62,6 +68,7 @@ async function queueBlockOffline(
         block_id: block.id,
         user_id: userId,
         plan_id: planId ?? "",
+        plan_date: planDate ?? "",
         hour_index: block.hour_index,
         hour_label: block.hour_label,
         target_amount: block.target_amount,
@@ -153,6 +160,10 @@ export function useDefconChallenge(userId: string | undefined) {
 
   // Per-sale rows for the current session (additive — aggregates remain source of truth).
   const [sessionSales, setSessionSales] = useState<any[]>([]);
+  // Quantas coisas ainda esperam sinal pra subir (tarja da tela) e se abriu sem sinal sem dia guardado.
+  const [pendentes, setPendentes] = useState(0);
+  const [offlineSemDia, setOfflineSemDia] = useState(false);
+  const sessionStartedAtRef = useRef<string | null>(null);
   // Vendas em exclusão — evita estorno em dobro no toque-duplo do X.
   const deletingSalesRef = useRef<Set<string>>(new Set());
 
@@ -186,18 +197,21 @@ export function useDefconChallenge(userId: string | undefined) {
   const lunchPauseDurationRef = useRef(0);
   lunchPauseDurationRef.current = lunchPauseDuration;
 
+  /* GRAVAR = celular primeiro, servidor depois (19/10/2026). Toda escrita do DEFCON
+     entra na fila do aparelho e o carteiro (offline-sync) leva em ordem. Assim nada se
+     perde se o sinal estiver fraco ou o app for fechado no meio. */
+  const gravar = async (tabela: TabelaFila, id: string, patch: Record<string, unknown>) => {
+    await filaAtualizar(tabela, id, patch);
+    enviarFila();
+  };
+
   // Soma o tempo (segundos) de uma pausa que acabou de ser encerrada e persiste na sessão.
   const acumularPausa = async (elapsedSeg: number) => {
     const seg = Math.max(0, Math.round(elapsedSeg));
     if (seg <= 0) return;
     pausedSecondsRef.current += seg;
     const sid = sessionIdRef.current;
-    if (sid) {
-      await supabase
-        .from("challenge_sessions")
-        .update({ paused_seconds: pausedSecondsRef.current } as never)
-        .eq("id", sid);
-    }
+    if (sid) await gravar("challenge_sessions", sid, { paused_seconds: pausedSecondsRef.current });
   };
   dailyGoalRef.current = dailyGoal;
 
@@ -225,26 +239,14 @@ export function useDefconChallenge(userId: string | undefined) {
     await saveBlockApproaches(sid, currentBlockIndexRef.current, blockApproachesRef.current, undefined, true);
 
     const endedAt = new Date();
-    const { data: doneSession } = await supabase
-      .from("challenge_sessions")
-      .update({
-        status: "completed",
-        ended_at: endedAt.toISOString(),
-        // total_sold NÃO vai aqui (03/10): já foi somado venda a venda no servidor.
-        // Mandar o valor da memória perdia a última venda quando o vendedor
-        // lançava e encerrava no mesmo segundo (o total do dia "diminuía").
-      })
-      .eq("id", sid)
-      .select("started_at")
-      .maybeSingle();
-
+    // total_sold NÃO vai aqui (03/10): já foi somado venda a venda.
     // Tempo trabalhado AO VIVO — blocos completos + parcial do bloco atual (sem cravar hora cheia).
-    // Persiste na sessão pra o RELATÓRIO somar o tempo real (sem almoço/intervalos).
-    if (doneSession?.started_at) {
-      const worked = calcWorkedMinutes(doneSession.started_at, endedAt, currentBlockIndexRef.current, blockStartedAtRef.current);
-      setWorkedMinutes(worked);
-      await supabase.from("challenge_sessions").update({ worked_minutes: worked } as never).eq("id", sid);
-    }
+    const inicio = sessionStartedAtRef.current;
+    const worked = inicio ? calcWorkedMinutes(inicio, endedAt, currentBlockIndexRef.current, blockStartedAtRef.current) : null;
+    if (worked != null) setWorkedMinutes(worked);
+    await gravar("challenge_sessions", sid, {
+      status: "completed", ended_at: endedAt.toISOString(), ...(worked != null ? { worked_minutes: worked } : {}),
+    });
 
     setPhase("finished");
   }, [clearTimer]);
@@ -266,10 +268,9 @@ export function useDefconChallenge(userId: string | undefined) {
     };
     if (sales !== undefined) payload.sales_count = sales;
     if (fechar) { payload.ended_at = new Date().toISOString(); payload.status = "done"; }
-    const { error } = await supabase
-      .from("challenge_blocks")
-      .upsert(payload, { onConflict: "session_id,block_index" });
-    if (error) avisar.usuario("Não consegui salvar a abordagem. Tenta de novo.", error, "DEFCON: salvar abordagens do bloco");
+    // celular primeiro (valor absoluto, o último vence), o carteiro faz o upsert
+    await filaContadoresBloco(payload);
+    enviarFila();
   };
 
   // Carrega as vendas-linha (defcon_sales) da sessão atual em ordem cronológica.
@@ -280,12 +281,13 @@ export function useDefconChallenge(userId: string | undefined) {
       setSessionSales([]);
       return;
     }
-    const { data } = await supabase
-      .from("defcon_sales")
-      .select("*")
-      .eq("session_id", id)
-      .order("created_at", { ascending: true });
-    setSessionSales(data || []);
+    const [{ data, error }, fila] = await Promise.all([
+      supabase.from("defcon_sales").select("*").eq("session_id", id).order("created_at", { ascending: true }),
+      lerFilaDoDia(planIdRef.current, id),
+    ]);
+    // sem sinal: mantém a lista que já está na tela + o que está na fila
+    if (error) { setSessionSales((prev) => juntarVendas(prev, fila.vendas)); return; }
+    setSessionSales(juntarVendas(data || [], fila.vendas));
   }, []);
 
   const advanceToNextBlock = useCallback(async () => {
@@ -302,17 +304,8 @@ export function useDefconChallenge(userId: string | undefined) {
     if (!nextBlock) return;
     const startTime = new Date();
 
-    await supabase
-      .from("hourly_goal_blocks")
-      .update({ timer_status: "running", timer_started_at: startTime.toISOString() })
-      .eq("id", nextBlock.id);
-
-    if (sid) {
-      await supabase
-        .from("challenge_sessions")
-        .update({ current_block_index: nextIdx })
-        .eq("id", sid);
-    }
+    await gravar("hourly_goal_blocks", nextBlock.id, { timer_status: "running", timer_started_at: startTime.toISOString() });
+    if (sid) await gravar("challenge_sessions", sid, { current_block_index: nextIdx });
 
     // Reset block-level counters
     setBlockApproaches(0);
@@ -330,12 +323,7 @@ export function useDefconChallenge(userId: string | undefined) {
     const currentBlock = blks[idx];
     const sid = sessionIdRef.current;
 
-    if (currentBlock) {
-      await supabase
-        .from("hourly_goal_blocks")
-        .update({ is_completed: true, timer_status: "finalizado" })
-        .eq("id", currentBlock.id);
-    }
+    if (currentBlock) await gravar("hourly_goal_blocks", currentBlock.id, { is_completed: true, timer_status: "finalizado" });
 
     // Save approaches for this block (and close it: the hour is over)
     if (sid) {
@@ -385,12 +373,76 @@ export function useDefconChallenge(userId: string | undefined) {
     }
   }, [completeChallenge]);
 
+  /* SEM SINAL: reabre o DEFCON do RETRATO guardado no celular (+ o que está na fila).
+     Devolve false se não tem retrato de hoje — aí a tela oferece o DEFCON offline. */
+  const restaurarDoRetrato = useCallback(async (): Promise<boolean> => {
+    if (!userId) return false;
+    const hoje = getBrazilDate();
+    const madrugada = (parseInt(getBrazilTime().slice(0, 2), 10) || 0) < 6;
+    const r = lerRetrato(userId);
+    if (!retratoValido(r, hoje, getBrazilDateDaysAgo(1), madrugada)) return false;
+    const fila = await lerFilaDoDia(r.planId, r.sessionId);
+    const blocos = aplicarFilaNosBlocos(r.blocos, fila.blocos);
+    planIdRef.current = r.planId;
+    planDateRef.current = r.data;
+    sessionStartedAtRef.current = r.sessionStartedAt;
+    setSessionDate(r.data);
+    setHasPlan(true);
+    setDailyGoal(r.dailyGoal);
+    setBlocks(blocos);
+    setTotalSold(recalcTotal(blocos));
+    setSessionId(r.sessionId);
+    setCurrentBlockIndex(r.blocoAtual);
+    const contAtual = fila.contadores.get(r.blocoAtual);
+    setBlockApproaches(contAtual?.approaches_count ?? r.abordagensBloco);
+    setBlockSalesCount(contAtual?.sales_count ?? r.vendasBloco);
+    setTotalApproaches(r.abordagensTotal);
+    setTotalSalesCount(r.vendasTotal);
+    setSessionSales((prev) => juntarVendas(prev, fila.vendas));
+    const iniciou = r.blocoIniciouEm ? new Date(r.blocoIniciouEm) : null;
+    if (r.fase === "lunch_pause" && r.pausaIniciouEm) {
+      const ini = new Date(r.pausaIniciouEm);
+      setLunchPauseStartedAt(ini);
+      setLunchPauseDuration(r.pausaDuracao);
+      setLunchPauseRemaining(Math.max(0, r.pausaDuracao - Math.floor((Date.now() - ini.getTime()) / 1000)));
+      setPausedBlockRemaining(r.blocoRestanteNaPausa);
+      setLunchPauseUsed(true);
+      setPhase("lunch_pause");
+    } else if (["running", "break", "block_report"].includes(r.fase) && iniciou) {
+      // o relógio continua de onde o bloco começou (igual ao carregar com sinal)
+      const passou = Math.floor((Date.now() - iniciou.getTime()) / 1000);
+      setBlockStartedAt(iniciou);
+      if (passou < BLOCK_DURATION) { setPhase("running"); setRemainingSeconds(BLOCK_DURATION - passou); }
+      else if (passou < BLOCK_DURATION + BREAK_DURATION) {
+        setPhase("break");
+        setBreakStartedAt(new Date(iniciou.getTime() + BLOCK_DURATION * 1000));
+        setBreakRemaining(BLOCK_DURATION + BREAK_DURATION - passou);
+      } else { setPhase("running"); setRemainingSeconds(0); }
+    } else {
+      setPhase(r.fase === "finished" || r.fase === "abandoned" ? (r.fase as DefconPhase) : "idle");
+    }
+    setOfflineSemDia(false);
+    setLoading(false);
+    return true;
+  }, [userId]);
+
   // Load today's plan and blocks
   const carregando = useRef(false);
   const loadDataInterno = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     setWorkedMinutes(null); // recalculado abaixo só p/ sessões já encerradas
+
+    // SEM SINAL DE VERDADE (teste de 4s, não o aviso do celular): nada de 15 consultas
+    // penduradas. Reabre do retrato; sem retrato, a tela oferece o DEFCON offline.
+    if (!(await temSinal())) {
+      if (await restaurarDoRetrato()) return;
+      setOfflineSemDia(true);
+      setHasPlan(false);
+      setLoading(false);
+      return;
+    }
+    setOfflineSemDia(false);
 
     const today = getBrazilDate();
 
@@ -528,8 +580,11 @@ export function useDefconChallenge(userId: string | undefined) {
       valor_gorjeta: b.valor_gorjeta || 0,
     }));
 
-    setBlocks(loadedBlocks);
-    const total = recalcTotal(loadedBlocks);
+    // o que ainda está na fila do celular é mais novo que o servidor: soma por cima
+    const fila = await lerFilaDoDia(planData.id, null);
+    const blocosComFila = aplicarFilaNosBlocos(loadedBlocks, fila.blocos);
+    setBlocks(blocosComFila);
+    const total = recalcTotal(blocosComFila);
     setTotalSold(total);
 
     // Check for active DEFCON session (reaproveita a sessão carregada na
@@ -547,6 +602,7 @@ export function useDefconChallenge(userId: string | undefined) {
 
     if (session) {
       setSessionId(session.id);
+      sessionStartedAtRef.current = session.started_at ?? null;
       // Restaura o tempo ocioso acumulado (segundos em pausa) pra continuar somando.
       pausedSecondsRef.current = Number((session as { paused_seconds?: number }).paused_seconds) || 0;
 
@@ -560,7 +616,15 @@ export function useDefconChallenge(userId: string | undefined) {
         .eq("session_id", session.id);
 
       {
-        const cbs = challengeBlocks || [];
+        // contadores que ainda estão na fila do celular vencem os do servidor
+        const filaSessao = await lerFilaDoDia(null, session.id);
+        const cbs = [...(challengeBlocks || [])].map((b) => {
+          const f = filaSessao.contadores.get(b.block_index);
+          return f ? { ...b, approaches_count: f.approaches_count, ...(f.sales_count != null ? { sales_count: f.sales_count } : {}) } : b;
+        });
+        for (const [idx, f] of filaSessao.contadores) {
+          if (!cbs.some((b) => b.block_index === idx)) cbs.push({ block_index: idx, approaches_count: f.approaches_count, sales_count: f.sales_count ?? 0 } as never);
+        }
         const totalApp = cbs.reduce((sum, b) => sum + (b.approaches_count || 0), 0);
         setTotalApproaches(totalApp);
 
@@ -709,7 +773,7 @@ export function useDefconChallenge(userId: string | undefined) {
     }
 
     setLoading(false);
-  }, [userId, loadSessionSales]);
+  }, [userId, loadSessionSales, restaurarDoRetrato]);
 
   /* A tela do DEFCON fica bloqueada em "CARREGANDO" enquanto `loading` for true.
      Se QUALQUER consulta aqui falhar (celular bloqueado, sinal caiu, prazo estourou),
@@ -723,11 +787,53 @@ export function useDefconChallenge(userId: string | undefined) {
       await loadDataInterno();
     } catch (e) {
       avisar.erro("DEFCON: não consegui carregar o dia", e);
-      setLoading(false);
+      // caiu no meio da carga: tenta o retrato do celular antes de desistir
+      if (!(await restaurarDoRetrato())) setLoading(false);
     } finally {
       carregando.current = false;
     }
-  }, [loadDataInterno]);
+  }, [loadDataInterno, restaurarDoRetrato]);
+
+  /* RETRATO: a cada mudança do DEFCON, guarda no celular onde ele está — reabrir o app
+     sem sinal volta exatamente aqui (somando o que ainda está na fila). */
+  useEffect(() => {
+    if (!userId || loading || !hasPlan || !planIdRef.current) return;
+    salvarRetrato(userId, {
+      salvo_em: new Date().toISOString(),
+      data: planDateRef.current,
+      planId: planIdRef.current,
+      dailyGoal,
+      sessionId,
+      sessionStartedAt: sessionStartedAtRef.current,
+      fase: phase,
+      blocos: blocks,
+      blocoAtual: currentBlockIndex,
+      blocoIniciouEm: blockStartedAt ? blockStartedAt.toISOString() : null,
+      pausaIniciouEm: lunchPauseStartedAt ? lunchPauseStartedAt.toISOString() : null,
+      pausaDuracao: lunchPauseDuration,
+      blocoRestanteNaPausa: pausedBlockRemaining,
+      abordagensBloco: blockApproaches,
+      vendasBloco: blockSalesCount,
+      abordagensTotal: totalApproaches,
+      vendasTotal: totalSalesCount,
+    });
+  }, [userId, loading, hasPlan, dailyGoal, sessionId, phase, blocks, currentBlockIndex, blockStartedAt,
+      lunchPauseStartedAt, lunchPauseDuration, pausedBlockRemaining, blockApproaches, blockSalesCount, totalApproaches, totalSalesCount]);
+
+  /* TARJA "esperando sinal": o carteiro avisa quanto falta; quando algo sobe, a lista
+     de vendas recarrega do servidor (já com as que estavam na fila). */
+  useEffect(() => {
+    if (!userId) return;
+    const aoMudar = (e: Event) => {
+      const d = (e as CustomEvent<{ pendentes: number; enviou: number }>).detail;
+      setPendentes(d?.pendentes ?? 0);
+      if ((d?.enviou ?? 0) > 0 && sessionIdRef.current) void loadSessionSales(sessionIdRef.current);
+    };
+    window.addEventListener("orbis:fila", aoMudar);
+    void contarPendentes().then(setPendentes);
+    enviarFila(); // abriu o DEFCON: manda o que tiver ficado pra trás
+    return () => window.removeEventListener("orbis:fila", aoMudar);
+  }, [userId, loadSessionSales]);
 
   /* VOLTOU PRO APP: se a carga anterior ficou pendurada (aba congelada), refaz.
      É o caso do vendedor que bloqueia o telefone ou sai pra responder uma mensagem. */
@@ -803,10 +909,9 @@ export function useDefconChallenge(userId: string | undefined) {
     if (currentBlockData) {
       // lunch_ends_at PERSISTE a pausa: se o app recarregar no meio do almoço, a gente
       // restaura a pausa (ou retoma o bloco no ponto exato) — sem "bugar" a hora.
-      await supabase
-        .from("hourly_goal_blocks")
-        .update({ timer_status: "pausado", timer_paused_at: now.toISOString(), lunch_ends_at: new Date(now.getTime() + mins * 60000).toISOString() } as never)
-        .eq("id", currentBlockData.id);
+      await gravar("hourly_goal_blocks", currentBlockData.id, {
+        timer_status: "pausado", timer_paused_at: now.toISOString(), lunch_ends_at: new Date(now.getTime() + mins * 60000).toISOString(),
+      });
     }
 
     clearTimer();
@@ -838,10 +943,9 @@ export function useDefconChallenge(userId: string | undefined) {
 
     if (currentBlockData) {
       const newStartedAt = new Date(now.getTime() - (BLOCK_DURATION - pausedBlockRemaining) * 1000);
-      await supabase
-        .from("hourly_goal_blocks")
-        .update({ timer_status: "running", timer_started_at: newStartedAt.toISOString(), timer_paused_at: null, lunch_ends_at: null } as never)
-        .eq("id", currentBlockData.id);
+      await gravar("hourly_goal_blocks", currentBlockData.id, {
+        timer_status: "running", timer_started_at: newStartedAt.toISOString(), timer_paused_at: null, lunch_ends_at: null,
+      });
 
       setBlockStartedAt(newStartedAt);
       setRemainingSeconds(pausedBlockRemaining);
@@ -923,6 +1027,12 @@ export function useDefconChallenge(userId: string | undefined) {
 
   const startChallenge = async () => {
     if (!userId || blocks.length === 0) return;
+    // Começar o dia cria a sessão no servidor. Sem sinal, o caminho é o DEFCON offline.
+    if (!(await temSinal())) {
+      avisar.usuario("Sem sinal pra começar o dia aqui. Toque em \"DEFCON offline\" que tudo fica salvo no celular.", null, "DEFCON: começar sem sinal");
+      setOfflineSemDia(true);
+      return;
+    }
 
     pausedSecondsRef.current = 0; // novo dia/sessão: zera o tempo ocioso acumulado
     const today = getBrazilDate();
@@ -969,6 +1079,7 @@ export function useDefconChallenge(userId: string | undefined) {
     }
 
     setSessionId(sid);
+    sessionStartedAtRef.current = startTime.toISOString();
 
     const { data: workSession } = await supabase
       .from("work_sessions")
@@ -1071,43 +1182,13 @@ export function useDefconChallenge(userId: string | undefined) {
           ...(produto ? { product_id: produto.id, qty: Math.max(1, produto.qty) } : {}),
         })
       : null;
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      await queueBlockOffline(blockState, userId, planIdRef.current);
-      await queueVendaOffline(linha, newTotal);
-      return;
-    }
-    try {
-      const { error: blkErr } = await supabase
-        .from("hourly_goal_blocks")
-        .update({
-          achieved_amount: newAchieved,
-          valor_dinheiro: newDinheiro,
-          valor_pix: newPix,
-          valor_cartao: newCartao,
-        })
-        .eq("id", currentBlock.id);
-      if (blkErr) throw blkErr;
-
-      if (sessionId) {
-        const { error: sesErr } = await supabase
-          .from("challenge_sessions")
-          .update({ total_sold: newTotal })
-          .eq("id", sessionId);
-        if (sesErr) throw sesErr;
-        await esquecerTotalSessaoOffline(sessionId);
-        await saveBlockApproaches(sessionId, currentBlockIndex, newApproaches, newBlockSales);
-        // Registra a venda como LINHA em defcon_sales (pra listar/editar/excluir).
-        if (linha) await gravarLinhaVenda(linha);
-      }
-
-      await syncBlocksToDailySales(userId, planDateRef.current);
-      if (sessionId) await loadSessionSales(sessionId);
-    } catch (e) {
-      // Rede caiu no meio (ou { error } retornado): enfileira pra subir ao reconectar.
-      avisar.erro("DEFCON: venda não subiu agora, ficou na fila offline", e);
-      await queueBlockOffline(blockState, userId, planIdRef.current);
-      await queueVendaOffline(linha, newTotal);
-    }
+    // CELULAR PRIMEIRO (19/10): a venda é guardada no aparelho ANTES de qualquer rede.
+    // O carteiro leva pro servidor em ordem; sinal fraco ou app fechado não perdem nada.
+    if (linha) setSessionSales((prev) => [...prev, linha]);
+    await queueBlockOffline(blockState, userId, planIdRef.current, planDateRef.current);
+    await queueVendaOffline(linha, newTotal);
+    if (sessionId) await saveBlockApproaches(sessionId, currentBlockIndex, newApproaches, newBlockSales);
+    enviarFila();
   };
 
   // Exclui UMA venda-linha (defcon_sales) e REVERTE seu efeito nos agregados do
@@ -1149,52 +1230,32 @@ export function useDefconChallenge(userId: string | undefined) {
     }
     setTotalSold(newTotal);
 
-    // 1) Apaga a linha.
-    const { error: delErr } = await supabase.from("defcon_sales").delete().eq("id", sale.id);
-    if (delErr) {
-      avisar.usuario("Não consegui excluir a venda. Tenta de novo.", delErr, "DEFCON: excluir venda");
-      deletingSalesRef.current.delete(sale.id);
-      return;
-    }
-
-    // 2) Reverte os agregados no BLOCO da venda (não necessariamente o atual).
+    // CELULAR PRIMEIRO (19/10): apagar também vai pra fila. Se a venda ainda nem
+    // tinha subido, ela só sai da fila e nunca chega no servidor.
+    await apagarVendaOffline(sale.id);
     if (targetBlock) {
-      const { error: blkErr } = await supabase
-        .from("hourly_goal_blocks")
-        .update({
-          achieved_amount: newAchieved,
-          valor_dinheiro: newDinheiro,
-          valor_pix: newPix,
-          valor_cartao: newCartao,
-          valor_gorjeta: newGorjeta,
-        })
-        .eq("id", targetBlock.id);
-      if (blkErr) avisar.usuario("Excluí a venda, mas não consegui estornar o valor do bloco.", blkErr, "DEFCON: estornar bloco ao excluir venda");
+      await queueBlockOffline(
+        { ...targetBlock, achieved_amount: newAchieved, valor_dinheiro: newDinheiro, valor_pix: newPix, valor_cartao: newCartao, valor_gorjeta: newGorjeta },
+        userId, planIdRef.current, planDateRef.current,
+      );
     }
+    if (sessionId) await guardarTotalSessaoOffline(sessionId, newTotal);
 
-    // 3) Estorna total_sold da sessão (piso 0).
-    if (sessionId) {
-      const { error: sesErr } = await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
-      if (sesErr) avisar.usuario("Excluí a venda, mas não consegui estornar o total do dia.", sesErr, "DEFCON: estornar total ao excluir venda");
-    }
-
-    // 4) venda E abordagem: tocar em "venda" soma 1 abordagem automaticamente,
-    //    então ao excluir a venda a gente tira a venda E a abordagem.
-    //    (pix-depois nunca somou venda nem abordagem, então não mexe.)
+    // venda E abordagem: tocar em "venda" soma 1 abordagem automaticamente,
+    // então ao excluir a venda a gente tira a venda E a abordagem.
+    // (pix-depois e gorjeta nunca somaram venda nem abordagem, então não mexe.)
     if (!isLate && !isTip && sessionId) {
-      const { data: cb } = await supabase
-        .from("challenge_blocks")
-        .select("approaches_count, sales_count")
-        .eq("session_id", sessionId)
-        .eq("block_index", blockIdx)
-        .maybeSingle();
-      const curApproaches = Number((cb as any)?.approaches_count || 0);
-      const curSales = Number((cb as any)?.sales_count || 0);
-      const newSales = Math.max(0, curSales - 1);
-      const newApproaches = Math.max(0, curApproaches - 1);
-      await saveBlockApproaches(sessionId, blockIdx, newApproaches, newSales);
+      let base: { approaches_count: number; sales_count: number } | null = null;
+      if (blockIdx === currentBlockIndex) {
+        base = { approaches_count: blockApproaches, sales_count: blockSalesCount };
+      } else {
+        const { data: cb, error: cbErr } = await supabase
+          .from("challenge_blocks").select("approaches_count, sales_count")
+          .eq("session_id", sessionId).eq("block_index", blockIdx).maybeSingle();
+        if (!cbErr) base = { approaches_count: Number((cb as any)?.approaches_count || 0), sales_count: Number((cb as any)?.sales_count || 0) };
+      }
+      if (base) await saveBlockApproaches(sessionId, blockIdx, Math.max(0, base.approaches_count - 1), Math.max(0, base.sales_count - 1));
 
-      // Atualiza contadores locais (do bloco atual e total).
       setTotalSalesCount(prev => Math.max(0, prev - 1));
       setTotalApproaches(prev => Math.max(0, prev - 1));
       if (blockIdx === currentBlockIndex) {
@@ -1203,9 +1264,7 @@ export function useDefconChallenge(userId: string | undefined) {
       }
     }
 
-    // 5) Mesma cauda do addSale: ressincroniza daily_sales e recarrega a lista.
-    await syncBlocksToDailySales(userId, planDateRef.current);
-    await loadSessionSales(sessionId);
+    enviarFila();
     deletingSalesRef.current.delete(sale.id);
   };
 
@@ -1235,36 +1294,11 @@ export function useDefconChallenge(userId: string | undefined) {
     const linha = sessionId
       ? novaLinhaVenda({ user_id: userId, session_id: sessionId, block_index: blockIdx, amount, method: "pix", late: true })
       : null;
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      await queueBlockOffline(blockState, userId, planIdRef.current);
-      await queueVendaOffline(linha, newTotal);
-      return;
-    }
-    try {
-      const { error: blkErr } = await supabase
-        .from("hourly_goal_blocks")
-        .update({
-          achieved_amount: newAchieved,
-          valor_pix: newPix,
-        })
-        .eq("id", currentBlock.id);
-      if (blkErr) throw blkErr;
-
-      if (sessionId) {
-        const { error: sesErr } = await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
-        if (sesErr) throw sesErr;
-        await esquecerTotalSessaoOffline(sessionId);
-        if (linha) await gravarLinhaVenda(linha);
-      }
-
-      await syncBlocksToDailySales(userId, planDateRef.current);
-      if (sessionId) await loadSessionSales(sessionId);
-    } catch (e) {
-      // Offline / rede caiu: enfileira o estado do bloco pra sincronizar depois.
-      avisar.erro("DEFCON: pix-depois não subiu agora, ficou na fila offline", e);
-      await queueBlockOffline(blockState, userId, planIdRef.current);
-      await queueVendaOffline(linha, newTotal);
-    }
+    // celular primeiro, carteiro depois (ver addSale)
+    if (linha) setSessionSales((prev) => [...prev, linha]);
+    await queueBlockOffline(blockState, userId, planIdRef.current, planDateRef.current);
+    await queueVendaOffline(linha, newTotal);
+    enviarFila();
   };
 
   const addTip = async (amount: number) => {
@@ -1291,39 +1325,12 @@ export function useDefconChallenge(userId: string | undefined) {
     const linha = sessionId
       ? novaLinhaVenda({ user_id: userId, session_id: sessionId, block_index: currentBlockIndex, amount, method: "gorjeta", late: false })
       : null;
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      await queueBlockOffline(blockState, userId, planIdRef.current);
-      await queueVendaOffline(linha, newTotal);
-      return;
-    }
-    try {
-      const { error: blkErr } = await supabase
-        .from("hourly_goal_blocks")
-        .update({
-          achieved_amount: newAchieved,
-          valor_dinheiro: newDinheiro,
-          valor_gorjeta: newGorjeta,
-        })
-        .eq("id", currentBlock.id);
-      if (blkErr) throw blkErr;
-
-      if (sessionId) {
-        const { error: sesErr } = await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
-        if (sesErr) throw sesErr;
-        await esquecerTotalSessaoOffline(sessionId);
-        // Registra a gorjeta como LINHA em defcon_sales (method='gorjeta') pra aparecer
-        // no histórico de vendas e poder ser cancelada. NÃO conta venda/abordagem.
-        if (linha) await gravarLinhaVenda(linha);
-      }
-
-      await syncBlocksToDailySales(userId, planDateRef.current);
-      if (sessionId) await loadSessionSales(sessionId);
-    } catch (e) {
-      // Offline / rede caiu: enfileira o estado do bloco (com a gorjeta) pra sincronizar depois.
-      avisar.erro("DEFCON: gorjeta não subiu agora, ficou na fila offline", e);
-      await queueBlockOffline(blockState, userId, planIdRef.current);
-      await queueVendaOffline(linha, newTotal);
-    }
+    // celular primeiro, carteiro depois (ver addSale). A gorjeta vira LINHA em
+    // defcon_sales (method='gorjeta') pra aparecer no histórico e poder ser cancelada.
+    if (linha) setSessionSales((prev) => [...prev, linha]);
+    await queueBlockOffline(blockState, userId, planIdRef.current, planDateRef.current);
+    await queueVendaOffline(linha, newTotal);
+    enviarFila();
   };
 
   const addApproach = async () => {
@@ -1361,20 +1368,14 @@ export function useDefconChallenge(userId: string | undefined) {
     // Totals already accumulated in real-time — no need to add again
 
     const endedAt = new Date();
-    const { data: doneSession, error: endErr } = await supabase
-      .from("challenge_sessions")
-      .update({ status: "abandoned", ended_at: endedAt.toISOString() }) // sem total_sold: ver completeChallenge (03/10)
-      .eq("id", sid)
-      .select("started_at")
-      .maybeSingle();
-    if (endErr) avisar.usuario("Não consegui fechar o dia no servidor. Confere sua internet e tenta de novo.", endErr, "DEFCON: encerrar sessão");
-
     // Encerramento manual — blocos completos + parcial do bloco atual (sem cravar hora cheia).
-    if (doneSession?.started_at) {
-      const worked = calcWorkedMinutes(doneSession.started_at, endedAt, currentBlockIndexRef.current, blockStartedAtRef.current);
-      setWorkedMinutes(worked);
-      await supabase.from("challenge_sessions").update({ worked_minutes: worked } as never).eq("id", sid);
-    }
+    // Vai pela fila: sem sinal, o dia fecha no celular e sobe quando o sinal voltar.
+    const inicio = sessionStartedAtRef.current;
+    const worked = inicio ? calcWorkedMinutes(inicio, endedAt, currentBlockIndexRef.current, blockStartedAtRef.current) : null;
+    if (worked != null) setWorkedMinutes(worked);
+    await gravar("challenge_sessions", sid, {
+      status: "abandoned", ended_at: endedAt.toISOString(), ...(worked != null ? { worked_minutes: worked } : {}),
+    }); // sem total_sold: ver completeChallenge (03/10)
 
     /* Dashboard v9.1 "padrão Opal" (Rick, 01/09): a chama de dias trabalhados
        acende quando ele FECHA o DEFCON e a Home abre. Marcamos aqui; a Home lê
@@ -1605,6 +1606,10 @@ export function useDefconChallenge(userId: string | undefined) {
   const currentBlock = blocks[currentBlockIndex] || null;
 
   return {
+    /** itens ainda esperando sinal pra subir (tarja da tela) */
+    pendentes,
+    /** abriu sem sinal e não há DEFCON de hoje guardado no celular: oferecer o DEFCON offline */
+    offlineSemDia,
     phase,
     blocks,
     currentBlock,

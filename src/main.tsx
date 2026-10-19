@@ -64,8 +64,14 @@ createRoot(document.getElementById("root")!).render(<Root />);
 // PLACAR OFFLINE: pré-carrega o código da tela /offline enquanto há sinal, pra o
 // service worker guardar o arquivo. Sem isso, a tela só existiria no servidor —
 // e a primeira vez que o vendedor precisa dela é justamente SEM internet.
+// 19/10/2026: além da tela /offline, o DEFCON e o Foco também — o DEFCON agora funciona
+// sem sinal, então o código dele precisa estar no celular mesmo pra quem nunca abriu.
 if (typeof navigator === "undefined" || navigator.onLine !== false) {
-  const preload = () => { import("@/pages/ModoOffline").catch(() => {}); };
+  const preload = () => {
+    import("@/pages/ModoOffline").catch(() => {});
+    import("@/pages/DefconChallenge").catch(() => {});
+    import("@/pages/DailyGoals").catch(() => {});
+  };
   if ("requestIdleCallback" in window) (window as any).requestIdleCallback(preload, { timeout: 8000 });
   else setTimeout(preload, 4000);
 }

@@ -12,7 +12,7 @@
  * O total da sessão (usado no X1) também vai pra fila, como valor absoluto.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { addOfflineRecord, removeOfflineRecord, type OfflineRecord } from "./offline-db";
+import { addOfflineRecord, getUnsynced, removeOfflineRecord, type OfflineRecord } from "./offline-db";
 
 export interface LinhaVenda {
   id: string;
@@ -64,6 +64,30 @@ export async function guardarVendaOffline(linha: LinhaVenda, totalSessao: number
   });
 }
 
+/** Só o total da sessão (ex.: ao excluir uma venda), valor absoluto. */
+export async function guardarTotalSessaoOffline(sessionId: string, totalSessao: number): Promise<void> {
+  try {
+    await addOfflineRecord("pending_venda", {
+      id: chaveSessao(sessionId), store: "pending_venda",
+      data: { tipo: "total_sessao", session_id: sessionId, total_sold: totalSessao },
+      created_at: new Date().toISOString(), synced: false,
+    });
+  } catch { /* sem IndexedDB: a tela já mostra o valor certo; a próxima venda corrige */ }
+}
+
+/** Excluir uma venda: se ela ainda estava na fila, só sai dela (nunca chega no servidor);
+ *  senão entra na fila um pedido de apagar, que o carteiro leva em ordem. */
+export async function apagarVendaOffline(vendaId: string): Promise<void> {
+  try {
+    const pendentes = await getUnsynced("pending_venda");
+    if (pendentes.some((r) => r.id === vendaId)) { await removeOfflineRecord("pending_venda", vendaId); return; }
+    await addOfflineRecord("pending_venda", {
+      id: `apagar:${vendaId}`, store: "pending_venda",
+      data: { tipo: "apagar", venda_id: vendaId }, created_at: new Date().toISOString(), synced: false,
+    });
+  } catch (e) { console.error("[venda-offline] não consegui guardar a exclusão:", e); }
+}
+
 /** O total da sessão subiu online: o valor guardado na fila ficou velho, descarta. */
 export async function esquecerTotalSessaoOffline(sessionId: string): Promise<void> {
   try { await removeOfflineRecord("pending_venda", chaveSessao(sessionId)); } catch { /* sem IndexedDB: nada guardado */ }
@@ -83,6 +107,10 @@ export async function subirVendaPendente(record: OfflineRecord): Promise<boolean
       return true;
     }
     return false;
+  }
+  if (d.tipo === "apagar") {
+    const { error } = await supabase.from("defcon_sales").delete().eq("id", String(d.venda_id));
+    return !error;
   }
   if (d.tipo === "total_sessao") {
     const { error } = await supabase

@@ -14,6 +14,7 @@ import { CloudOff, Zap } from "lucide-react";
 import { useOnlineStatus } from "@/shared/hooks/use-online-status";
 import { useAuth } from "@/hooks/useAuth";
 import { diasOfflinePendentes } from "@/shared/lib/offline-day";
+import { temDefconRodando } from "@/shared/lib/fila-defcon";
 
 export default function OfflineGate() {
   const online = useOnlineStatus();
@@ -32,10 +33,14 @@ export default function OfflineGate() {
 
   const naTelaOffline = location.pathname.startsWith("/offline");
   const naAuth = location.pathname.startsWith("/auth");
-  if (online || naTelaOffline || naAuth || dispensado) return null;
+  // 19/10: o DEFCON agora funciona sem sinal — o aviso NUNCA cobre a tela dele.
+  const noDefcon = location.pathname.startsWith("/defcon");
+  if (online || naTelaOffline || naAuth || noDefcon || dispensado) return null;
 
   const uid = (() => { try { return user?.id ?? localStorage.getItem("orbis_ultimo_user_id"); } catch { return user?.id ?? null; } })();
   const pendentes = uid ? diasOfflinePendentes(uid).length : 0;
+  // já tem DEFCON rodando neste celular: volta pra ELE (nada de começar outro do zero)
+  const rodando = temDefconRodando(uid);
 
   return createPortal(
     <div className="fixed inset-0 z-[90] flex items-center justify-center" role="dialog" aria-modal="true">
@@ -53,8 +58,8 @@ export default function OfflineGate() {
           A mesma tela do DEFCON: venda, abordagem, gorjeta, pausa e encerrar. Tudo fica salvo no celular e sobe sozinho quando o sinal voltar.
           {pendentes > 0 && <> Você tem <b style={{ color: "#F4F1EA" }}>{pendentes} {pendentes === 1 ? "dia" : "dias"}</b> esperando pra sincronizar.</>}
         </p>
-        <button type="button" onClick={() => navigate("/offline")} className="orbis-cta w-full mt-5">
-          <Zap size={17} strokeWidth={2.6} /> ABRIR DEFCON 4 OFFLINE
+        <button type="button" onClick={() => navigate(rodando ? "/defcon" : "/offline")} className="orbis-cta w-full mt-5">
+          <Zap size={17} strokeWidth={2.6} /> {rodando ? "VOLTAR PRO MEU DEFCON" : "ABRIR DEFCON 4 OFFLINE"}
         </button>
         <button type="button" onClick={() => setDispensado(true)} className="mt-3 text-[13px] font-semibold" style={{ color: "#7E7869" }}>
           só olhar o app

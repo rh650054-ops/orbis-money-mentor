@@ -31,6 +31,28 @@ function guardar(reg: RegistroErro) {
   const lista = (window.__orbisErros ??= []);
   lista.push(reg);
   if (lista.length > LIMITE) lista.splice(0, lista.length - LIMITE);
+  // 19/10/2026: erro de verdade fica guardado NO APARELHO (sobrevive a fechar o app)
+  // e o carteiro do offline manda pro servidor quando tiver sinal (client_logs).
+  if (reg.nivel !== "silencioso") guardarNoAparelho({ quando: reg.quando, nivel: reg.nivel, ctx: reg.ctx, msg: reg.msg ?? resumo(reg.erro) });
+}
+
+export interface LogAparelho { quando: string; nivel: "erro" | "usuario" | "fila"; ctx: string; msg?: string; pendentes?: number; fila_mais_velha_min?: number }
+const CHAVE_LOGS = "orbis_logs_aparelho";
+export function guardarNoAparelho(l: LogAparelho): void {
+  try {
+    const atual = JSON.parse(localStorage.getItem(CHAVE_LOGS) || "[]") as LogAparelho[];
+    atual.push({ ...l, ctx: l.ctx.slice(0, 200), msg: l.msg?.slice(0, 500) });
+    localStorage.setItem(CHAVE_LOGS, JSON.stringify(atual.slice(-100)));
+  } catch { /* aparelho sem storage: fica só na memória */ }
+}
+export function lerLogsDoAparelho(): LogAparelho[] {
+  try { return JSON.parse(localStorage.getItem(CHAVE_LOGS) || "[]") as LogAparelho[]; } catch { return []; }
+}
+export function limparLogsDoAparelho(qtd: number): void {
+  try {
+    const atual = JSON.parse(localStorage.getItem(CHAVE_LOGS) || "[]") as LogAparelho[];
+    localStorage.setItem(CHAVE_LOGS, JSON.stringify(atual.slice(qtd)));
+  } catch { /* nada */ }
 }
 
 function resumo(e: unknown): string {
