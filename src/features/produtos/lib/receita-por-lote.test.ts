@@ -21,3 +21,19 @@ describe("receita por lote (Rick, 19/10)", () => {
     expect(receitaPorLote("p1", 100, 0, [linha("a", "Leite", 2)], {})).toBeNull();
   });
 });
+
+import { aplicarDesconto } from "./mercado-produto";
+describe("desconto no caixa", () => {
+  it("R$ 380 com R$ 40 de clube: cada item cai na mesma proporção (paga R$ 340)", () => {
+    const itens = [{ qtd: 10, preco_unit: 20 }, { qtd: 6, preco_unit: 30 }, { qtd: 1, preco_unit: null }];
+    const r = aplicarDesconto(itens, 380, 40);
+    const pago = r.reduce((s, i) => s + i.qtd * (i.preco_unit ?? 0), 0);
+    expect(Math.round(pago * 100) / 100).toBe(340);
+    expect(r[2]!.preco_unit).toBeNull();
+  });
+  it("sem desconto não mexe; desconto maior que a compra não vira preço negativo", () => {
+    const itens = [{ qtd: 1, preco_unit: 10 }];
+    expect(aplicarDesconto(itens, 10, 0)).toBe(itens);
+    expect(aplicarDesconto(itens, 10, 50)[0]!.preco_unit).toBe(0);
+  });
+});
