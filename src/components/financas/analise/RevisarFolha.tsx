@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "@/shared/hooks/use-toast";
 import { COR, CheckAnimado, Chip, Folha, haptic } from "../planejar/ui";
 import { useAcaoLancamento, useCategoriasSaida } from "./use-analise";
-import { dataCurta, reais, type Pendente } from "./tipos";
+import { dataCurta, ehTopicoProprio, reais, type Pendente } from "./tipos";
+import { erroCategoria, useCriarCategoria } from "./use-categoria";
+import { NovoTopico } from "./NovoTopico";
 
 const RAPIDAS = ["mercado", "mercadoria", "contas_casa", "transporte_app", "restaurante", "delivery", "lazer", "outros"];
 
@@ -13,10 +15,12 @@ export function RevisarFolha({ aberta, pendentes, onFechar }: { aberta: boolean;
   const [feito, setFeito] = useState<string | null>(null);   // botão que mostra o check
   const [saindo, setSaindo] = useState(false);
   const [todas, setTodas] = useState(false);
+  const [nomear, setNomear] = useState(false);   // tocou em "Outros": pede o nome do tópico
+  const criar = useCriarCategoria();
   const travado = useRef(false);
   const cats = useCategoriasSaida();
   const acao = useAcaoLancamento();
-  useEffect(() => { if (aberta) { setFila(pendentes); setTodas(false); } }, [aberta]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (aberta) { setFila(pendentes); setTodas(false); setNomear(false); } }, [aberta]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const atual = fila[0];
   const confirmar = (categoria: string) => {
@@ -29,13 +33,18 @@ export function RevisarFolha({ aberta, pendentes, onFechar }: { aberta: boolean;
     });
     window.setTimeout(() => setSaindo(true), 250);
     window.setTimeout(() => {
-      setFila((f) => f.slice(1)); setSaindo(false); setFeito(null); setTodas(false); travado.current = false;
+      setFila((f) => f.slice(1)); setSaindo(false); setFeito(null); setTodas(false); setNomear(false); travado.current = false;
     }, 250 + 220);
   };
 
-  const opcoes = (cats.data ?? []).filter((c) => (todas ? c.slug !== "pix_pessoas" && c.slug !== "transferencia_propria" : RAPIDAS.includes(c.slug)));
+  const criarTopico = (nome: string, teto: number | null) => criar.mutate({ nome, teto }, {
+    onSuccess: (c) => { toast({ title: `Tópico "${c.rotulo}" criado` }); confirmar(c.slug); },
+    onError: (e) => toast({ title: erroCategoria(e), variant: "destructive" }),
+  });
+
+  const opcoes = (cats.data ?? []).filter((c) => (todas ? c.slug !== "pix_pessoas" && c.slug !== "transferencia_propria" : RAPIDAS.includes(c.slug) || ehTopicoProprio(c.slug)));
   const botao = (slug: string, texto: string) => (
-    <button key={slug} type="button" onClick={() => confirmar(slug)} disabled={!!feito}
+    <button key={slug} type="button" onClick={() => (slug === "outros" ? setNomear(true) : confirmar(slug))} disabled={!!feito}
       className="min-h-11 px-3 rounded-[12px] border inline-flex items-center gap-1.5 text-[15px] font-bold whitespace-nowrap transition-[transform,background-color] duration-100 active:scale-[0.97]"
       style={feito === slug ? { background: COR.verde, borderColor: COR.verde, color: "#08140d" } : { background: COR.surface2, borderColor: COR.borda, color: COR.texto }}>
       {feito === slug && <CheckAnimado tamanho={16} />}{texto}
@@ -60,6 +69,9 @@ export function RevisarFolha({ aberta, pendentes, onFechar }: { aberta: boolean;
               <p className="text-[20px] font-extrabold tabular-nums shrink-0" style={{ color: COR.texto }}>{reais(atual.valor)}</p>
             </div>
           </div>
+          {nomear ? (
+            <NovoTopico ocupado={criar.isPending} onCriar={criarTopico} onSemNome={() => confirmar("outros")} />
+          ) : (<>
           <p className="text-[15px] font-semibold" style={{ color: COR.texto }}>O que foi esse gasto?</p>
           <div className="flex flex-wrap gap-2">
             {opcoes.map((c) => botao(c.slug, c.rotulo))}
@@ -69,6 +81,7 @@ export function RevisarFolha({ aberta, pendentes, onFechar }: { aberta: boolean;
             {botao("pix_pessoas", "Pix pra pessoa mesmo")}
             {botao("transferencia_propria", "Entre minhas contas")}
           </div>
+          </>)}
         </div>
       )}
     </Folha>

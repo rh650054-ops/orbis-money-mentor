@@ -6,6 +6,8 @@ import { toast } from "@/shared/hooks/use-toast";
 import { BotaoPrimario, COR, Chip, Folha, LinhaValor, haptic } from "../planejar/ui";
 import { useAcaoLancamento, useCategoriasSaida, type AcaoLancamento } from "./use-analise";
 import { A_REVISAR, dataCurta, reais, type Lancamento } from "./tipos";
+import { erroCategoria, useCriarCategoria } from "./use-categoria";
+import { NovoTopico } from "./NovoTopico";
 
 type Modo = "ver" | "categoria" | "nome";
 
@@ -26,6 +28,7 @@ export function TransacaoFolha({ l, onFechar }: { l: Lancamento | null; onFechar
   const [nome, setNome] = useState("");
   const cats = useCategoriasSaida();
   const acao = useAcaoLancamento();
+  const criar = useCriarCategoria();
   useEffect(() => {
     if (!l) return;
     setModo("ver"); setNova(null); setNome(l.apelido ?? l.nome);
@@ -71,6 +74,13 @@ export function TransacaoFolha({ l, onFechar }: { l: Lancamento | null; onFechar
               <Chip key={c.slug} ativo={nova === c.slug} onClick={() => setNova(c.slug)}>{c.rotulo}</Chip>
             ))}
           </div>
+          {nova === "outros" && (
+            <NovoTopico ocupado={criar.isPending || acao.isPending}
+              onCriar={(nome, teto) => criar.mutate({ nome, teto }, {
+                onSuccess: (c) => rodar({ tipo: "mover", id: l.id, categoria: c.slug, todos }, `Movido pro tópico ${c.rotulo}`),
+                onError: (e) => toast({ title: erroCategoria(e), variant: "destructive" }),
+              })} />
+          )}
           {l.mesmo_nome > 1 && (
             <button type="button" role="switch" aria-checked={todos} onClick={() => { haptic(); setTodos((t) => !t); }}
               className="flex items-center gap-3 text-left min-h-11 text-[14px] font-semibold" style={{ color: COR.texto }}>
@@ -81,10 +91,17 @@ export function TransacaoFolha({ l, onFechar }: { l: Lancamento | null; onFechar
               Aplicar a todos de {l.nome} ({l.mesmo_nome}) e aos próximos
             </button>
           )}
-          <BotaoPrimario disabled={!nova} estado={acao.isPending ? "carregando" : "normal"}
-            onClick={() => nova && rodar({ tipo: "mover", id: l.id, categoria: nova, todos }, todos ? `Movidos pra ${rotulo(nova)}` : `Movido pra ${rotulo(nova)}`)}>
-            Salvar categoria
-          </BotaoPrimario>
+          {nova === "outros" ? (
+            <button type="button" onClick={() => rodar({ tipo: "mover", id: l.id, categoria: "outros", todos }, "Movido pra Outros")}
+              disabled={acao.isPending} className="text-[14px] font-bold min-h-10" style={{ color: COR.sub }}>
+              Deixar em Outros, sem nome
+            </button>
+          ) : (
+            <BotaoPrimario disabled={!nova} estado={acao.isPending ? "carregando" : "normal"}
+              onClick={() => nova && rodar({ tipo: "mover", id: l.id, categoria: nova, todos }, todos ? `Movidos pra ${rotulo(nova)}` : `Movido pra ${rotulo(nova)}`)}>
+              Salvar categoria
+            </BotaoPrimario>
+          )}
         </>
       )}
 
