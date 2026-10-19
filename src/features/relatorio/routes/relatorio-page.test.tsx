@@ -59,11 +59,13 @@ describe("Relatório (redesign 18/10)", () => {
     expect(screen.getByText("arte recap")).toBeTruthy();
   });
 
-  it("a faixa da semana troca o dia mostrado no card", () => {
+  it("gráfico dia a dia: tocar num dia mostra o dia e abre o relatório só dele", () => {
     montar();
-    fireEvent.click(screen.getByRole("tab", { name: "ter 13/10" }));
+    fireEvent.click(screen.getByRole("button", { name: /^13\/10:/ }));
     expect(screen.getByText("Ter 13/10")).toBeTruthy();
     expect(screen.getByText(/16 vendas em 23 abordagens/)).toBeTruthy();
+    fireEvent.click(screen.getByText(/Ver o relatório desse dia/));
+    expect(screen.getAllByText("terça 13/10").length).toBeGreaterThan(0);
   });
 
   it("exportar usa o período da tela e oferece PDF, CSV e Excel", () => {

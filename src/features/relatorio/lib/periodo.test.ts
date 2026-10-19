@@ -9,10 +9,9 @@ describe("períodos do relatório", () => {
     expect(periodoDoPreset("ontem", hoje)).toEqual({ preset: "ontem", de: "2026-10-17", ate: "2026-10-17" });
   });
 
-  it("semana vai de segunda até hoje (calendário do vendedor), e no domingo pega a semana inteira", () => {
-    expect(periodoDoPreset("semana", hoje)).toEqual({ preset: "semana", de: "2026-10-12", ate: hoje });
-    expect(periodoDoPreset("semana", "2026-10-12")).toEqual({ preset: "semana", de: "2026-10-12", ate: "2026-10-12" }); // segunda
-    expect(periodoDoPreset("semana", "2026-10-11")).toEqual({ preset: "semana", de: "2026-10-05", ate: "2026-10-11" }); // domingo
+  it("semana são os últimos 7 dias, terminando hoje (na segunda não fica só com o dia de hoje)", () => {
+    expect(periodoDoPreset("semana", hoje)).toEqual({ preset: "semana", de: addDias(hoje, -6), ate: hoje });
+    expect(periodoDoPreset("semana", "2026-10-19")).toEqual({ preset: "semana", de: "2026-10-13", ate: "2026-10-19" }); // segunda
   });
 
   it("mês começa no dia 1; 7d e 30d são janelas correntes", () => {

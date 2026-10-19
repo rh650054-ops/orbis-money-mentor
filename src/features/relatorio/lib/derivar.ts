@@ -33,7 +33,6 @@ export interface Resumo {
   dias: {
     lista: DiaLista[];
     melhor: DiaLista | null; maisEficiente: (DiaLista & { conv: number }) | null; maisFraco: DiaLista | null;
-    semana: { dia: string; letra: string; row: DiaLista | null; futuro: boolean }[] | null;
     maxCaiu: number; // max "vendido" of a day (bar scale)
   };
   horas: { periodos: PeriodoDia[]; melhorPeriodo: PeriodoDia | null; shareMelhor: number; barras: { h: number; valor: number }[]; melhorHora: { h: number; valor: number; vendas: number } | null; piorHora: { h: number; valor: number } | null };
@@ -101,12 +100,6 @@ export function derivar(rel: Relatorio, banco: DiaBanco[], periodo: Periodo, rot
     .reduce<(DiaLista & { conv: number }) | null>((m, d) => (!m || d.conv > m.conv ? d : m), null);
   const maisFraco = comVenda.length > 1 ? comVenda.reduce<DiaLista | null>((m, d) => (!m || d.vendido < m.vendido ? d : m), null) : null;
   const maxCaiu = Math.max(0, ...lista.map((d) => d.vendido));
-  const semana = periodo.preset === "semana"
-    ? Array.from({ length: 7 }, (_, i) => {
-        const dia = addDias(periodo.de, i);
-        return { dia, letra: semanaCurta(dia)[0]!.toUpperCase(), row: lista.find((d) => d.dia === dia) ?? null, futuro: dia > periodo.ate };
-      })
-    : null;
 
   const horasMap = new Map(a.horas.map((h) => [h.h, h]));
   const periodos: PeriodoDia[] = PERIODOS.map((p) => {
@@ -163,7 +156,7 @@ export function derivar(rel: Relatorio, banco: DiaBanco[], periodo: Periodo, rot
       ritmoMin: vendas > 0 && ativo > 0 ? ativo / vendas : null,
       melhorRitmo: a.tempo.melhor_ritmo,
     },
-    dias: { lista, melhor, maisEficiente, maisFraco, semana, maxCaiu },
+    dias: { lista, melhor, maisEficiente, maisFraco, maxCaiu },
     horas: { periodos, melhorPeriodo, shareMelhor: melhorPeriodo ? pct(melhorPeriodo.valor, totalPeriodos) : 0, barras, melhorHora, piorHora },
     tempo: {
       worked, pausa: a.tempo.pausa_min, parado: a.tempo.parado_min, ativo,

@@ -33,7 +33,7 @@ export const semanaCurta = (iso: string) => SEMANA_CURTA[diaDaSemana(iso)]!;
 export const semanaLonga = (iso: string) => SEMANA_LONGA[diaDaSemana(iso)]!;
 
 /**
- * Period for a chip. "Semana" is Monday → today (the vendor's calendar week),
+ * Period for a chip. "Semana" is the last 7 days ending today,
  * "Mês" is day 1 → today; "7d"/"30d" are rolling windows ending today.
  * Rick (18/10): "o vendedor de rua está sempre querendo olhar ontem" — so "ontem"
  * is a first-class chip, not a custom range.
@@ -42,11 +42,9 @@ export function periodoDoPreset(preset: Preset, hoje = hojeBR(), custom?: { de: 
   switch (preset) {
     case "hoje": return { preset, de: hoje, ate: hoje };
     case "ontem": { const d = addDias(hoje, -1); return { preset, de: d, ate: d }; }
-    case "semana": {
-      const dow = diaDaSemana(hoje); // Monday-based week: Mon=0 … Sun=6
-      const desdeSeg = (dow + 6) % 7;
-      return { preset, de: addDias(hoje, -desdeSeg), ate: hoje };
-    }
+    // Rick (19/10): "Semana" são os últimos 7 dias, não segunda → hoje (na segunda-feira
+    // a semana de calendário só tinha o dia de hoje e o relatório aparecia zerado).
+    case "semana": return { preset, de: addDias(hoje, -6), ate: hoje };
     case "mes": return { preset, de: hoje.slice(0, 7) + "-01", ate: hoje };
     case "7d": return { preset, de: addDias(hoje, -6), ate: hoje };
     case "30d": return { preset, de: addDias(hoje, -29), ate: hoje };
@@ -71,7 +69,7 @@ export function rotuloAnterior(p: Periodo): string {
   switch (p.preset) {
     case "hoje": return "ontem";
     case "ontem": return "anteontem";
-    case "semana": return "semana anterior";
+    case "semana": return "7 dias anteriores";
     case "mes": return "mês anterior";
     default: return "período anterior";
   }
