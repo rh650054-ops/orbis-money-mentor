@@ -161,3 +161,94 @@ begin
     perform public.cartao_sincronizar_conta(r.conta_id);
   end loop;
 end $$;
+
+-- ============ 3) Pix crédito / Pix parcelado / empréstimo → aba Contas ============
+-- (Rick: "não precisa ser específico cartão de crédito, pode ser Pix crédito também")
+-- O InfinitePay manda o Pix crédito como contrato (bank_emprestimos, "Pix Credit"):
+-- valor da parcela, parcelas pagas/total e próximo vencimento. Cada contrato com
+-- parcela em aberto vira uma conta; quando a última é paga, a conta fica paga.
+alter table public.planned_bills add column if not exists emprestimo_id text;
+create unique index if not exists planned_bills_emprestimo_uidx on public.planned_bills(user_id, emprestimo_id) where emprestimo_id is not null;
+alter table public.bank_emprestimos add column if not exists conta_dispensada boolean not null default false;
+
+create or replace function public.emprestimo_sincronizar_conta(p_pluggy_id text)
+returns void
+language plpgsql security definer set search_path to 'public'
+as $function$
+declare
+  e record;
+  v_bill uuid;
+  v_faltam int;
+  v_nome text;
+begin
+  select * into e from public.bank_emprestimos where pluggy_id = p_pluggy_id;
+  if not found or e.conta_dispensada or coalesce(e.parcela_valor, 0) <= 0 then return; end if;
+  if not exists (select 1 from public.bank_connections bc where bc.id = e.bank_connection_id and coalesce(bc.status, '') <> 'deleted') then return; end if;
+
+  v_faltam := greatest(coalesce(e.parcelas_total, 1) - coalesce(e.parcelas_pagas, 0), 0);
+  select id into v_bill from public.planned_bills where user_id = e.user_id and emprestimo_id = p_pluggy_id;
+
+  if v_bill is null then
+    if v_faltam = 0 or e.proximo_vencimento is null then return; end if;   -- já quitado: não cria
+    v_nome := case when e.nome ilike '%pix%' then 'Pix crédito' else coalesce(nullif(trim(e.nome), ''), 'Empréstimo') end
+              || ' ' || coalesce(nullif(trim(e.banco), ''), '');
+    if coalesce(e.parcelas_total, 1) > 1 then
+      v_nome := v_nome || ' (' || (coalesce(e.parcelas_pagas, 0) + 1) || '/' || e.parcelas_total || ')';
+    end if;
+    insert into public.planned_bills (user_id, name, amount, due_date, recurring, is_credit_card, emprestimo_id,
+                                      installments, duration_months, cycles_paid, risco)
+    values (e.user_id, left(trim(v_nome), 60), round(e.parcela_valor, 2), e.proximo_vencimento, v_faltam > 1, false, p_pluggy_id,
+            nullif(e.parcelas_total, 1), case when coalesce(e.parcelas_total, 1) > 1 then e.parcelas_total end,
+            coalesce(e.parcelas_pagas, 0), 'alto');
+  elsif v_faltam = 0 then
+    update public.planned_bills set paid = true, updated_at = now() where id = v_bill and not paid;
+  else
+    update public.planned_bills
+       set amount = round(e.parcela_valor, 2), due_date = coalesce(e.proximo_vencimento, due_date),
+           cycles_paid = coalesce(e.parcelas_pagas, cycles_paid), updated_at = now()
+     where id = v_bill
+       and (amount is distinct from round(e.parcela_valor, 2) or due_date is distinct from coalesce(e.proximo_vencimento, due_date)
+            or cycles_paid is distinct from coalesce(e.parcelas_pagas, cycles_paid));
+  end if;
+end $function$;
+revoke all on function public.emprestimo_sincronizar_conta(text) from public, anon, authenticated;
+
+create or replace function public.bank_emprestimos_virar_conta()
+returns trigger language plpgsql security definer set search_path to 'public'
+as $function$
+begin
+  perform public.emprestimo_sincronizar_conta(new.pluggy_id);
+  return null;
+exception when others then
+  raise warning 'emprestimo_sincronizar_conta %: %', new.pluggy_id, sqlerrm;  -- nunca derruba a leitura do banco
+  return null;
+end $function$;
+
+create or replace function public.planned_bills_emprestimo_apagada()
+returns trigger language plpgsql security definer set search_path to 'public'
+as $function$
+begin
+  update public.bank_emprestimos set conta_dispensada = true
+   where pluggy_id = old.emprestimo_id and user_id = old.user_id;
+  return null;
+end $function$;
+
+do $$
+begin
+  if not exists (select 1 from pg_trigger where tgname = 'bank_emprestimos_virar_conta') then
+    create trigger bank_emprestimos_virar_conta after insert or update of parcela_valor, parcelas_pagas, proximo_vencimento
+      on public.bank_emprestimos for each row execute function public.bank_emprestimos_virar_conta();
+  end if;
+  if not exists (select 1 from pg_trigger where tgname = 'planned_bills_emprestimo_apagada') then
+    create trigger planned_bills_emprestimo_apagada after delete on public.planned_bills
+      for each row when (old.emprestimo_id is not null) execute function public.planned_bills_emprestimo_apagada();
+  end if;
+end $$;
+
+do $$
+declare r record;
+begin
+  for r in select pluggy_id from public.bank_emprestimos loop
+    perform public.emprestimo_sincronizar_conta(r.pluggy_id);
+  end loop;
+end $$;
