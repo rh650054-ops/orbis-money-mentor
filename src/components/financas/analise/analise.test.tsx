@@ -7,6 +7,7 @@ import { RevisarFolha } from "./RevisarFolha";
 import { escolherAlerta, referencia, type Analise, type CatAnalise } from "./tipos";
 
 const mutate = vi.fn();
+vi.mock("./use-categoria", () => ({ useCriarCategoria: () => ({ mutate: vi.fn(), isPending: false }), erroCategoria: () => "erro" }));
 vi.mock("./use-analise", () => ({
   useCategoriasSaida: () => ({ data: [
     { slug: "mercado", rotulo: "Mercado / rancho", tipo: "saida", esfera_padrao: "pessoal", ordem: 13 },

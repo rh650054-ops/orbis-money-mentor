@@ -27,6 +27,9 @@ export interface Lancamento {
 }
 export interface CategoriaDef { slug: string; rotulo: string; tipo: string; esfera_padrao: string; ordem: number }
 
+/** Tópico criado pelo próprio vendedor ("Outros" com nome). */
+export const ehTopicoProprio = (slug: string) => slug.startsWith("u_");
+
 /** Categoria aberta no detalhe: uma categoria pessoal ou o bloco "custos do negócio". */
 export type Aberta = { tipo: "categoria"; cat: CatAnalise } | { tipo: "negocio"; negocio: Negocio };
 
