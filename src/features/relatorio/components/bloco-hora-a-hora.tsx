@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cn } from "@/shared/lib/utils";
 import type { Resumo } from "../lib/derivar";
 import { brl } from "../lib/periodo";
@@ -8,7 +9,10 @@ import { Cartao, Fato, Frase, Secao } from "./ui-bits";
  *  "muito confuso… usuários com dedos maiores podem apertar errado". */
 export function BlocoHoraAHora({ r }: { r: Resumo }) {
   const { periodos, melhorPeriodo, shareMelhor, barras, melhorHora, piorHora } = r.horas;
+  // Rick (19/10): o gráfico das horas volta grande e dá pra tocar numa hora
+  const [hora, setHora] = useState<number | null>(null);
   if (!melhorPeriodo) return null;
+  const sel = hora != null ? barras.find((b) => b.h === hora) ?? null : null;
   const max = Math.max(1, ...barras.map((b) => b.valor));
   const nomeHora = melhorPeriodo.nome === "Almoço" ? "na hora do almoço" : melhorPeriodo.nome === "Manhã" ? "de manhã" : melhorPeriodo.nome === "Tarde" ? "à tarde" : "à noite";
   return (
@@ -33,16 +37,25 @@ export function BlocoHoraAHora({ r }: { r: Resumo }) {
           })}
         </div>
 
-        <div className="mt-3 grid h-[46px] items-end gap-[3px]" style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }} aria-hidden>
-          {barras.map((b) => (
-            <i key={b.h} className="block min-h-[3px] rounded-t-[3px]" style={{ height: `${Math.max(6, Math.round((b.valor / max) * 100))}%`, background: melhorHora?.h === b.h ? "var(--orbis-gold)" : "#3a3a3a" }} />
-          ))}
+        <div className="mt-3 grid h-[140px] items-end gap-[3px]" style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}>
+          {barras.map((b) => {
+            const aceso = (hora ?? melhorHora?.h) === b.h;
+            return (
+              <button key={b.h} type="button" onClick={() => setHora(hora === b.h ? null : b.h)} aria-label={`${b.h}h: ${brl(b.valor)}`}
+                className="orbis-press flex h-full flex-col justify-end">
+                <i className="block min-h-[3px] w-full rounded-t-[3px]" style={{ height: `${Math.max(4, Math.round((b.valor / max) * 100))}%`, background: aceso ? "var(--orbis-gold)" : "#3a3a3a" }} />
+              </button>
+            );
+          })}
         </div>
         <div className="mt-1 grid gap-[3px] text-center text-[10px] text-muted-foreground/70" style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }} aria-hidden>
           {barras.map((b) => <span key={b.h}>{b.h % 2 === 0 ? `${b.h}h` : ""}</span>)}
         </div>
 
-        {melhorHora && (
+        {sel && (
+          <Fato><b>{sel.h}h às {sel.h + 1}h</b>: {brl(sel.valor)}{sel.valor > 0 ? "" : " — sem venda nessa hora"}.</Fato>
+        )}
+        {melhorHora && !sel && (
           <Fato>
             Melhor hora: <b>{melhorHora.h}h</b>, {brl(melhorHora.valor)} em {melhorHora.vendas} vendas
             {piorHora && piorHora.h !== melhorHora.h ? <> · Mais fraca: <b>{piorHora.h}h</b>, {brl(piorHora.valor)}</> : null}.

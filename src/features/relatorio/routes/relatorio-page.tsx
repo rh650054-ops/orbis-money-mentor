@@ -13,7 +13,6 @@ import { hojeBR, periodoDoPreset, rotuloAnterior } from "../lib/periodo";
 import type { Periodo } from "../types";
 import { Acoes } from "../components/acoes";
 import { BlocoCalote } from "../components/bloco-calote";
-import { BlocoDiaADia } from "../components/bloco-dia-a-dia";
 import { BlocoGastos } from "../components/bloco-gastos";
 import { BlocoHoraAHora } from "../components/bloco-hora-a-hora";
 import { BlocoRecebeu } from "../components/bloco-recebeu";
@@ -21,14 +20,15 @@ import { BlocoTempo } from "../components/bloco-tempo";
 import { BlocoVantViu } from "../components/bloco-vant-viu";
 import { CardDinheiro } from "../components/card-dinheiro";
 import { CardVendas } from "../components/card-vendas";
+import { GraficoDias } from "../components/grafico-dias";
 import { FiltroPeriodo } from "../components/filtro-periodo";
 import { RelatorioSkeleton } from "../components/relatorio-skeleton";
 
 /**
  * Relatório (redesign 18/10/2026, mockup v10 approved by Rick).
  * Dashboard answers "quanto estou fazendo?"; this screen answers "como estou vendendo?".
- * Order: filtro → dinheiro (the card people screenshot) → conferido pelo banco →
- * [fechamento do dia] → vendas → dia a dia → hora a hora → seu tempo → como recebeu →
+ * Order: filtro → dinheiro (the card people screenshot) → gráfico dia a dia (tap a day,
+ * Rick 19/10) → [fechamento do dia] → vendas → hora a hora → seu tempo → como recebeu →
  * seus gastos → calote → o que a Vant viu → compartilhar / exportar.
  * Rule of the whole page: every number appears once.
  */
@@ -65,6 +65,9 @@ function RelatorioConteudo() {
       {resumo && (
         <>
           <CardDinheiro r={resumo} />
+          {!resumo.umDia && !resumo.semDados && (
+            <GraficoDias r={resumo} onAbrirDia={(dia) => { setPeriodo(periodoDoPreset("custom", hoje, { de: dia, ate: dia })); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
+          )}
           {resumo.umDia && user && (
             <FechamentoDoDia
               userId={user.id}
@@ -86,7 +89,6 @@ function RelatorioConteudo() {
                 <span className="h-px flex-1 bg-[rgba(245,184,0,.25)]" />Como você vendeu<span className="h-px flex-1 bg-[rgba(245,184,0,.25)]" />
               </div>
               <CardVendas r={resumo} />
-              {!resumo.umDia && <BlocoDiaADia r={resumo} />}
               <BlocoHoraAHora r={resumo} />
               <BlocoTempo r={resumo} />
               <BlocoRecebeu r={resumo} />
