@@ -1,19 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
+vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: null }) }));
 import { AcoesRapidas } from "./acoes-rapidas";
+import { CustoRapido } from "./custo-rapido";
 import { MercadoriaDoDia } from "./mercadoria-do-dia";
 import { projecaoDoMes } from "./mes-card";
 
 describe("Foco — redesign", () => {
-  it("ações rápidas: cada atalho chama o seu caminho (e custo não repete aqui)", () => {
-    const fns = { onComprar: vi.fn(), onEstoque: vi.fn(), onAjustarOntem: vi.fn() };
-    render(<AcoesRapidas {...fns} />);
-    expect(screen.queryByRole("button", { name: /custo/i })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Comprar/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Ajustar/ }));
-    expect(fns.onComprar).toHaveBeenCalledTimes(1);
-    expect(fns.onAjustarOntem).toHaveBeenCalledTimes(1);
-    expect(fns.onEstoque).not.toHaveBeenCalled();
+  it("ações rápidas: um botão só, o Tô no mercado (sem comprar/estoque/ajustar ontem)", () => {
+    const onMercado = vi.fn();
+    render(<AcoesRapidas onMercado={onMercado} />);
+    expect(screen.queryByRole("button", { name: /Ajustar/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Comprar/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Tô no mercado/ }));
+    expect(onMercado).toHaveBeenCalledTimes(1);
   });
 
   it("mercadoria: vazio útil com botão; com carga mostra status e o 'Repor' do que acabou", () => {
@@ -37,5 +38,18 @@ describe("Foco — redesign", () => {
     const falta = projecaoDoMes({ vendidoMes: 14467, metaMensal: 30000, ritmo: 980, diasRestantes: 12 });
     expect(falta.bate).toBe(false);
     expect(Math.round(-falta.diferenca)).toBe(30000 - (14467 + 980 * 12));
+  });
+
+  it("custo rápido: sem Mercadoria; 'Outro' pede com o que gastou antes de lançar", () => {
+    const onLancar = vi.fn();
+    const zero = { transporte: 0, alimentacao: 0, outro: 0 };
+    const props = { estado: "rodando" as const, valor: "15", hoje: zero, ontem: zero, onCategoria: vi.fn(), onValor: vi.fn(), onDescricao: vi.fn(), onLancar, onRepetir: vi.fn(), onChanged: vi.fn() };
+    const { rerender } = render(<CustoRapido {...props} categoria="outro" descricao="" />);
+    expect(screen.queryByRole("tab", { name: /Mercadoria/ })).toBeNull();
+    expect(screen.getByRole("tab", { name: /Outro/ })).toBeTruthy();
+    expect((screen.getByRole("button", { name: /Lançar/ }) as HTMLButtonElement).disabled).toBe(true);
+    rerender(<CustoRapido {...props} categoria="outro" descricao="gelo" />);
+    fireEvent.click(screen.getByRole("button", { name: /Lançar/ }));
+    expect(onLancar).toHaveBeenCalledTimes(1);
   });
 });

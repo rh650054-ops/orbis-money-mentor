@@ -12,12 +12,14 @@ export interface DayTotals {
   transport: number; food: number;
 }
 
-export type CategoriaCusto = "mercadoria" | "transporte" | "alimentacao";
+// 19/10 (Rick): mercadoria saiu do Custo rápido — compra de mercadoria é no "Tô no mercado".
+// "Outro" vai pra personal_expenses (categoria Outros) com a descrição do gasto.
+export type CategoriaCusto = "transporte" | "alimentacao" | "outro";
 
-export const CATEGORIAS_CUSTO: { id: CategoriaCusto; label: string; col: "cost" | "transport_cost" | "food_cost"; placeholder: string }[] = [
-  { id: "mercadoria", label: "Mercadoria", col: "cost", placeholder: "Quanto deu a mercadoria?" },
+export const CATEGORIAS_CUSTO: { id: CategoriaCusto; label: string; col: "transport_cost" | "food_cost" | null; placeholder: string }[] = [
   { id: "transporte", label: "Transporte", col: "transport_cost", placeholder: "Quanto deu o transporte?" },
   { id: "alimentacao", label: "Almoço", col: "food_cost", placeholder: "Quanto deu o almoço?" },
+  { id: "outro", label: "Outro", col: null, placeholder: "Quanto gastou?" },
 ];
 
 export const brl0 = (n: number) =>

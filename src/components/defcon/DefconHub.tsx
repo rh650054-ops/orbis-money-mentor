@@ -9,7 +9,6 @@ import { getTier } from "@/components/ranking/tier";
 import { useToast } from "@/shared/hooks/use-toast";
 import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
 import { DefconLoadoutManager } from "@/components/defcon/DefconLoadoutManager";
-import { DefconAjustarDiaModal } from "@/components/defcon/DefconAjustarDiaModal";
 import { usePixDoBanco } from "@/components/conectar/banco-pix";
 import { WeeklyChallengeIcon } from "@/components/competitions/WeeklyChallenge";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
@@ -28,7 +27,6 @@ import { MercadoriaDoDia } from "./foco/mercadoria-do-dia";
 import { CustoRapido, type CustosDia } from "./foco/custo-rapido";
 import { MesCard } from "./foco/mes-card";
 import { ComoRecebeu } from "./foco/como-recebeu";
-import { CompraSheet } from "./foco/compra-sheet";
 import { UltimasCompras } from "./foco/ultimas-compras";
 import { Utilitarios } from "./foco/utilitarios";
 import { BlocosDeHoje } from "./foco/blocos-de-hoje";
@@ -58,15 +56,14 @@ export default function DefconHub() {
   const [exporting, setExporting] = useState(false);
   const [pdfDate, setPdfDate] = useState(getBrazilDate()); // dia do PDF (padrão: hoje)
   const [quickCost, setQuickCost] = useState("");
-  const [quickCostCat, setQuickCostCat] = useState<CategoriaCusto>("mercadoria");
+  const [quickCostCat, setQuickCostCat] = useState<CategoriaCusto>("transporte");
+  const [custoDescricao, setCustoDescricao] = useState("");
+  const [outroHoje, setOutroHoje] = useState(0);
   const [showEdit, setShowEdit] = useState(false);
-  const [ajustarDiaOpen, setAjustarDiaOpen] = useState(false);
   // Foco redesign (18/10): sheet da compra, carga em edição
-  const [compraAberta, setCompraAberta] = useState(false);
-  const [compraProduto, setCompraProduto] = useState<string | null>(null);
-  const [versaoCompras, setVersaoCompras] = useState(0);
+  const [versaoCompras] = useState(0);
   const [editandoCarga, setEditandoCarga] = useState(false);
-  const [custosOntem, setCustosOntem] = useState<CustosDia>({ mercadoria: 0, transporte: 0, alimentacao: 0 });
+  const [custosOntem, setCustosOntem] = useState<CustosDia>({ transporte: 0, alimentacao: 0, outro: 0 });
   const today = getBrazilDate();
   // meta viável (11/10): a meta do cérebro, as faixas e o replanejamento do mês
   const qc = useQueryClient();
@@ -184,6 +181,11 @@ export default function DefconHub() {
       transport: Number((sales as any)?.transport_cost || 0),
       food: Number((sales as any)?.food_cost || 0),
     });
+    // "Outro" do Custo rápido mora em personal_expenses (categoria Outros), com a descrição
+    {
+      const { data: outros } = await supabase.from("personal_expenses").select("amount").eq("user_id", user.id).eq("date", today).eq("category", "Outros");
+      setOutroHoje(((outros as { amount: number | null }[] | null) ?? []).reduce((t, o) => t + (Number(o.amount) || 0), 0));
+    }
     const sessaoHoje = ((session as any[]) || [])[0] ?? null;
     setHasSession(!!sessaoHoje);
     setSessao(sessaoHoje);
@@ -252,7 +254,7 @@ export default function DefconHub() {
         sem += v;
         if (r.date === ontemData) {
           ont += v;
-          setCustosOntem({ mercadoria: Number(r.cost) || 0, transporte: Number(r.transport_cost) || 0, alimentacao: Number(r.food_cost) || 0 });
+          setCustosOntem({ transporte: Number(r.transport_cost) || 0, alimentacao: Number(r.food_cost) || 0, outro: 0 });
         }
       }
       setSemana(sem);
@@ -337,10 +339,23 @@ export default function DefconHub() {
     if (!user) return;
     const amount = valorDireto ?? parseFloat(quickCost);
     if (!amount || amount <= 0) return;
+    // "Outro": gasto avulso com descrição — entra no relatório como "outros custos" e abate do líquido
+    if (quickCostCat === "outro") {
+      const nomeGasto = custoDescricao.trim();
+      if (!nomeGasto) return;
+      const { error: outroErr } = await supabase.from("personal_expenses").insert({
+        user_id: user.id, name: nomeGasto.slice(0, 80), category: "Outros", icon: "🧾", amount, type: "variable", date: today,
+      });
+      if (outroErr) { avisar.usuario("Não consegui salvar o gasto. Tenta de novo.", outroErr, "DefconHub: gasto outro"); return; }
+      setQuickCost(""); setCustoDescricao("");
+      toast({ title: "Custo lançado", description: `${nomeGasto} · ${formatCurrency(amount)}` });
+      loadAll();
+      return;
+    }
     // Cada categoria vai pra coluna certa do daily_sales — e TODAS entram no relatório
     // e ABATEM do líquido: mercadoria -> "Custo de mercadoria"; transporte/almoço ->
     // "Transporte e alimentação". (Antes ia pra personal_expenses e sumia do relatório.)
-    const col = CATEGORIAS_CUSTO.find((c) => c.id === quickCostCat)?.col ?? "cost";
+    const col = CATEGORIAS_CUSTO.find((c) => c.id === quickCostCat)?.col ?? "transport_cost";
     const { data: rows } = await supabase
       .from("daily_sales")
       .select("id, cost, transport_cost, food_cost")
@@ -385,14 +400,10 @@ export default function DefconHub() {
   const dataLabel = new Date(`${today}T12:00:00`).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "short" }).replace(/\./g, "").replace("-feira", "");
   if (loading || !user) return null;
 
-  const abrirCompra = (produto: string | null) => { setCompraProduto(produto); setCompraAberta(true); };
-  const atualizarEstoque = () => {
-    if (estado === "antes") {
-      setEditandoCarga(true);
-      document.getElementById("foco-mercadoria")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else navigate("/products");
-  };
-  const custosHoje: CustosDia = { mercadoria: totals.cost, transporte: totals.transport, alimentacao: totals.food };
+  // compra de mercadoria = "Tô no mercado" (tela cheia de Produtos), volta pro Foco no fim
+  const irAoMercado = () => navigate("/products/mercado?de=foco");
+
+  const custosHoje: CustosDia = { transporte: totals.transport, alimentacao: totals.food, outro: outroHoje };
 
   return (
     <div className="pb-8 max-w-md mx-auto px-1 orbis-stagger">
@@ -411,7 +422,7 @@ export default function DefconHub() {
       {/* o mês: com o que ele faz por dia, bate a meta final? (bloco próprio, não embola com a meta de hoje) */}
       {temFaixas && metaViavel && <MesCard m={metaViavel} onReplanejar={() => setReplanOpen(true)} />}
 
-      <AcoesRapidas onComprar={() => abrirCompra(null)} onEstoque={atualizarEstoque} onAjustarOntem={() => setAjustarDiaOpen(true)} />
+      <AcoesRapidas onMercado={irAoMercado} />
 
       {estado !== "antes" && <BlocosDeHoje blocos={blocosHoje} total={blocosTot || workHours} dailyGoal={dailyGoal} rodandoAgora={estado === "rodando"} />}
 
@@ -428,7 +439,7 @@ export default function DefconHub() {
 
       <div id="foco-mercadoria">
         <MercadoriaDoDia estado={estado} carga={carga} editando={editandoCarga && estado === "antes"}
-          onVerEstoque={() => navigate("/products")} onRepor={(nome) => abrirCompra(nome)}>
+          onVerEstoque={() => navigate("/products")} onRepor={() => irAoMercado()}>
           <DefconLoadoutManager userId={user.id} />
           <button type="button" onClick={() => { setEditandoCarga(false); void loadAll(); }} className="mt-2 text-[12px] font-bold" style={{ color: "var(--orbis-gold)" }}>fechar</button>
         </MercadoriaDoDia>
@@ -438,8 +449,8 @@ export default function DefconHub() {
 
       <section id="foco-operacao" className="mt-6 px-0.5 scroll-mt-4" aria-label="Operação do dia">
         <p className="orbis-mini mb-2.5">Operação do dia</p>
-        <CustoRapido estado={estado} categoria={quickCostCat} valor={quickCost} hoje={custosHoje} ontem={custosOntem}
-          onCategoria={setQuickCostCat} onValor={setQuickCost} onLancar={() => void handleAddCost()}
+        <CustoRapido estado={estado} categoria={quickCostCat} valor={quickCost} descricao={custoDescricao} hoje={custosHoje} ontem={custosOntem}
+          onCategoria={setQuickCostCat} onValor={setQuickCost} onDescricao={setCustoDescricao} onLancar={() => void handleAddCost()}
           onRepetir={(c, v) => { setQuickCostCat(c); void handleAddCost(v); }} onChanged={() => void loadAll()} />
         {totalVendido > 0 && <ComoRecebeu userId={user.id} planId={planId} totals={totals} totalVendido={totalVendido} pelobanco={temBancoTrabalho} onChanged={() => void loadAll()} />}
       </section>
@@ -450,15 +461,12 @@ export default function DefconHub() {
         pdfDate={pdfDate} exporting={exporting} onPdfDate={setPdfDate} onPDF={() => void handlePDF()}
         onHistorico={() => navigate("/history")} />
 
-      <CompraSheet aberto={compraAberta} userId={user.id} produtoInicial={compraProduto} onFechar={() => setCompraAberta(false)}
-        onChanged={() => { setVersaoCompras((v) => v + 1); void loadAll(); }} />
       <EditPlanningModal userId={user.id} isOpen={showEdit} onSalvo={() => { acabouDePlanejar.current = true; }}
         onClose={() => { setShowEdit(false); void qc.invalidateQueries({ queryKey: ["meta-do-dia"] }); void loadAll(); }} />
       {metaViavel && (
         <ReplanejarMes aberto={replanOpen} onFechar={() => setReplanOpen(false)} m={metaViavel} salvando={replanejar.isPending}
           onEscolher={(tipo) => { replanejar.mutate(tipo, { onSuccess: () => { setReplanOpen(false); void loadAll(); } }); }} />
       )}
-      <DefconAjustarDiaModal open={ajustarDiaOpen} onOpenChange={setAjustarDiaOpen} userId={user.id} onSaved={() => void loadAll()} />
     </div>
   );
 }

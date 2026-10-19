@@ -52,6 +52,34 @@ export function compararPreco(linha: LinhaMercado, base: BaseMercado): Comparaca
 
 export interface NovaReceita { produto: string; rende: number; itens: { id?: string; nome: string; qtd: number; preco: number }[] }
 
+/** Quanto de cada item vai em UMA receita, sugerido pela compra: se a compra dá `unidades`
+ *  e uma receita rende `rende`, a compra são unidades/rende receitas. */
+export function sugestaoPorReceita(qtdComprada: number, unidades: number, rende: number): number {
+  if (!(unidades > 0) || !(rende > 0) || !(qtdComprada > 0)) return 0;
+  return Math.round((qtdComprada * rende / unidades) * 100) / 100;
+}
+
+/** 1ª compra de um produto sem receita, do jeito do Rick (19/10): "dá pra fazer 100",
+ *  "uma receita rende 6", "numa receita vai 1 leite condensado, 1 creme de leite…".
+ *  A receita guardada é a de UM lote: rende `rende` e leva `porReceita` de cada item
+ *  (sem resposta, usa a sugestão proporcional à compra). */
+export function receitaPorLote(
+  pid: string, unidades: number, rende: number, linhasEmUn: LinhaMercado[], porReceita: Record<string, number>,
+): NovaReceita | null {
+  if (!(rende >= 1)) return null;
+  const itens = linhasEmUn
+    .filter((l) => l.qtd > 0 && (l.tipo === "ingrediente" || l.tipo === "novo"))
+    .map((l) => ({
+      ...(l.tipo === "ingrediente" && l.id ? { id: l.id } : {}),
+      nome: l.nome.trim(),
+      qtd: porReceita[l.key] && porReceita[l.key]! > 0 ? porReceita[l.key]! : sugestaoPorReceita(l.qtd, unidades, rende),
+      preco: l.precoUnit ?? 0,
+    }))
+    .filter((i) => i.qtd > 0);
+  if (itens.length === 0) return null;
+  return { produto: pid, rende: Math.round(rende), itens };
+}
+
 /** 1ª compra de um produto sem receita: o que ele comprou rende `unidades` → isso É a receita. */
 export function receitaDaCompra(pid: string, unidades: number, linhasEmUn: LinhaMercado[]): NovaReceita | null {
   const itens = linhasEmUn
