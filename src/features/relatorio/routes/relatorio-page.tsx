@@ -7,7 +7,8 @@ import { useMarcarPasso } from "@/components/jornada/useJornada";
 import { useConferenciaBanco } from "@/components/relatorio/ConferenciaBanco";
 import { usePixDoBanco } from "@/components/conectar/banco-pix";
 import { FechamentoDoDia } from "@/components/relatorio/FechamentoDoDia";
-import { useCaloteBancoQuery, useRelatorioQuery, relatorioKeys } from "../api/use-relatorio-query";
+import { useCaloteBancoQuery, useGastosBancoQuery, useRelatorioQuery, relatorioKeys } from "../api/use-relatorio-query";
+import { comGastosBanco } from "../lib/gastos-banco";
 import { derivar } from "../lib/derivar";
 import { hojeBR, periodoDoPreset, rotuloAnterior } from "../lib/periodo";
 import type { Periodo } from "../types";
@@ -43,9 +44,13 @@ function RelatorioConteudo() {
   // "Conferido pelo banco" mora só na aba Vender (Rick, 18/10); aqui só sabemos se tem banco.
   const { pix: pixBanco } = usePixDoBanco(!!user, 10 * 60_000);
   const caiuDepois = useCaloteBancoQuery(periodo.de, periodo.ate, pixBanco.temBanco);
-  const resumo = useMemo(() => (rel.data ? derivar(rel.data, banco, periodo, rotuloAnterior(periodo),
+  // com banco, os gastos também vêm do banco (mercadoria, Uber/99, comida do dia de rua)
+  const gastosAt = useGastosBancoQuery(periodo.de, periodo.ate, pixBanco.temBanco);
+  const gastosAnt = useGastosBancoQuery(rel.data?.anterior.de ?? "", rel.data?.anterior.ate ?? "", pixBanco.temBanco && !!rel.data);
+  const relFinal = useMemo(() => (rel.data ? comGastosBanco(rel.data, gastosAt.data, gastosAnt.data) : undefined), [rel.data, gastosAt.data, gastosAnt.data]);
+  const resumo = useMemo(() => (relFinal ? derivar(relFinal, banco, periodo, rotuloAnterior(periodo),
     // com banco: "caiu depois" é o que o banco leu (quem tem banco não edita à mão)
-    pixBanco.temBanco ? caiuDepois.data ?? { total: 0, n: 0 } : null) : null), [rel.data, banco, periodo, caiuDepois.data, pixBanco.temBanco]);
+    pixBanco.temBanco ? caiuDepois.data ?? { total: 0, n: 0 } : null) : null), [relFinal, banco, periodo, caiuDepois.data, pixBanco.temBanco]);
 
   const hoje = hojeBR();
   const bancoDoDia = resumo?.umDia ? banco.find((d) => d.dia === periodo.de) ?? null : null;
@@ -95,7 +100,7 @@ function RelatorioConteudo() {
               <BlocoHoraAHora r={resumo} />
               <BlocoTempo r={resumo} />
               <BlocoRecebeu r={resumo} />
-              <BlocoGastos r={resumo} />
+              <BlocoGastos r={resumo} peloBanco={!!gastosAt.data} />
               <BlocoCalote r={resumo} />
               <BlocoVantViu r={resumo} />
               {user && <Acoes r={resumo} userId={user.id} />}

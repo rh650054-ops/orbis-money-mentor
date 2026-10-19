@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createQueryKeys, supabase } from "@/shared/api";
 import { relatorioSchema, type Relatorio } from "../types";
+import type { GastosBanco } from "../lib/gastos-banco";
 
 export const relatorioKeys = createQueryKeys("relatorio");
 
@@ -35,6 +36,25 @@ export function useCaloteBancoQuery(de: string, ate: string, enabled: boolean) {
       if (error) return null;
       const linhas = (Array.isArray(data) ? data : []) as { recuperado?: unknown; n?: unknown }[];
       return linhas.reduce<{ total: number; n: number }>((t, l) => ({ total: t.total + (Number(l.recuperado) || 0), n: t.n + (Number(l.n) || 0) }), { total: 0, n: 0 });
+    },
+    staleTime: 30_000,
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+}
+
+
+/** Gastos lidos do banco (Open Finance): mercadoria comprada, Uber/99 e comida dos dias
+ *  de rua, + o que foi anotado à mão. null = sem banco (a tela usa o manual). */
+export function useGastosBancoQuery(de: string, ate: string, enabled: boolean) {
+  return useQuery({
+    queryKey: relatorioKeys.list({ de, ate, tela: "gastos-banco" }),
+    enabled,
+    queryFn: async (): Promise<GastosBanco | null> => {
+      const { data, error } = await (supabase as unknown as RpcClient).rpc("relatorio_gastos_banco", { p_de: de, p_ate: ate });
+      if (error || !data || typeof data !== "object") return null;
+      const d = data as Record<string, unknown>;
+      return { mercadoria: Number(d.mercadoria) || 0, transporte: Number(d.transporte) || 0, alimentacao: Number(d.alimentacao) || 0 };
     },
     staleTime: 30_000,
     retry: 1,
