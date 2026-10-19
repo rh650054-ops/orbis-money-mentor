@@ -6,7 +6,7 @@ import { relatorioExemplo } from "../lib/exemplo";
 // jsdom has no matchMedia; the motion helpers ask it about reduced motion.
 Object.defineProperty(window, "matchMedia", { writable: true, value: (q: string) => ({ matches: true, media: q, addEventListener: () => undefined, removeEventListener: () => undefined, addListener: () => undefined, removeListener: () => undefined, onchange: null, dispatchEvent: () => false }) });
 
-vi.mock("@/integrations/supabase/client", () => ({ supabase: { functions: { invoke: vi.fn() } } }));
+vi.mock("@/integrations/supabase/client", () => ({ supabase: { functions: { invoke: vi.fn() }, rpc: vi.fn(async () => ({ data: null, error: null })) } }));
 vi.mock("@/shared/api", () => ({ supabase: { functions: { invoke: vi.fn() } }, createQueryKeys: (f: string) => ({ all: [f], list: (x: unknown) => [f, "list", x] }) }));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "u1" } }) }));
 vi.mock("@/shared/hooks/use-toast", () => ({ toast: vi.fn(), useToast: () => ({ toast: vi.fn() }) }));

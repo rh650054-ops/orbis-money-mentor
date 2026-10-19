@@ -11,12 +11,18 @@ import { syncBlocksToDailySales } from "@/utils/syncDailySales";
 import { useToast } from "@/shared/hooks/use-toast";
 import { brl0, PRESS, type DayTotals } from "./foco-tipos";
 
-interface Props { userId: string; planId: string | null; totals: DayTotals; totalVendido: number; onChanged: () => void }
+interface Props {
+  userId: string; planId: string | null; totals: DayTotals; totalVendido: number;
+  /** Banco que conta ligado (Open Finance): Pix e cartão vêm do banco e o dinheiro
+   *  entra no fim do Foco — nada aqui é editável à mão (Rick, 18/10). */
+  pelobanco?: boolean;
+  onChanged: () => void;
+}
 
 const em2Casas = (v: number) => { const n = Math.round((Number(v) || 0) * 100) / 100; return n ? String(n) : ""; };
 const num = (s: string) => Math.round((parseFloat(String(s).replace(",", ".")) || 0) * 100) / 100;
 
-export function ComoRecebeu({ userId, planId, totals, totalVendido, onChanged }: Props) {
+export function ComoRecebeu({ userId, planId, totals, totalVendido, pelobanco = false, onChanged }: Props) {
   const { toast } = useToast();
   const [editando, setEditando] = useState(false);
   const [cash, setCash] = useState("");
@@ -65,9 +71,10 @@ export function ComoRecebeu({ userId, planId, totals, totalVendido, onChanged }:
     <div className="rounded-[20px] border px-4 py-3.5 mt-3" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-[14.5px] font-extrabold">Como você recebeu</p>
-        {!editando && <button type="button" onClick={abrir} className={`inline-flex items-center gap-1 h-8 px-3 rounded-full text-[12px] font-bold ${PRESS}`} style={{ border: "1px solid rgba(245,184,0,.4)", color: "var(--orbis-gold)" }}><Pencil className="w-3 h-3" /> Corrigir</button>}
+        {pelobanco && <span className="text-[11px] font-semibold" style={{ color: "var(--orbis-fg-3)" }}>Pix e cartão pelo banco</span>}
+        {!editando && !pelobanco && <button type="button" onClick={abrir} className={`inline-flex items-center gap-1 h-8 px-3 rounded-full text-[12px] font-bold ${PRESS}`} style={{ border: "1px solid rgba(245,184,0,.4)", color: "var(--orbis-gold)" }}><Pencil className="w-3 h-3" /> Corrigir</button>}
       </div>
-      {editando ? (
+      {editando && !pelobanco ? (
         <div className="mt-3 space-y-2.5">
           <p className="text-xs" style={{ color: "var(--orbis-fg-3)" }}>Ajuste o que entrou em cada forma. O que faltar pro total vira <span style={{ color: "var(--orbis-custo)" }}>não recebido</span>.</p>
           <Linha icon={<Banknote className="w-4 h-4 text-success" />} label="Dinheiro" value={cash} onChange={setCash} />

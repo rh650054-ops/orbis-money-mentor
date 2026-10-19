@@ -10,7 +10,7 @@ import { useToast } from "@/shared/hooks/use-toast";
 import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
 import { DefconLoadoutManager } from "@/components/defcon/DefconLoadoutManager";
 import { DefconAjustarDiaModal } from "@/components/defcon/DefconAjustarDiaModal";
-import { carregarBancos } from "@/components/conectar/pluggy";
+import { usePixDoBanco } from "@/components/conectar/banco-pix";
 import { WeeklyChallengeIcon } from "@/components/competitions/WeeklyChallenge";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { RetomarLugar, SinalDeHoje } from "@/components/defcon/FocoExtras";
@@ -95,14 +95,12 @@ export default function DefconHub() {
   const [horaInicio, setHoraInicio] = useState<number | null>(null);
   const [nome, setNome] = useState("");
   const [carga, setCarga] = useState<ItemCarga[]>([]);
-  // banco de TRABALHO ligado (Open Finance): o Pix que cai depois entra sozinho
-  const [temBancoTrabalho, setTemBancoTrabalho] = useState(false);
-  useEffect(() => {
-    if (!user?.id) return;
-    let vivo = true;
-    void carregarBancos().then((b) => { if (vivo) setTemBancoTrabalho(b.some((x) => x.papel === "trabalho")); });
-    return () => { vivo = false; };
-  }, [user?.id]);
+  // Banco que conta (Open Finance) — mesma regra do servidor (banco_conta_de_venda):
+  // conta de trabalho, conta sem papel ou banco único. Pix e cartão vêm do banco,
+  // então nem "Corrigir recebimentos" nem "Pix que caiu depois" aparecem (Rick, 18/10).
+  // Antes só olhava papel = 'trabalho' e quem tinha um banco só via as edições à mão.
+  const { pix: bancoDoDia } = usePixDoBanco(!!user?.id, 10 * 60_000);
+  const temBancoTrabalho = bancoDoDia.temBanco;
   const [, setTick] = useState(0);
   useEffect(() => { const id = setInterval(() => setTick((t) => t + 1), 30000); return () => clearInterval(id); }, []);
 
@@ -443,7 +441,7 @@ export default function DefconHub() {
         <CustoRapido estado={estado} categoria={quickCostCat} valor={quickCost} hoje={custosHoje} ontem={custosOntem}
           onCategoria={setQuickCostCat} onValor={setQuickCost} onLancar={() => void handleAddCost()}
           onRepetir={(c, v) => { setQuickCostCat(c); void handleAddCost(v); }} onChanged={() => void loadAll()} />
-        {totalVendido > 0 && <ComoRecebeu userId={user.id} planId={planId} totals={totals} totalVendido={totalVendido} onChanged={() => void loadAll()} />}
+        {totalVendido > 0 && <ComoRecebeu userId={user.id} planId={planId} totals={totals} totalVendido={totalVendido} pelobanco={temBancoTrabalho} onChanged={() => void loadAll()} />}
       </section>
 
       <UltimasCompras userId={user.id} versao={versaoCompras} onChanged={() => void loadAll()} />
