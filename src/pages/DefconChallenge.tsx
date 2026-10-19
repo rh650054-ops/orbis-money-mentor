@@ -158,6 +158,12 @@ export default function DefconChallenge() {
     return <CarregandoDefcon />;
   }
 
+  // SEM SINAL e sem DEFCON de hoje guardado no celular (ou tentou começar sem sinal):
+  // o caminho é o DEFCON offline, que guarda tudo no aparelho e sobe sozinho depois.
+  if (defcon.offlineSemDia && (!defcon.hasPlan || defcon.phase === "idle")) {
+    return <SemSinalParaComecar onOffline={() => navigate("/offline")} onVoltar={() => navigate("/daily-goals")} />;
+  }
+
   if (!defcon.hasPlan) {
     return (
       <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col items-center justify-center px-6">
@@ -409,7 +415,36 @@ export default function DefconChallenge() {
       {/* Card de 1ª vez do DEFCON (rota fora do layout, então renderiza aqui):
           venda em 2 toques, offline continua registrando, encerrar o dia. */}
       {!treino && user && <FirstTimeCard tela="defcon" userId={user.id} />}
+      {!treino && <TarjaFila pendentes={defcon.pendentes} />}
     </>
+  );
+}
+
+/* TARJA DA FILA (19/10/2026): o DEFCON grava tudo no celular primeiro. Enquanto o
+   carteiro não levou pro servidor, uma tarja discreta avisa — sem travar nada. */
+function TarjaFila({ pendentes }: { pendentes: number }) {
+  if (pendentes <= 0) return null;
+  return (
+    <div className="fixed inset-x-0 z-[60] flex justify-center px-3 pointer-events-none" style={{ bottom: "calc(env(safe-area-inset-bottom) + 10px)" }}>
+      <div role="status" className="rounded-full px-3.5 py-1.5 text-[11.5px] font-bold"
+        style={{ background: "rgba(17,17,17,.94)", border: "1px solid rgba(245,184,0,.35)", color: "#F4F1EA" }}>
+        ⏳ {pendentes} {pendentes === 1 ? "venda esperando" : "vendas esperando"} sinal · já está salvo no celular
+      </div>
+    </div>
+  );
+}
+
+function SemSinalParaComecar({ onOffline, onVoltar }: { onOffline: () => void; onVoltar: () => void }) {
+  return (
+    <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col items-center justify-center px-6 text-center">
+      <div className="text-5xl mb-5">📵</div>
+      <h1 className="text-2xl font-bold text-white mb-3">Sem sinal agora</h1>
+      <p className="text-sm text-neutral-400 mb-8 max-w-xs leading-relaxed">
+        O DEFCON offline funciona igual: venda, abordagem, gorjeta, pausa e encerrar. Tudo fica salvo no celular e sobe sozinho quando o sinal voltar.
+      </p>
+      <button type="button" onClick={onOffline} className="orbis-cta w-full max-w-xs">ABRIR DEFCON OFFLINE</button>
+      <button type="button" onClick={onVoltar} className="mt-4 text-[13px] font-semibold text-neutral-500">voltar</button>
+    </div>
   );
 }
 

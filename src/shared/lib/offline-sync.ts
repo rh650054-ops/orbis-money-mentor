@@ -7,54 +7,103 @@ import { getUnsynced, markSynced, clearSynced, type OfflineRecord } from "./offl
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
 import { subirVendaPendente } from "./venda-offline";
 import { diasOfflinePendentes, marcarDiaSincronizado, type DiaOffline } from "./offline-day";
+import { contarPendentes, registrarSinal, temSinal } from "./fila-defcon";
+import { guardarNoAparelho, lerLogsDoAparelho, limparLogsDoAparelho } from "./avisar";
 
 let syncing = false;
+let deNovo = false;
 
+/** Avisa a tela (DEFCON, tarja) quanto falta subir e quando algo subiu. */
+async function avisarTela(enviou: number): Promise<void> {
+  if (typeof window === "undefined") return;
+  const pendentes = await contarPendentes();
+  window.dispatchEvent(new CustomEvent("orbis:fila", { detail: { pendentes, enviou } }));
+}
+
+/** O CARTEIRO: leva o que está no celular pro servidor, em ordem, uma coisa de cada vez.
+ *  Se chamarem de novo enquanto ele trabalha, ele dá mais uma volta no fim (nada fica
+ *  pra trás). Total do dia e ranking são recalculados UMA vez, quando a fila esvazia. */
 export async function syncAllPendingData(): Promise<void> {
-  if (syncing) return;
+  if (syncing) { deNovo = true; return; }
   syncing = true;
+  let enviouTotal = 0;
+  const diasTocados = new Set<string>();
 
   try {
-    const salesSynced =
-      (await syncStore('pending_sales', syncSaleRecord)) +
-      (await syncStore('pending_venda', subirVendaPendente));
-    await syncStore('pending_checklist', syncChecklistRecord);
-    await syncStore('pending_defcon', syncDefconRecord);
-    await syncStore('pending_approaches', syncApproachRecord);
+    do {
+      deNovo = false;
+      const salesSynced =
+        (await syncStore('pending_sales', (r) => syncSaleRecord(r, diasTocados))) +
+        (await syncStore('pending_venda', subirVendaPendente));
+      const outros =
+        (await syncStore('pending_checklist', syncChecklistRecord)) +
+        (await syncStore('pending_defcon', syncDefconRecord)) +
+        (await syncStore('pending_approaches', syncApproachRecord));
+      enviouTotal += salesSynced + outros;
 
-    // PLACAR OFFLINE (localStorage é a fonte; o IndexedDB é só espelho). Se o
-    // IndexedDB falhou no celular, este passo garante que o dia sobe mesmo assim.
-    await syncDiasOfflineLocais();
+      // PLACAR OFFLINE (localStorage é a fonte; o IndexedDB é só espelho). Se o
+      // IndexedDB falhou no celular, este passo garante que o dia sobe mesmo assim.
+      await syncDiasOfflineLocais();
 
-    // Clean up synced records
-    await clearSynced('pending_sales');
-    await clearSynced('pending_venda');
-    await clearSynced('pending_checklist');
-    await clearSynced('pending_defcon');
-    await clearSynced('pending_approaches');
+      await clearSynced('pending_sales');
+      await clearSynced('pending_venda');
+      await clearSynced('pending_checklist');
+      await clearSynced('pending_defcon');
+      await clearSynced('pending_approaches');
+    } while (deNovo);
 
-    // Depois de subir as vendas offline (que gravam em hourly_goal_blocks), recalcula
-    // o total do dia (daily_sales) + ranking a partir dos blocos — senao o Dashboard e
-    // o ranking so atualizariam no proximo carregamento do app.
-    if (salesSynced > 0) {
+    // Depois de subir as vendas (que gravam em hourly_goal_blocks), recalcula o total
+    // do dia (daily_sales) + ranking a partir dos blocos — do DIA de cada bloco.
+    if (diasTocados.size > 0) {
       const { data } = await supabase.auth.getUser();
-      if (data.user) await syncBlocksToDailySales(data.user.id);
+      if (data.user) for (const dia of diasTocados) await syncBlocksToDailySales(data.user.id, dia || undefined);
     }
   } catch (err) {
     console.error('[OfflineSync] Error during sync:', err);
   } finally {
     syncing = false;
+    void avisarTela(enviouTotal);
+    void registrarFilaEEnviarLogs();
   }
 }
+
+/** Fase 4: se a fila está velha, anota; e manda os erros guardados no aparelho. */
+async function registrarFilaEEnviarLogs(): Promise<void> {
+  try {
+    const pendentes = await contarPendentes();
+    if (pendentes > 0) {
+      const maisVelha = await idadeDaFilaMin();
+      if (maisVelha >= 30) guardarNoAparelho({ quando: new Date().toISOString(), nivel: "fila", ctx: "fila parada", pendentes, fila_mais_velha_min: maisVelha });
+    }
+    const logs = lerLogsDoAparelho();
+    if (logs.length === 0 || !(await temSinal())) return;
+    const app = typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 200) : null;
+    const { error } = await (supabase as unknown as { from: (t: string) => { insert: (r: unknown[]) => Promise<{ error: unknown }> } })
+      .from("client_logs").insert(logs.map((l) => ({ ...l, app })));
+    if (!error) limparLogsDoAparelho(logs.length);
+  } catch { /* sem tabela ou sem sinal: os logs ficam no aparelho e vão na próxima */ }
+}
+
+async function idadeDaFilaMin(): Promise<number> {
+  const todos = [
+    ...(await getUnsynced('pending_sales')), ...(await getUnsynced('pending_venda')), ...(await getUnsynced('pending_defcon')),
+  ];
+  const maisVelho = todos.reduce((m, r) => Math.min(m, new Date(r.created_at).getTime() || Date.now()), Date.now());
+  return Math.round((Date.now() - maisVelho) / 60000);
+}
+
+/** Chama o carteiro sem esperar (a tela não trava). */
+export function enviarFila(): void { void syncAllPendingData(); }
 
 type StoreName = 'pending_sales' | 'pending_venda' | 'pending_checklist' | 'pending_defcon' | 'pending_approaches';
 
 async function syncStore(store: StoreName, handler: (record: OfflineRecord) => Promise<boolean>): Promise<number> {
-  const records = await getUnsynced(store);
+  const records = (await getUnsynced(store)).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
   let synced = 0;
   for (const record of records) {
     try {
       const ok = await handler(record);
+      if (ok) registrarSinal(true);
       if (ok) { await markSynced(store, record.id, record.rev); synced++; }
     } catch (err) {
       console.error(`[OfflineSync] Failed to sync ${store} record ${record.id}:`, err);
@@ -63,7 +112,7 @@ async function syncStore(store: StoreName, handler: (record: OfflineRecord) => P
   return synced;
 }
 
-async function syncSaleRecord(record: OfflineRecord): Promise<boolean> {
+async function syncSaleRecord(record: OfflineRecord, dias?: Set<string>): Promise<boolean> {
   const d = record.data;
   const { error } = await supabase.from('hourly_goal_blocks').upsert({
     id: d.block_id as string,
@@ -79,6 +128,7 @@ async function syncSaleRecord(record: OfflineRecord): Promise<boolean> {
     valor_calote: d.valor_calote as number,
     valor_gorjeta: (d.valor_gorjeta as number) ?? 0,
   }, { onConflict: 'id' });
+  if (!error) dias?.add(String(d.plan_date ?? ""));
   return !error;
 }
 
@@ -98,6 +148,17 @@ async function syncChecklistRecord(record: OfflineRecord): Promise<boolean> {
 
 async function syncDefconRecord(record: OfflineRecord): Promise<boolean> {
   const d = record.data;
+  // alteração de sessão/bloco feita sem sinal (avançar bloco, pausa, encerrar)
+  if (d.type === 'patch') {
+    const tabela = d.tabela as "challenge_sessions" | "hourly_goal_blocks";
+    const { error } = await supabase.from(tabela).update(d.patch as never).eq('id', String(d.linha));
+    return !error;
+  }
+  // abordagens / vendas do bloco (challenge_blocks), valor absoluto
+  if (d.type === 'contadores') {
+    const { error } = await supabase.from('challenge_blocks').upsert(d.payload as never, { onConflict: 'session_id,block_index' });
+    return !error;
+  }
   if (d.type === 'offline_day') {
     return syncOfflineDay(d as unknown as DiaOffline);
   }
@@ -150,6 +211,13 @@ export function setupOfflineSyncListeners(): void {
     if (document.visibilityState === 'visible') syncIfOnline();
   });
   window.addEventListener('focus', syncIfOnline);
+
+  // 4) SINAL FRACO: o celular não avisa "voltou" quando o sinal passa de ruim pra bom.
+  //    Enquanto tiver coisa na fila, o carteiro tenta de novo a cada 30s.
+  setInterval(() => {
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    void contarPendentes().then((n) => { if (n > 0) syncIfOnline(); });
+  }, 30_000);
 
   // Try Background Sync if available
   if ('serviceWorker' in navigator && 'SyncManager' in window) {
