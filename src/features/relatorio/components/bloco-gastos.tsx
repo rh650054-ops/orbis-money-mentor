@@ -1,12 +1,12 @@
 import type { Resumo } from "../lib/derivar";
 import { brl, rotuloAnterior } from "../lib/periodo";
-import { BarraDividida, COR, Cartao, Chip, Frase, Secao } from "./ui-bits";
+import { BarraDividida, COR, Cartao, Chip, Fato, Frase, Secao } from "./ui-bits";
 
 const TONS = [COR.custo, COR.cinzaClaro, COR.cinza, "#2a2a2a"];
 
 /** Seus gastos: one accent only — the biggest category (usually mercadoria) in
  *  cost-red, the rest in greys (Rick, 18/10: v9 "ficou muito colorido"). */
-export function BlocoGastos({ r }: { r: Resumo }) {
+export function BlocoGastos({ r, peloBanco = false }: { r: Resumo; peloBanco?: boolean }) {
   const g = r.gastos;
   if (g.total <= 0) return null;
   const linhas = [...g.linhas].sort((a, b) => b.valor - a.valor);
@@ -35,6 +35,9 @@ export function BlocoGastos({ r }: { r: Resumo }) {
           </span>
           <Chip delta={g.deltaDeCada10} />
         </div>
+        {peloBanco && (
+          <Fato>Lido do seu banco: compras de mercadoria (e o que você anotou no Tô no mercado), Uber/99 e comida dos dias de rua. Sem banco, entra o que você anota.</Fato>
+        )}
       </Cartao>
     </Secao>
   );

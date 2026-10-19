@@ -170,7 +170,7 @@ export function derivar(rel: Relatorio, banco: DiaBanco[], periodo: Periodo, rot
       pctAtivo: pct(ativo, worked), pctPausa: pct(a.tempo.pausa_min, worked), pctParado: pct(a.tempo.parado_min, worked),
       porDia: worked / diasNaRua, pausas, maior: a.tempo.maior_dia, menor: menor ? { dia: menor.dia, min: menor.worked_min } : null,
     },
-    recebeu: { metodos, gorjeta: a.vendas.gorjeta, caiuDepois: a.calote.recuperado, totalN: vendas },
+    recebeu: { metodos, gorjeta: a.vendas.gorjeta, caiuDepois: calRecuperado, totalN: vendas },
     gastos: {
       total: gastos, porDia: gastos / diasNaRua, deCada10: deCada10Gasto, deCada10Anterior: deCada10GastoAnt,
       deltaDeCada10: deCada10GastoAnt != null ? { valor: deCada10Gasto - deCada10GastoAnt, texto: `${deCada10Gasto >= deCada10GastoAnt ? "↑" : "↓"} ${brl(Math.abs(deCada10Gasto - deCada10GastoAnt), true)}`, tom: deCada10Gasto > deCada10GastoAnt ? "down" : deCada10Gasto < deCada10GastoAnt ? "up" : "flat" } : null,
