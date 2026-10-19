@@ -46,6 +46,8 @@ export interface Resumo {
     linhas: { chave: string; nome: string; valor: number; pctTotal: number; porDia: number }[];
   };
   calote: {
+    /** "caiu depois" lido do banco (automático) em vez do registro manual */
+    peloBanco: boolean;
     total: number; recuperado: number; perdido: number; taxa: number | null; porDia: number; umACada: number | null;
     pctVendeu: number; normalPct: number; vezesNormal: number | null; unidades: number;
   };
@@ -73,7 +75,9 @@ function deltaPp(atual: number | null, ref: number | null, rotulo: string): Delt
   return { valor: v, texto: `${v > 0 ? "↑" : v < 0 ? "↓" : "="} ${Math.abs(v)} p.p. vs ${rotulo}`, tom: v > 0 ? "up" : v < 0 ? "down" : "flat" };
 }
 
-export function derivar(rel: Relatorio, banco: DiaBanco[], periodo: Periodo, rotuloAnt: string): Resumo {
+/** `caiuDepoisBanco`: Pix que caiu depois de fechar o Foco, lido do banco (Open Finance).
+ *  Com ele o "caiu depois" é automático; sem ele vale o registro manual (late_pix). */
+export function derivar(rel: Relatorio, banco: DiaBanco[], periodo: Periodo, rotuloAnt: string, caiuDepoisBanco: { total: number; n: number } | null = null): Resumo {
   const a = rel.atual, ant = rel.anterior, nor = rel.normal;
   const umDia = ehUmDia(periodo);
   const diasNaRua = Math.max(1, a.dias_na_rua);
@@ -131,8 +135,11 @@ export function derivar(rel: Relatorio, banco: DiaBanco[], periodo: Periodo, rot
     .map((k) => ({ chave: k, nome: k === "alimentacao" ? "Alimentação" : k[0]!.toUpperCase() + k.slice(1), valor: a.dinheiro[k], pctTotal: pct(a.dinheiro[k], gastos), porDia: a.dinheiro[k] / diasNaRua }))
     .filter((l) => l.chave !== "outros" || l.valor > 0);
 
-  const calTotal = faltou;
-  const calRecuperado = Math.min(calTotal, a.calote.recuperado);
+  // Banco: total_debt já está conferido com tudo que caiu (antes e depois do fim do Foco),
+  // então o calote "na hora" é o que faltou + o que caiu depois.
+  const peloBanco = caiuDepoisBanco != null;
+  const calTotal = peloBanco ? faltou + caiuDepoisBanco.total : faltou;
+  const calRecuperado = peloBanco ? caiuDepoisBanco.total : Math.min(calTotal, a.calote.recuperado);
   const calPerdido = Math.max(0, calTotal - calRecuperado);
   const calUnid = a.calote.unidades > 0 ? a.calote.unidades : ticket && ticket > 0 ? Math.round(calTotal / ticket) : 0;
   const calPct = vendeu > 0 ? (calTotal / vendeu) * 100 : 0;
@@ -170,6 +177,7 @@ export function derivar(rel: Relatorio, banco: DiaBanco[], periodo: Periodo, rot
       linhas: linhasGasto,
     },
     calote: {
+      peloBanco,
       total: calTotal, recuperado: calRecuperado, perdido: calPerdido,
       taxa: calTotal > 0 ? Math.round((calRecuperado / calTotal) * 100) : null,
       porDia: calPerdido / diasNaRua, umACada: calUnid > 0 && vendas > 0 ? Math.round(vendas / calUnid) : null,

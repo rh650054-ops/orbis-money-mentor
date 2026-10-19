@@ -36,7 +36,7 @@ export function BlocoCalote({ r }: { r: Resumo }) {
           <div className="grid gap-0.5 rounded-2xl border border-[rgba(61,214,140,.25)] bg-[rgba(61,214,140,.10)] px-3.5 py-3">
             <small className="text-[11px] font-bold uppercase tracking-[.06em] text-[var(--orbis-ok)]">Caiu depois</small>
             <b className="text-[28px] font-bold leading-none tracking-tight text-[var(--orbis-ok)]">{brl(c.recuperado)}</b>
-            <span className="text-[12px] text-muted-foreground">{c.taxa ?? 0}% recuperado em Pix atrasado</span>
+            <span className="text-[12px] text-muted-foreground">{c.taxa ?? 0}% recuperado{c.peloBanco ? " · lido do banco" : " em Pix atrasado"}</span>
           </div>
         </div>
         <BarraDividida className="mt-3" partes={[{ pct: pctPerdido, cor: COR.calote }, { pct: 100 - pctPerdido, cor: COR.ok }]} />
@@ -49,7 +49,11 @@ export function BlocoCalote({ r }: { r: Resumo }) {
           <Mini valor={c.umACada ? `1 a cada ${c.umACada}` : "—"} rotulo="vendas não pagou" />
           <Mini valor={`${Math.round(c.pctVendeu * 10) / 10}%`.replace(".", ",")} rotulo={<>do que vendeu · <em className="not-italic text-foreground">normal {Math.round(c.normalPct * 10) / 10}%</em></>} />
         </div>
-        <Fato>Pix que cair depois, registra em <b>"Caiu mais dinheiro desse dia"</b> (no filtro do dia): ele sai do perdido e entra no recuperado.</Fato>
+        {c.peloBanco ? (
+          <Fato>Lido do seu banco: o Pix que cai depois de fechar o Foco entra aqui sozinho e sai do perdido.</Fato>
+        ) : (
+          <Fato>Pix que cair depois, registra em <b>"Caiu mais dinheiro desse dia"</b> (no filtro do dia): ele sai do perdido e entra no recuperado.</Fato>
+        )}
       </Cartao>
     </Secao>
   );

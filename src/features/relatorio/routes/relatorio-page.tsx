@@ -7,7 +7,7 @@ import { useMarcarPasso } from "@/components/jornada/useJornada";
 import { useConferenciaBanco } from "@/components/relatorio/ConferenciaBanco";
 import { usePixDoBanco } from "@/components/conectar/banco-pix";
 import { FechamentoDoDia } from "@/components/relatorio/FechamentoDoDia";
-import { useRelatorioQuery, relatorioKeys } from "../api/use-relatorio-query";
+import { useCaloteBancoQuery, useRelatorioQuery, relatorioKeys } from "../api/use-relatorio-query";
 import { derivar } from "../lib/derivar";
 import { hojeBR, periodoDoPreset, rotuloAnterior } from "../lib/periodo";
 import type { Periodo } from "../types";
@@ -42,7 +42,10 @@ function RelatorioConteudo() {
   const banco = useConferenciaBanco(periodo.de, periodo.ate);
   // "Conferido pelo banco" mora só na aba Vender (Rick, 18/10); aqui só sabemos se tem banco.
   const { pix: pixBanco } = usePixDoBanco(!!user, 10 * 60_000);
-  const resumo = useMemo(() => (rel.data ? derivar(rel.data, banco, periodo, rotuloAnterior(periodo)) : null), [rel.data, banco, periodo]);
+  const caiuDepois = useCaloteBancoQuery(periodo.de, periodo.ate, pixBanco.temBanco);
+  const resumo = useMemo(() => (rel.data ? derivar(rel.data, banco, periodo, rotuloAnterior(periodo),
+    // com banco: "caiu depois" é o que o banco leu (quem tem banco não edita à mão)
+    pixBanco.temBanco ? caiuDepois.data ?? { total: 0, n: 0 } : null) : null), [rel.data, banco, periodo, caiuDepois.data, pixBanco.temBanco]);
 
   const hoje = hojeBR();
   const bancoDoDia = resumo?.umDia ? banco.find((d) => d.dia === periodo.de) ?? null : null;
