@@ -82,24 +82,31 @@ export function useLeaderboard(userId: string | undefined) {
 
       const entries = (allEntries || []) as any[];
 
-      // FATURAMENTO ANTI-FRAUDE: troca o valor do cache pelo VERIFICADO do extrato (mês),
-      // reaproveitando a mesma RPC do semanal com o intervalo do mês. A constância continua
-      // vindo do cache. Fase 1 (antes de 06/07) = ao vivo; Fase 2 = só extrato.
+      // 20/10/2026: o ranking ao vivo (get_weekly_ranking_verified) passou de 8s e o banco
+      // corta por tempo. Antes, a falha zerava todo mundo e a tela dizia "Nenhum vendedor".
+      // Agora: abre NA HORA com o valor guardado (leaderboard_stats, já conferido pelo
+      // banco a cada reconciliação) e o ao vivo só substitui quando chegar — falhou, fica o guardado.
+      applyAndSet(entries);
+      setIsLoading(false);
       try {
         const monthStart = `${currentMonth}-01`;
         const today = getBrazilDate();
         const usarExtrato = extratoValendo(today);
-        const { data: ver } = await supabase.rpc("get_weekly_ranking_verified", {
+        const { data: ver, error: verErr } = await supabase.rpc("get_weekly_ranking_verified", {
           p_week_start: monthStart,
           p_week_end: today,
           p_usar_extrato: usarExtrato,
         });
-        const vmap = new Map(((ver as any[]) || []).map((r: any) => [r.user_id, Number(r.faturamento_semana) || 0]));
-        entries.forEach((e: any) => {
-          e.faturamento_total_mes = vmap.get(e.user_id) ?? 0;
-        });
+        if (!verErr && Array.isArray(ver) && ver.length > 0) {
+          const vmap = new Map(((ver as any[]) || []).map((r: any) => [r.user_id, Number(r.faturamento_semana) || 0]));
+          entries.forEach((e: any) => {
+            e.faturamento_total_mes = vmap.get(e.user_id) ?? 0;
+          });
+        } else if (verErr) {
+          avisar.silencioso("useLeaderboard: ranking ao vivo demorou (fica o guardado)", verErr);
+        }
       } catch (e) {
-        avisar.erro("useLeaderboard: faturamento da semana (mantém o cache)", e);
+        avisar.silencioso("useLeaderboard: ranking ao vivo (fica o guardado)", e);
       }
 
       // 1) Abre JA com nome/foto do proprio leaderboard_stats — nao espera mais nada.
