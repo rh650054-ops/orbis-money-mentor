@@ -34,8 +34,11 @@ export function layoutEmail(titulo: string, corpoHtml: string): string {
 
 /** Codigo numerico de 6 digitos com aleatoriedade criptografica. */
 export function gerarCodigo6(): string {
-  const n = crypto.getRandomValues(new Uint32Array(1))[0]! % 1_000_000;
-  return n.toString().padStart(6, "0");
+  // rejeita o topo do intervalo de 32 bits pra nao ter vies de modulo
+  for (;;) {
+    const n = crypto.getRandomValues(new Uint32Array(1))[0]!;
+    if (n < 4_294_000_000) return (n % 1_000_000).toString().padStart(6, "0");
+  }
 }
 
 export async function sha256Hex(texto: string): Promise<string> {

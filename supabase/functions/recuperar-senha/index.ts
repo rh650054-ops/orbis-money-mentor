@@ -1,87 +1,99 @@
-// recuperar-senha — "esqueci minha senha" self-service, sem login (verify_jwt = false).
-// Entrada: { cpf: string }. Saida: SEMPRE { ok: true } (nao revela se o CPF existe,
-// se tem e-mail, nem se o e-mail esta confirmado — quem tem, recebe o link).
+// recuperar-senha — "esqueci minha senha" por CÓDIGO, sem login (verify_jwt = false).
 //
-// Seguranca:
-//  - manda para o e-mail do perfil. Pedir o link com o CPF + abrir na caixa cadastrada
-//    e a prova de posse (decisao Rick 2026-10-08, BUG-004): ao concluir o reset o
-//    ResetPassword carimba profiles.email_verificado_em via email_confirmar_por_recuperacao();
-//  - o link de recovery e gerado pelo servidor (auth.admin.generateLink) para o
-//    e-mail INTERNO da conta e enviado ao e-mail pessoal; expira conforme o Auth (1h);
-//  - freio: 5 pedidos por CPF/h e 10 por IP/h (3 era apertado: quem nao ve o e-mail e insiste caia no bloqueio) (cadastro_pode_tentar, service_role only);
-//  - resposta identica em todos os caminhos (evita enumeracao).
+//   { acao: "pedir",     cpf }                       → { ok: true, desafio }   (sempre igual)
+//   { acao: "verificar", desafio, codigo }           → { ok: true, token } | { ok: false, erro }
+//   { acao: "trocar",    token, senha, confirmacao } → { ok: true }        | { ok: false, erro }
+//
+// As regras moram em ../_shared/recuperacao-senha.ts; o banco valida e consome tudo
+// de forma atômica (migration 20261011140000). A chave service_role fica só aqui no
+// servidor. Nenhuma sessão é criada: depois de trocar a senha a pessoa entra pelo
+// login normal (CPF + senha nova) e todas as sessões antigas são derrubadas.
+// Logs: só nomes de evento — nunca código, senha, token, CPF ou e-mail.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { enviarEmail, layoutEmail, sha256Hex } from "../_shared/email.ts";
+import { type Deps, pedir, trocar, verificar } from "../_shared/recuperacao-senha.ts";
+
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-const ok = () =>
-  new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+const json = (body: unknown) =>
+  new Response(JSON.stringify(body), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-const APP_URL = Deno.env.get("APP_URL") ?? "https://app.orbis.inf.br";
+const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
 
-function cpfValido(c: string): boolean {
-  if (c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
-  const dv = (n: number) => {
-    let s = 0;
-    for (let i = 0; i < n; i++) s += Number(c[i]) * (n + 1 - i);
-    const r = (s * 10) % 11;
-    return r === 10 ? 0 : r;
-  };
-  return dv(9) === Number(c[9]) && dv(10) === Number(c[10]);
+async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
+  const { data, error } = await admin.rpc(fn, args);
+  if (error) throw new Error(`rpc ${fn}`); // sem detalhes: podem ecoar argumentos
+  return data as T;
 }
+
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+const deps: Deps = {
+  frear: (chave, teto, janela) => rpc<boolean>("cadastro_pode_tentar", { p_chave: chave, p_teto: teto, p_janela_min: janela }),
+  criarDesafio: async (id, cpf) => {
+    const rows = await rpc<{ email: string; nome: string | null; codigo: string }[]>("senha_desafio_criar", { p_id: id, p_cpf: cpf });
+    return rows?.[0] ?? null;
+  },
+  invalidarDesafio: async (id) => { await rpc("senha_desafio_invalidar", { p_id: id }); },
+  verificarDesafio: async (id, codigo) => {
+    const rows = await rpc<{ status: string; troca_token: string | null }[]>("senha_desafio_verificar", { p_id: id, p_codigo: codigo });
+    return { status: rows?.[0]?.status ?? "invalido", token: rows?.[0]?.troca_token ?? null };
+  },
+  consumirTroca: async (token) => {
+    const rows = await rpc<{ desafio_id: string; user_id: string }[]>("senha_troca_consumir", { p_token: token });
+    const r = rows?.[0];
+    return r ? { desafioId: r.desafio_id, userId: r.user_id } : null;
+  },
+  reabrirTroca: async (id) => { await rpc("senha_troca_reabrir", { p_desafio: id }); },
+  concluirTroca: async (id) => { await rpc("senha_troca_concluir", { p_desafio: id }); },
+  trocarSenha: async (userId, senha) => {
+    const { error } = await admin.auth.admin.updateUserById(userId, { password: senha });
+    if (!error) return true;
+    // 4xx = o Auth recusou a senha (política); 5xx/rede = indisponível
+    if (typeof error.status === "number" && error.status >= 400 && error.status < 500) return false;
+    throw new Error("auth");
+  },
+  enviarCodigo: (email, nome, codigo) =>
+    enviarEmail({
+      to: email,
+      subject: "Seu código para trocar a senha da Vant",
+      html: layoutEmail(
+        `Oi, ${esc(nome ?? "vendedor")}`,
+        `<p>Use este código no app pra criar uma senha nova:</p>
+         <p style="font-size:32px;letter-spacing:8px;font-weight:700;color:#ffffff;margin:16px 0">${codigo}</p>
+         <p>Ele vale por 15 minutos e só funciona uma vez. Se você não pediu, ignore: sua senha continua a mesma.</p>`,
+      ),
+    }),
+  hash: sha256Hex,
+  novoId: () => crypto.randomUUID(),
+  log: (evento) => console.error(`recuperar-senha: ${evento}`),
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return ok();
+  if (req.method !== "POST") return json({ ok: false, erro: "indisponivel" });
 
-  try {
-    const body = await req.json().catch(() => ({}));
-    const cpf = String(body?.cpf ?? "").replace(/\D/g, "");
-    if (!cpfValido(cpf)) return ok();
+  const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+  const ip = (req.headers.get("x-forwarded-for") ?? "?").split(",")[0]!.trim();
 
-    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
-    // Freio por IP e por CPF (hash — o CPF nao vai em claro pra tabela de freio)
-    const ip = (req.headers.get("x-forwarded-for") ?? "?").split(",")[0]!.trim();
-    const [{ data: podeIp }, { data: podeCpf }] = await Promise.all([
-      admin.rpc("cadastro_pode_tentar", { p_chave: `rec:ip:${ip}`, p_teto: 10, p_janela_min: 60 }),
-      admin.rpc("cadastro_pode_tentar", { p_chave: `rec:cpf:${(await sha256Hex(cpf)).slice(0, 32)}`, p_teto: 5, p_janela_min: 60 }),
-    ]);
-    if (podeIp === false || podeCpf === false) return ok();
-
-    const { data: perfil } = await admin
-      .from("profiles")
-      .select("email, email_verificado_em, nickname")
-      .eq("cpf", cpf)
-      .maybeSingle();
-    if (!perfil?.email) return ok();
-
-    const { data: link, error } = await admin.auth.admin.generateLink({
-      type: "recovery",
-      email: `${cpf}@orbis.internal`,
-      options: { redirectTo: `${APP_URL}/reset-password` },
-    });
-    if (error || !link?.properties?.action_link) {
-      console.error("recuperar-senha generateLink:", error);
-      return ok();
+  switch (body?.acao) {
+    case "pedir": {
+      const { resposta, trabalho } = pedir(body.cpf, ip, deps);
+      if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(trabalho);
+      else await trabalho;
+      return json(resposta);
     }
-
-    await enviarEmail({
-      to: perfil.email,
-      subject: "Recuperar sua senha da Vant",
-      html: layoutEmail(
-        `Bora voltar, ${perfil.nickname ?? "vendedor"}?`,
-        `<p>Recebemos um pedido pra trocar a senha da sua conta na Vant.</p>
-         <p style="margin:20px 0"><a href="${link.properties.action_link}" style="display:inline-block;background:#f5c518;color:#111;font-weight:700;padding:14px 22px;border-radius:10px;text-decoration:none">Criar nova senha</a></p>
-         <p>O link vale por 1 hora e só funciona uma vez.</p>`,
-      ),
-    });
-    return ok();
-  } catch (e) {
-    console.error("recuperar-senha:", e);
-    return ok();
+    case "verificar":
+      return json(await verificar(body.desafio, body.codigo, ip, deps));
+    case "trocar":
+      return json(await trocar(body.token, body.senha, body.confirmacao, ip, deps));
+    default:
+      return json({ ok: false, erro: "indisponivel" });
   }
 });
