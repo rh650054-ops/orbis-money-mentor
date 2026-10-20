@@ -15,6 +15,7 @@ import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
 import { DefconRunning } from "@/components/defcon/DefconRunning";
 import { DefconBreak } from "@/components/defcon/DefconBreak";
 import { DefconEndScreen } from "@/components/defcon/DefconEndScreen";
+import { DefconCargaDoDia } from "@/components/defcon/DefconCargaDoDia";
 import { DefconLunchPause } from "@/components/defcon/DefconLunchPause";
 import { DefconBlockReport } from "@/components/defcon/DefconBlockReport";
 import { DefconSinalSheet } from "@/components/defcon/DefconSinalSheet";
@@ -48,8 +49,27 @@ export default function DefconChallenge() {
   const [, setMidnightTick] = useState(0);
   // Etapa 1 da Onda 2: "Encerrar" pede confirmação antes de fechar o dia
   const [confirmarFim, setConfirmarFim] = useState(false);
-  // 18/10 (Rick): sem etapa de carga entre o Modo Desafio e o DEFCON — a carga do
-  // dia se ajusta no Foco ("Atualizar estoque"). Iniciar → Modo Desafio → Começar.
+  // CARGA DO DIA (voltou 20/10, Rick: "aparecia certinho o tanto de produtos que você vai
+  // levar, o valor de cada produto"). Tinha saído em 18/10; e o "Atualizar estoque" do Foco
+  // saiu em 19/10 — sem ela não sobrava lugar pra dizer o que vai pra rua.
+  // Iniciar → Modo Desafio → COMEÇAR → Carga do dia → DEFCON.
+  const [cargaAberta, setCargaAberta] = useState(false);
+  const [comecando, setComecando] = useState(false);
+  // Primeiro DEFCON da vida + nenhum produto cadastrado → pula a carga (decisão 05/09:
+  // a primeira venda tem que vir em minutos). No treino também não tem carga.
+  const [pulaCarga, setPulaCarga] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!user?.id || treino) { setPulaCarga(false); return; }
+    let vivo = true;
+    (async () => {
+      const [{ count: sessoes }, { count: produtos }] = await Promise.all([
+        supabase.from("challenge_sessions").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+        supabase.from("products").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("is_active", true),
+      ]);
+      if (vivo) setPulaCarga((sessoes ?? 0) === 0 && (produtos ?? 0) === 0);
+    })().catch(() => { if (vivo) setPulaCarga(false); });
+    return () => { vivo = false; };
+  }, [user?.id, treino]);
   useEffect(() => {
     const id = setInterval(() => setMidnightTick((t) => t + 1), 30000);
     return () => clearInterval(id);
@@ -203,11 +223,21 @@ export default function DefconChallenge() {
   const screen = (() => {
   switch (defcon.phase) {
     case "idle":
+      if (cargaAberta && !treino) {
+        return (
+          <DefconCargaDoDia
+            userId={user.id}
+            dailyGoal={defcon.dailyGoal}
+            starting={comecando}
+            onComecar={async () => { setComecando(true); try { await handleStart(); } finally { setComecando(false); setCargaAberta(false); } }}
+          />
+        );
+      }
       return (
         <DefconStartScreen
           dailyGoal={defcon.dailyGoal}
           totalBlocks={defcon.blocks.length}
-          onStart={handleStart}
+          onStart={treino || pulaCarga || (pulaCarga === null && primeiroDia) ? handleStart : () => setCargaAberta(true)}
           onExit={handleExit}
           onboardingMode={treino}
           primeiroDia={primeiroDia && !treino}
