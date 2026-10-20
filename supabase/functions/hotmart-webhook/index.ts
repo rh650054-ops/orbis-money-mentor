@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { diasDePro } from "./planos.ts";
+import { cancelarNaHotmart, padroesParaCancelar, type AssinaturaAtiva } from "./cancelar-padrao.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -299,10 +301,10 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
     // VANT PRO (02/10/2026): the Pro plans are OFFERS of this same product, so they
     // land here, not in hotmart-pro. offer.code tells them apart. Annual pays once a
     // year: its period must be 365 days, or the buyer is locked out after a month.
-    // Planos 06/10/2026: anual novo ew11enu0 (R$ 418,80, 2 bancos); o 6vkxbh8c segue valendo pra quem já assinou.
-    const PRO_OFFERS: Record<string, number> = { "5y86n311": 30, "6vkxbh8c": 365, "ew11enu0": 365 };
+    // Ofertas e nome do plano: planos.ts (19/10: oferta nova do anual caiu fora da lista).
     const offerCode = String(compra?.offer?.code ?? "").trim();
-    const proDays = PRO_OFFERS[offerCode] ?? null;
+    const planoNome = String(payload.data?.subscription?.plan?.name ?? "");
+    const proDays = diasDePro(offerCode, planoNome);
 
     // Calculate period end (30 days from now as default for monthly)
     const now = new Date();
@@ -350,6 +352,18 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
         });
         exigir("pro_conceder", { error: proErr });
         console.log(`Vant Pro (${offerCode}) on for user ${userId}`);
+
+        // Upgrade: o débito automático do plano padrão (R$ 29,90) sai (Rick, 19/10).
+        try {
+          const { data: ativas } = await supabase.from("orbis_hotmart_assinatura")
+            .select("subscription_id, oferta_codigo").eq("user_id", userId).eq("status_hotmart", "ACTIVE");
+          const codigos = padroesParaCancelar((ativas ?? []) as AssinaturaAtiva[], subscriptionId);
+          const r = await cancelarNaHotmart(codigos, (k) => Deno.env.get(k));
+          if (r.cancelados.length) console.log(`hotmart-webhook: padrão cancelado no upgrade ${r.cancelados.join(",")} (user ${userId})`);
+          if (r.naMao.length) console.warn(`hotmart-webhook: CANCELAR NA MÃO ${r.naMao.join(",")} (user ${userId}): ${r.motivo}`);
+        } catch (e) {
+          console.warn("hotmart-webhook: cancelar padrão no upgrade falhou", e instanceof Error ? e.message : e);
+        }
       }
 
       console.log(`Subscription activated for user ${userId}`);
