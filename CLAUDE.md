@@ -2,6 +2,18 @@
 
 Repo-specific guidance for Claude Code (and humans) working in `orbis-money-mentor`.
 
+## Before changing anything (Rick, 20/10/2026 — applies to every prompt, Rick's or Mohamed's)
+
+Two people prompt this repo. A redesign on 18/10 silently removed the "Carga do dia" step
+(products and prices before the DEFCON) and nobody noticed until users hit it. So:
+
+1. **Before writing code, list everything the prompt will change**, in plain Portuguese:
+   each screen/flow touched, and in a separate list **everything that will be REMOVED or
+   stop working** (steps, buttons, fields, automatic behaviours, data written).
+2. **Never remove an existing step, button or behaviour as a side effect.** If the prompt
+   implies removing something, say so explicitly and wait for an explicit yes.
+3. Repeat the "removed / changed behaviour" list in the PR body and in the final reply.
+
 ## Preflight (run before every PR)
 
 ```bash
