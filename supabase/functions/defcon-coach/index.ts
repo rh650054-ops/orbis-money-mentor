@@ -4,6 +4,8 @@
 // natural e motivadora MANTENDO os números. Se faltar chave/cota ou der qualquer
 // erro, devolve o próprio template — nunca quebra e nunca deixa o vendedor sem mensagem.
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -26,6 +28,21 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Segurança (21/10/2026): só vendedor logado e com limite por dia — antes qualquer um
+    // na internet podia usar a IA de graça. Sem login ou acima do limite: devolve o próprio
+    // template (o vendedor continua vendo a mensagem, só que sem a reescrita).
+    const semIA = () => new Response(JSON.stringify({ message: template, source: "template" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+    const authHeader = req.headers.get("Authorization") ?? "";
+    if (!authHeader.startsWith("Bearer ")) return semIA();
+    const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
+    const { data: { user } } = await supa.auth.getUser();
+    if (!user) return semIA();
+    const { data: uso, error: usoErr } = await supa.rpc("bump_ai_usage", { p_feature: "defcon_coach", p_limit: 60 });
+    if (usoErr || (uso as { over?: boolean } | null)?.over) return semIA();
+    if (template.length > 600) template = template.slice(0, 600);
 
     const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
     const prompt =

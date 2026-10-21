@@ -52,22 +52,24 @@ Deno.serve(async (req) => {
     ]);
     if (podeIp === false || podeCpf === false) return ok();
 
-    const { data: perfil } = await admin
-      .from("profiles")
-      .select("email, email_verificado_em, nickname")
-      .eq("cpf", cpf)
-      .maybeSingle();
-    if (!perfil?.email) return ok();
-
+    // Segurança (21/10/2026): o e-mail de destino vem do perfil DA CONTA DE LOGIN
+    // (cpf@orbis.internal), nunca de "algum perfil com esse CPF" — antes, quem colocasse
+    // o CPF de outra pessoa no próprio perfil recebia o link da conta dela.
     const { data: link, error } = await admin.auth.admin.generateLink({
       type: "recovery",
       email: `${cpf}@orbis.internal`,
       options: { redirectTo: `${APP_URL}/reset-password` },
     });
-    if (error || !link?.properties?.action_link) {
-      console.error("recuperar-senha generateLink:", error);
+    if (error || !link?.properties?.action_link || !link?.user?.id) {
+      if (error) console.error("recuperar-senha generateLink:", error.message);
       return ok();
     }
+    const { data: perfil } = await admin
+      .from("profiles")
+      .select("email, email_verificado_em, nickname")
+      .eq("user_id", link.user.id)
+      .maybeSingle();
+    if (!perfil?.email) return ok();
 
     await enviarEmail({
       to: perfil.email,
