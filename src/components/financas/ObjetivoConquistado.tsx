@@ -40,14 +40,14 @@ export function ObjetivoConquistado({ nome, valor, dias, onFechar, onNovo }: {
     <div className="fixed inset-0 z-[90] flex items-center justify-center px-5" role="dialog" aria-modal="true">
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,.88)" }} onClick={onFechar} />
       <div
-        className="orbis-victory relative w-full max-w-sm rounded-[22px] border px-5 py-6 text-center"
+        className="orbis-victory relative w-full max-w-sm rounded-[22px] border px-5 py-5 text-center max-h-[85dvh] overflow-y-auto overscroll-contain"
         style={{ "--win-color": "rgba(245,184,0,.55)", background: "linear-gradient(160deg,#1C1608 0%,#111 60%)", borderColor: "rgba(245,184,0,.45)", boxShadow: "0 24px 70px -24px rgba(245,184,0,.55)" } as React.CSSProperties}
       >
         <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "linear-gradient(180deg,#FFC63A,#F5B800)", boxShadow: "0 4px 0 #B88700" }}>
           <Trophy size={28} strokeWidth={3} color="#1A1200" />
         </div>
         <p className="mt-4 text-[10.5px] font-extrabold uppercase tracking-[.18em]" style={{ color: "#F5B800" }}>Objetivo conquistado</p>
-        <h2 className="text-[26px] font-black tracking-tight leading-[1.2] mt-1.5 text-foreground">
+        <h2 className="text-[22px] font-black tracking-tight leading-[1.2] mt-1.5 text-foreground">
           {nome}<br /><span style={{ color: "#F5B800" }}>{formatCurrency(valor)} guardados</span>
         </h2>
         <p className="text-[13px] mt-2.5 leading-[1.5]" style={{ color: "#B9B3A6" }}>

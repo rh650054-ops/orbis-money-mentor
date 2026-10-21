@@ -65,8 +65,8 @@ export function GuardarHojeCard(p: Props) {
         <Skeleton className="h-12 w-48 mt-2" />
       ) : p.diaFechado && estado !== "sucesso" ? (
         <>
-          <p className="text-[28px] leading-tight font-black tabular-nums mt-1.5 flex items-center gap-2" style={{ color: COR.verde }}>
-            <Check className="w-7 h-7" strokeWidth={3} />
+          <p className="text-[22px] leading-tight font-black tabular-nums mt-1.5 flex items-center gap-2" style={{ color: COR.verde }}>
+            <Check className="w-6 h-6" strokeWidth={3} />
             {p.guardadoHoje > 0 ? `Guardou ${formatCurrency(p.guardadoHoje)}` : "Dia guardado"}
           </p>
           <p className="text-[14px] mt-0.5" style={{ color: COR.sub }}>Dia fechado. Amanhã aparece o novo valor.</p>
@@ -77,7 +77,7 @@ export function GuardarHojeCard(p: Props) {
         </>
       ) : (
         <>
-          <p className="text-[48px] leading-none font-black tracking-tight tabular-nums mt-1.5" style={{ color: COR.ouro }}>{formatCurrency(p.valor)}</p>
+          <p className="text-[28px] leading-none font-black tracking-tight tabular-nums mt-1.5" style={{ color: COR.ouro }}>{formatCurrency(p.valor)}</p>
           <p className="text-[14px] mt-1.5" style={{ color: COR.sub }}>
             {!p.diaDeTrabalho
               ? <>Hoje é seu descanso.{p.proximoDia ? <> Próximo dia de trabalho ({p.proximoDia.label}): <b style={{ color: COR.texto }}>{formatCurrency(p.proximoDia.valor)}</b>.</> : null}</>

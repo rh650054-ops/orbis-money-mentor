@@ -2172,7 +2172,7 @@ export default function Finances() {
           ) : diaGuardadoFechado ? (
             <>
               <div className="mt-2 flex items-end justify-between gap-3">
-                <p className="text-[26px] leading-none font-black tracking-tight tabular-nums flex items-center gap-2" style={{ color: "#3DD68C" }}>
+                <p className="text-[22px] leading-none font-black tracking-tight tabular-nums flex items-center gap-2" style={{ color: "#3DD68C" }}>
                   <Check className="w-6 h-6" strokeWidth={3} />
                   {savedTodayAmount > 0 ? `Guardou ${formatCurrency(savedTodayAmount)}` : "Já guardou hoje"}
                 </p>
@@ -2190,7 +2190,7 @@ export default function Finances() {
           ) : (
             <>
               <div className="mt-2 flex items-end justify-between gap-3">
-                <p className="text-[38px] leading-none font-black tracking-tight tabular-nums" style={{ color: "#F5B800" }}>
+                <p className="text-[28px] leading-none min-w-0 whitespace-nowrap truncate font-black tracking-tight tabular-nums" style={{ color: "#F5B800" }}>
                   {formatCurrency(restanteGuardarHoje)}
                 </p>
                 <div className="text-right text-xs text-muted-foreground leading-relaxed tabular-nums shrink-0">
@@ -2390,7 +2390,7 @@ export default function Finances() {
             const margem = vendido > 0 ? Math.max(0, Math.min(100, (summary.monthlyNetProfit / vendido) * 100)) : 0;
             return (
               <>
-                <p className="text-[42px] leading-none font-black tracking-tight tabular-nums mt-2" style={{ color: summary.monthlyNetProfit >= 0 ? "#3DD68C" : "#F2465A" }}>
+                <p className="text-[28px] leading-none font-black tracking-tight tabular-nums mt-2" style={{ color: summary.monthlyNetProfit >= 0 ? "#3DD68C" : "#F2465A" }}>
                   {formatCurrency(summary.monthlyNetProfit)}
                 </p>
                 <p className="text-[13px] mt-2" style={{ color: "#a9a49c" }}><b className="text-foreground">{summary.monthlyNetProfit >= 0 ? "lucro" : "prejuízo"}</b> · depois dos custos</p>
@@ -2447,7 +2447,7 @@ export default function Finances() {
 
       {/* Diálogo "Guardei em <dia>" — registra o valor guardado no dia selecionado */}
       <Dialog open={diaSave !== null} onOpenChange={(o) => { if (!o) setDiaSave(null); }}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6 max-h-[85dvh] overflow-y-auto overscroll-contain">
           <DialogHeader>
             <DialogTitle>Guardei em {diaSave?.label ?? ""}</DialogTitle>
           </DialogHeader>
@@ -2474,7 +2474,7 @@ export default function Finances() {
 
       {/* Diálogo "Guardei outro valor" — valor real guardado (a mais/a menos) */}
       <Dialog open={customSaveOpen} onOpenChange={setCustomSaveOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6 max-h-[85dvh] overflow-y-auto overscroll-contain">
           <DialogHeader>
             <DialogTitle>Quanto você guardou hoje?</DialogTitle>
           </DialogHeader>
@@ -2516,7 +2516,7 @@ export default function Finances() {
 
       {/* Diálogo "Guardar pra quitar vencidas" — valor vai 100% pras contas atrasadas */}
       <Dialog open={vencidasSaveOpen} onOpenChange={(o) => { if (!o) { setVencidasSaveOpen(false); setVencidasSaveValue(""); } }}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6 max-h-[85dvh] overflow-y-auto overscroll-contain">
           <DialogHeader>
             <DialogTitle>Guardar pra quitar vencidas</DialogTitle>
           </DialogHeader>
@@ -2965,7 +2965,7 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
         {/* Ajustar o total guardado nas contas (abre pelo lápis do card Contas) */}
           {/* Dialog: ajustar o total guardado nas contas pro valor real */}
           <Dialog open={ajusteGuardadoOpen} onOpenChange={setAjusteGuardadoOpen}>
-            <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6">
+            <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6 max-h-[85dvh] overflow-y-auto overscroll-contain">
               <DialogHeader>
                 <DialogTitle>Ajustar total guardado</DialogTitle>
               </DialogHeader>
@@ -3150,7 +3150,7 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
 
       {/* Editar meta — muda nome, valor e prazo sem precisar apagar e recriar */}
       <Dialog open={editGoal !== null} onOpenChange={(o) => { if (!o) setEditGoal(null); }}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6 max-h-[85dvh] overflow-y-auto overscroll-contain">
           <DialogHeader>
             <DialogTitle>Editar meta</DialogTitle>
           </DialogHeader>
@@ -3233,7 +3233,7 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
 
       {/* Diálogo de depósito compartilhado: "Guardei" (conta) e "Guardar hoje" (meta) */}
       <Dialog open={depositTarget !== null} onOpenChange={(open) => { if (!open) { setDepositTarget(null); setDepositValue(""); } }}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6 max-h-[85dvh] overflow-y-auto overscroll-contain">
           <DialogHeader>
             <DialogTitle>Quanto você guardou?</DialogTitle>
           </DialogHeader>
@@ -3271,7 +3271,7 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
 
       {/* Diálogo de edição de conta: nome, valor e vencimento */}
       <Dialog open={editBill !== null} onOpenChange={(open) => { if (!open) setEditBill(null); }}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-md p-4 sm:p-6">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md p-4 sm:p-6 max-h-[85dvh] overflow-y-auto overscroll-contain">
           <DialogHeader>
             <DialogTitle>Editar conta</DialogTitle>
           </DialogHeader>

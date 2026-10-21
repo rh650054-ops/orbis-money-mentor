@@ -72,17 +72,17 @@ export function FocoHero(p: Props) {
           <AnelProgresso pct={progresso} valor={v(n.totalVendido)} cor={bateu ? "#3DD68C" : "#F5B800"} />
           <div className="flex-1 min-w-0">
             <p className="orbis-mini">Meta de hoje</p>
-            <p className="orbis-num text-[22px] font-extrabold leading-none mt-1">{v(n.dailyGoal)}</p>
+            <p className="orbis-num text-[19px] font-extrabold leading-none mt-1 whitespace-nowrap">{v(n.dailyGoal)}</p>
             <div className="mt-2.5 pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,.08)" }}>
               <p className="orbis-mini">{bateu ? "Meta batida" : "Falta"}</p>
-              <p className="orbis-num text-[20px] font-extrabold leading-none mt-1" style={bateu ? { color: "var(--orbis-ok)" } : undefined}>{bateu ? `+${v(n.totalVendido - n.dailyGoal)}` : v(falta)}</p>
+              <p className="orbis-num text-[18px] font-extrabold leading-none mt-1 whitespace-nowrap" style={bateu ? { color: "var(--orbis-ok)" } : undefined}>{bateu ? `+${v(n.totalVendido - n.dailyGoal)}` : v(falta)}</p>
             </div>
           </div>
         </div>
       ) : (
         <>
           <p className="orbis-mini mt-3.5">{estado === "encerrado" ? "Vendido hoje" : `Meta de ${diaNome}`}</p>
-          <p className="orbis-num text-[42px] font-extrabold leading-none mt-1.5 tracking-[-1.5px]" style={estado === "encerrado" ? { color: "var(--orbis-ok)" } : undefined}>
+          <p className="orbis-num text-[34px] font-extrabold leading-none mt-1.5 tracking-[-1px]" style={estado === "encerrado" ? { color: "var(--orbis-ok)" } : undefined}>
             {v(estado === "antes" ? n.dailyGoal : n.totalVendido)}
           </p>
         </>

@@ -59,11 +59,12 @@ export default function DefconHub() {
   const [quickCostCat, setQuickCostCat] = useState<CategoriaCusto>("transporte");
   const [custoDescricao, setCustoDescricao] = useState("");
   const [outroHoje, setOutroHoje] = useState(0);
+  const [mercHoje, setMercHoje] = useState(0); // quick-cost Mercadoria (personal_expenses), 21/10
   const [showEdit, setShowEdit] = useState(false);
   // Foco redesign (18/10): sheet da compra, carga em edição
   const [versaoCompras] = useState(0);
   const [editandoCarga, setEditandoCarga] = useState(false);
-  const [custosOntem, setCustosOntem] = useState<CustosDia>({ transporte: 0, alimentacao: 0, outro: 0 });
+  const [custosOntem, setCustosOntem] = useState<CustosDia>({ mercadoria: 0, transporte: 0, alimentacao: 0, outro: 0 });
   const today = getBrazilDate();
   // meta viável (11/10): a meta do cérebro, as faixas e o replanejamento do mês
   const qc = useQueryClient();
@@ -183,8 +184,11 @@ export default function DefconHub() {
     });
     // "Outro" do Custo rápido mora em personal_expenses (categoria Outros), com a descrição
     {
-      const { data: outros } = await supabase.from("personal_expenses").select("amount").eq("user_id", user.id).eq("date", today).eq("category", "Outros");
-      setOutroHoje(((outros as { amount: number | null }[] | null) ?? []).reduce((t, o) => t + (Number(o.amount) || 0), 0));
+      const { data: outros } = await supabase.from("personal_expenses").select("amount, category").eq("user_id", user.id).eq("date", today).in("category", ["Outros", "Mercadoria"]);
+      const linhas = (outros as { amount: number | null; category: string | null }[] | null) ?? [];
+      const soma = (cat: string) => linhas.filter((o) => o.category === cat).reduce((t, o) => t + (Number(o.amount) || 0), 0);
+      setOutroHoje(soma("Outros"));
+      setMercHoje(soma("Mercadoria"));
     }
     const sessaoHoje = ((session as any[]) || [])[0] ?? null;
     setHasSession(!!sessaoHoje);
@@ -254,7 +258,7 @@ export default function DefconHub() {
         sem += v;
         if (r.date === ontemData) {
           ont += v;
-          setCustosOntem({ transporte: Number(r.transport_cost) || 0, alimentacao: Number(r.food_cost) || 0, outro: 0 });
+          setCustosOntem({ mercadoria: 0, transporte: Number(r.transport_cost) || 0, alimentacao: Number(r.food_cost) || 0, outro: 0 });
         }
       }
       setSemana(sem);
@@ -340,11 +344,13 @@ export default function DefconHub() {
     const amount = valorDireto ?? parseFloat(quickCost);
     if (!amount || amount <= 0) return;
     // "Outro": gasto avulso com descrição — entra no relatório como "outros custos" e abate do líquido
-    if (quickCostCat === "outro") {
-      const nomeGasto = custoDescricao.trim();
+    // "Mercadoria" (21/10, Mohamed): same table, category Mercadoria — the report counts it as mercadoria
+    if (quickCostCat === "outro" || quickCostCat === "mercadoria") {
+      const merc = quickCostCat === "mercadoria";
+      const nomeGasto = merc ? "Mercadoria" : custoDescricao.trim();
       if (!nomeGasto) return;
       const { error: outroErr } = await supabase.from("personal_expenses").insert({
-        user_id: user.id, name: nomeGasto.slice(0, 80), category: "Outros", icon: "🧾", amount, type: "variable", date: today,
+        user_id: user.id, name: nomeGasto.slice(0, 80), category: merc ? "Mercadoria" : "Outros", icon: merc ? "📦" : "🧾", amount, type: "variable", date: today,
       });
       if (outroErr) { avisar.usuario("Não consegui salvar o gasto. Tenta de novo.", outroErr, "DefconHub: gasto outro"); return; }
       setQuickCost(""); setCustoDescricao("");
@@ -403,7 +409,7 @@ export default function DefconHub() {
   // compra de mercadoria = "Tô no mercado" (tela cheia de Produtos), volta pro Foco no fim
   const irAoMercado = () => navigate("/products/mercado?de=foco");
 
-  const custosHoje: CustosDia = { transporte: totals.transport, alimentacao: totals.food, outro: outroHoje };
+  const custosHoje: CustosDia = { mercadoria: mercHoje, transporte: totals.transport, alimentacao: totals.food, outro: outroHoje };
 
   return (
     <div className="pb-8 max-w-md mx-auto px-1 orbis-stagger">

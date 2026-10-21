@@ -22,13 +22,13 @@ export function FiltroPeriodo({ periodo, onChange, diasNaRua }: { periodo: Perio
   const [de, setDe] = useState(periodo.de);
   const [ate, setAte] = useState(periodo.ate);
   const hoje = hojeBR();
-  const chip = "orbis-press shrink-0 rounded-full border px-3.5 py-2 text-[13px] font-semibold transition-colors";
+  const chip = "orbis-press min-w-0 whitespace-nowrap rounded-full border px-1 py-1.5 text-[12px] font-semibold transition-colors";
   const on = "border-primary bg-primary text-primary-foreground shadow-[0_2px_0_var(--orbis-gold-deep)]";
   const off = "border-border text-muted-foreground";
 
   return (
     <div className="space-y-2.5">
-      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none]" role="tablist">
+      <div className="grid grid-cols-5 gap-1" role="tablist">
         {CHIPS.map((c) => (
           <button key={c.preset} role="tab" aria-selected={periodo.preset === c.preset} className={cn(chip, periodo.preset === c.preset ? on : off)}
             onClick={() => onChange(periodoDoPreset(c.preset, hoje))}>
@@ -38,7 +38,7 @@ export function FiltroPeriodo({ periodo, onChange, diasNaRua }: { periodo: Perio
         <Popover open={aberto} onOpenChange={setAberto}>
           <PopoverTrigger asChild>
             <button role="tab" aria-selected={ehOutro(periodo.preset)} className={cn(chip, ehOutro(periodo.preset) ? on : off)}>
-              {periodo.preset === "7d" ? "7 dias ▾" : periodo.preset === "30d" ? "30 dias ▾" : periodo.preset === "custom" ? "Período ▾" : "Outro ▾"}
+              {periodo.preset === "7d" ? "7d ▾" : periodo.preset === "30d" ? "30d ▾" : periodo.preset === "custom" ? "Datas ▾" : "Outro ▾"}
             </button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-64 space-y-2 p-3">
@@ -67,9 +67,9 @@ export function FiltroPeriodo({ periodo, onChange, diasNaRua }: { periodo: Perio
           </PopoverContent>
         </Popover>
       </div>
-      <div className="flex items-center justify-between gap-2 text-[12.5px] text-muted-foreground">
-        <span><b className="orbis-num font-semibold text-foreground">{rotuloPeriodo(periodo)}</b>{diasNaRua > 0 && periodo.de !== periodo.ate ? ` · ${diasNaRua} ${diasNaRua === 1 ? "dia" : "dias"} na rua` : ""}</span>
-        <span className="rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground">vs <span className="text-primary">{rotuloAnterior(periodo)}</span></span>
+      <div className="flex items-center justify-between gap-2 text-[12px] text-muted-foreground">
+        <span className="min-w-0 truncate"><b className="orbis-num font-semibold text-foreground">{rotuloPeriodo(periodo)}</b>{diasNaRua > 0 && periodo.de !== periodo.ate ? ` · ${diasNaRua} ${diasNaRua === 1 ? "dia" : "dias"} na rua` : ""}</span>
+        <span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px] font-semibold text-foreground">vs <span className="text-primary">{rotuloAnterior(periodo)}</span></span>
       </div>
     </div>
   );

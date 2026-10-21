@@ -16,13 +16,13 @@ export function BlocoTempo({ r }: { r: Resumo }) {
         <Frase>De cada 10 minutos na rua, <b>{deCada10} {deCada10 === 1 ? "foi" : "foram"} vendendo</b>.</Frase>
         <DoisGrandes itens={[
           { valor: fmtMin(t.porDia), rotulo: r.umDia ? "na rua" : "por dia na rua" },
-          { valor: `${t.pctAtivo}%`, rotulo: "do tempo vendendo", cor: COR.ok },
+          { valor: `${t.pctAtivo}%`, rotulo: "vendendo", cor: COR.ok },
         ]} />
-        <BarraDividida className="mt-3.5" partes={[{ pct: t.pctAtivo, cor: COR.ok }, { pct: t.pctPausa, cor: COR.pausa }, { pct: t.pctParado, cor: COR.cinza }]} />
+        <BarraDividida className="mt-3" partes={[{ pct: t.pctAtivo, cor: COR.ok }, { pct: t.pctPausa, cor: COR.pausa }, { pct: t.pctParado, cor: COR.cinza }]} />
         <div className="mt-2.5">
           <LinhaTempo cor={COR.ok} titulo="Vendendo" valor={fmtMin(t.ativo)} valorCor={COR.ok} />
-          <LinhaTempo cor={COR.pausa} titulo="Pausas" sub={pausasTxt || "nenhuma pausa registrada"} valor={fmtMin(t.pausa)} />
-          <LinhaTempo cor={COR.cinza} titulo="Parado" sub="mais de 20 min sem venda, fora as pausas" valor={fmtMin(t.parado)} />
+          <LinhaTempo cor={COR.pausa} titulo="Pausas" sub={pausasTxt || "nenhuma"} valor={fmtMin(t.pausa)} />
+          <LinhaTempo cor={COR.cinza} titulo="Parado" sub="+20 min sem venda" valor={fmtMin(t.parado)} />
         </div>
         {!r.umDia && t.maior && (
           <Fato>
@@ -37,13 +37,13 @@ export function BlocoTempo({ r }: { r: Resumo }) {
 
 function LinhaTempo({ cor, titulo, sub, valor, valorCor }: { cor: string; titulo: string; sub?: string; valor: string; valorCor?: string }) {
   return (
-    <div className="grid grid-cols-[12px_1fr_auto] items-center gap-2.5 border-t border-border/60 py-2 first:border-t-0">
+    <div className="grid grid-cols-[12px_minmax(0,1fr)_auto] items-center gap-2 border-t border-border/60 py-1.5 first:border-t-0">
       <i className="h-3 w-3 rounded-[3px]" style={{ background: cor }} />
-      <span className="text-[14.5px] font-semibold">
+      <span className="min-w-0 text-[13.5px] font-semibold">
         {titulo}
-        {sub ? <small className="block text-[12px] font-normal text-muted-foreground">{sub}</small> : null}
+        {sub ? <small className="block truncate text-[11px] font-normal text-muted-foreground">{sub}</small> : null}
       </span>
-      <span className="whitespace-nowrap text-[18px] font-bold" style={{ color: valorCor }}>{valor}</span>
+      <span className="whitespace-nowrap text-[15px] font-bold" style={{ color: valorCor }}>{valor}</span>
     </div>
   );
 }

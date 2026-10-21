@@ -30,12 +30,12 @@ export function BlocoCalote({ r }: { r: Resumo }) {
         <div className="grid grid-cols-2 gap-2">
           <div className="grid gap-0.5 rounded-2xl border border-[rgba(255,92,92,.25)] bg-[rgba(255,92,92,.10)] px-3.5 py-3">
             <small className="text-[11px] font-bold uppercase tracking-[.06em] text-[var(--orbis-calote)]">Calote total</small>
-            <b className="text-[28px] font-bold leading-none tracking-tight text-[var(--orbis-calote)]">{brl(c.total)}</b>
+            <b className="text-[22px] font-bold leading-none tracking-tight text-[var(--orbis-calote)]">{brl(c.total)}</b>
             <span className="text-[12px] text-muted-foreground">{c.unidades > 0 ? `${c.unidades} ${c.unidades === 1 ? "venda que não pagou" : "vendas que não pagaram"} na hora` : "vendido e não recebido"}</span>
           </div>
           <div className="grid gap-0.5 rounded-2xl border border-[rgba(61,214,140,.25)] bg-[rgba(61,214,140,.10)] px-3.5 py-3">
             <small className="text-[11px] font-bold uppercase tracking-[.06em] text-[var(--orbis-ok)]">Caiu depois</small>
-            <b className="text-[28px] font-bold leading-none tracking-tight text-[var(--orbis-ok)]">{brl(c.recuperado)}</b>
+            <b className="text-[22px] font-bold leading-none tracking-tight text-[var(--orbis-ok)]">{brl(c.recuperado)}</b>
             <span className="text-[12px] text-muted-foreground">{c.taxa ?? 0}% recuperado{c.peloBanco ? " · lido do banco" : " em Pix atrasado"}</span>
           </div>
         </div>
@@ -62,7 +62,7 @@ export function BlocoCalote({ r }: { r: Resumo }) {
 function Mini({ valor, rotulo }: { valor: string; rotulo: React.ReactNode }) {
   return (
     <div className="rounded-xl bg-secondary px-2.5 py-2">
-      <b className="block whitespace-nowrap text-[16px] font-bold">{valor}</b>
+      <b className="block whitespace-nowrap text-[14px] font-bold">{valor}</b>
       <span className="text-[11px] text-muted-foreground">{rotulo}</span>
     </div>
   );

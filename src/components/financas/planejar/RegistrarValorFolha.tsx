@@ -27,7 +27,7 @@ export function RegistrarValorFolha({ alvo, onClose, sugerido, onRegistrar }: {
     <Folha open={alvo !== null} onOpenChange={(o) => !o && onClose()}
       titulo={alvo?.isToday ? "Quanto você guardou?" : `Quanto você guardou em ${alvo?.label ?? ""}?`}
       subtitulo="Vai abater do que falta nas suas contas, o vencimento mais perto primeiro.">
-      <MoneyInput value={valor} onChange={setValor} autoFocus className="h-16 text-[32px] font-extrabold text-center tabular-nums" placeholder="R$ 0,00" />
+      <MoneyInput value={valor} onChange={setValor} autoFocus className="h-14 text-[26px] font-extrabold text-center tabular-nums" placeholder="R$ 0,00" />
       <div className="flex gap-2">
         {[50, 100, 200].map((v) => <Chip key={v} ativo={valor === v} onClick={() => setValor(v)}>R$ {v}</Chip>)}
       </div>

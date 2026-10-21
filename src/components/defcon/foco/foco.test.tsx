@@ -40,12 +40,12 @@ describe("Foco — redesign", () => {
     expect(Math.round(-falta.diferenca)).toBe(30000 - (14467 + 980 * 12));
   });
 
-  it("custo rápido: sem Mercadoria; 'Outro' pede com o que gastou antes de lançar", () => {
+  it("custo rápido: com Mercadoria; 'Outro' pede com o que gastou antes de lançar", () => {
     const onLancar = vi.fn();
-    const zero = { transporte: 0, alimentacao: 0, outro: 0 };
+    const zero = { mercadoria: 0, transporte: 0, alimentacao: 0, outro: 0 };
     const props = { estado: "rodando" as const, valor: "15", hoje: zero, ontem: zero, onCategoria: vi.fn(), onValor: vi.fn(), onDescricao: vi.fn(), onLancar, onRepetir: vi.fn(), onChanged: vi.fn() };
     const { rerender } = render(<CustoRapido {...props} categoria="outro" descricao="" />);
-    expect(screen.queryByRole("tab", { name: /Mercadoria/ })).toBeNull();
+    expect(screen.getByRole("tab", { name: /Mercadoria/ })).toBeTruthy(); // back on 21/10 (Mohamed)
     expect(screen.getByRole("tab", { name: /Outro/ })).toBeTruthy();
     expect((screen.getByRole("button", { name: /Lançar/ }) as HTMLButtonElement).disabled).toBe(true);
     rerender(<CustoRapido {...props} categoria="outro" descricao="gelo" />);

@@ -50,7 +50,7 @@ export function AnaliseAba({ userId, temBanco, onImportar }: { userId?: string; 
   const abrirRaioX = (extra = "") => navigate(`/financas/extrato?mes=${a.mes}${extra}`);
 
   return (
-    <div className="flex flex-col gap-6 transition-opacity duration-[180ms]" style={{ opacity: trocando ? 0.55 : 1 }}>
+    <div className="flex flex-col gap-4 transition-opacity duration-[180ms]" style={{ opacity: trocando ? 0.55 : 1 }}>
       <GastosMes a={a} negocio={a.negocio?.total ?? 0} podeVoltar={mes > somaMes(atual, -MESES_ATRAS)}
         onMes={(p) => setMes((m) => (p > 0 && m >= atual ? m : somaMes(m, p)))} />
 

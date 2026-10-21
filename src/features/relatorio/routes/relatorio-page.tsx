@@ -56,9 +56,9 @@ function RelatorioConteudo() {
   const bancoDoDia = resumo?.umDia ? banco.find((d) => d.dia === periodo.de) ?? null : null;
 
   return (
-    <div className="orbis-stagger space-y-5 pb-4 text-foreground md:pb-8">
+    <div className="orbis-stagger space-y-4 pb-4 text-foreground md:pb-8">
       <FirstTimeCard tela="relatorio" userId={user?.id} />
-      <h1 className="font-display text-2xl font-extrabold tracking-tight">Relatório</h1>
+      <h1 className="font-display text-[22px] font-extrabold tracking-tight">Relatório</h1>
       <FiltroPeriodo periodo={periodo} onChange={setPeriodo} diasNaRua={resumo?.diasNaRua ?? 0} />
 
       {rel.isPending && <RelatorioSkeleton />}
@@ -72,10 +72,7 @@ function RelatorioConteudo() {
 
       {resumo && (
         <>
-          <CardDinheiro r={resumo} />
-          {!resumo.umDia && !resumo.semDados && (
-            <GraficoDias r={resumo} onAbrirDia={(dia) => { setPeriodo(periodoDoPreset("custom", hoje, { de: dia, ate: dia })); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
-          )}
+          {/* 21/10 (Mohamed): on a single day the closing (vendeu × caiu × faltou) comes first */}
           {resumo.umDia && user && (
             <FechamentoDoDia
               userId={user.id}
@@ -85,6 +82,10 @@ function RelatorioConteudo() {
               banco={bancoDoDia ? { pix: bancoDoDia.caiu - bancoDoDia.maquininha, cartao: bancoDoDia.maquininha, hoje: periodo.de === hoje } : null}
               onChanged={() => { void qc.invalidateQueries({ queryKey: relatorioKeys.all }); void qc.invalidateQueries({ queryKey: ["relatorio", "banco-conferencia"] }); }}
             />
+          )}
+          <CardDinheiro r={resumo} />
+          {!resumo.umDia && !resumo.semDados && (
+            <GraficoDias r={resumo} onAbrirDia={(dia) => { setPeriodo(periodoDoPreset("custom", hoje, { de: dia, ate: dia })); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
           )}
 
           {resumo.semDados ? (

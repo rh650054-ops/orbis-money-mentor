@@ -33,7 +33,7 @@ export function Secao({ kicker, right, children }: { kicker: string; right?: Rea
 export function Cartao({ className, children, dourado = false }: { className?: string; children: ReactNode; dourado?: boolean }) {
   return (
     <div
-      className={cn("rounded-2xl border p-4", dourado ? "border-[rgba(245,184,0,.34)]" : "border-border/60 bg-card", className)}
+      className={cn("rounded-2xl border p-3.5", dourado ? "border-[rgba(245,184,0,.34)]" : "border-border/60 bg-card", className)}
       style={dourado ? { background: "linear-gradient(180deg, #171203 0%, hsl(var(--card)) 60%)" } : undefined}
     >
       {children}
@@ -43,11 +43,11 @@ export function Cartao({ className, children, dourado = false }: { className?: s
 
 /** The sentence that answers the block's question. `<b>` inside is rendered gold. */
 export function Frase({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn("mb-3 text-[16px] font-medium leading-snug [text-wrap:balance] [&_b]:font-bold [&_b]:text-primary", className)}>{children}</p>;
+  return <p className={cn("mb-2.5 text-[14px] font-medium leading-snug [text-wrap:balance] [&_b]:font-bold [&_b]:text-primary", className)}>{children}</p>;
 }
 
 export function Fato({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn("mt-3 text-[13px] leading-relaxed text-muted-foreground [&_b]:font-semibold [&_b]:text-foreground", className)}>{children}</p>;
+  return <p className={cn("mt-2.5 text-[12px] leading-relaxed text-muted-foreground [&_b]:font-semibold [&_b]:text-foreground", className)}>{children}</p>;
 }
 
 export function Chip({ delta, className, curto = false }: { delta: Delta | null; className?: string; curto?: boolean }) {
@@ -75,13 +75,13 @@ export function Linha({ icone, iconeCor, titulo, sub, valor, valorCor, valorGran
   icone: string; iconeCor: string; titulo: ReactNode; sub?: ReactNode; valor: ReactNode; valorCor?: string; valorGrande?: boolean; negrito?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-[18px_1fr_auto] items-center gap-2.5 border-t border-white/[.07] py-2.5 first:border-t-0">
+    <div className="grid grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 border-t border-white/[.07] py-2 first:border-t-0">
       <span className="grid h-[18px] w-[18px] place-items-center rounded-full text-[11px] font-extrabold" style={{ background: `${iconeCor}22`, color: iconeCor }}>{icone}</span>
-      <span className={cn("text-[14.5px]", negrito && "font-bold")}>
+      <span className={cn("min-w-0 text-[13.5px]", negrito && "font-bold")}>
         {titulo}
-        {sub ? <small className="block text-[11.5px] text-muted-foreground">{sub}</small> : null}
+        {sub ? <small className="block truncate text-[11px] text-muted-foreground">{sub}</small> : null}
       </span>
-      <span className={cn("orbis-num whitespace-nowrap text-right font-bold", valorGrande ? "text-[22px]" : "text-[16px]")} style={{ color: valorCor }}>{valor}</span>
+      <span className={cn("orbis-num whitespace-nowrap text-right font-bold", valorGrande ? "text-[18px]" : "text-[14.5px]")} style={{ color: valorCor }}>{valor}</span>
     </div>
   );
 }
@@ -91,9 +91,9 @@ export function DoisGrandes({ itens }: { itens: { valor: ReactNode; rotulo: Reac
   return (
     <div className="grid grid-cols-2 gap-2">
       {itens.map((it, i) => (
-        <div key={i} className="rounded-2xl bg-secondary px-3.5 py-3" style={{ background: it.fundo, border: it.borda ? `1px solid ${it.borda}` : undefined }}>
-          <b className="orbis-num block text-[28px] font-bold leading-none tracking-tight" style={{ color: it.cor }}>{it.valor}</b>
-          <span className="mt-1 block text-[12.5px] text-muted-foreground">{it.rotulo}</span>
+        <div key={i} className="min-w-0 rounded-2xl bg-secondary px-3 py-2.5" style={{ background: it.fundo, border: it.borda ? `1px solid ${it.borda}` : undefined }}>
+          <b className="orbis-num block text-[22px] font-bold leading-none tracking-tight" style={{ color: it.cor }}>{it.valor}</b>
+          <span className="mt-1 block text-[11.5px] text-muted-foreground">{it.rotulo}</span>
         </div>
       ))}
     </div>

@@ -28,7 +28,7 @@ export function BlocoHoraAHora({ r }: { r: Resumo }) {
                 <div className={cn("flex justify-between text-[12px] font-bold uppercase tracking-[.06em]", best ? "text-primary" : "text-muted-foreground")}>
                   <span>{p.nome}</span><span>{p.faixa}</span>
                 </div>
-                <div className="mt-1.5 text-[22px] font-bold tracking-tight">{brl(p.valor)}</div>
+                <div className="mt-1 text-[18px] font-bold tracking-tight">{brl(p.valor)}</div>
                 <div className="mt-0.5 text-[12px] text-muted-foreground">
                   <b className="font-semibold text-foreground">{p.vendas}</b> vendas{p.conv != null ? <> · <b className="font-semibold text-foreground">{p.conv}%</b></> : null}
                 </div>
