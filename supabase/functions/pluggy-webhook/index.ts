@@ -15,7 +15,7 @@
 // connect_token) e de um vendedor Pro, o webhook cria a conexao sozinho.
 // O item e conferido NA PLUGGY antes: o clientUserId tem que bater.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { importarEntradas } from "../_shared/pluggy-entradas.ts";
+import { apagarTransacoes, importarEntradas } from "../_shared/pluggy-entradas.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 
 const cors = {
@@ -152,6 +152,12 @@ Deno.serve(async (req) => {
     // banco atualizou de verdade → o vendedor vira VERIFICADO
     const { error: eSelo } = await admin.rpc("banco_conceder_selo", { p_user: con.user_id });
     if (eSelo) console.error("pluggy-webhook: selo", eSelo.message);
+
+    // 21/10/2026: Pluggy removed these transactions (Mercado Pago re-issues Pix with new ids)
+    if (evento.toLowerCase() === "transactions/deleted") {
+      const n = await apagarTransacoes(admin, con.id, payload?.transactionIds ?? payload?.data?.transactionIds);
+      console.log("pluggy-webhook: transacoes apagadas", n);
+    }
 
     const r = await importarEntradas(admin, apiKey, itemId, con.user_id, con.id, evento === "item/created" ? 7 : 2);
 

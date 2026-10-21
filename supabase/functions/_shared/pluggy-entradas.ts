@@ -124,8 +124,13 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
 
   let gravadas = 0;
   let pix = 0;
+  // 21/10/2026: what Pluggy returned in THIS read. Mercado Pago re-issues its Pix with new
+  // ids (the old ones vanish from Pluggy), and we kept both: the same Pix counted twice.
+  const vistos = new Set<string>();
+  let leituraCompleta = contasRes.ok && contas.length > 0;
   for (const conta of contas) {
     let cursor: string | null = null;
+    let terminou = false;
     for (let pagina = 0; pagina < 5; pagina++) {
       const u = urlTransacoes(String(conta.id), dataDe, cursor);
       const txRes = await fetch(u, { headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(25000) });
@@ -134,6 +139,8 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
       const corpo: any = await txRes.json().catch(() => ({}));
       // deno-lint-ignore no-explicit-any
       const txs: any[] = corpo?.results ?? [];
+      // deno-lint-ignore no-explicit-any
+      for (const t of txs) if (t?.type === "CREDIT" && Number(t?.amount) > 0 && t?.id) vistos.add(String(t.id));
       // deno-lint-ignore no-explicit-any
       const linhas = txs.filter((t: any) => t?.type === "CREDIT" && Number(t?.amount) > 0).map((t: any) => {
         const q = quandoFoi(t);
@@ -171,10 +178,49 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
         }
       }
       cursor = corpo?.next ? String(corpo.next) : null;
-      if (!cursor) break;
+      if (!cursor) { terminou = true; break; }
     }
+    if (!terminou) leituraCompleta = false;
   }
-  return { contas: contas.length, gravadas, pix };
+  const removidas = leituraCompleta ? await tirarSumidas(admin, conexaoId, dataDe, vistos) : 0;
+  return { contas: contas.length, gravadas, pix, removidas };
+}
+
+/** Entries of this connection, inside the window just read in full, that Pluggy no longer
+ *  returns (re-issued with a new id, or deleted by the bank). Only after a COMPLETE read,
+ *  never the window's first day (Pluggy filters in UTC), and never if Pluggy returned nothing. */
+// deno-lint-ignore no-explicit-any
+export async function tirarSumidas(admin: any, conexaoId: string, dataDe: string, vistos: Set<string>): Promise<number> {
+  if (vistos.size === 0) return 0;
+  const { data, error } = await admin.from("auto_detected_sales")
+    .select("transaction_id").eq("bank_connection_id", conexaoId).gt("transaction_date", dataDe).eq("status", "pending");
+  if (error || !data) return 0;
+  const sumidas = idsSumidos((data as { transaction_id: string }[]).map((r) => r.transaction_id), vistos);
+  let n = 0;
+  for (let i = 0; i < sumidas.length; i += 100) {
+    const lote = sumidas.slice(i, i + 100);
+    const { error: eDel } = await admin.from("auto_detected_sales").delete().eq("bank_connection_id", conexaoId).in("transaction_id", lote);
+    if (eDel) { console.error("pluggy sumidas:", eDel.message); break; }
+    n += lote.length;
+  }
+  if (n > 0) console.log("pluggy sumidas removidas", conexaoId, n);
+  return n;
+}
+
+/** Pure part: which stored ids did not come back. */
+export function idsSumidos(guardados: string[], vistos: Set<string>): string[] {
+  return guardados.filter((id) => !vistos.has(id));
+}
+
+/** transactions/deleted webhook: Pluggy tells which ids are gone. */
+// deno-lint-ignore no-explicit-any
+export async function apagarTransacoes(admin: any, conexaoId: string, ids: unknown): Promise<number> {
+  const lista = Array.isArray(ids) ? ids.map(String).filter(Boolean) : [];
+  if (lista.length === 0) return 0;
+  const { data, error } = await admin.from("auto_detected_sales").delete()
+    .eq("bank_connection_id", conexaoId).in("transaction_id", lista.slice(0, 500)).select("id");
+  if (error) { console.error("pluggy apagar:", error.message); return 0; }
+  return (data ?? []).length;
 }
 
 /** Pede pra Pluggy buscar dados novos no banco. A resposta chega pelo pluggy-webhook. */
