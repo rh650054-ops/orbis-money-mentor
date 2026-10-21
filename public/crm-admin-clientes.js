@@ -148,10 +148,13 @@
         </div>` : ""}
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px">
         <div class="stat"><div class="k">Cadastros</div><div class="v">${L ? "—" : U.esc(p.cadastros ?? 0)}</div><div class="s">${U.esc(p.cadastros_total ?? 0)} no total</div></div>
-        <div class="stat" style="border-color:var(--ok)"><div class="k">Vendas (assinaturas)</div><div class="v" style="color:var(--ok)">${L ? "—" : U.esc(p.assinaturas_novas ?? 0)}</div>
-          <div class="s">${U.esc(p.assinaturas_ativas_agora ?? 0)} ativas hoje</div>
-          ${Number(p.sem_origem || 0) > 0 ? `<div class="s" style="color:var(--warn)">${U.esc(p.sem_origem)} sem origem</div>` : ""}</div>
-        <div class="stat" style="border-color:var(--c1)"><div class="k">Comissão a pagar</div><div class="v" style="color:var(--c1)">${L ? "—" : reais(p.comissao_total)}</div><div class="s">${reais(p.comissao_unitaria ?? 11.96)} por assinante</div></div>
+        <div class="stat" style="border-color:var(--ok)"><div class="k">Vendas (Hotmart)</div><div class="v" style="color:var(--ok)">${L ? "—" : U.esc(p.assinaturas_novas ?? 0)}</div>
+          <div class="s">${U.esc(p.primeiras ?? 0)} primeira compra · ${U.esc(p.upgrades ?? 0)} upgrade</div>
+          <div class="s">+ ${U.esc(p.renovacoes ?? 0)} renovações · ${reais(p.receita_hotmart ?? 0)}</div>
+          ${Number(p.sem_origem || 0) > 0 ? `<div class="s" style="color:var(--warn)">${U.esc(p.sem_origem)} sem afiliado</div>` : ""}</div>
+        <div class="stat" style="border-color:var(--c1)"><div class="k">Comissão a pagar</div><div class="v" style="color:var(--c1)">${L ? "—" : reais(p.comissao_total)}</div><div class="s">1ª compra: valor do parceiro · anual: 40% do líquido · upgrade não paga</div></div>
+        <div class="stat"><div class="k">Ativas agora (Hotmart)</div><div class="v">${L ? "—" : U.esc(p.assinaturas_ativas_agora ?? 0)}</div>
+          <div class="s">${Object.entries(p.ativas_por_plano || {}).map(([k, n]) => `${U.esc(String(k).replace(/:$/, ""))} ${U.esc(n)}`).join(" · ")}</div></div>
         <div class="stat"><div class="k">Leads no link</div><div class="v">${L ? "—" : U.esc(p.leads ?? 0)}</div><div class="s">${isoBR(S.ini)} a ${isoBR(S.fim)}</div></div>
       </div>
       ${porRef.length ? `
@@ -161,9 +164,10 @@
             <button class="btn ghost" id="cl-p-csv" style="${BTN_S}">Baixar CSV</button>
           </div>
           <div style="max-height:320px;overflow:auto">
-            <table class="tabela"><thead><tr><th>Afiliado</th><th class="n">Leads</th><th class="n">Cadastros</th><th class="n">Vendas</th><th class="n">Comissão</th></tr></thead>
+            <table class="tabela"><thead><tr><th>Afiliado</th><th class="n">Leads</th><th class="n">Cadastros</th><th class="n">Vendas</th><th class="n">Renov.</th><th class="n">Comissão</th></tr></thead>
             <tbody>${porRef.map((r) => `<tr><td><b>${U.esc(r.ref)}</b></td><td class="n">${U.esc(r.leads)}</td><td class="n">${U.esc(r.cadastros)}</td>
-              <td class="n" style="color:var(--ok);font-weight:700">${U.esc(r.assinaturas)}</td>
+              <td class="n" style="color:var(--ok);font-weight:700">${U.esc(r.assinaturas)}${Number(r.upgrades) > 0 ? `<span style="color:var(--faint);font-weight:400"> +${U.esc(r.upgrades)} upg</span>` : ""}</td>
+              <td class="n">${U.esc(r.renovacoes ?? 0)}</td>
               <td class="n" style="color:var(--c1);font-weight:700">${Number(r.comissao) > 0 ? reais(r.comissao) : "—"}</td></tr>`).join("")}</tbody></table>
           </div>
         </div>` : ""}
@@ -171,8 +175,8 @@
         <details style="margin-top:10px;border:1px solid var(--line);border-radius:10px">
           <summary class="mini-h" style="padding:8px 10px;cursor:pointer">Dia a dia</summary>
           <div style="max-height:260px;overflow:auto;border-top:1px solid var(--line)">
-            <table class="tabela"><tbody>${porDia.filter((d) => d.cadastros > 0 || d.assinaturas > 0).slice().reverse().map((d) =>
-              `<tr><td>${U.esc(isoBR(d.dia))}</td><td class="n">${U.esc(d.cadastros)} cadastro(s)</td><td class="n" style="color:var(--ok);font-weight:700">${U.esc(d.assinaturas)} venda(s)</td></tr>`).join("")}</tbody></table>
+            <table class="tabela"><tbody>${porDia.filter((d) => d.cadastros > 0 || d.assinaturas > 0 || d.renovacoes > 0).slice().reverse().map((d) =>
+              `<tr><td>${U.esc(isoBR(d.dia))}</td><td class="n">${U.esc(d.cadastros)} cadastro(s)</td><td class="n" style="color:var(--ok);font-weight:700">${U.esc(d.assinaturas)} venda(s)</td><td class="n">${U.esc(d.renovacoes ?? 0)} renov.</td></tr>`).join("")}</tbody></table>
           </div>
         </details>` : ""}
     </div>`;
@@ -200,8 +204,8 @@
     const linhas = (S.periodo && S.periodo.por_ref) || [];
     if (!linhas.length) return;
     const csv = [
-      "afiliado;leads;cadastros;assinaturas;comissao_brl",
-      ...linhas.map((r) => `${r.ref};${r.leads};${r.cadastros};${r.assinaturas};${Number(r.comissao).toFixed(2).replace(".", ",")}`),
+      "afiliado;leads;cadastros;primeiras_compras;upgrades;renovacoes;comissao_brl",
+      ...linhas.map((r) => `${r.ref};${r.leads};${r.cadastros};${r.assinaturas};${r.upgrades ?? 0};${r.renovacoes ?? 0};${Number(r.comissao).toFixed(2).replace(".", ",")}`),
       `TOTAL;;;;${Number(S.periodo.comissao_total ?? 0).toFixed(2).replace(".", ",")}`,
     ].join("\n");
     const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
