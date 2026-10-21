@@ -4,7 +4,6 @@ import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/shared/ui/dialog";
-import { ScrollArea } from "@/shared/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/shared/hooks/use-toast";
@@ -300,38 +299,38 @@ export default function QuickExpenseButton({
       )}
 
       <Dialog open={isOpen} onOpenChange={(o) => { setIsOpen(o); if (!o) reset(); }}>
-        <DialogContent className="max-w-md w-[calc(100%-1.5rem)] p-0 gap-0 bg-card border-border/60 overflow-x-hidden">
+        <DialogContent className="max-w-md w-[calc(100%-1.5rem)] max-h-[72dvh] p-0 gap-0 bg-card border-border/60 overflow-x-hidden overflow-y-auto overscroll-contain">
           <DialogTitle className="sr-only">Custos de hoje</DialogTitle>
           <DialogDescription className="sr-only">
             Registre seus gastos do dia para contabilizar no relatório.
           </DialogDescription>
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border/60">
+          <div className="sticky top-0 z-10 bg-card flex items-center justify-between px-4 py-2.5 border-b border-border/60">
             <div>
-              <h2 className="text-lg font-bold">Custos de hoje</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <h2 className="text-[15px] font-bold">Custos de hoje</h2>
+              <p className="text-[11px] text-muted-foreground">
                 Total: <span className="text-primary font-bold">{formatCurrency(totalToday)}</span>
               </p>
             </div>
           </div>
 
-          <div className="p-5 space-y-5">
+          <div className="p-4 space-y-4">
             {!selected ? (
               <>
                 {/* Quick categories grid */}
                 <div>
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-3">
+                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">
                     Registrar gasto
                   </p>
-                  <div className="grid grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-3 gap-1.5">
                     {QUICK_CATEGORIES.map((cat) => (
                       <button
                         key={cat.key}
                         onClick={() => setSelected(cat)}
-                        className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border/60 bg-background hover:border-primary hover:bg-primary/5 transition-[colors,transform,opacity]"
+                        className="flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded-xl border border-border/60 bg-background hover:border-primary hover:bg-primary/5 transition-[colors,transform,opacity]"
                       >
-                        <span className="text-2xl">{cat.icon}</span>
-                        <span className="text-xs font-medium">{cat.label}</span>
+                        <span className="text-lg leading-none">{cat.icon}</span>
+                        <span className="text-[11px] font-medium">{cat.label}</span>
                       </button>
                     ))}
                   </div>
@@ -351,19 +350,19 @@ export default function QuickExpenseButton({
                       Nenhum custo registrado hoje.
                     </p>
                   ) : (
-                    <ScrollArea className="max-h-48">
+                    <div className="max-h-44 overflow-y-auto overscroll-contain">
                       <div className="space-y-1.5">
                         {todayList.map((e) => (
                           <div
                             key={e.id}
-                            className="px-3 py-2 rounded-lg bg-background border border-border/40"
+                            className="px-2.5 py-1.5 rounded-lg bg-background border border-border/40"
                           >
                             {editingId === e.id ? (
                               <div className="space-y-2">
                                 <MoneyInput
                                   value={parseFloat(editAmount) || 0}
                                   onChange={(n) => setEditAmount(n ? String(n) : "")}
-                                  className="h-10 text-base font-bold"
+                                  className="h-10 text-[15px] font-bold"
                                 />
                                 <div className="flex gap-2">
                                   <Button onClick={() => saveEdit(e)} disabled={savingEdit} className="flex-1 h-9 text-sm">
@@ -375,13 +374,13 @@ export default function QuickExpenseButton({
                                 </div>
                               </div>
                             ) : (
-                              <div className="flex items-center gap-3">
-                                <span className="text-lg">{e.icon || "💰"}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-base shrink-0">{e.icon || "💰"}</span>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-medium truncate">{e.name}</p>
                                   <p className="text-xs text-muted-foreground">{e.category}</p>
                                 </div>
-                                <span className="text-sm font-bold text-primary">
+                                <span className="shrink-0 whitespace-nowrap text-[13px] font-bold text-primary tabular-nums">
                                   {formatCurrency(Number(e.amount))}
                                 </span>
                                 {e.isCmv && (
@@ -406,7 +405,7 @@ export default function QuickExpenseButton({
                           </div>
                         ))}
                       </div>
-                    </ScrollArea>
+                    </div>
                   )}
                 </div>
 
@@ -429,12 +428,12 @@ export default function QuickExpenseButton({
                         Nenhum custo no histórico.
                       </p>
                     ) : (
-                      <ScrollArea className="max-h-64 mt-1">
+                      <div className="max-h-56 overflow-y-auto overscroll-contain mt-1">
                         <div className="space-y-1.5">
                           {history.map((e) => (
                             <div
                               key={e.id}
-                              className="px-3 py-2 rounded-lg bg-background border border-border/40"
+                              className="px-2.5 py-1.5 rounded-lg bg-background border border-border/40"
                             >
                               {editingId === e.id ? (
                                 <div className="space-y-2">
@@ -453,7 +452,7 @@ export default function QuickExpenseButton({
                                   <MoneyInput
                                     value={parseFloat(editAmount) || 0}
                                     onChange={(n) => setEditAmount(n ? String(n) : "")}
-                                    className="h-10 text-base font-bold"
+                                    className="h-10 text-[15px] font-bold"
                                   />
                                   {!e.isCmv && (
                                     <Input
@@ -481,8 +480,8 @@ export default function QuickExpenseButton({
                                   </div>
                                 </div>
                               ) : (
-                                <div className="flex items-center gap-3">
-                                  <span className="text-lg">{e.icon || "💰"}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-base shrink-0">{e.icon || "💰"}</span>
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium truncate">{e.name}</p>
                                     <p className="text-[11px] text-muted-foreground truncate">
@@ -490,7 +489,7 @@ export default function QuickExpenseButton({
                                       {e.notes ? ` · ${e.notes}` : ""}
                                     </p>
                                   </div>
-                                  <span className="text-sm font-bold text-primary">
+                                  <span className="shrink-0 whitespace-nowrap text-[13px] font-bold text-primary tabular-nums">
                                     {formatCurrency(Number(e.amount))}
                                   </span>
                                   <button
@@ -517,7 +516,7 @@ export default function QuickExpenseButton({
                             </div>
                           ))}
                         </div>
-                      </ScrollArea>
+                      </div>
                     )
                   )}
                 </div>
@@ -531,8 +530,8 @@ export default function QuickExpenseButton({
                 >
                   ← voltar
                 </button>
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/10 border border-primary/30">
-                  <span className="text-3xl">{selected.icon}</span>
+                <div className="flex items-center gap-2.5 p-3 rounded-xl bg-primary/10 border border-primary/30">
+                  <span className="text-2xl">{selected.icon}</span>
                   <div>
                     <p className="text-sm font-semibold">{selected.label}</p>
                     <p className="text-xs text-muted-foreground">{selected.category}</p>
@@ -557,7 +556,7 @@ export default function QuickExpenseButton({
                     value={parseFloat(amount) || 0}
                     onChange={(n) => setAmount(n ? String(n) : "")}
                     autoFocus
-                    className="text-2xl font-bold h-14"
+                    className="text-xl font-bold h-12"
                   />
                 </div>
 
@@ -565,7 +564,7 @@ export default function QuickExpenseButton({
                   onClick={handleSave}
                   disabled={saving || !amount}
                   className={cn(
-                    "w-full h-12 text-base font-bold bg-gradient-to-r from-primary to-[hsl(45_100%_38%)]",
+                    "w-full h-11 text-[15px] font-bold bg-gradient-to-r from-primary to-[hsl(45_100%_38%)]",
                     "hover:opacity-90 text-primary-foreground"
                   )}
                 >

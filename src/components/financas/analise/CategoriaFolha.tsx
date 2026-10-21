@@ -39,7 +39,7 @@ export function CategoriaFolha({ aberta, mes, corrente, dia, onFechar }: {
   return (
     <Folha open={!!aberta} onOpenChange={(o) => { if (!o) onFechar(); }} titulo={titulo}
       subtitulo={`${lista.isLoading ? "…" : qtd} ${qtd === 1 ? "transação" : "transações"} · ${nomeMes(mes)}`} alta>
-      <p className="-mt-2 text-[32px] leading-none font-extrabold tabular-nums" style={{ color: COR.texto }}>{reais(total)}</p>
+      <p className="-mt-2 text-[26px] leading-none font-extrabold tabular-nums" style={{ color: COR.texto }}>{reais(total)}</p>
 
       {cat && (cat.historico > 0 || cat.tem_teto) && (
         <div>

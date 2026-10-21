@@ -58,8 +58,8 @@ export function GraficoDias({ r, onAbrirDia }: { r: Resumo; onAbrirDia: (dia: st
         {destaque && (
           <div className="mt-3 rounded-2xl bg-secondary p-3.5">
             <div className="flex items-baseline justify-between gap-2">
-              <b className="text-[15px]">{cap(semanaCurta(destaque))} {ddmm(destaque)}{!tocado ? " · seu melhor dia" : ""}</b>
-              <b className="text-[20px]" style={{ color: "var(--orbis-gold)" }}>{brl(sel?.vendido ?? 0)}</b>
+              <b className="text-[13.5px]">{cap(semanaCurta(destaque))} {ddmm(destaque)}{!tocado ? " · seu melhor dia" : ""}</b>
+              <b className="text-[17px]" style={{ color: "var(--orbis-gold)" }}>{brl(sel?.vendido ?? 0)}</b>
             </div>
             {sel ? (
               <p className="mt-1 text-[13px] text-muted-foreground">

@@ -70,16 +70,16 @@ export default function RaioXContas({ resumo, onEntreContas, onContaUso }: Props
             <span className="text-[11px] font-bold" style={muted}>o que é do trabalho</span>
           </div>
           <div className="grid grid-cols-2 gap-2.5">
-            <div className="rounded-2xl border p-3" style={card}>
+            <div className="rounded-2xl border p-3 min-w-0" style={card}>
               <span className="orbis-section" style={{ color: "#4FA3FF" }}>Do corre</span>
-              <div className="text-[20px] font-black tracking-tight tabular-nums mt-1.5 text-foreground">{moeda(resumo.corre)}</div>
+              <div className="text-[18px] font-black tracking-tight tabular-nums mt-1.5 whitespace-nowrap truncate text-foreground">{moeda(resumo.corre)}</div>
               <small className="block text-[11px] font-semibold mt-1" style={muted}>
                 {resumo.vendas > 0 ? `vendeu ${moeda(resumo.vendas)} em ${resumo.vendas_qtd} entradas` : "mercadoria, passagem, gelo, DAS"}
               </small>
             </div>
-            <div className="rounded-2xl border p-3" style={card}>
+            <div className="rounded-2xl border p-3 min-w-0" style={card}>
               <span className="orbis-section" style={{ color: "#B07CFF" }}>Pessoal</span>
-              <div className="text-[20px] font-black tracking-tight tabular-nums mt-1.5 text-foreground">{moeda(resumo.pessoal)}</div>
+              <div className="text-[18px] font-black tracking-tight tabular-nums mt-1.5 whitespace-nowrap truncate text-foreground">{moeda(resumo.pessoal)}</div>
               <small className="block text-[11px] font-semibold mt-1" style={muted}>{Math.round((resumo.pessoal / resumo.saiu) * 100)}% do que saiu</small>
             </div>
           </div>

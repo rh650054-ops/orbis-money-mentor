@@ -210,7 +210,7 @@ export function NovaContaSheet({ open, onOpenChange, userId, workingDays, onCrea
                   onChange={setValor}
                   autoFocus
                   placeholder="R$ 0,00"
-                  className="border-0 bg-transparent px-0 h-12 text-[34px] font-black tracking-tight focus-visible:ring-0"
+                  className="border-0 bg-transparent px-0 h-12 text-[26px] font-black tracking-tight focus-visible:ring-0"
                 />
               </div>
 

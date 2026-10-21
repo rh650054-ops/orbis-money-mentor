@@ -94,14 +94,14 @@ export default function RaioXLancamentos({ mes, categoria, info, categorias, lis
 
       {!nid && info && (
         <div className="grid grid-cols-2 gap-2.5">
-          <div className="rounded-2xl border p-3" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
+          <div className="rounded-2xl border p-3 min-w-0" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
             <span className="orbis-section">{mesNome(mes)}</span>
-            <div className="text-[22px] font-black tracking-tight tabular-nums mt-1.5" style={{ color: "#FF5A45" }}>{moeda(info.total)}</div>
+            <div className="text-[18px] font-black tracking-tight tabular-nums mt-1.5 whitespace-nowrap truncate" style={{ color: "#FF5A45" }}>{moeda(info.total)}</div>
             <small className="block text-[11px] font-semibold mt-1" style={{ color: "#7e7869" }}>
               {info.anterior > 0 ? `${info.total >= info.anterior ? "▲" : "▼"} ${moeda(Math.abs(info.total - info.anterior))} vs ${antNome}` : `${info.pct}% do que saiu`}
             </small>
           </div>
-          <div className="rounded-2xl border p-3" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
+          <div className="rounded-2xl border p-3 min-w-0" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
             <span className="orbis-section">Onde mais</span>
             <div className="text-[16px] font-black tracking-tight mt-2 text-foreground truncate">{comerciantes[0] ? bonito(comerciantes[0]) : "—"}</div>
             <small className="block text-[11px] font-semibold mt-1" style={{ color: "#7e7869" }}>

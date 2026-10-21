@@ -402,7 +402,14 @@ body.battery-saver .backdrop-blur-xl {
 }
 .orbis-rise { transform-origin: bottom; animation: orbisRise 0.6s cubic-bezier(.2,.8,.2,1) both; }
 
+/* Clima chip: weather icon drifting gently (21/10). */
+@keyframes orbisClimaDrift {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(1.5px, -1.5px); }
+}
+.orbis-clima-drift { animation: orbisClimaDrift 3.2s ease-in-out infinite; }
+
 /* Respeita quem pediu menos movimento. */
 @media (prefers-reduced-motion: reduce) {
-  .orbis-shimmer, .orbis-float, .orbis-rise { animation: none !important; }
+  .orbis-shimmer, .orbis-float, .orbis-rise, .orbis-clima-drift { animation: none !important; }
 }

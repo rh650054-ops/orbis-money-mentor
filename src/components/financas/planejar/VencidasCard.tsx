@@ -31,7 +31,7 @@ export function VencidasCard({ contas, onPlano, onPaga, simular, foco, onSemFoco
         <Rotulo cor={COR.coral}>Contas vencidas</Rotulo>
         <span className="min-w-5 h-5 px-1.5 rounded-full inline-flex items-center justify-center text-[12px] font-black" style={{ background: "rgba(255,107,94,.18)", color: COR.coral }}>{contas.length}</span>
       </div>
-      <p className="text-[32px] font-black tabular-nums leading-none mt-2" style={{ color: COR.coral }}>{formatCurrency(total)}</p>
+      <p className="text-[26px] font-black tabular-nums leading-none mt-2" style={{ color: COR.coral }}>{formatCurrency(total)}</p>
       <p className="text-[14px] font-bold mt-1.5" style={{ color: COR.texto }}>
         {contas.length === 1 ? "1 conta precisa de atenção" : `${contas.length} contas precisam de atenção`}
       </p>
@@ -107,7 +107,7 @@ function PlanoFolha({ ids, contas, simular, onClose, onUsar }: {
         {[3, 5, 10, 15].map((n) => <Chip key={n} ativo={dias === n} onClick={() => setDias(n)}>{n} dias</Chip>)}
       </div>
       <div className="rounded-[16px] p-4" style={{ background: COR.surface2, border: `1px solid ${COR.borda}` }}>
-        <p className="text-[30px] font-bold tabular-nums leading-none" style={{ color: COR.ouro }}>{formatCurrency(r.porDia)}<span className="text-[16px] font-semibold" style={{ color: COR.sub }}> / dia útil</span></p>
+        <p className="text-[24px] font-bold tabular-nums leading-none" style={{ color: COR.ouro }}>{formatCurrency(r.porDia)}<span className="text-[14px] font-semibold" style={{ color: COR.sub }}> / dia útil</span></p>
         <p className="text-[15px] mt-2" style={{ color: COR.sub }}>quitação estimada em <b style={{ color: COR.texto }}>{r.quita}</b></p>
       </div>
       <BotaoPrimario onClick={() => void usar()} estado={estado} sucessoTexto="Plano ativo">Usar este plano</BotaoPrimario>

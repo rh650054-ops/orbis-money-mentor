@@ -122,7 +122,7 @@ export function Folha({ open, onOpenChange, titulo, subtitulo, children, alta }:
   return (
     <Gaveta open={open} onOpenChange={onOpenChange} titulo={titulo}
       className={alta ? "max-h-[90vh]" : "max-h-[85vh]"} style={{ background: COR.folha, borderColor: "rgba(255,255,255,.08)" }}>
-      <div className="px-5 pt-1 flex flex-col gap-4" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
+      <div className="px-4 pt-1 flex flex-col gap-4" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
         <div className="pr-10">
           <h2 className="text-[20px] font-bold leading-tight" style={{ color: COR.texto }}>{titulo}</h2>
           {subtitulo && <p className="text-[14px] mt-1" style={{ color: COR.sub }}>{subtitulo}</p>}

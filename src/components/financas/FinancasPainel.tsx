@@ -94,7 +94,7 @@ export function TelaCartao({ p }: { p: Painel }) {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <Rotulo cor={venceu ? RED : MUTE}>USADO NO CARTÃO · {(c.banco ?? c.nome).toUpperCase()}</Rotulo>
-                <p className="text-[26px] font-black tabular-nums leading-tight mt-1" style={{ color: venceu ? RED : "#F4F1EA" }}>{reais(fatura)}</p>
+                <p className="text-[22px] font-black tabular-nums leading-tight mt-1 whitespace-nowrap truncate" style={{ color: venceu ? RED : "#F4F1EA" }}>{reais(fatura)}</p>
               </div>
               {c.vence && (
                 <div className="text-right shrink-0">
@@ -197,7 +197,7 @@ export function TelaDividas({ p }: { p: Painel }) {
       <Caixa tom="red">
         <div className="text-center">
           <Rotulo cor={RED}>{juros > 0 ? "VOCÊ PAGA DE JUROS POR MÊS" : "VOCÊ DEVE NO BANCO"}</Rotulo>
-          <p className="text-[32px] font-black tabular-nums leading-tight mt-1" style={{ color: RED }}>
+          <p className="text-[26px] font-black tabular-nums leading-tight mt-1" style={{ color: RED }}>
             {reais(juros > 0 ? juros : itens.reduce((s, x) => s + x.valor, 0))}
           </p>
           {juros > 0 && diasJuros && <p className="text-[11.5px] mt-1" style={{ color: "#b9b3a6" }}>= {diasJuros} por mês só pra pagar juros</p>}
@@ -236,7 +236,7 @@ export function TelaGuardado({ p }: { p: Painel }) {
         <Caixa tom="ok">
           <div className="text-center">
             <Rotulo cor={OK}>GUARDADO · CONFERIDO PELO BANCO</Rotulo>
-            <p className="text-[32px] font-black tabular-nums leading-tight mt-1" style={{ color: OK }}>{reais(p.guardado)}</p>
+            <p className="text-[26px] font-black tabular-nums leading-tight mt-1" style={{ color: OK }}>{reais(p.guardado)}</p>
           </div>
           {p.investimentos.map((i, k) => (
             <div key={k} className="flex items-center gap-2.5 py-2" style={{ borderTop: `1px solid ${LINHA}`, marginTop: k === 0 ? 10 : 0 }}>
@@ -254,7 +254,7 @@ export function TelaGuardado({ p }: { p: Painel }) {
       <Caixa tom="gold">
         <div className="text-center">
           <Rotulo cor={GOLD}>SEU NÚMERO</Rotulo>
-          <p className="text-[28px] font-black tabular-nums leading-tight mt-1" style={{ color: numero < 0 ? RED : GOLD }}>
+          <p className="text-[24px] font-black tabular-nums leading-tight mt-1" style={{ color: numero < 0 ? RED : GOLD }}>
             {numero < 0 ? "− " : ""}{reais(Math.abs(numero))}
           </p>
           <p className="text-[11px] mt-1" style={{ color: "#b9b3a6" }}>

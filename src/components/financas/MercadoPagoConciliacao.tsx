@@ -226,7 +226,7 @@ export function ConciliacaoMes({ userId }: { userId: string | undefined }) {
         <TrendingUp className="w-4 h-4" style={{ color: OK }} strokeWidth={2.6} />
         <p className="text-[10px] font-black tracking-[.16em]" style={{ color: OK }}>CAIU NA CONTA ESTE MÊS</p>
       </div>
-      <p className="text-[26px] font-black tabular-nums leading-none mt-2" style={{ color: OK }}>{formatCurrency(m.total_caiu)}</p>
+      <p className="text-[22px] font-black tabular-nums leading-none mt-2" style={{ color: OK }}>{formatCurrency(m.total_caiu)}</p>
       <p className="text-[12px] mt-1" style={{ color: "var(--orbis-fg-2)" }}>
         de {formatCurrency(digital)} que você lançou em Pix e maquininha · <b style={{ color: pct >= 95 ? OK : "#ff7d8c" }}>{pct}%</b>
       </p>

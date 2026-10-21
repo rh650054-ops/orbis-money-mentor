@@ -67,7 +67,7 @@ function Stat({ rotulo, valor, cor, sub }: { rotulo: string; valor: string; cor:
   return (
     <div className="rounded-xl px-2.5 py-2 min-w-0" style={{ background: "#131312", border: "1px solid rgba(255,255,255,.07)" }}>
       <p className="text-[9px] font-black tracking-[.15em]" style={{ color: MUTE }}>{rotulo}</p>
-      <p className="text-[16px] font-black tabular-nums mt-0.5 truncate" style={{ color: cor }}>{valor}</p>
+      <p className="text-[14px] font-black tabular-nums mt-0.5 whitespace-nowrap truncate" style={{ color: cor }}>{valor}</p>
       <p className="text-[9.5px] font-bold" style={{ color: MUTE }}>{sub}</p>
     </div>
   );
@@ -107,7 +107,7 @@ export function FinancasHomeView({ h, onPiloto }: { h: HomeFinancas; onPiloto: (
         <div className="rounded-[18px] px-3.5 py-4 text-center"
           style={{ background: "linear-gradient(170deg,#1c0a08,#0e0e10 70%)", border: "1px solid rgba(255,90,69,.42)" }}>
           <p className="text-[10px] font-black tracking-[.15em]" style={{ color: RED }}>VOCÊ ESTÁ NO NEGATIVO</p>
-          <p className="text-[34px] font-black tabular-nums leading-tight mt-1" style={{ color: RED }}>− {reais(Math.abs(saldo))}</p>
+          <p className="text-[26px] font-black tabular-nums leading-tight mt-1" style={{ color: RED }}>− {reais(Math.abs(saldo))}</p>
           <p className="text-[11.5px] mt-1" style={{ color: "#b9b3a6" }}>{linhaBancos}{h.atualizado ? ` · atualizado ${hora(h.atualizado)}` : ""}</p>
           {h.causas && h.causas.length > 0 && (
             <div className="text-left mt-3 rounded-xl px-3 py-1" style={{ background: "rgba(0,0,0,.35)" }}>
@@ -128,17 +128,17 @@ export function FinancasHomeView({ h, onPiloto }: { h: HomeFinancas; onPiloto: (
           <p className="text-[10px] font-black tracking-[.15em]" style={{ color: GOLD }}>QUANTO VOCÊ TEM AGORA</p>
           {h.tem_saldo ? (
             <>
-              <p className="text-[36px] font-black tabular-nums leading-tight mt-1" style={{ color: GOLD }}>{reais(saldo)}</p>
+              <p className="text-[28px] font-black tabular-nums leading-tight mt-1" style={{ color: GOLD }}>{reais(saldo)}</p>
               <p className="text-[11.5px] mt-1" style={{ color: "#b9b3a6" }}>{linhaBancos}{h.atualizado ? ` · atualizado ${hora(h.atualizado)}` : ""}</p>
               {h.saldo_pessoal != null && (
                 <div className="grid grid-cols-2 gap-2 mt-3 text-left">
-                  <div className="rounded-xl px-2.5 py-2" style={{ background: "rgba(245,184,0,.08)", border: "1px solid rgba(245,184,0,.25)" }}>
+                  <div className="rounded-xl px-2.5 py-2 min-w-0" style={{ background: "rgba(245,184,0,.08)", border: "1px solid rgba(245,184,0,.25)" }}>
                     <p className="text-[9px] font-black tracking-[.14em]" style={{ color: GOLD }}>💼 FLUXO DE CAIXA</p>
-                    <p className="text-[16px] font-black tabular-nums mt-0.5">{reais(h.saldo_trabalho ?? 0)}</p>
+                    <p className="text-[16px] font-black tabular-nums mt-0.5 whitespace-nowrap truncate">{reais(h.saldo_trabalho ?? 0)}</p>
                   </div>
-                  <div className="rounded-xl px-2.5 py-2" style={{ background: "rgba(90,176,255,.08)", border: "1px solid rgba(90,176,255,.3)" }}>
+                  <div className="rounded-xl px-2.5 py-2 min-w-0" style={{ background: "rgba(90,176,255,.08)", border: "1px solid rgba(90,176,255,.3)" }}>
                     <p className="text-[9px] font-black tracking-[.14em]" style={{ color: "#5ab0ff" }}>🏠 PESSOAL</p>
-                    <p className="text-[16px] font-black tabular-nums mt-0.5">{reais(h.saldo_pessoal ?? 0)}</p>
+                    <p className="text-[16px] font-black tabular-nums mt-0.5 whitespace-nowrap truncate">{reais(h.saldo_pessoal ?? 0)}</p>
                   </div>
                 </div>
               )}

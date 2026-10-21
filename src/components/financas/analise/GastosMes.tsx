@@ -52,7 +52,7 @@ export function GastosMes({ a, podeVoltar, onMes, negocio }: {
         </div>
       </div>
 
-      <p className="text-[44px] leading-none font-extrabold tracking-tight tabular-nums mt-2" style={{ color: COR.texto }}>{reais(gasto)}</p>
+      <p className="text-[28px] leading-none font-extrabold tracking-tight tabular-nums mt-2" style={{ color: COR.texto }}>{reais(gasto)}</p>
       {r && r.estado !== "igual" && (
         <p className="text-[15px] font-bold mt-2 tabular-nums" style={{ color: cor }}>
           {r.estado === "abaixo" ? "↓" : "↑"} {reais(Math.abs(r.dif))} {r.estado === "abaixo" ? "abaixo" : "acima"} do seu ritmo

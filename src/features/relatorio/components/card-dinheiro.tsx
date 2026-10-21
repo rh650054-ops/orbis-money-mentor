@@ -18,9 +18,9 @@ export function CardDinheiro({ r }: { r: Resumo }) {
         <span className="text-xs text-muted-foreground">{rotuloPeriodo(r.periodo)}</span>
       </div>
       <div className="mt-1.5 flex items-end justify-between gap-2">
-        <div>
-          <AnimatedNumber value={d.caiu} format={(n) => brl(n)} className="block text-[34px] font-bold leading-none tracking-tight" />
-          <div className="mt-1 text-[12.5px] text-muted-foreground">
+        <div className="min-w-0">
+          <AnimatedNumber value={d.caiu} format={(n) => brl(n)} className="block text-[28px] font-bold leading-none tracking-tight" />
+          <div className="mt-1 text-[11.5px] text-muted-foreground">
             já caiu no seu bolso{d.vendeu > 0 ? <> · <b className="font-semibold text-foreground">{d.pctCaiu}%</b> do que vendeu</> : null}
           </div>
         </div>
@@ -29,10 +29,10 @@ export function CardDinheiro({ r }: { r: Resumo }) {
 
       <div className="mt-3">
         <Linha icone="=" iconeCor={COR.cinzaClaro} titulo="Vendeu" sub={`${d.vendas} ${d.vendas === 1 ? "venda" : "vendas"}${r.tempo.worked > 0 ? ` · ${fmtMin(r.tempo.worked)} na rua` : ""}`} valor={brl(d.vendeu)} valorCor={COR.fg2} />
-        <Linha icone="↓" iconeCor={COR.ok} titulo="Caiu no bolso" sub="Pix lido do banco + dinheiro + cartão" valor={brl(d.caiu)} valorCor={COR.ok} />
-        <Linha icone="−" iconeCor={COR.custo} titulo="Gastou" sub="mercadoria, transporte e alimentação" valor={`− ${brl(d.gastos)}`} valorCor={COR.custo} />
+        <Linha icone="↓" iconeCor={COR.ok} titulo="Caiu no bolso" sub="Pix + dinheiro + cartão" valor={brl(d.caiu)} valorCor={COR.ok} />
+        <Linha icone="−" iconeCor={COR.custo} titulo="Gastou" sub="mercadoria, transporte, comida" valor={`− ${brl(d.gastos)}`} valorCor={COR.custo} />
         <Linha icone="★" iconeCor={COR.gold} negrito titulo="Sobrou pra você"
-          sub={d.vendeu > 0 ? `de cada R$ 10 vendidos, ${brl(d.deCada10, true)} ficam com você` : "nada lançado ainda"}
+          sub={d.vendeu > 0 ? `${brl(d.deCada10, true)} de cada R$ 10` : "nada lançado ainda"}
           valor={brl(d.sobrou)} valorCor={COR.gold} valorGrande />
       </div>
 

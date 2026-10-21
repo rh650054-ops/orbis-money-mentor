@@ -67,16 +67,16 @@ export default function RaioXResumo({ mes, meses, resumo, loading, onMes, onCate
             </button>
           )}
           <div className="grid grid-cols-2 gap-2.5">
-            <div className="rounded-2xl border p-3" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
+            <div className="rounded-2xl border p-3 min-w-0" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
               <span className="orbis-section">Saiu</span>
-              <div className="text-[22px] font-black tracking-tight tabular-nums mt-1.5" style={{ color: "#FF5A45" }}>{moeda(resumo.saiu)}</div>
+              <div className="text-[18px] font-black tracking-tight tabular-nums mt-1.5 whitespace-nowrap truncate" style={{ color: "#FF5A45" }}>{moeda(resumo.saiu)}</div>
               <small className="block text-[11px] font-semibold mt-1" style={{ color: "#7e7869" }}>
                 {resumo.lancamentos} lançamento{resumo.lancamentos === 1 ? "" : "s"} · {resumo.bancos.length} banco{resumo.bancos.length === 1 ? "" : "s"}
               </small>
             </div>
-            <div className="rounded-2xl border p-3" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
+            <div className="rounded-2xl border p-3 min-w-0" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
               <span className="orbis-section">Entrou</span>
-              <div className="text-[22px] font-black tracking-tight tabular-nums mt-1.5" style={{ color: "#3DD68C" }}>{moeda(resumo.entrou)}</div>
+              <div className="text-[18px] font-black tracking-tight tabular-nums mt-1.5 whitespace-nowrap truncate" style={{ color: "#3DD68C" }}>{moeda(resumo.entrou)}</div>
               <small className="block text-[11px] font-semibold mt-1" style={{ color: "#7e7869" }}>{resumo.vendas > 0 ? `${moeda(resumo.vendas)} de vendas` : "Pix, cartão e transferências"}</small>
             </div>
           </div>

@@ -193,7 +193,7 @@ export function NovaCaixinhaSheet({ open, onOpenChange, userId, workingDays, sob
               value={valor}
               onChange={setValor}
               placeholder="R$ 0,00"
-              className="border-0 bg-transparent px-0 h-12 text-[28px] font-black tracking-tight focus-visible:ring-0"
+              className="border-0 bg-transparent px-0 h-12 text-[22px] font-black tracking-tight focus-visible:ring-0"
             />
           </div>
 
@@ -226,7 +226,7 @@ export function NovaCaixinhaSheet({ open, onOpenChange, userId, workingDays, sob
               <div className="flex items-end justify-between gap-3">
                 <span className="flex flex-col gap-1.5">
                   <span className="orbis-section" style={{ color: semBase ? "#7e7869" : cabe ? OK : GOLD }}>{semBase ? "Seu ritmo" : cabe ? "Dá pra fazer" : "Aperta um pouco"}</span>
-                  <span className="orbis-num text-[34px] font-extrabold leading-none tracking-tight whitespace-nowrap" style={{ color: semBase ? "#ffffff" : cabe ? OK : GOLD }}>
+                  <span className="orbis-num text-[26px] font-extrabold leading-none tracking-tight whitespace-nowrap" style={{ color: semBase ? "#ffffff" : cabe ? OK : GOLD }}>
                     {formatCurrency(porDia)}<span className="text-[15px] font-bold tracking-normal" style={{ color: "#b9b3a6" }}> /dia</span>
                   </span>
                 </span>

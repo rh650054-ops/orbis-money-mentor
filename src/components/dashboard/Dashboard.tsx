@@ -99,15 +99,15 @@ export function ChamaStreak({ dias, userId }: { dias: number; userId?: string })
   }, [dias, userId]);
 
   return (
-    <span className="inline-flex items-center gap-[7px] shrink-0" aria-label={`${dias} dias trabalhados`}>
+    <span className="inline-flex items-center gap-1 shrink-0" aria-label={`${dias} dias trabalhados`}>
       <span className={acender ? "orbis-chama-pulso" : undefined} style={{ display: "inline-flex" }}>
-        <Chama size={21} aceso={aceso} />
+        <Chama size={16} aceso={aceso} />
       </span>
       <b
         key={mostra}
         className="orbis-num orbis-chama-num"
         style={{
-          fontSize: 17, fontWeight: 800, lineHeight: 1,
+          fontSize: 13.5, fontWeight: 800, lineHeight: 1,
           ...(aceso
             ? { background: "linear-gradient(180deg,#FFE59A,#F9CE63 48%,#EFB23A)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }
             : { color: "#57534A" }),
@@ -133,7 +133,7 @@ export function HeaderV9({ nome, diasTrabalhados, userId }: {
   const primeiro = cru === cru.toLowerCase() ? cru.charAt(0).toUpperCase() + cru.slice(1) : cru;
   const data = agora.toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "");
   return (
-    <div className="flex items-center gap-3 pt-1">
+    <div className="flex items-center gap-2 pt-1">
       <div className="flex-1 min-w-0">
         <p className="orbis-mini">{data}</p>
         <p className="font-display font-semibold truncate mt-[3px]" style={{ fontSize: "clamp(14px,4vw,15.5px)", letterSpacing: "-.01em" }}>
@@ -255,13 +255,13 @@ export function HeroCard({ faturamento, meta, diaria, vendidoHoje, metaHoje, des
       <div className="flex">
         <div className="flex-1 min-w-0">
           <p className="orbis-mini">Hoje</p>
-          <p className="orbis-num mt-[7px]" style={{ fontSize: "clamp(17px,5vw,20px)", fontWeight: 700, color: vendidoHoje > 0 ? "var(--orbis-ok)" : "var(--orbis-fg)" }}>
+          <p className="orbis-num mt-[5px] whitespace-nowrap overflow-hidden text-ellipsis" style={{ fontSize: "clamp(14px,4.3vw,17px)", fontWeight: 700, color: vendidoHoje > 0 ? "var(--orbis-ok)" : "var(--orbis-fg)" }}>
             <AnimatedCurrency value={vendidoHoje} />
           </p>
         </div>
-        <div className="flex-1 min-w-0 pl-[18px]" style={{ borderLeft: "1px solid var(--orbis-line)" }}>
+        <div className="flex-1 min-w-0 pl-3" style={{ borderLeft: "1px solid var(--orbis-line)" }}>
           <p className="orbis-mini">Meta do dia</p>
-          <p className="orbis-num mt-[7px]" style={{ fontSize: "clamp(17px,5vw,20px)", fontWeight: 700 }}>{fmtCurto(metaHoje)}</p>
+          <p className="orbis-num mt-[5px] whitespace-nowrap overflow-hidden text-ellipsis" style={{ fontSize: "clamp(14px,4.3vw,17px)", fontWeight: 700 }}>{fmtCurto(metaHoje)}</p>
         </div>
       </div>
 
@@ -306,11 +306,11 @@ export function FinanceiroFlat({ lucro, custos }: { lucro: number; custos: numbe
     <div className="flex">
       <div className="flex-1 min-w-0">
         <p className="orbis-mini">Lucro líquido</p>
-        <p className="orbis-num mt-[7px]" style={{ fontSize: "clamp(17px,5vw,20px)", fontWeight: 700, color: "var(--orbis-ok)" }}><AnimatedCurrency value={lucro} /></p>
+        <p className="orbis-num mt-[5px] whitespace-nowrap overflow-hidden text-ellipsis" style={{ fontSize: "clamp(14px,4.3vw,17px)", fontWeight: 700, color: "var(--orbis-ok)" }}><AnimatedCurrency value={lucro} /></p>
       </div>
-      <div className="flex-1 min-w-0 pl-[18px]" style={{ borderLeft: "1px solid var(--orbis-line)" }}>
+      <div className="flex-1 min-w-0 pl-3" style={{ borderLeft: "1px solid var(--orbis-line)" }}>
         <p className="orbis-mini">Custos</p>
-        <p className="orbis-num mt-[7px]" style={{ fontSize: "clamp(17px,5vw,20px)", fontWeight: 700, color: "var(--orbis-custo)" }}><AnimatedCurrency value={custos} /></p>
+        <p className="orbis-num mt-[5px] whitespace-nowrap overflow-hidden text-ellipsis" style={{ fontSize: "clamp(14px,4.3vw,17px)", fontWeight: 700, color: "var(--orbis-custo)" }}><AnimatedCurrency value={custos} /></p>
       </div>
     </div>
   );

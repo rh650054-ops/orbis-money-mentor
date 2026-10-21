@@ -23,7 +23,7 @@ export function BlocoGastos({ r, peloBanco = false }: { r: Resumo; peloBanco?: b
           {linhas.map((l, i) => (
             <div key={l.chave} className="grid gap-0.5 rounded-xl bg-secondary px-2.5 pb-2 pt-2" style={{ borderTop: `3px solid ${TONS[i] ?? TONS[3]}` }}>
               <span className="text-[11.5px] font-bold tracking-[.02em]" style={{ color: i === 0 ? COR.custo : COR.fg2 }}>{l.nome}</span>
-              <b className="text-[19px] font-bold tracking-tight" style={{ color: i === 0 ? COR.custo : undefined }}>{brl(l.valor)}</b>
+              <b className="text-[15.5px] font-bold tracking-tight" style={{ color: i === 0 ? COR.custo : undefined }}>{brl(l.valor)}</b>
               <small className="text-[11px] text-muted-foreground">{l.pctTotal}%{r.umDia ? "" : ` · ${brl(l.porDia)}/dia`}</small>
             </div>
           ))}

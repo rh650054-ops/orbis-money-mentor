@@ -46,7 +46,7 @@ export function AbasNav({ aba, onAba, comBanco }: { aba: AbaFinancas; onAba: (a:
     if (el) setBarra({ x: el.offsetLeft, w: el.offsetWidth });
   }, [aba, comBanco]);
   return (
-    <div role="tablist" aria-label="Partes das finanças" className="relative flex gap-6 overflow-x-auto" style={{ borderBottom: `1px solid ${LINHA}` }}>
+    <div role="tablist" aria-label="Partes das finanças" className="relative flex gap-5 overflow-x-auto" style={{ borderBottom: `1px solid ${LINHA}` }}>
       {lista.map((a) => {
         const on = a === aba;
         return (
@@ -99,7 +99,7 @@ export function SeuDinheiro({ h, onVerBancos }: { h: HomeFinancas; onVerBancos: 
     return (
       <Caixa tom="red">
         <Rotulo cor={RED}>Seu dinheiro</Rotulo>
-        <p className="text-[44px] font-black tabular-nums leading-none tracking-tight" style={{ color: RED }}>− {reais(Math.abs(saldo))}</p>
+        <p className="text-[28px] font-black tabular-nums leading-none tracking-tight" style={{ color: RED }}>− {reais(Math.abs(saldo))}</p>
         <p className="text-[13px] font-semibold" style={{ color: SUB }}>no negativo agora{lido}</p>
         {h.causas && h.causas.length > 0 && (
           <div className="rounded-xl px-3 py-1 mt-1" style={{ background: "rgba(0,0,0,.35)" }}>
@@ -122,7 +122,7 @@ export function SeuDinheiro({ h, onVerBancos }: { h: HomeFinancas; onVerBancos: 
       <Rotulo>Seu dinheiro</Rotulo>
       {h.tem_saldo ? (
         <>
-          <p className="text-[44px] font-black tabular-nums leading-none tracking-tight text-foreground">{reais(saldo)}</p>
+          <p className="text-[28px] font-black tabular-nums leading-none tracking-tight text-foreground">{reais(saldo)}</p>
           <p className="text-[13px] font-semibold" style={{ color: SUB }}>
             disponível agora · {nBancos} {nBancos === 1 ? "banco" : "bancos"}{lido}
           </p>
@@ -215,13 +215,13 @@ export function Movimento({ h, onVer }: { h: HomeFinancas; onVer: () => void }) 
     <Caixa>
       <Rotulo>Movimento · {nomeMes()}</Rotulo>
       <div className="grid grid-cols-2 gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-[13px] font-semibold" style={{ color: SUB }}>Entrou</p>
-          <p className="text-[26px] font-black tabular-nums leading-tight" style={{ color: OK }}>{reais(h.entrou)}</p>
+          <p className="text-[18px] font-black tabular-nums leading-tight whitespace-nowrap truncate" style={{ color: OK }}>{reais(h.entrou)}</p>
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-[13px] font-semibold" style={{ color: SUB }}>Saiu</p>
-          <p className="text-[26px] font-black tabular-nums leading-tight" style={{ color: RED }}>{reais(h.saiu)}</p>
+          <p className="text-[18px] font-black tabular-nums leading-tight whitespace-nowrap truncate" style={{ color: RED }}>{reais(h.saiu)}</p>
         </div>
       </div>
       <p className="text-[13px] font-semibold tabular-nums" style={{ color: SUB }}>

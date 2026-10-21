@@ -44,7 +44,7 @@ export function TransacaoFolha({ l, onFechar }: { l: Lancamento | null; onFechar
 
   return (
     <Folha open onOpenChange={(o) => { if (!o) onFechar(); }} titulo={l.nome} subtitulo={`${dataCurta(l.data)}${l.hora ? ` às ${l.hora}` : ""}${l.banco ? ` · ${l.banco}` : ""}`}>
-      <p className="-mt-2 text-[28px] leading-none font-extrabold tabular-nums" style={{ color: COR.texto }}>{reais(l.valor)}</p>
+      <p className="-mt-2 text-[24px] leading-none font-extrabold tabular-nums" style={{ color: COR.texto }}>{reais(l.valor)}</p>
 
       {modo === "ver" && (
         <>

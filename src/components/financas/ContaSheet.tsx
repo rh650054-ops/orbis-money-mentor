@@ -60,7 +60,7 @@ export function ContaSheet({ open, onOpenChange, info, onPagar, onDesfazer, onCo
   return (
     <Gaveta open={open} onOpenChange={onOpenChange} titulo={info.nome}
       style={{ background: "#131211", borderColor: "rgba(255,255,255,.08)" }}>
-        <div className="px-5 flex flex-col gap-4" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
+        <div className="px-4 flex flex-col gap-4" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
 
           {/* cabeçalho */}
           <div className="flex items-center gap-3.5 pt-1">
