@@ -23,6 +23,7 @@
     isSuper: false, adminMap: {},            // cpf(digits) -> is_super_admin
     preset: "mes", ini: null, fim: null, periodo: null, loadingPeriodo: false,
     ocupado: {},                             // user_id -> true while an action runs
+    manual: {},                              // user_id -> last manual activation {acao, motivo, quem, quando}
   };
 
   /* ---------- date helpers (Brasília) ---------- */
@@ -70,6 +71,10 @@
     }
     S.users = todos;
     S.carregado = true;
+    try {
+      const { data: man } = await U.rpc("admin_assinatura_manual_ultimas");
+      S.manual = {}; (man || []).forEach((m) => { S.manual[m.user_id] = m; });
+    } catch (_e) { /* the list still works without it */ }
   }
 
   async function carregarAdminMeta() {
@@ -300,6 +305,13 @@
     return `https://wa.me/${wa}?text=${encodeURIComponent(body)}`;
   }
 
+  // "Ativado à mão por Yan em 09/10 · motivo" (RPC admin_assinatura_manual_ultimas)
+  function manualTxt(u) {
+    const m = S.manual[u.user_id]; if (!m) return "";
+    const q = new Date(m.quando); const dia = isNaN(q) ? "" : q.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    return `<div style="font-size:11px;color:var(--warn);margin-top:2px">${m.acao === "ativar" ? "Ativado" : "Desativado"} à mão por ${U.esc(m.quem || "?")} em ${dia} · ${U.esc(m.motivo)}</div>`;
+  }
+
   function cartao(u) {
     const comp = isComp(u);
     const st = u.plan_status || "trial";
@@ -322,6 +334,7 @@
       <div style="font-size:12px;color:var(--dim);margin-top:4px;word-break:break-all">${U.esc(u.email || "—")}</div>
       <div style="font-size:12px;color:var(--dim);margin-top:2px">Tel: ${U.esc(U.fmtTel(u.phone))} · CPF: ${U.esc(U.fmtCpf(u.cpf))}</div>
       ${u.trial_end ? `<div style="font-size:11px;color:var(--faint);margin-top:2px">Trial até: ${U.esc(U.dataBR(u.trial_end))}</div>` : ""}
+      ${manualTxt(u)}
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">
         <button class="btn ghost" data-act="mais3" data-uid="${uid}" style="${BTN_S}" title="Dar +3 dias de teste grátis" ${busy || u.plan_status === "active" || comp ? "disabled" : ""}>+3 dias</button>
         ${zap ? `<a class="btn ghost" href="${U.esc(zap)}" target="_blank" rel="noopener" style="${BTN_S};color:var(--ok);border-color:var(--ok);text-decoration:none" title="Falar no WhatsApp">WhatsApp</a>` : ""}
@@ -384,13 +397,16 @@
   }
 
   function toggleAssinatura(el, u) {
+    const ativar = (u.plan_status || "trial") !== "active";
+    const label = u.nickname || u.email || "este usuário";
+    // 22/10/2026: a reason is mandatory and the DB records who did it (assinatura_manual)
+    const motivo = (window.prompt(`${ativar ? "ATIVAR o Pro" : "DESATIVAR a assinatura"} de "${label}" sem pagamento.\n\nQual o motivo? (ex.: cortesia combinada com o Rick, pagou por fora via Pix, parceiro)`, "") || "").trim();
+    if (!motivo) { U.aviso("Sem motivo, nada muda.", true); return; }
+    if (motivo.length < 5) { U.aviso("Escreva o motivo com pelo menos 5 letras.", true); return; }
     return comOcupado(el, u, async () => {
-      const newStatus = (u.plan_status || "trial") === "active" ? "expired" : "active";
-      const { error } = await S.sb.from("profiles").update({
-        plan_status: newStatus, plan_type: newStatus === "active" ? "pro" : "expired", is_trial_active: false,
-      }).eq("user_id", u.user_id);
-      if (error) { U.aviso("Não foi possível alterar o status. " + (error.message || ""), true); return; }
-      U.aviso((newStatus === "active" ? "✅ Assinatura ativada!" : "❌ Assinatura desativada") + " Status: " + newStatus);
+      const { error } = await U.rpc("admin_assinatura_manual", { p_user: u.user_id, p_ativar: ativar, p_motivo: motivo });
+      if (error) { U.aviso("Não foi possível alterar o status. " + error, true); return; }
+      U.aviso(ativar ? "✅ Assinatura ativada (motivo registrado)" : "❌ Assinatura desativada (motivo registrado)");
       await recarregarLista(el);
     });
   }
