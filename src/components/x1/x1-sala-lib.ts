@@ -105,4 +105,4 @@ export function ordenarPlacar(lutadores: SalaLutador[]): (SalaLutador & { pos: n
   return dentro.map((l, i) => { if (l.total !== ultimo) { pos = i + 1; ultimo = l.total; } return { ...l, pos: l.posicao ?? pos }; });
 }
 
-export const linkSala = (id: string) => `${typeof window !== "undefined" ? window.location.origin : "https://app.orbis.inf.br"}/x1/sala/${id}`;
+export const linkSala = (id: string) => `${typeof window !== "undefined" ? window.location.origin : "https://app.vantapp.com.br"}/x1/sala/${id}`;

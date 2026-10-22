@@ -35,7 +35,7 @@ export default function Privacidade() {
         <S t="1. Quem somos">
           <p>
             A <strong>Vant</strong> ("nós") é um aplicativo de gestão de vendas, metas e finanças para
-            vendedores autônomos e ambulantes, disponível em <strong>www.orbis.inf.br</strong>. Esta
+            vendedores autônomos e ambulantes, disponível em <strong>vantapp.com.br</strong>. Esta
             política explica, em linguagem simples, quais dados pessoais tratamos, para quê, com quem
             compartilhamos e quais são os seus direitos, conforme a Lei Geral de Proteção de Dados
             (Lei nº 13.709/2018 — LGPD).

@@ -33,7 +33,7 @@ export default function Termos() {
 
         <S t="1. Aceite">
           <p>
-            Ao criar uma conta ou usar a <strong>Vant</strong> (www.orbis.inf.br), você concorda com
+            Ao criar uma conta ou usar a <strong>Vant</strong> (vantapp.com.br), você concorda com
             estes Termos de Uso e com a nossa{" "}
             <Link to="/privacidade" className="text-primary underline">Política de Privacidade</Link>.
             Se não concordar, não use o serviço.
