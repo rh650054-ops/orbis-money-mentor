@@ -291,7 +291,9 @@ async function carregarTudo(){
           email:c.email||h?.email||"", cidade:c.cidade||"",
           d:Number(c.dias_na_etapa)||0,
           trava:(Number(c.dias_na_etapa)||0)>=1?(Number(c.dias_na_etapa)||0):0,
-          entrou:c.criado_em||null, fim:c.trial_end||null,
+          entrou:c.criado_em||null, fim:pipe==="trial"?(c.trial_end||null):null,
+          // Pix da renovação não pago (Hotmart PAST_DUE): ainda tem acesso, não cancelou
+          atrasado:!!(h&&/atrasad/i.test(h.situacao||"")),
           // data da próxima cobrança: a da Hotmart manda; a da Vant é reserva
           renova:(h&&h.cobra_em?deBR(h.cobra_em):null)||c.period_end||null,
           pago:h&&h.valor?Number(h.valor):null, notas:c.notas||"",
@@ -396,6 +398,8 @@ function avaliar(f){
   p=`<b>Travado há ${f.trava} dias e sem motivo registrado.</b> O teste acabou e ninguém falou com essa pessoa. Enquanto o motivo não for escrito, ela conta como <b>lead sem contato</b> nas suas métricas.`;}
  else if(f.c==="renova"){const k=dias(f.renova);u=k<=3?100:95;d=95;
   p=`Renova em <b>${k} dia${k===1?"":"s"}</b> e paga <b>${brl(f.pago)}</b> por mês. Avisar antes custa uma mensagem; recuperar depois falha em 88% dos casos.`;}
+ else if(f.e==="perdido"&&f.atrasado){u=95;d=85;
+  p=`<b>Pagamento atrasado, não cancelou.</b> A renovação de <b>${brl(f.pago)}</b> no Pix não foi paga e ele ainda está com acesso por poucos dias. É lembrar de pagar o Pix — não é resgate.`;}
  else if(f.e==="perdido"){u=f.d<=7?85:f.d<=15?50:22;d=80;
   p=f.d<=7?`Saiu há <b>${Math.round(f.d)} dias</b>. Essa é a janela: quem volta, volta na primeira semana.`
           :`Saiu há <b>${Math.round(f.d)} dias</b> e ninguém perguntou por quê. Não é mais venda — é descobrir o motivo antes que vire padrão.`;}
@@ -759,7 +763,8 @@ function sinaisHTML(f){
  if(f.faturou!==undefined) sins.push({k:"Faturou testando",v:brl(f.faturou),q:f.faturou>=100});
  if(kFim!==null) sins.push({k:"Teste acaba",v:kFim<=0?"hoje":kFim+"d",q:kFim<=1});
  if(f.pago) sins.push({k:"Paga por mês",v:brl(f.pago),q:false});
- if(f.renova) sins.push({k:"Renova em",v:dias(f.renova)+"d",q:dias(f.renova)<=3});
+ if(f.atrasado) sins.push({k:"Renovação",v:"atrasada",q:true});
+ else if(f.renova) sins.push({k:"Renova em",v:dias(f.renova)+"d",q:dias(f.renova)<=3});
  sins.push({k:"Mensagens",v:conv.length||"—",q:false});
  sins.push({k:"Respondeu?",v:respondeu?"sim, e espera":conv.length?"não":"—",q:respondeu});
  return `<div class="blk"><h4>O que já sabemos dele</h4>
@@ -1160,7 +1165,7 @@ function abrir(id,foco){
    <span class="blob" style="background:var(--${def.cor}s);color:var(--${def.cor})">${esc(ini)}</span>
    <div style="min-width:0"><h3>${esc(f.n)}</h3>
     <div class="pills"><span class="pill p${def.cor.slice(1)}">${esc(def.nome)}</span>
-     <span class="pill${et==="acabou"?" bad":""}">${esc(cols[idx]?.[1]||et)}</span></div></div>
+     <span class="pill${et==="acabou"?" bad":""}">${esc(cols[idx]?.[1]||et)}</span>${f.atrasado?`<span class="pill bad">Pagamento atrasado</span>`:""}</div></div>
    <button class="fechar" id="dr-x" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
   </div>
   <div class="dr-body">
@@ -1181,7 +1186,8 @@ function abrir(id,foco){
     ${f.cidade?`<div class="kv"><span class="k">Cidade</span><span class="v">${esc(f.cidade)}</span></div>`:""}
     ${f.entrou?`<div class="kv"><span class="k">Entrou em</span><span class="v">${dbr(f.entrou)}</span></div>`:""}
     ${f.pago?`<div class="kv"><span class="k">Paga por mês</span><span class="v">${brl(f.pago)}</span></div>`:""}
-    ${f.renova?`<div class="kv"><span class="k">Renova em</span><span class="v">${dbr(f.renova)} · ${dias(f.renova)}d</span></div>`:""}
+    ${f.atrasado?`<div class="kv"><span class="k">Renovação</span><span class="v" style="color:var(--bad)">não pagou o Pix${f.renova?" · Hotmart tenta de novo "+dbr(f.renova):""}</span></div>`
+      :f.renova?`<div class="kv"><span class="k">Renova em</span><span class="v">${dbr(f.renova)} · ${dias(f.renova)}d</span></div>`:""}
     ${f.fim?`<div class="kv"><span class="k">Teste acaba em</span><span class="v">${dbr(f.fim)} · ${dias(f.fim)}d</span></div>`:""}
     <div class="kv"><span class="k">Parado há</span><span class="v">${Math.round(f.d)} dias</span></div>
     <div class="kv"><span class="k">Prioridade</span><span class="v num">${f.score}/100</span></div>
