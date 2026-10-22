@@ -25,7 +25,7 @@ export function ObjetivoConquistado({ nome, valor, dias, onFechar, onNovo }: {
   }, []);
 
   const compartilhar = async () => {
-    const texto = `Objetivo conquistado na Vant: ${nome} — ${formatCurrency(valor)} guardados em ${dias} dias de trabalho. Quem vende na rua e se organiza, sobe. app.orbis.inf.br`;
+    const texto = `Objetivo conquistado na Vant: ${nome} — ${formatCurrency(valor)} guardados em ${dias} dias de trabalho. Quem vende na rua e se organiza, sobe. vantapp.com.br`;
     try {
       if (navigator.share) {
         await navigator.share({ title: "Objetivo conquistado", text: texto });
