@@ -74,6 +74,17 @@
       "has": [
         {
           "type": "host",
+          "value": "beta.vantapp.com.br"
+        }
+      ],
+      "destination": "/divulgacao",
+      "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
           "value": "www.vantapp.com.br"
         }
       ],
