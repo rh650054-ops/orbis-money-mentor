@@ -1731,8 +1731,7 @@ async function depoisDoLogin(){
   const {data:papel}=await sb.rpc("orbis_papel");
   PAPEL = papel || "comercial";
   const {data:{user}}=await sb.auth.getUser();
-  {const q=document.getElementById("quemSou"), quem=(user?.email||"").split("@")[0];
-   q.textContent = ehDono()?"D":"C"; q.title = quem+" · "+(ehDono()?"dono":"comercial");}
+  await mostrarQuemSou(user);
   document.getElementById("telaLogin").hidden=true;
   document.getElementById("app").hidden=false;
   document.getElementById("carregando").hidden=false;
@@ -1747,6 +1746,28 @@ async function depoisDoLogin(){
     catch(e){ PROBLEMAS.push("aba admin: "+(e.message||e)); mostrarProblemas(); }
   }
   document.getElementById("carregando").hidden=true;
+}
+/* 22/10/2026: o topo mostra a foto e o nome de quem entrou (Rick, Mohamed, Yan, Paulo, Rayane),
+   em vez de "D"/"C". Sem foto: a inicial do nome. */
+async function mostrarQuemSou(user){
+  const q=document.getElementById("quemSou"), n=document.getElementById("quemNome");
+  let nome="", foto="";
+  try{
+    const {data}=await sb.from("profiles").select("nickname,avatar_url").eq("user_id",user?.id).maybeSingle();
+    nome=String(data?.nickname||"").trim(); foto=String(data?.avatar_url||"");
+  }catch(e){ /* sem perfil: fica a inicial */ }
+  const primeiro=(nome.split(/\s+/)[0]||"Equipe");
+  const papel=ehDono()?"admin":"comercial";
+  q.textContent="";
+  if(/^https:\/\//.test(foto)){
+    const img=document.createElement("img"); img.src=foto; img.alt=primeiro;
+    img.style.cssText="width:100%;height:100%;object-fit:cover";
+    img.onerror=()=>{ img.remove(); q.textContent=primeiro.charAt(0).toUpperCase(); };
+    q.appendChild(img);
+  } else q.textContent=primeiro.charAt(0).toUpperCase();
+  q.title=(nome||primeiro)+" · "+papel;
+  if(n){ n.textContent=""; const b=document.createElement("b"); b.textContent=primeiro; const sp=document.createElement("span");
+    sp.textContent=papel; sp.style.cssText="color:var(--faint);font-size:10.5px"; n.append(b,sp); }
 }
 function erroLogin(t, andamento){ const e=document.getElementById("erroLogin"); e.className=andamento?"andamento":""; e.textContent=t||""; }
 function botaoLogin(travado, texto){ const b=document.getElementById("btEntrar"); b.disabled=!!travado; b.textContent=texto||"Entrar"; }
@@ -1769,7 +1790,13 @@ document.getElementById("btEntrar").onclick=async()=>{
   if(!email||!senha){ erroLogin("Preencha CPF (ou e-mail) e senha."); return; }
   botaoLogin(true,"Entrando…"); erroLogin("Conferindo CPF e senha…", true);
   try{
-    const {error}=await sb.auth.signInWithPassword({email,password:senha});
+    // E-mail da equipe (ex.: rayane@vantapp.com.br) é o do perfil: o servidor confere a senha e devolve o login interno.
+    let loginEmail=email;
+    if(email.includes("@") && !email.toLowerCase().endsWith("@orbis.internal")){
+      const {data:interno}=await sb.rpc("resolve_login_email",{p_email:email,p_password:senha});
+      if(interno) loginEmail=String(interno);
+    }
+    const {error}=await sb.auth.signInWithPassword({email:loginEmail,password:senha});
     if(error){ erroLogin(explicaErro(error)); botaoLogin(false,"Entrar"); return; }
     erroLogin("Senha certa. Abrindo o CRM…", true);
     await depoisDoLogin();
