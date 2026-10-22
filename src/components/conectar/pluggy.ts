@@ -20,6 +20,8 @@ interface PluggyConnectCtor {
     includeSandbox?: boolean;
     /** item que já existe: abre o widget pra autorizar de novo (Pluggy "update mode") */
     updateItem?: string;
+    /** quais bancos aparecem na lista (ids da Pluggy) */
+    connectorIds?: number[];
     onSuccess?: (data: { item?: { id?: string } }) => void;
     onError?: (e: unknown) => void;
     onClose?: () => void;
@@ -64,6 +66,8 @@ export async function ligarBanco(aoAbrir?: () => void, reautorizarItem?: string)
   }
   const token = String(data?.accessToken ?? "");
   if (!token) return { erro: "erro" };
+  // 22/10/2026: o servidor diz quais bancos mostrar (tira o Inter direto, que exige QR Code)
+  const connectorIds = Array.isArray(data?.connectorIds) ? (data.connectorIds as unknown[]).map(Number).filter(Number.isFinite) : null;
 
   try { await carregarScript(); } catch { return { erro: "sem_internet" }; }
   const Ctor = window.PluggyConnect;
@@ -81,6 +85,7 @@ export async function ligarBanco(aoAbrir?: () => void, reautorizarItem?: string)
         connectToken: token,
         includeSandbox: false,
         ...(reautorizarItem ? { updateItem: reautorizarItem } : {}),
+        ...(connectorIds && !reautorizarItem ? { connectorIds } : {}),
         onSuccess: (d) => {
           const id = String(d?.item?.id ?? "");
           responder(id ? { itemId: id } : { erro: "erro" });
