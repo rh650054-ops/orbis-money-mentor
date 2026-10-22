@@ -106,11 +106,11 @@ const E={
   cols:[["lp","Lead da LP · sem conta"],["dia1","Dia 1 · Boas-vindas"],["dia2","Dia 2 · Ensinar"],["dia3","Dia 3 · Decidir"],["assinou","Assinou"],["acabou","Acabou"]],
   ativ:{
    lp:[
-    {t:"Chamar e perguntar se travou no cadastro",m:"Oi {p}, tudo bem? Aqui é o Yan da Vant.\n\nVocê deixou seu contato pra conhecer o app mas não chegou a criar a conta. Travou em alguma parte?\n\nSe quiser eu te mando o link direto e te acompanho no primeiro dia."},
+    {t:"Chamar e perguntar se travou no cadastro",m:"Oi {p}, tudo bem? Aqui é {eu} da Vant.\n\nVocê deixou seu contato pra conhecer o app mas não chegou a criar a conta. Travou em alguma parte?\n\nSe quiser eu te mando o link direto e te acompanho no primeiro dia."},
     {t:"Mandar o link de criar conta",m:"Segue o link pra criar sua conta: [link]\n\nLeva menos de um minuto. Assim que criar me avisa aqui que eu já te mostro por onde começar."},
     {t:"Anotar o motivo se não criar",nota:"Se ele não criar conta, escreva o porquê. O motivo de quem não entra é o dado mais valioso que a gente não tem."}],
    dia1:[
-    {t:"Mandar boas-vindas no WhatsApp",m:"Fala {p}, bem-vindo à Vant!\n\nSou o Yan, vou te acompanhar nesses 3 dias de teste.\n\nQualquer dúvida é só chamar aqui, respondo rápido."},
+    {t:"Mandar boas-vindas no WhatsApp",m:"Fala {p}, bem-vindo à Vant!\n\nSou {eu}, vou te acompanhar nesses 3 dias de teste.\n\nQualquer dúvida é só chamar aqui, respondo rápido."},
     {t:"Perguntar o que ele vende e onde",m:"Me conta uma coisa: o que você vende e onde você costuma vender?\n\nAssim já te mostro a parte do app que mais vai te ajudar no seu corre."},
     {t:"Confirmar que registrou a primeira venda",m:"{p}, conseguiu registrar sua primeira venda no app?\n\nÉ o passo que faz tudo destravar — depois dela a Vant já começa a te mostrar número."}],
    dia2:[
@@ -126,7 +126,7 @@ const E={
     {t:"Combinar a meta do primeiro mês",m:"Vamos combinar uma coisa: qual a meta de faturamento que você quer bater esse mês?\n\nEu anoto aqui e te cobro — de forma leve, mas cobro."}],
    acabou:[
     {t:"Registrar o motivo de não ter fechado",nota:"OBRIGATÓRIO. Sem o motivo escrito aqui, a ficha fica marcada como 'não houve contato' nas métricas."},
-    {t:"Última tentativa de resgate",m:"Oi {p}, aqui é o Yan da Vant.\n\nSeu teste encerrou e eu queria só entender: o que faltou pra fazer sentido pra você?\n\nSe foi só falta de tempo pra testar direito, eu libero mais 3 dias — e dessa vez eu te acompanho de perto."}]}},
+    {t:"Última tentativa de resgate",m:"Oi {p}, aqui é {eu} da Vant.\n\nSeu teste encerrou e eu queria só entender: o que faltou pra fazer sentido pra você?\n\nSe foi só falta de tempo pra testar direito, eu libero mais 3 dias — e dessa vez eu te acompanho de perto."}]}},
 
  pagante:{nome:"Já pagantes",cor:"c2",
   desc:"Entra sozinho quando a ficha do Trial cai em Assinou. O trabalho aqui é não deixar a renovação chegar de surpresa.",
@@ -175,7 +175,7 @@ const E={
   cols:[["frio","Nunca usou"],["acordou","Abriu o app"],["usou","Registrou venda"],["virou","Virou teste"]],
   ativ:{
    frio:[
-    {t:"Mandar a mensagem de resgate",m:"Oi {p}, tudo bem? Aqui é o Yan da Vant.\n\nVi que você criou sua conta mas ainda não chegou a usar. Acontece, o corre é pesado.\n\nMe fala o que te travou?"},
+    {t:"Mandar a mensagem de resgate",m:"Oi {p}, tudo bem? Aqui é {eu} da Vant.\n\nVi que você criou sua conta mas ainda não chegou a usar. Acontece, o corre é pesado.\n\nMe fala o que te travou?"},
     {t:"Perguntar o que travou",nota:"Se ele responder, anote aqui. É o dado mais valioso que a gente não tem: por que 408 pessoas criaram conta e sumiram."}],
    acordou:[{t:"Ensinar a primeira venda no DEFCON",m:"{p}, vi que você abriu o app! Boa.\n\nO próximo passo é registrar sua primeira venda — depois dela a Vant começa a te mostrar número de verdade.\n\nQuer que eu te mostre como?"}],
    usou:[{t:"Mostrar o resultado e oferecer o teste",m:"{p}, você já registrou venda na Vant — isso é ótimo.\n\nQuem faz isso costuma não largar mais. Quer que eu libere um teste completo pra você ver o resto do app?"}],
@@ -533,9 +533,14 @@ function mensagensDoDia(){
  return {enviadas,respostas,pessoas:pessoas.size};
 }
 const custoDoDia=()=>({gratis:mensagensDoDia().enviadas,pagas:0,valor:0});
+/* quem está logado assina a mensagem: "o Paulo", "a Rayanne" (crm_equipe.artigo) */
+function euNaMensagem(){
+ const p=EQUIPE.find(x=>x.user_id===EU);
+ return p&&p.nome ? (p.artigo==="a"?"a ":"o ")+p.nome : "a equipe";
+}
 function msgDe(f,a){
  if(!a.m)return null;
- return a.m.replace(/\{p\}/g,f.n.split(" ")[0])
+ return a.m.replace(/\{p\}/g,f.n.split(" ")[0]).replace(/\{eu\}/g,euNaMensagem())
            .replace(/\{renova\}/g,f.renova?f.renova.slice(8,10)+"/"+f.renova.slice(5,7):"");
 }
 function feitasCom(f,i,on){
@@ -785,7 +790,7 @@ function ativHTML(f,a,i,on){
        <div class="msg-ed" data-editor="${i}" hidden>
          <input class="txtarea" style="min-height:0" data-ed-t="${i}" maxlength="120" value="${esc(a.t)}" placeholder="Título da atividade">
          <textarea class="txtarea" data-ed-m="${i}" rows="6" maxlength="2000" placeholder="Texto da mensagem">${esc(a.m)}</textarea>
-         <p class="nota" style="margin:0">Use <b>{p}</b> pro primeiro nome e <b>{renova}</b> pra data da renovação. Vale pra <b>todas as fichas</b> nesta etapa, pro Yan e pro Rick.</p>
+         <p class="nota" style="margin:0">Use <b>{p}</b> pro primeiro nome do cliente, <b>{eu}</b> pro seu nome (sai “o Paulo”, “a Rayanne”…) e <b>{renova}</b> pra data da renovação. Vale pra <b>todas as fichas</b> nesta etapa, pra toda a equipe.</p>
          <div class="acoes"><button class="btn go" data-ed-ok="${i}">Salvar texto</button>
            ${a.editada?`<button class="btn ghost" data-ed-padrao="${i}">Voltar ao padrão</button>`:""}
            <button class="btn ghost" data-ed-nao="${i}">Cancelar</button></div>
