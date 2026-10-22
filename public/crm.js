@@ -956,15 +956,15 @@ function renderEsteiras(){
    <div class="cols" style="--n:${def.cols.length}">
    ${def.cols.map(([c,titulo])=>{
      const qtd=QTD[k+"/"+c]||0,morto=(c==="acabou");
-     const am=FICHAS.filter(x=>x.e===k&&etapaDe(x)===c&&!escondida(x)).slice(0,4);
+     const am=FICHAS.filter(x=>x.e===k&&etapaDe(x)===c&&!escondida(x));
      return `<div class="col" data-drop="${k}/${c}"><div class="col-h"><span class="t"${morto?' style="color:var(--bad)"':''}>${esc(titulo)}</span><span class="q num">${qtd}</span></div>
-      ${am.map(x=>{
+      <div class="col-lista">${am.map(x=>{
         const semMotivo=etapaDe(x)==="acabou"&&!notaDe(x,0).trim();
         return `<button class="chip${morto?" morto":""}" style="border-left-color:var(--${morto?"bad":def.cor})" data-painel="${x.id}" data-arrasta="${x.id}">
          <div class="nm">${esc(x.n)}</div>
          <div class="sb${travaDe(x)||semMotivo||(k==="upgrade"&&x.d>=1&&!["renovou","nao_renovou"].includes(c))?" bad":""}">${semMotivo?"sem motivo · conta como sem contato"
            :travaDe(x)?`travado ${travaDe(x)}d`:`${Math.round(x.d)}d nessa coluna`}${k==="upgrade"?upgradeInfo(x):""}${!minhaVisao()&&donoDe(x)?` · ${esc(donoDe(x).nome)}`:""}</div></button>`;}).join("")}
-      ${qtd>am.length?`<button class="mais num" data-coluna="${k}/${c}" style="color:var(--c1);font-weight:700">+ ${qtd-am.length} não mostradas · ver todas ↗</button>`:""}
+      </div>
       ${qtd===0?`<div class="mais">vazia</div>`:""}</div>`;}).join("")}
    </div></div>`;}
  const errados=FICHAS.filter(contatoErrado);

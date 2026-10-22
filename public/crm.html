@@ -244,6 +244,9 @@ body.arrastando-ficha .cols{scroll-snap-type:none}  /* o snap desfaz a rolagem a
 .chip .sb{font-size:10px;color:var(--faint);margin-top:2px}
 .chip .sb.bad{color:var(--bad);font-weight:600}
 .mais{font-size:10.5px;color:var(--faint);padding:4px 2px}
+/* esteira: todas as fichas da coluna, rolando pra baixo dentro dela (22/10) */
+.col-lista{max-height:min(460px,60vh);overflow-y:auto;overscroll-behavior:contain;padding-right:3px;scrollbar-width:thin}
+.col-lista .chip:last-child{margin-bottom:0}
 
 /* metricas */
 .taxas{display:grid;gap:9px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
@@ -482,6 +485,6 @@ body.arrastando-ficha .cols{scroll-snap-type:none}  /* o snap desfaz a rolagem a
 <script src="/crm-admin-cofre.js?v=1" defer></script>
 <script src="/crm-admin-antitrapaca.js?v=1" defer></script>
 <script src="/crm-admin-config.js?v=1" defer></script>
-<script src="/crm.js?v=20" defer></script>
+<script src="/crm.js?v=21" defer></script>
 </body>
 </html>
