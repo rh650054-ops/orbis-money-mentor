@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { PaywallPro } from "@/components/conectar/PaywallPro";
 import { carregarPro } from "@/components/conectar/pluggy";
 import { useVoltaDoCheckout } from "@/hooks/useVoltaDoCheckout";
+import { useSubscription } from "@/hooks/useSubscription";
 
 const MUTE = "#7b766e";
 
@@ -18,6 +19,9 @@ export default function Pro() {
   const navigate = useNavigate();
   const [ehPro, setEhPro] = useState<boolean | null>(null);
   const [jaTinhaBanco, setJaTinhaBanco] = useState(false);
+  // quem ainda não assina (teste, expirado) vê o Essencial também; quem já paga o Essencial vê só o Pro
+  const { status: assinatura, loading: assinaturaLoading } = useSubscription(user?.id);
+  const jaAssina = assinatura.subscribed && !["trial", "demo"].includes(String(assinatura.status));
 
   useEffect(() => {
     if (!user?.id) return;
@@ -48,7 +52,7 @@ export default function Pro() {
         <p className="font-mono text-[10px] font-bold tracking-[.18em]" style={{ color: MUTE }}>VANT PRO</p>
         <span className="w-9" />
       </div>
-      <div className="mt-1" data-tour="conectar-banco"><PaywallPro /></div>
+      <div className="mt-1" data-tour="conectar-banco"><PaywallPro comEssencial={!assinaturaLoading && !jaAssina} /></div>
     </div>
   );
 }

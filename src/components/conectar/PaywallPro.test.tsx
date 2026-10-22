@@ -37,3 +37,18 @@ describe("PaywallPro", () => {
     expect(ECONOMIA_ANUAL).toBe(180);
   });
 });
+
+describe("PaywallPro for someone who does not subscribe yet (22/10/2026)", () => {
+  it("also offers the VANT Essencial at R$ 29,90 and links to its checkout", () => {
+    render(<PaywallPro comEssencial />);
+    fireEvent.click(screen.getByText("VANT Essencial"));
+    const cta = screen.getByText("ASSINAR O ESSENCIAL · R$ 29,90").closest("a");
+    expect(cta?.getAttribute("href")).toContain("pay.hotmart.com");
+    expect(cta?.getAttribute("href")).not.toContain("off=ew11enu0");
+    expect(cta?.getAttribute("href")).not.toContain("off=5y86n311");
+  });
+  it("hides the Essencial for someone who already subscribes (upgrade only)", () => {
+    render(<PaywallPro />);
+    expect(screen.queryByText("VANT Essencial")).toBeNull();
+  });
+});
