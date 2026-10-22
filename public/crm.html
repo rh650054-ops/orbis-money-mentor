@@ -431,7 +431,10 @@ body.arrastando-ficha .cols{scroll-snap-type:none}  /* o snap desfaz a rolagem a
     <div><h1>CRM da Vant</h1><p>Dados ao vivo do banco e da Hotmart</p></div>
     <span class="sp"></span>
     <button class="btn ghost" id="btAtualizar" style="padding:6px 11px;font-size:12px">Atualizar</button>
-    <span class="avatar" id="quemSou" title="Conectado">Y</span>
+    <span id="quemBox" style="display:flex;align-items:center;gap:8px">
+      <span class="avatar" id="quemSou" title="Conectado" style="overflow:hidden">·</span>
+      <span id="quemNome" style="font-size:12px;line-height:1.15;display:flex;flex-direction:column"></span>
+    </span>
     <button class="btn ghost" id="btSair" style="padding:6px 11px;font-size:12px">Sair</button>
   </div>
   <div class="tabs" role="tablist">
@@ -479,6 +482,6 @@ body.arrastando-ficha .cols{scroll-snap-type:none}  /* o snap desfaz a rolagem a
 <script src="/crm-admin-cofre.js?v=1" defer></script>
 <script src="/crm-admin-antitrapaca.js?v=1" defer></script>
 <script src="/crm-admin-config.js?v=1" defer></script>
-<script src="/crm.js?v=16" defer></script>
+<script src="/crm.js?v=17" defer></script>
 </body>
 </html>
