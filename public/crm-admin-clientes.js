@@ -152,7 +152,7 @@
           <div class="s">${U.esc(p.primeiras ?? 0)} primeira compra · ${U.esc(p.upgrades ?? 0)} upgrade</div>
           <div class="s">+ ${U.esc(p.renovacoes ?? 0)} renovações · ${reais(p.receita_hotmart ?? 0)}</div>
           ${Number(p.sem_origem || 0) > 0 ? `<div class="s" style="color:var(--warn)">${U.esc(p.sem_origem)} sem afiliado</div>` : ""}</div>
-        <div class="stat" style="border-color:var(--c1)"><div class="k">Comissão a pagar</div><div class="v" style="color:var(--c1)">${L ? "—" : reais(p.comissao_total)}</div><div class="s">1ª compra: valor do parceiro · anual: 40% do líquido · upgrade não paga</div></div>
+        <div class="stat" style="border-color:var(--c1)"><div class="k">Comissão a pagar</div><div class="v" style="color:var(--c1)">${L ? "—" : reais(p.comissao_total)}</div><div class="s">1ª compra: valor do parceiro · anual: 40% do líquido · upgrade e reembolso não pagam</div></div>
         <div class="stat"><div class="k">Ativas agora (Hotmart)</div><div class="v">${L ? "—" : U.esc(p.assinaturas_ativas_agora ?? 0)}</div>
           <div class="s">${Object.entries(p.ativas_por_plano || {}).map(([k, n]) => `${U.esc(String(k).replace(/:$/, ""))} ${U.esc(n)}`).join(" · ")}</div></div>
         <div class="stat"><div class="k">Leads no link</div><div class="v">${L ? "—" : U.esc(p.leads ?? 0)}</div><div class="s">${isoBR(S.ini)} a ${isoBR(S.fim)}</div></div>
