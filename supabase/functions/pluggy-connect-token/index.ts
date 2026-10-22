@@ -10,6 +10,17 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+import { filtrarConectores } from "./conectores.ts";
+
+async function conectoresPermitidos(apiKey: string): Promise<number[] | null> {
+  try {
+    const r = await fetch("https://api.pluggy.ai/connectors?countries=BR", { headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(10000) });
+    if (!r.ok) return null;
+    const corpo = await r.json().catch(() => null);
+    return filtrarConectores(corpo?.results);
+  } catch { return null; }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   const json = (o: unknown, s = 200) =>
@@ -77,7 +88,13 @@ Deno.serve(async (req) => {
     }
     const { accessToken } = await ctRes.json();
 
-    return json({ ok: true, accessToken });
+    // 22/10/2026: bancos que a gente NAO mostra no widget. O "Inter" direto (215) so entra
+    // com QR Code lido pelo app do Inter em outro celular, e o app de muita gente nem tem o
+    // leitor: o vendedor trava (Ronald). O Inter Open Finance (823) continua na lista.
+    // Se a lista da Pluggy falhar, o widget abre como sempre (sem filtro).
+    const conectores = await conectoresPermitidos(apiKey);
+
+    return json({ ok: true, accessToken, ...(conectores ? { connectorIds: conectores } : {}) });
   } catch (e) {
     console.error("pluggy-connect-token", e);
     return json({ error: "erro_interno" }, 500);
