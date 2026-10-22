@@ -8,7 +8,7 @@
    grudado no rodapé; o mensal vira link. Abre o checkout da Hotmart.
    ============================================================ */
 import { useState } from "react";
-import { getProCheckoutUrl, BANCO_EXTRA_CHECKOUT, aoClicarCheckout, type PlanoPro } from "@/shared/lib/checkout";
+import { getProCheckoutUrl, getCheckoutUrl, BANCO_EXTRA_CHECKOUT, aoClicarCheckout, type PlanoPro } from "@/shared/lib/checkout";
 import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import { SeloVerificado } from "@/components/ranking/AvatarRanking";
 import { SO_PRO, ECONOMIA_ANUAL, PRECO_BANCO, PRECO_MENSAL, ESSENCIAL_COM_BANCO, PRECO_ESSENCIAL, brl } from "./pro-lib";
@@ -65,10 +65,20 @@ function Plano({ ativo, onClick, titulo, preco, sub, risca, economia, selo }: {
   );
 }
 
-function PaywallProVenda() {
-  const [plano, setPlano] = useState<PlanoPro>("anual");
+type Escolha = PlanoPro | "essencial";
+
+/* Rick, 22/10/2026: quem ainda NÃO assina (teste ou expirado) vê os 3 planos aqui também,
+   com o VANT Essencial a R$ 29,90. Quem já assina o Essencial vê só o upgrade (Pro). */
+function PaywallProVenda({ comEssencial = false }: { comEssencial?: boolean }) {
+  const [plano, setPlano] = useState<Escolha>("anual");
   const outro: PlanoPro = plano === "anual" ? "mensal" : "anual";
   const montar = useCheckoutUrl();
+  const linkDe = (e: Escolha) => (e === "essencial" ? getCheckoutUrl() : getProCheckoutUrl(e));
+  const CTA: Record<Escolha, string> = {
+    anual: "ASSINAR ANUAL · R$ 418,80",
+    mensal: "ASSINAR MENSAL · R$ 49,90",
+    essencial: "ASSINAR O ESSENCIAL · R$ 29,90",
+  };
 
   return (
     <div className="relative">
@@ -95,6 +105,10 @@ function PaywallProVenda() {
             titulo="Anual" preco="R$ 34,90" sub="R$ 418,80/ano · 2 bancos" risca="R$ 598,80" economia={`ECONOMIZA R$ ${ECONOMIA_ANUAL}`} />
           <Plano ativo={plano === "mensal"} onClick={() => setPlano("mensal")}
             titulo="Mensal" preco="R$ 49,90" sub="1 banco · cancela quando quiser" />
+          {comEssencial && (
+            <Plano ativo={plano === "essencial"} onClick={() => setPlano("essencial")}
+              titulo="VANT Essencial" preco={brl(PRECO_ESSENCIAL)} sub="Foco · ranking · relatório · comunidade · sem banco" />
+          )}
         </div>
 
         <div className="rounded-[18px] px-3 pt-1 pb-2" style={{ background: "#0f0f10", border: `1px solid ${LINHA}` }}>
@@ -126,14 +140,16 @@ function PaywallProVenda() {
 
         <div className="sticky bottom-0 pt-3.5 space-y-1.5" style={{ background: "linear-gradient(180deg,rgba(0,0,0,0),#000 35%)" }}>
           {/* era um <a> sem target: substituía o app pela Hotmart e no iPhone (PWA) a pessoa não voltava logada */}
-          <a href={montar(getProCheckoutUrl(plano))} target="_blank" rel="noopener noreferrer" onClick={aoClicarCheckout}
+          <a href={montar(linkDe(plano))} target="_blank" rel="noopener noreferrer" onClick={aoClicarCheckout}
             className="w-full h-[56px] rounded-[16px] inline-flex items-center justify-center text-[15px] font-black tracking-[.02em] active:translate-y-[1px]"
             style={{ background: "linear-gradient(180deg,#FFF1B3 0%,#FFC800 55%,#D9A800 100%)", color: "#1A1200", boxShadow: "0 10px 24px -12px rgba(255,200,0,.8)" }}>
-            {plano === "anual" ? "ASSINAR ANUAL · R$ 418,80" : "ASSINAR MENSAL · R$ 49,90"}
+            {CTA[plano]}
           </a>
-          <button type="button" onClick={() => setPlano(outro)} className="w-full text-[11.5px] font-extrabold underline underline-offset-[3px] py-1" style={{ color: MUTE }}>
-            {plano === "anual" ? "prefiro o mensal, R$ 49,90" : "prefiro o anual, R$ 34,90/mês com 2 bancos"}
-          </button>
+          {plano !== "essencial" && (
+            <button type="button" onClick={() => setPlano(outro)} className="w-full text-[11.5px] font-extrabold underline underline-offset-[3px] py-1" style={{ color: MUTE }}>
+              {plano === "anual" ? "prefiro o mensal, R$ 49,90" : "prefiro o anual, R$ 34,90/mês com 2 bancos"}
+            </button>
+          )}
           <p className="text-[9.5px] font-extrabold tracking-[.04em] text-center flex justify-center gap-2.5" style={{ color: MUTE }}>
             <span><b style={{ color: OK }}>✓</b> Hotmart</span><span><b style={{ color: OK }}>✓</b> 7 dias de garantia</span><span><b style={{ color: OK }}>✓</b> só leitura</span>
           </p>
