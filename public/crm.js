@@ -44,6 +44,26 @@ let GRANA={total:0,pagamentos:0,ticket:0,desde:"—",d7:0,d7Pag:0,mes:0,
 let QTD={}, F=[], FICHAS=[], PARCEIROS=[], HOT=[], CONV={}, REL=[], AFIL=[], VENDAS=null;
 const mesAtual=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");};
 let MES_AFIL=mesAtual(), AFIL_CFG={pct_primeira:15,pct_recorrente:10}, PKIT=[];
+/* EQUIPE (22/10/2026, Rick): cada um vê as esteiras dele. Rayanne: trial + pagantes.
+   Paulo e Yan (closers): upgrade, encerrou/não renovou e base; no Upgrade cada um vê só as fichas dele.
+   Ficha passada pra alguém (ex.: trial do 3º dia → closer) aparece pra essa pessoa. Esteiras vazias = vê tudo. */
+let EQUIPE=[], EU=null, MEU={esteiras:[],closer:false};
+const donoDe=x=>EQUIPE.find(p=>p.user_id===x?.resp)||null;
+const minhaVisao=()=>(MEU.esteiras||[]).length>0;
+function visivelPraMim(x){
+  if(!minhaVisao()) return true;
+  if(x.resp && x.resp===EU) return true;
+  if(!MEU.esteiras.includes(x.e)) return false;
+  if(x.e==="upgrade" && x.resp && x.resp!==EU) return false;   // Upgrade é dividido entre os closers
+  return true;
+}
+const esteiraVisivel=k=>!minhaVisao()||MEU.esteiras.includes(k)||FICHAS.some(x=>x.e===k);
+async function carregarEquipe(){
+  const r=await chamar("crm_equipe_lista");
+  EQUIPE=(r&&r.equipe)||[]; EU=(r&&r.eu)||null;
+  const eu=EQUIPE.find(p=>p.user_id===EU);
+  MEU={esteiras:(eu&&eu.esteiras)||[], closer:!!(eu&&eu.closer)};
+}
 let PAPEL="comercial";   // "admin" = dono; "comercial" = opera o CRM
 const ehDono=()=>PAPEL==="admin";
 /* FUNIL HISTORICO — medido no banco em 22/09/2026 (contas, aberturas, vendas registradas).
@@ -275,12 +295,14 @@ async function carregarTudo(){
           // data da próxima cobrança: a da Hotmart manda; a da Vant é reserva
           renova:(h&&h.cobra_em?deBR(h.cobra_em):null)||c.period_end||null,
           pago:h&&h.valor?Number(h.valor):null, notas:c.notas||"",
-          feitasBanco:c.feitas||[], hot:h, faz:c.faz||null, parceiro:c.parceiro||null});
+          feitasBanco:c.feitas||[], hot:h, faz:c.faz||null, parceiro:c.parceiro||null, resp:c.responsavel||null});
       }catch(e){ PROBLEMAS.push("cartão "+(c&&c.id)+": "+(e.message||e)); }
     }
   }
   // esteira/coluna movida à mão (só vale enquanto o banco não mexeu no cartão)
   for(const f of F){ const e=EST[f.cartaoId]; if(e&&e.esteira&&maoVale(f)) f.e=e.esteira; }
+  // cada pessoa da equipe só carrega as fichas dela (fila, alertas, esteiras e contagens)
+  if(minhaVisao()){ const antes=F.length; F=F.filter(visivelPraMim); if(!F.length&&antes) PROBLEMAS.push("Nenhuma ficha sua nas esteiras agora."); }
   QTD={}; for(const f of F){ const k=f.e+"/"+etapaDe(f); QTD[k]=(QTD[k]||0)+1; }
   BASES={base:NUM.contas,abriram:NUM.abriram,venderam:NUM.venderam,assinaram:NUM.assinaram,
     trial:QTD["trial/dia1"]||0,pagante:NUM.pagando||GRANA.recorrenteQtd,
@@ -292,7 +314,7 @@ async function carregarTudo(){
     catch(e){ PROBLEMAS.push("prioridade de "+f.n+": "+(e.message||e)); }
   }
   FICHAS.sort((a,b)=>b.score-a.score);
-  if(!F.length) PROBLEMAS.push("Nenhum cartão veio das esteiras (crm_funil devolveu vazio).");
+  if(!F.length&&!minhaVisao()) PROBLEMAS.push("Nenhum cartão veio das esteiras (crm_funil devolveu vazio).");
   mostrarProblemas();
 }
 
@@ -915,7 +937,7 @@ function renderEsteiras(){
  Para mudar de lugar, <b>pegue a ficha e solte em qualquer coluna</b>, até de outra esteira (no celular: segure a ficha meio segundo e arraste).
  No celular, arraste as colunas para o lado.</p>`;
  // a campanha de Upgrade Pro vem primeiro (é o foco do comercial agora)
- for(const [k,def] of Object.entries(E).sort(([a],[b])=>(b==="upgrade")-(a==="upgrade"))){
+ for(const [k,def] of Object.entries(E).filter(([k])=>esteiraVisivel(k)).sort(([a],[b])=>(b==="upgrade")-(a==="upgrade"))){
   const total=def.cols.reduce((s,[c])=>s+(QTD[k+"/"+c]||0),0);
   h+=`<div class="box" style="margin-bottom:14px">
    <div class="est-head"><span class="dot" style="background:var(--${def.cor});width:9px;height:9px"></span>
@@ -931,7 +953,7 @@ function renderEsteiras(){
         return `<button class="chip${morto?" morto":""}" style="border-left-color:var(--${morto?"bad":def.cor})" data-painel="${x.id}" data-arrasta="${x.id}">
          <div class="nm">${esc(x.n)}</div>
          <div class="sb${travaDe(x)||semMotivo||(k==="upgrade"&&x.d>=1&&!["renovou","nao_renovou"].includes(c))?" bad":""}">${semMotivo?"sem motivo · conta como sem contato"
-           :travaDe(x)?`travado ${travaDe(x)}d`:`${Math.round(x.d)}d nessa coluna`}${k==="upgrade"?upgradeInfo(x):""}</div></button>`;}).join("")}
+           :travaDe(x)?`travado ${travaDe(x)}d`:`${Math.round(x.d)}d nessa coluna`}${k==="upgrade"?upgradeInfo(x):""}${!minhaVisao()&&donoDe(x)?` · ${esc(donoDe(x).nome)}`:""}</div></button>`;}).join("")}
       ${qtd>am.length?`<button class="mais num" data-coluna="${k}/${c}" style="color:var(--c1);font-weight:700">+ ${qtd-am.length} não mostradas · ver todas ↗</button>`:""}
       ${qtd===0?`<div class="mais">vazia</div>`:""}</div>`;}).join("")}
    </div></div>`;}
@@ -1091,6 +1113,35 @@ async function marcarErrado(f){
 }
 
 /* ===== PAINEL DA PESSOA ===== */
+/* Responsável pela ficha (22/10/2026). Trial no 3º dia: "Passar pro closer" (um pra cada).
+   Quem vê tudo (admin sem esteiras fixas) pode passar pra qualquer closer. */
+function secaoDono(f,et){
+  const dono=donoDe(f), closers=EQUIPE.filter(p=>p.closer);
+  const podeDistribuir=f.e==="trial"&&et==="dia3"&&!MEU.closer;
+  const podeEscolher=!minhaVisao()&&closers.length>0;
+  if(!dono&&!podeDistribuir&&!podeEscolher) return "";
+  const foto=p=>p&&/^https:\/\//.test(p.foto||"")?`<img src="${esc(p.foto)}" alt="" style="width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px">`:"";
+  return `<div class="dr-sec"><h4>Responsável</h4>
+    <div class="kv"><span class="k">Com quem está</span><span class="v">${dono?foto(dono)+esc(dono.nome):"ninguém ainda"}</span></div>
+    ${podeDistribuir?`<button class="btn go block" id="dr-dist" style="margin-top:8px">Passar pro closer ${dono?"(trocar)":""} →</button>
+      <p class="nota" style="margin:6px 0 0">Vai um pra cada closer, por ordem. A ficha some da sua fila e aparece pra ele.</p>`:""}
+    ${podeEscolher?`<div class="mover" style="margin-top:8px">${closers.map(p=>`<button class="mv" data-dono="${esc(p.user_id)}" ${p.user_id===f.resp?"disabled":""}>${foto(p)}${esc(p.nome)}</button>`).join("")}</div>`:""}
+  </div>`;
+}
+async function passarFicha(f,para){
+  const {data,error}=await sb.rpc("crm_distribuir",para?{p_cartao:f.cartaoId,p_para:para}:{p_cartao:f.cartaoId});
+  if(error){ toast("Não deu pra passar: "+error.message); return; }
+  f.resp=data&&data.para||null;
+  const x=FICHAS.find(y=>y.cartaoId===f.cartaoId); if(x) x.resp=f.resp;
+  toast(f.n.split(" ")[0]+" agora está com "+((data&&data.nome)||"o closer"));
+  if(minhaVisao()&&!visivelPraMim(f)){ fechar(); FICHAS=FICHAS.filter(visivelPraMim); F=F.filter(visivelPraMim);
+    QTD={}; for(const y of FICHAS){ const q=y.e+"/"+etapaDe(y); QTD[q]=(QTD[q]||0)+1; } render(); }
+  else abrir(f.id);
+}
+function ligarDono(f){
+  const b=document.getElementById("dr-dist"); if(b) b.onclick=()=>{ b.disabled=true; void passarFicha(f,null); };
+  document.querySelectorAll("#drawer [data-dono]").forEach(x=>x.onclick=()=>void passarFicha(f,x.dataset.dono));
+}
 function abrir(id,foco){
  const f=byId(id);if(!f)return;
  const dr=document.getElementById("drawer"),veu=document.getElementById("veu");
@@ -1112,6 +1163,7 @@ function abrir(id,foco){
    ${contatoErrado(f)?`<div class="dr-sec" style="background:var(--warn-s);border-color:var(--warn)"><h4 style="color:var(--warn)">📵 Número errado</h4>
      <p style="margin:0 0 8px;font-size:12.5px;line-height:1.5">Essa ficha está fora da fila porque o WhatsApp não bate. Corrija o número pra ela voltar.</p>
      <button class="btn go" id="dr-zap-fix">Corrigir WhatsApp</button></div>`:""}
+   ${secaoDono(f,et)}
    <div class="dr-sec"><h4>Dados</h4>
     <div class="kv"><span class="k">WhatsApp</span><span class="v">${f.tel?`<a href="${linkZap(f)}" target="_blank" rel="noopener" style="color:var(--c2);font-weight:700">+${f.tel.slice(0,2)} ${f.tel.slice(2,4)} ${f.tel.slice(4)} ↗</a>`:esc(f.zap)}
       <button class="btn ghost" id="dr-zap-edit" style="padding:3px 8px;font-size:11px;margin-left:6px">corrigir</button>${contatoErrado(f)?"":`<button class="btn ghost" id="dr-zap-errado" style="padding:3px 8px;font-size:11px;margin-left:4px;color:var(--warn)">nº errado</button>`}</span></div>
@@ -1164,6 +1216,7 @@ function abrir(id,foco){
   </div>`;
  dr.dataset.id=String(id); dr.dataset.id=""; dr.dataset.on="1";veu.dataset.on="1";
  document.getElementById("dr-x").onclick=fechar;
+ ligarDono(f);
  veu.onclick=fechar;
  ligarAtividades(dr,f); ligarChat(dr,f);
  ["dr-zap-fix","dr-zap-edit"].forEach(id=>{const b=document.getElementById(id); if(b) b.onclick=()=>corrigirZap(f);});
@@ -1730,6 +1783,7 @@ async function depoisDoLogin(){
   if(podeCrm!==true){ erroLogin("Você entrou, mas essa conta não está liberada pro CRM (só admin e comercial). Peça ao Rick pra liberar seu CPF."); await sb.auth.signOut(); return; }
   const {data:papel}=await sb.rpc("orbis_papel");
   PAPEL = papel || "comercial";
+  try{ await carregarEquipe(); }catch(e){ PROBLEMAS.push("equipe: "+(e.message||e)); }
   const {data:{user}}=await sb.auth.getUser();
   await mostrarQuemSou(user);
   document.getElementById("telaLogin").hidden=true;

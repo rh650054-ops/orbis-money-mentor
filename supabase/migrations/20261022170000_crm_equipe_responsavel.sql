@@ -1,0 +1,9 @@
+-- 22/10/2026 (Rick): equipe do CRM com esteiras próprias e dono por ficha. Aplicada pelo MCP
+-- (migrations "crm_equipe_responsavel" e "crm_funil_responsavel"):
+--  * crm_cartoes.responsavel / responsavel_em
+--  * tabela crm_equipe (user_id, esteiras[], closer, ativo): Rayanne {trial,pagante}; Paulo e Yan {upgrade,perdido,base}, closers
+--  * crm_proximo_closer(pipeline): quem tem menos fichas abertas
+--  * trigger crm_cartao_dono_upgrade: ficha nova de Upgrade nasce com dono
+--  * divisão inicial do Upgrade: fichas que o Yan já tocou ficam com ele, o resto alterna Paulo/Yan
+--  * crm_equipe_lista(), crm_distribuir(cartao, para?)
+--  * crm_funil devolve 'responsavel'
