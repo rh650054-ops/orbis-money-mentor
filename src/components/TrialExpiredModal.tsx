@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import { EscolhaPlano } from "@/components/jornada/EscolhaPlano";
 import { useJornada } from "@/components/jornada/useJornada";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { useVoltaDoCheckout } from "@/hooks/useVoltaDoCheckout";
 import { verificarAcessoPago } from "@/shared/lib/verificar-acesso";
@@ -22,6 +23,10 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
   const { toast } = useToast();
   const [isChecking, setIsChecking] = useState(false);
   const { vendidoNoTeste: vendido } = useJornada();
+  // quem já pagou e não renovou vê "seu plano encerrou", não "seu teste acabou" (22/10/2026)
+  const { user } = useAuth();
+  const { status: assinatura } = useSubscription(user?.id);
+  const exAssinante = ["expired", "canceled", "cancelled", "past_due"].includes(String(assinatura.status));
   // voltou da Hotmart: confere sozinho e libera sem precisar do "Já paguei"
   useVoltaDoCheckout({ ativo: isOpen, verificar: verificarAcessoPago, aoLiberar: () => window.location.reload() });
 
@@ -71,8 +76,8 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
 
         <div className="relative overflow-y-auto max-h-[92dvh] px-5 py-6 sm:px-7 sm:py-7 text-[#F4F1EA]" style={{ background: "#000" }}>
           {/* Fim do teste (06/10): os 3 planos — VANT Pro Anual (selecionado), Pro Mensal e Essencial */}
-          <p className="text-center font-mono text-[10px] font-bold tracking-[.18em] mb-3" style={{ color: "#F5B800" }}>SEU TESTE ACABOU</p>
-          <EscolhaPlano vendido={vendido} />
+          <p className="text-center font-mono text-[10px] font-bold tracking-[.18em] mb-3" style={{ color: "#F5B800" }}>{exAssinante ? "SEU PLANO ENCERROU" : "SEU TESTE ACABOU"}</p>
+          <EscolhaPlano vendido={vendido} titulo={exAssinante ? "Escolha como voltar pra VANT" : undefined} />
 
           {/* Já pagou / sair */}
           <div className="space-y-2 mt-4">

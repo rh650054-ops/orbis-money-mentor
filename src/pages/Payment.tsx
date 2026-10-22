@@ -3,13 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
-import { CreditCard, Loader2, RefreshCw, Lock, TrendingUp, Brain, Target, Flame, X, Check, ArrowLeft } from "lucide-react";
+import { Loader2, RefreshCw, Lock, TrendingUp, Brain, Target, Flame, X, Check, ArrowLeft } from "lucide-react";
 import { useToast } from "@/shared/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-import { abrirCheckout, getCheckoutUrl } from "@/shared/lib/checkout";
 import { verificarAcessoPago } from "@/shared/lib/verificar-acesso";
-import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
+import { EscolhaPlano } from "@/components/jornada/EscolhaPlano";
 import { useVoltaDoCheckout } from "@/hooks/useVoltaDoCheckout";
 import { soComAssinatura } from "@/shared/components/assinatura-loja";
 
@@ -20,7 +19,6 @@ function PaymentVenda() {
   const [isDemo, setIsDemo] = useState(false);
   const [checkingDemo, setCheckingDemo] = useState(true);
   const [isChecking, setIsChecking] = useState(false);
-  const montarCheckout = useCheckoutUrl();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -42,10 +40,6 @@ function PaymentVenda() {
 
     checkDemoStatus();
   }, [user, loading, navigate]);
-
-  const handleHotmartCheckout = () => {
-    abrirCheckout(montarCheckout(getCheckoutUrl()));
-  };
 
   // Recarrega a home de verdade: o PaywallGate lê a assinatura uma vez só, um
   // navigate("/") mantinha o estado velho e mostrava o bloqueio de novo.
@@ -134,7 +128,7 @@ function PaymentVenda() {
               </div>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground leading-tight">
-              Ative o VANT Essencial
+              Escolha seu plano VANT
             </h1>
             <p className="text-sm text-muted-foreground mt-1.5">
               Continue dominando seus números com a Vant
@@ -195,25 +189,12 @@ function PaymentVenda() {
                 </ul>
               </div>
 
-              {/* Price */}
-              <div className="text-center py-2">
-                <div className="inline-flex items-baseline gap-1">
-                  <span className="text-4xl font-black text-primary leading-none">R$ 29,90</span>
-                  <span className="text-sm text-muted-foreground">/mês</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Cancele quando quiser • Sem multa</p>
-              </div>
+              {/* Os 3 planos (Rick, 22/10/2026): quem renova escolhe Essencial, Pro Mensal ou Pro Anual,
+                  a mesma tela de /planos e do fim do teste. Antes só o Essencial aparecia aqui. */}
+              <EscolhaPlano titulo="Escolha como voltar pra VANT" />
 
               {/* Actions */}
               <div className="space-y-2">
-                <Button
-                  onClick={handleHotmartCheckout}
-                  className="w-full h-12 text-sm font-bold bg-gradient-to-r from-primary to-[hsl(45_100%_38%)] hover:opacity-90 text-primary-foreground shadow-[0_8px_20px_-6px_hsl(var(--primary)/0.6)]"
-                >
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Assinar agora — R$ 29,90/mês
-                </Button>
-
                 <Button
                   onClick={handleCheckAccess}
                   variant="outline"
