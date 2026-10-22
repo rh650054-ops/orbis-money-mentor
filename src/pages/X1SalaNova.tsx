@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Users, Search, Loader2, Lock, Link2, UserPlus, Wallet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { x1SoPontos } from "@/shared/lib/x1-loja";
 import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
@@ -160,7 +161,9 @@ export default function X1SalaNova() {
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => navigate(chamando ? `/x1/sala/${salaId}` : "/x1")} aria-label="Voltar" className="w-9 h-9 rounded-full flex items-center justify-center" style={{ color: "#b3ab9c" }}><ArrowLeft className="w-5 h-5" /></button>
         <p className="flex-1 text-[11px] font-black tracking-[.2em]" style={{ color: "#8a8378" }}>{chamando ? "CHAMAR MAIS · HOJE" : "NOVA SALA · HOJE"}</p>
+        {!x1SoPontos() && (
         <button type="button" onClick={() => navigate("/x1/carteira")} className="h-8 px-3 rounded-full inline-flex items-center gap-1.5 text-[12px] font-black" style={{ background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD }}><Wallet className="w-3.5 h-3.5" strokeWidth={2.6} /> {fmt(saldo)}</button>
+        )}
       </div>
 
       {!abertoAgora && (
@@ -189,6 +192,7 @@ export default function X1SalaNova() {
         <div className="flex gap-1.5 flex-wrap mt-2">
           {SALA_VAGAS.map((v) => <Chip key={v} on={vagas === v} onClick={() => { setVagas(v); setEscolhidos((p) => p.slice(0, v - 1)); }}>{v}</Chip>)}
         </div>
+        {!x1SoPontos() && (<>
         <p className="text-[10px] font-black tracking-[.16em] mt-3" style={{ color: "#8a8378" }}>VALENDO (IGUAL PRA TODOS)</p>
         <div className="flex gap-1.5 flex-wrap mt-2">
           {SALA_APOSTAS.map((v) => { const trava = v > limite; return (
@@ -204,16 +208,17 @@ export default function X1SalaNova() {
         ) : aposta > 0 && faltaSaldo ? (
           <p className="text-[10.5px] mt-2" style={{ color: "#ff7d8c" }}>Falta saldo: você tem {fmt(saldo)} e a aposta é {fmt(aposta)}. Deposita na carteira ou abre na honra.</p>
         ) : null}
+        </>)}
 
         <div className="flex items-center justify-between gap-3 mt-3">
           <div>
             <p className="text-[10px] font-black tracking-[.16em]" style={{ color: GOLD }}>{aposta > 0 ? `POTE COM ${vagas} · 10% DA CASA` : "NA HONRA"}</p>
             <p className="text-[26px] font-black italic leading-none mt-1 tabular-nums" style={{ color: GOLD }}>{aposta > 0 ? fmt(divisao.pote) : "XP"}</p>
           </div>
-          <div className="text-right">
+          {!x1SoPontos() && <div className="text-right">
             <p className="text-[10px] font-black tracking-[.16em]" style={{ color: "#8a8378" }}>VOCÊ TRAVA AGORA</p>
             <p className="text-[15px] font-black mt-1 tabular-nums">{aposta > 0 ? fmt(aposta) : "R$ 0"}</p>
-          </div>
+          </div>}
         </div>
         {aposta > 0 && (
           <div className="flex gap-1.5 mt-2">

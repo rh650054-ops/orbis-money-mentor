@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Swords, Flame, Check, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { apostaVisivel } from "@/shared/lib/x1-loja";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import "@/components/x1/x1.css";
 import { X1Avatar } from "@/components/x1/X1Avatar";
@@ -67,14 +68,14 @@ export function X1HomeBanner({ userId }: { userId: string | undefined }) {
           ele: { user_id: outroId(ativa), nome: souCh ? row.op_nome : row.ch_nome, avatar_url: souCh ? row.op_avatar : row.ch_avatar },
           meu: Number(souCh ? row.ch_total : row.op_total) || 0,
           dele: Number(souCh ? row.op_total : row.ch_total) || 0,
-          stakes: Number(ativa.stakes_amount) || 0,
+          stakes: apostaVisivel(ativa.stakes_amount),
         });
         return;
       }
       if (desafio) {
         const m = await carregarPessoas([outroId(desafio)]);
         if (!vivo) return;
-        setEstado({ tipo: "desafio", id: desafio.id, ele: m[outroId(desafio)] || { user_id: outroId(desafio), nome: "Vendedor", avatar_url: null }, stakes: Number(desafio.stakes_amount) || 0, quando: desafio.scheduled_date === hoje ? "hoje" : "amanhã" });
+        setEstado({ tipo: "desafio", id: desafio.id, ele: m[outroId(desafio)] || { user_id: outroId(desafio), nome: "Vendedor", avatar_url: null }, stakes: apostaVisivel(desafio.stakes_amount), quando: desafio.scheduled_date === hoje ? "hoje" : "amanhã" });
         return;
       }
       const { data: op } = await (supabase as any).rpc("x1_oponentes", { p_filtro: "liga", p_busca: null });

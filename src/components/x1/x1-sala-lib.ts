@@ -12,6 +12,7 @@
    da versão B foi absorvida aqui). O placar são as vendas do DEFCON do dia.
    ============================================================ */
 import { supabase } from "@/integrations/supabase/client";
+import { x1SoPontos, apostaVisivel } from "@/shared/lib/x1-loja";
 import { erroBonito } from "./x1-lib";
 
 export const SALA_VAGAS = [2, 3, 4, 5, 6, 8];
@@ -49,6 +50,8 @@ export interface SalaLutador {
 }
 export interface Sala {
   id: string; dono: string; nome: string; scheduled_date: string; stakes_amount: number; vagas: number; status: string;
+  /** what the room really locks (the store build shows stakes_amount = 0) */
+  apostaReal: number;
   pote: number; fee_amount: number; result_notes: string | null; created_at: string; lutadores: SalaLutador[];
 }
 
@@ -58,7 +61,7 @@ export async function carregarSalasHoje(): Promise<SalaResumo[]> {
   const { data, error } = await (supabase as any).rpc("x1_salas_hoje");
   if (error) throw new Error(erroBonito(error.message));
   return ((data as any[]) || []).map((s) => ({
-    ...s, stakes_amount: num(s.stakes_amount), vagas: num(s.vagas), dentro: num(s.dentro), lider_total: num(s.lider_total),
+    ...s, stakes_amount: apostaVisivel(num(s.stakes_amount)), vagas: num(s.vagas), dentro: num(s.dentro), lider_total: num(s.lider_total),
     meu_total: s.meu_total == null ? null : num(s.meu_total), minha_posicao: s.minha_posicao == null ? null : num(s.minha_posicao),
     rostos: Array.isArray(s.rostos) ? s.rostos : [],
   })) as SalaResumo[];
@@ -76,8 +79,8 @@ export async function carregarSala(id: string): Promise<Sala | null> {
     total: num(r.p_total), posicao: r.p_posicao == null ? null : num(r.p_posicao), premio: num(r.p_premio), convidado_por: r.convidado_por || null,
   }));
   return {
-    id: r0.id, dono: r0.dono, nome: r0.nome, scheduled_date: r0.scheduled_date, stakes_amount: num(r0.stakes_amount), vagas: num(r0.vagas),
-    status: r0.status, pote: num(r0.pote), fee_amount: num(r0.fee_amount), result_notes: r0.result_notes, created_at: r0.created_at, lutadores,
+    id: r0.id, dono: r0.dono, nome: r0.nome, scheduled_date: r0.scheduled_date, stakes_amount: apostaVisivel(num(r0.stakes_amount)), vagas: num(r0.vagas),
+    apostaReal: num(r0.stakes_amount), status: r0.status, pote: apostaVisivel(num(r0.pote)), fee_amount: num(r0.fee_amount), result_notes: r0.result_notes, created_at: r0.created_at, lutadores,
   };
 }
 

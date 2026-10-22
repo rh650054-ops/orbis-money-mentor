@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Wallet, Swords, Users, Check, X, Loader2, Flame, Trophy, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { x1SoPontos, apostaVisivel } from "@/shared/lib/x1-loja";
 import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
@@ -96,10 +97,10 @@ export default function X1() {
     setRecorde(rec);
     setArenaPos(typeof pos.data === "number" && rec.duelos > 0 ? pos.data : null);
     setSaldo(Number((w.data as any)?.balance) || 0);
-    const lista = ((d.data as any[]) || []).map((c) => ({ ...c, stakes_amount: Number(c.stakes_amount) || 0, prize_amount: Number(c.prize_amount) || 0 })) as Duelo[];
+    const lista = ((d.data as any[]) || []).map((c) => ({ ...c, stakes_amount: apostaVisivel(c.stakes_amount), prize_amount: apostaVisivel(c.prize_amount) })) as Duelo[];
     setDuelos(lista);
     setMissoes(((ms.data as any[]) || []) as Missao[]);
-    setVivas(((lv.data as any[]) || []).map((l) => ({ ...l, ch_total: Number(l.ch_total) || 0, op_total: Number(l.op_total) || 0, stakes_amount: Number(l.stakes_amount) || 0 })) as LutaViva[]);
+    setVivas(((lv.data as any[]) || []).map((l) => ({ ...l, ch_total: Number(l.ch_total) || 0, op_total: Number(l.op_total) || 0, stakes_amount: apostaVisivel(l.stakes_amount) })) as LutaViva[]);
     setSalas(sl);
     const p = pp.data as any;
     setEu({ user_id: uid, nome: p?.nickname || "Você", avatar_url: p?.avatar_url || null });
@@ -118,7 +119,7 @@ export default function X1() {
         (supabase as any).rpc("x1_lutas_ao_vivo"),
         carregarSalasHoje().catch(() => null),
       ]);
-      setVivas(((data as any[]) || []).map((l) => ({ ...l, ch_total: Number(l.ch_total) || 0, op_total: Number(l.op_total) || 0, stakes_amount: Number(l.stakes_amount) || 0 })) as LutaViva[]);
+      setVivas(((data as any[]) || []).map((l) => ({ ...l, ch_total: Number(l.ch_total) || 0, op_total: Number(l.op_total) || 0, stakes_amount: apostaVisivel(l.stakes_amount) })) as LutaViva[]);
       if (sl) setSalas(sl);
       setDisponiveis(await carregarDisponiveis());
     }, 30000);
@@ -192,9 +193,11 @@ export default function X1() {
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => navigate("/")} aria-label="Voltar" className="w-9 h-9 rounded-full flex items-center justify-center" style={{ color: "#b3ab9c" }}><ArrowLeft className="w-5 h-5" /></button>
         <p className="flex-1 text-[11px] font-black tracking-[.2em]" style={{ color: "#8a8378" }}>ARENA X1</p>
+        {!x1SoPontos() && (
         <button type="button" onClick={() => navigate("/x1/carteira")} className="h-8 px-3 rounded-full inline-flex items-center gap-1.5 text-[12px] font-black active:scale-95 transition-transform" style={{ background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD }}>
           <Wallet className="w-3.5 h-3.5" strokeWidth={2.6} /> Carteira · {fmt(saldo)}
         </button>
+        )}
       </div>
 
       {/* SEU CARD */}

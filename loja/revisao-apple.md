@@ -36,4 +36,4 @@ photograph receipts.
 - [ ] Criar a conta demo (CPF fictício válido), com Pro ativo e dados de exemplo
 - [ ] Conferir que nada no app iOS mostra Hotmart, preço fora da Apple ou "assine no site"
 - [ ] Testar excluir conta numa conta descartável
-- [ ] X1: decidir se fica de fora no app da loja (ver `privacidade-e-dados.md`)
+- [x] X1: só pontos no app da loja (22/10/2026, `x1-loja.ts`) — sem carteira nem aposta

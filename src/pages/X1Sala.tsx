@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Wallet, Flame, Check, X, Loader2, Share2, UserPlus, LogOut, Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { x1SoPontos, apostaVisivel } from "@/shared/lib/x1-loja";
 import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
@@ -67,6 +68,8 @@ export default function X1Sala() {
   const entrar = async () => {
     if (!s || agindo) return;
     setAgindo(true);
+    // store build: a room opened on the web with money can't be joined here (no wallet)
+    if (x1SoPontos() && s.apostaReal > 0) { toast({ title: "Essa sala é na honra só pelo site", description: "Abra uma sala nova aqui e chame a galera." }); setAgindo(false); return; }
     try {
       await entrarSala(s.id);
       try { navigator.vibrate?.([70, 40, 70, 40, 140]); } catch (e) { avisar.silencioso("X1Sala: vibração", e); }
@@ -127,7 +130,7 @@ export default function X1Sala() {
         {aberta ? (
           <span className="flex-1 inline-flex items-center gap-2 text-[10px] font-black tracking-[.14em]" style={{ color: "#ff7d8c" }}><i className="w-[7px] h-[7px] rounded-full x1-live" style={{ background: RED }} /> AO VIVO · RODADA {rodada}/6</span>
         ) : <span className="flex-1 text-[10px] font-black tracking-[.14em]" style={{ color: "#8a8378" }}>{fechada ? "SALA FECHADA" : s.status === "awaiting_result" ? "EM REVISÃO" : "SALA CANCELADA"}</span>}
-        {souDentro || souConvidado ? (
+        {(souDentro || souConvidado) && !x1SoPontos() ? (
           <button type="button" onClick={() => navigate("/x1/carteira")} className="h-8 px-3 rounded-full inline-flex items-center gap-1.5 text-[12px] font-black" style={{ background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD }}><Wallet className="w-3.5 h-3.5" strokeWidth={2.6} /> {fmt(saldo)}</button>
         ) : (
           <span className="h-8 px-3 rounded-full inline-flex items-center text-[10px] font-black" style={{ background: "#1a1305", border: "1px solid #3a2f0c", color: GOLD }}>{s.stakes_amount > 0 ? `POTE ${fmt(fechada ? s.pote - s.fee_amount : divisao.pote)}` : "NA HONRA"}</span>
