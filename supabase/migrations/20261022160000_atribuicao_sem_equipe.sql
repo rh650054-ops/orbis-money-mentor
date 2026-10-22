@@ -1,0 +1,4 @@
+-- 22/10/2026 (Rick): quem é da equipe (CPF em admin_access, enabled) nunca conta pra afiliado:
+-- nem cadastro, nem venda, nem comissão. Ex.: Yan comprou o banco extra e caiu no RICK5.
+-- Aplicada pelo MCP; mesma view de antes + o CTE "equipe" e o filtro final.
+-- (corpo completo idêntico ao aplicado: ver orbis_atribuicao no banco)
