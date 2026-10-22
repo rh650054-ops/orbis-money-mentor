@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/divulgacao",
+      "destination": "/divulgacao.html"
+    },
+    {
       "source": "/r/:code",
       "destination": "/r.html"
     },
@@ -62,6 +66,19 @@
           "value": "same-origin-allow-popups"
         }
       ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "vantapp.com.br"
+        }
+      ],
+      "destination": "/divulgacao",
+      "permanent": false
     }
   ]
 }
