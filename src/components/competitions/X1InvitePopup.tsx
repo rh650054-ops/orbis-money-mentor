@@ -13,6 +13,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Check, X, Handshake, Loader2, Swords } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { x1SoPontos, apostaVisivel } from "@/shared/lib/x1-loja";
 import { avisar } from "@/shared/lib/avisar";
 import { toast } from "@/shared/hooks/use-toast";
 import { X1Avatar } from "@/components/x1/X1Avatar";
@@ -77,7 +78,12 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
     depois?.();
   };
   const nome = primeiroNome(ele.nome);
-  const aposta = convite.stakes_amount;
+  const apostaReal = convite.stakes_amount;
+  const aposta = apostaVisivel(apostaReal);   // store build shows it as "na honra"
+  // store build: accepting a money challenge proposes "na honra" instead (no wallet there)
+  const aceitar = () => (x1SoPontos() && apostaReal > 0)
+    ? rpc("ok", "counter", 0, "Proposta de amistoso enviada")
+    : rpc("ok", "accept", null, "Luta aberta! Vai vender.", () => navigate(`/x1/luta/${convite.id}`));
   const semSaldo = aposta > 0 && saldo < aposta;
 
   return createPortal(
@@ -108,7 +114,7 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
         </p>
 
         <div className="flex gap-2 mt-4">
-          <button type="button" disabled={!!agindo || semSaldo} onClick={() => rpc("ok", "accept", null, "Luta aberta! Vai vender.", () => navigate(`/x1/luta/${convite.id}`))} className="orbis-cta flex-[1.5] h-[48px] disabled:opacity-50">
+          <button type="button" disabled={!!agindo || semSaldo} onClick={aceitar} className="orbis-cta flex-[1.5] h-[48px] disabled:opacity-50">
             {agindo === "ok" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" strokeWidth={3} />} LUTAR · ACEITAR
           </button>
           {aposta > 0 && (

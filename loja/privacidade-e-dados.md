@@ -29,7 +29,8 @@ Marcar: **gestão financeira pessoal / de pequenos negócios** e **agregação d
 
 > Atenção ao X1 com depósito/saque (tabelas `x1_wallets`, `x1_deposit_requests`):
 > carteira com dinheiro real entre usuários é tratada como pagamento ou aposta.
-> No app da loja, deixar o X1 sem dinheiro (só pontos) ou escondido.
+> No app da loja o X1 é só pontos (decidido em 22/10/2026): sem carteira, sem aposta, toda luta
+> "na honra". Feito em `src/shared/lib/x1-loja.ts` (`x1SoPontos`); a web continua com dinheiro.
 
 ## Conta de teste pro revisor
 As duas lojas exigem login funcionando. Ver `revisao-apple.md`.

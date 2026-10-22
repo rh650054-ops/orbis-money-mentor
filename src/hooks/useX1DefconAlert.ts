@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { apostaVisivel } from "@/shared/lib/x1-loja";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 
 // Vigia o X1 do dia ENQUANTO a pessoa está no DEFCON. A cada 60s puxa o placar
@@ -99,7 +100,7 @@ export function useX1DefconAlert(userId: string | undefined, active: boolean): X
         oppAvatar: (opp?.avatar_url as string) || null,
         myAvatar: (me?.avatar_url as string) || null,
         myName: (me?.nickname as string) || "Você",
-        stakes: Number(c.stakes_amount) || 0,
+        stakes: apostaVisivel(c.stakes_amount),
       };
     };
 

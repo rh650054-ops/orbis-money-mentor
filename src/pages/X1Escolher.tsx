@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Wallet, Swords, Search, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { x1SoPontos } from "@/shared/lib/x1-loja";
 import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
@@ -127,7 +128,9 @@ export default function X1Escolher() {
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => navigate("/x1")} aria-label="Voltar" className="w-9 h-9 rounded-full flex items-center justify-center" style={{ color: "#b3ab9c" }}><ArrowLeft className="w-5 h-5" /></button>
         <p className="flex-1 text-[11px] font-black tracking-[.2em]" style={{ color: "#8a8378" }}>ESCOLHA SEU OPONENTE</p>
+        {!x1SoPontos() && (
         <button type="button" onClick={() => navigate("/x1/carteira")} className="h-8 px-3 rounded-full inline-flex items-center gap-1.5 text-[12px] font-black" style={{ background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD }}><Wallet className="w-3.5 h-3.5" strokeWidth={2.6} /> {fmt(saldo)}</button>
+        )}
       </div>
 
       <div className="relative">
@@ -181,6 +184,7 @@ export default function X1Escolher() {
             <div className="flex items-center justify-between mt-1 text-[11.5px] font-black tabular-nums">
               <span style={{ color: OK }}>{sel.vitorias_contra}</span><span className="text-[9px] tracking-[.14em]" style={{ color: "#8a8378" }}>ENTRE VOCÊS</span><span>{sel.derrotas_contra}</span>
             </div>
+            {!x1SoPontos() && (<>
             <div className="flex gap-1.5 mt-2.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
               {APOSTAS.map((v) => { const trava = v > limite; return (
                 <button key={v} type="button" disabled={trava} onClick={() => setAposta(v)} className="shrink-0 h-8 px-2.5 rounded-full text-[10.5px] font-extrabold whitespace-nowrap disabled:opacity-40" style={aposta === v ? { background: v === 0 ? "#1a1305" : "#2a0c11", border: `1px solid ${v === 0 ? GOLD : RED}`, color: v === 0 ? GOLD : "#ff7d8c" } : { background: "#16151a", border: "1px solid #2a2823", color: "#e9e4d8" }}>
@@ -193,6 +197,7 @@ export default function X1Escolher() {
             ) : aposta > 0 && !sel.verificado ? (
               <p className="text-[10.5px] mt-1.5" style={{ color: "#ff7d8c" }}>{primeiroNome(sel.nome)} ainda não conectou a conta dele — valendo dinheiro só entre contas verificadas. Chama na honra.</p>
             ) : null}
+            </>)}
             <button type="button" onClick={lutar} disabled={enviando} className="x1-btn vermelho mt-2.5">
               {enviando ? <Loader2 className="w-5 h-5 animate-spin" /> : <Swords className="w-5 h-5" strokeWidth={2.6} />} LUTAR HOJE
             </button>

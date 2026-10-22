@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Wallet, Flame, Check, X, Loader2, Swords, Share2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { x1SoPontos, apostaVisivel } from "@/shared/lib/x1-loja";
 import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
@@ -26,7 +27,7 @@ const GOLD = "#F5B800";
 const RED = "#F2465A";
 const OK = "#3DD68C";
 
-interface Luta { id: string; status: string; scheduled_date: string; stakes_amount: number; prize_amount: number; winner_user_id: string | null; last_proposed_by: string | null; expires_at: string | null;
+interface Luta { id: string; status: string; scheduled_date: string; stakes_amount: number; prize_amount: number; apostaReal: number; winner_user_id: string | null; last_proposed_by: string | null; expires_at: string | null;
   challenger_id: string; ch_nome: string; ch_avatar: string | null; ch_total: number; ch_patente: string; ch_vitorias: number; ch_potencia: number;
   opponent_id: string; op_nome: string; op_avatar: string | null; op_total: number; op_patente: string; op_vitorias: number; op_potencia: number;
   torcida_ch: number; torcida_op: number; minha_torcida: string | null }
@@ -54,7 +55,7 @@ export default function X1Luta() {
     const [{ data, error }, g] = await Promise.all([(supabase as any).rpc("x1_luta", { p_id: id }), (supabase as any).rpc("x1_golpes", { p_id: id })]);
     const row = ((data as any[]) || [])[0];
     if (error || !row) { setErro("Essa luta não existe mais."); return; }
-    const nova: Luta = { ...row, stakes_amount: Number(row.stakes_amount) || 0, prize_amount: Number(row.prize_amount) || 0, ch_total: Number(row.ch_total) || 0, op_total: Number(row.op_total) || 0, ch_potencia: Number(row.ch_potencia) || 0, op_potencia: Number(row.op_potencia) || 0 };
+    const nova: Luta = { ...row, stakes_amount: apostaVisivel(row.stakes_amount), prize_amount: apostaVisivel(row.prize_amount), apostaReal: Number(row.stakes_amount) || 0, ch_total: Number(row.ch_total) || 0, op_total: Number(row.op_total) || 0, ch_potencia: Number(row.ch_potencia) || 0, op_potencia: Number(row.op_potencia) || 0 };
     // golpe novo → sacode a barra e pula o número
     if (prev.current) {
       if (nova.ch_total > prev.current.ch) setHit("ch");
@@ -87,7 +88,9 @@ export default function X1Luta() {
   const responder = async (action: "accept" | "decline") => {
     if (!l) return;
     setAgindo(true);
-    const { error } = await (supabase as any).rpc("x1_negotiate", { p_id: l.id, p_action: action });
+    // store build (points only): accepting a money challenge from the web proposes "na honra" instead
+    const naHonra = action === "accept" && x1SoPontos() && l.apostaReal > 0;
+    const { error } = await (supabase as any).rpc("x1_negotiate", naHonra ? { p_id: l.id, p_action: "counter", p_stakes: 0 } : { p_id: l.id, p_action: action });
     setAgindo(false);
     if (error) { toast({ title: "Não rolou", description: erroBonito(error.message), variant: "destructive" }); return; }
     if (action === "accept") { try { navigator.vibrate?.([70, 40, 70, 40, 140]); } catch (e) { avisar.silencioso("X1Luta: vibração", e); } prev.current = null; void carregar(); }
@@ -133,7 +136,9 @@ export default function X1Luta() {
         <span className="flex-1 inline-flex items-center gap-2 text-[10px] font-black tracking-[.14em]" style={{ color: "#ff7d8c" }}><i className="w-[7px] h-[7px] rounded-full x1-live" style={{ background: RED }} /> AO VIVO · RODADA {rodada} DE 6</span>
       ) : <span className="flex-1 text-[10px] font-black tracking-[.14em]" style={{ color: "#8a8378" }}>{l.status === "finished" ? "LUTA FECHADA" : l.status === "pending" ? "DESAFIO" : "ENCERRADA"}</span>}
       {participo ? (
+        !x1SoPontos() ? (
         <button type="button" onClick={() => navigate("/x1/carteira")} className="h-8 px-3 rounded-full inline-flex items-center gap-1.5 text-[12px] font-black" style={{ background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD }}><Wallet className="w-3.5 h-3.5" strokeWidth={2.6} /> {fmt(saldo)}</button>
+        ) : null
       ) : (
         <span className="h-8 px-3 rounded-full inline-flex items-center text-[10px] font-black" style={{ background: "#1a1305", border: "1px solid #3a2f0c", color: GOLD }}>{l.stakes_amount > 0 ? `VOLTA ${fmt(voltaPraVoce(l.stakes_amount))}` : "AMISTOSO"}</span>
       )}

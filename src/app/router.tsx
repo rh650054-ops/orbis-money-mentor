@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ComponentType } from "react";
 import { avisar } from "@/shared/lib/avisar";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { x1SoPontos } from "@/shared/lib/x1-loja";
 import Layout from "@/app/layout";
 import RankingAlertas from "@/components/ranking/RankingAlertas";
 import PulsoOrbis from "@/components/PulsoOrbis";
@@ -163,7 +164,7 @@ export function AppRouter() {
                     <Route path="/ranking" element={<Ranking />} />
                     <Route path="/competitions" element={<Competitions />} />
                     <Route path="/x1" element={<X1 />} />
-                    <Route path="/x1/carteira" element={<X1Carteira />} />
+                    <Route path="/x1/carteira" element={x1SoPontos() ? <Navigate to="/x1" replace /> : <X1Carteira />} />
                     <Route path="/verificar" element={<FeatureErrorBoundary title="Vender"><VenderPage /></FeatureErrorBoundary>} />
                     <Route path="/pro" element={<Pro />} />
                     <Route path="/planos" element={<Planos />} />

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { apostaVisivel } from "@/shared/lib/x1-loja";
 import { Swords } from "lucide-react";
 
 interface Duel {
@@ -38,7 +39,7 @@ export function X1Andamento({ onOpen }: { onOpen: () => void }) {
         .in("status", ["accepted", "awaiting_result"])
         .order("scheduled_date", { ascending: true })
         .limit(20);
-      const list = ((data as any[]) || []) as Duel[];
+      const list = ((data as any[]) || []).map((d) => ({ ...d, stakes_amount: apostaVisivel(d.stakes_amount) })) as Duel[];
       const ids = Array.from(new Set(list.flatMap((d) => [d.challenger_id, d.opponent_id])));
       const map: Record<string, { nome: string | null; avatar: string | null }> = {};
       if (ids.length) {
