@@ -86,11 +86,11 @@ const E={
   cols:[["lp","Lead da LP · sem conta"],["dia1","Dia 1 · Boas-vindas"],["dia2","Dia 2 · Ensinar"],["dia3","Dia 3 · Decidir"],["assinou","Assinou"],["acabou","Acabou"]],
   ativ:{
    lp:[
-    {t:"Chamar e perguntar se travou no cadastro",m:"Oi {p}, tudo bem? Aqui é o Yan da Vant.\n\nVocê deixou seu contato pra conhecer o app mas não chegou a criar a conta. Travou em alguma parte?\n\nSe quiser eu te mando o link direto e te acompanho no primeiro dia."},
+    {t:"Chamar e perguntar se travou no cadastro",m:"Oi {p}, tudo bem? Aqui é {eu} da Vant.\n\nVocê deixou seu contato pra conhecer o app mas não chegou a criar a conta. Travou em alguma parte?\n\nSe quiser eu te mando o link direto e te acompanho no primeiro dia."},
     {t:"Mandar o link de criar conta",m:"Segue o link pra criar sua conta: [link]\n\nLeva menos de um minuto. Assim que criar me avisa aqui que eu já te mostro por onde começar."},
     {t:"Anotar o motivo se não criar",nota:"Se ele não criar conta, escreva o porquê. O motivo de quem não entra é o dado mais valioso que a gente não tem."}],
    dia1:[
-    {t:"Mandar boas-vindas no WhatsApp",m:"Fala {p}, bem-vindo à Vant!\n\nSou o Yan, vou te acompanhar nesses 3 dias de teste.\n\nQualquer dúvida é só chamar aqui, respondo rápido."},
+    {t:"Mandar boas-vindas no WhatsApp",m:"Fala {p}, bem-vindo à Vant!\n\nSou {eu}, vou te acompanhar nesses 3 dias de teste.\n\nQualquer dúvida é só chamar aqui, respondo rápido."},
     {t:"Perguntar o que ele vende e onde",m:"Me conta uma coisa: o que você vende e onde você costuma vender?\n\nAssim já te mostro a parte do app que mais vai te ajudar no seu corre."},
     {t:"Confirmar que registrou a primeira venda",m:"{p}, conseguiu registrar sua primeira venda no app?\n\nÉ o passo que faz tudo destravar — depois dela a Vant já começa a te mostrar número."}],
    dia2:[
@@ -106,7 +106,7 @@ const E={
     {t:"Combinar a meta do primeiro mês",m:"Vamos combinar uma coisa: qual a meta de faturamento que você quer bater esse mês?\n\nEu anoto aqui e te cobro — de forma leve, mas cobro."}],
    acabou:[
     {t:"Registrar o motivo de não ter fechado",nota:"OBRIGATÓRIO. Sem o motivo escrito aqui, a ficha fica marcada como 'não houve contato' nas métricas."},
-    {t:"Última tentativa de resgate",m:"Oi {p}, aqui é o Yan da Vant.\n\nSeu teste encerrou e eu queria só entender: o que faltou pra fazer sentido pra você?\n\nSe foi só falta de tempo pra testar direito, eu libero mais 3 dias — e dessa vez eu te acompanho de perto."}]}},
+    {t:"Última tentativa de resgate",m:"Oi {p}, aqui é {eu} da Vant.\n\nSeu teste encerrou e eu queria só entender: o que faltou pra fazer sentido pra você?\n\nSe foi só falta de tempo pra testar direito, eu libero mais 3 dias — e dessa vez eu te acompanho de perto."}]}},
 
  pagante:{nome:"Já pagantes",cor:"c2",
   desc:"Entra sozinho quando a ficha do Trial cai em Assinou. O trabalho aqui é não deixar a renovação chegar de surpresa.",
@@ -155,7 +155,7 @@ const E={
   cols:[["frio","Nunca usou"],["acordou","Abriu o app"],["usou","Registrou venda"],["virou","Virou teste"]],
   ativ:{
    frio:[
-    {t:"Mandar a mensagem de resgate",m:"Oi {p}, tudo bem? Aqui é o Yan da Vant.\n\nVi que você criou sua conta mas ainda não chegou a usar. Acontece, o corre é pesado.\n\nMe fala o que te travou?"},
+    {t:"Mandar a mensagem de resgate",m:"Oi {p}, tudo bem? Aqui é {eu} da Vant.\n\nVi que você criou sua conta mas ainda não chegou a usar. Acontece, o corre é pesado.\n\nMe fala o que te travou?"},
     {t:"Perguntar o que travou",nota:"Se ele responder, anote aqui. É o dado mais valioso que a gente não tem: por que 408 pessoas criaram conta e sumiram."}],
    acordou:[{t:"Ensinar a primeira venda no DEFCON",m:"{p}, vi que você abriu o app! Boa.\n\nO próximo passo é registrar sua primeira venda — depois dela a Vant começa a te mostrar número de verdade.\n\nQuer que eu te mostre como?"}],
    usou:[{t:"Mostrar o resultado e oferecer o teste",m:"{p}, você já registrou venda na Vant — isso é ótimo.\n\nQuem faz isso costuma não largar mais. Quer que eu libere um teste completo pra você ver o resto do app?"}],
@@ -186,6 +186,19 @@ function hotDe(c){
 }
 
 const PROBLEMAS=[];
+/* TIME (22/10): quem é quem no comercial. Rayane = suporte (teste + sucesso do cliente),
+   Paulo e Yan = closers. Vem de crm_equipe_lista; antes da migration rodar, volta vazio
+   e o CRM funciona como antes (sem dono, fila com tudo). */
+let EQUIPE={eu:null,lista:[],nomes:{}};
+const euNaEquipe=()=>EQUIPE.lista.find(p=>p.user_id===EQUIPE.eu&&p.ativo)||null;
+const nomeDe=uid=>uid?((EQUIPE.lista.find(p=>p.user_id===uid)||{}).nome||EQUIPE.nomes[uid]||""):"";
+async function carregarEquipe(){
+  try{
+    const {data,error}=await sb.rpc("crm_equipe_lista");
+    if(error||!data) return;
+    EQUIPE={eu:data.eu||null,lista:data.equipe||[],nomes:data.nomes||{}};
+  }catch(e){ /* sem a migration ainda: segue sem time */ }
+}
 async function chamar(nome, args){
   try{
     const r = args ? await sb.rpc(nome,args) : await sb.rpc(nome);
@@ -224,6 +237,7 @@ async function carregarTudo(){
     chamar("crm_ajustes_ler"),
     chamar("crm_funil",{p_pipeline:"upgrade_pro"}),
   ]);
+  await carregarEquipe();
   AJUSTES = ajustes || {}; aplicarAjustes();
   const g = g0 || {};
   GRANA={total:+g.total||0,pagamentos:+g.pagamentos||0,ticket:+g.ticket||0,desde:g.desde||"—",
@@ -239,7 +253,7 @@ async function carregarTudo(){
   HOT = hot || [];
   CONV = {};
   for(const m of (conv||[])){
-    (CONV[m.cartao]=CONV[m.cartao]||[]).push({de:m.de,t:m.texto,q:quando(m.criado_em),ts:m.criado_em,origem:m.origem});
+    (CONV[m.cartao]=CONV[m.cartao]||[]).push({de:m.de,t:m.texto,q:quando(m.criado_em),ts:m.criado_em,origem:m.origem,por:m.por||null});
   }
   AFIL = afil || [];
   PKIT = pkit || [];
@@ -275,7 +289,8 @@ async function carregarTudo(){
           // data da próxima cobrança: a da Hotmart manda; a da Vant é reserva
           renova:(h&&h.cobra_em?deBR(h.cobra_em):null)||c.period_end||null,
           pago:h&&h.valor?Number(h.valor):null, notas:c.notas||"",
-          feitasBanco:c.feitas||[], hot:h, faz:c.faz||null, parceiro:c.parceiro||null});
+          feitasBanco:c.feitas||[], hot:h, faz:c.faz||null, parceiro:c.parceiro||null,
+          dono:c.dono||null, donoNome:c.dono_nome||nomeDe(c.dono), fase:c.fase||null});
       }catch(e){ PROBLEMAS.push("cartão "+(c&&c.id)+": "+(e.message||e)); }
     }
   }
@@ -455,7 +470,14 @@ const travaDe=f=>{const c=etapaDe(f); return ((f.e==="trial"&&c!=="lp"&&c!=="aca
 const atividades=f=>E[f.e].ativ[etapaDe(f)]||[];
 const feitasDe=f=>(estDe(f).feitas||{})[etapaDe(f)]||[];
 const tudoFeito=f=>{const a=atividades(f);return a.length>0&&feitasDe(f).length>=a.length;};
-const fila=()=>FICHAS.filter(f=>!escondida(f));
+/* Minha ficha = sou o dono, ou ela está sem dono numa esteira que é minha frente.
+   Admin (Rick) e quem não está na equipe veem tudo, como antes. */
+function minha(f){
+ const eu=euNaEquipe(); if(!eu) return true;
+ if(f.dono) return f.dono===EQUIPE.eu;
+ return (eu.esteiras||[]).includes(f.e);
+}
+const fila=()=>FICHAS.filter(f=>!escondida(f)&&(S.verTodas||minha(f)));
 const atual=()=>{const q=fila();return q[Math.min(S.pos,q.length-1)]||null;};
 /* conversa = historico real + o que foi enviado nesta sessao */
 const convDe=f=>[...(f.conversa||[]),...(S.conv[f.cartaoId]||[])];
@@ -465,7 +487,7 @@ async function gravarMsg(f,de,texto){
  try{
   const {data,error}=await sb.rpc("crm_msg_gravar",{p_cartao:f.cartaoId,p_de:de,p_texto:texto});
   if(error) throw error;
-  (f.conversa=f.conversa||[]).push({de,t:data.texto,q:quando(data.criado_em),ts:data.criado_em,origem:"crm"});
+  (f.conversa=f.conversa||[]).push({de,t:data.texto,q:quando(data.criado_em),ts:data.criado_em,origem:"crm",por:EQUIPE.eu});
   return true;
  }catch(e){
   // sem banco, guarda no navegador pra não perder
@@ -514,7 +536,8 @@ const custoDoDia=()=>({gratis:mensagensDoDia().enviadas,pagas:0,valor:0});
 function msgDe(f,a){
  if(!a.m)return null;
  return a.m.replace(/\{p\}/g,f.n.split(" ")[0])
-           .replace(/\{renova\}/g,f.renova?f.renova.slice(8,10)+"/"+f.renova.slice(5,7):"");
+           .replace(/\{renova\}/g,f.renova?f.renova.slice(8,10)+"/"+f.renova.slice(5,7):"")
+           .replace(/\{eu\}/g,nomeDe(EQUIPE.eu)||"a equipe");
 }
 function feitasCom(f,i,on){
  const e=estDe(f),k=etapaDe(f),arr=[...((e.feitas||{})[k]||[])],j=arr.indexOf(i);
@@ -579,6 +602,9 @@ function renderHoje(){
   const vend=VENDAS?((+VENDAS.novas||0)+(+VENDAS.renov||0)):0;
 
  let h=vendasHojeHTML();
+ if(euNaEquipe()){ const meus=FICHAS.filter(x=>!escondida(x)&&minha(x)).length;
+  h+=`<p class="nota" style="margin:0 0 10px">${S.verTodas?`Mostrando a fila de <b>todo o time</b>.`:`Sua fila: <b>${meus}</b> fichas suas ou sem dono nas suas frentes.`}
+   <button class="btn ghost" id="verTodas" style="padding:3px 9px;font-size:11px;margin-left:6px">${S.verTodas?"Ver só as minhas":"Ver todas"}</button></p>`; }
  h+=ehDono()? `<div class="grana">
   <div class="lbl">Faturamento total da Vant</div>
   <div class="big num">${brl(GRANA.total)}</div>
@@ -676,7 +702,7 @@ function renderHoje(){
 function chatHTML(f){
  const c=convDe(f), j=janela(f), ats=atividades(f).filter(a=>a.m);
  return `
-  ${c.length?`<div class="chat">${c.map(m=>`<div class="bal ${m.de==="eu"?"eu":"ele"}">${esc(m.t)}<span class="q">${esc(m.q)}${m.origem==="local"?" · só neste navegador":""}</span></div>`).join("")}</div>`
+  ${c.length?`<div class="chat">${c.map(m=>`<div class="bal ${m.de==="eu"?"eu":"ele"}">${esc(m.t)}<span class="q">${m.de==="eu"&&nomeDe(m.por)?esc(nomeDe(m.por))+" · ":""}${esc(m.q)}${m.origem==="local"?" · só neste navegador":""}</span></div>`).join("")}</div>`
    :`<p class="nota" style="margin:0">Nenhuma conversa registrada ainda.</p>`}
   ${f.tel?`<div class="janela free">${j.free
     ? `✓ <b>${esc(f.n.split(" ")[0])} mandou a última mensagem</b> (${esc(j.quando)}) — está esperando você.`
@@ -763,7 +789,7 @@ function ativHTML(f,a,i,on){
        <div class="msg-ed" data-editor="${i}" hidden>
          <input class="txtarea" style="min-height:0" data-ed-t="${i}" maxlength="120" value="${esc(a.t)}" placeholder="Título da atividade">
          <textarea class="txtarea" data-ed-m="${i}" rows="6" maxlength="2000" placeholder="Texto da mensagem">${esc(a.m)}</textarea>
-         <p class="nota" style="margin:0">Use <b>{p}</b> pro primeiro nome e <b>{renova}</b> pra data da renovação. Vale pra <b>todas as fichas</b> nesta etapa, pro Yan e pro Rick.</p>
+         <p class="nota" style="margin:0">Use <b>{p}</b> pro primeiro nome, <b>{eu}</b> pro nome de quem está mandando e <b>{renova}</b> pra data da renovação. Vale pra <b>todas as fichas</b> nesta etapa, pra todo o time.</p>
          <div class="acoes"><button class="btn go" data-ed-ok="${i}">Salvar texto</button>
            ${a.editada?`<button class="btn ghost" data-ed-padrao="${i}">Voltar ao padrão</button>`:""}
            <button class="btn ghost" data-ed-nao="${i}">Cancelar</button></div>
@@ -814,6 +840,7 @@ function ligarAtividades(root,f){
 }
 
 function ligarHoje(f){
+ {const vt=document.getElementById("verTodas"); if(vt) vt.onclick=()=>{S.verTodas=!S.verTodas; S.pos=0; salvar(); renderHoje();};}
  const bt=document.getElementById("ir-travados");
  if(bt)bt.onclick=()=>{const q=fila(),i=q.findIndex(x=>etapaDe(x)==="acabou");
   if(i>=0){S.pos=i;salvar();renderHoje();window.scrollTo({top:0,behavior:"smooth"});}};
@@ -1112,6 +1139,7 @@ function abrir(id,foco){
    ${contatoErrado(f)?`<div class="dr-sec" style="background:var(--warn-s);border-color:var(--warn)"><h4 style="color:var(--warn)">📵 Número errado</h4>
      <p style="margin:0 0 8px;font-size:12.5px;line-height:1.5">Essa ficha está fora da fila porque o WhatsApp não bate. Corrija o número pra ela voltar.</p>
      <button class="btn go" id="dr-zap-fix">Corrigir WhatsApp</button></div>`:""}
+   ${donoHTML(f)}
    <div class="dr-sec"><h4>Dados</h4>
     <div class="kv"><span class="k">WhatsApp</span><span class="v">${f.tel?`<a href="${linkZap(f)}" target="_blank" rel="noopener" style="color:var(--c2);font-weight:700">+${f.tel.slice(0,2)} ${f.tel.slice(2,4)} ${f.tel.slice(4)} ↗</a>`:esc(f.zap)}
       <button class="btn ghost" id="dr-zap-edit" style="padding:3px 8px;font-size:11px;margin-left:6px">corrigir</button>${contatoErrado(f)?"":`<button class="btn ghost" id="dr-zap-errado" style="padding:3px 8px;font-size:11px;margin-left:4px;color:var(--warn)">nº errado</button>`}</span></div>
@@ -1165,7 +1193,7 @@ function abrir(id,foco){
  dr.dataset.id=String(id); dr.dataset.id=""; dr.dataset.on="1";veu.dataset.on="1";
  document.getElementById("dr-x").onclick=fechar;
  veu.onclick=fechar;
- ligarAtividades(dr,f); ligarChat(dr,f);
+ ligarAtividades(dr,f); ligarChat(dr,f); ligarDono(dr,f);
  ["dr-zap-fix","dr-zap-edit"].forEach(id=>{const b=document.getElementById(id); if(b) b.onclick=()=>corrigirZap(f);});
  {const b=document.getElementById("dr-zap-errado"); if(b) b.onclick=()=>marcarErrado(f);}
  dr.querySelectorAll("[data-mover]").forEach(b=>{if(!b.disabled)b.onclick=()=>mover(f,b.dataset.mover);});
@@ -1174,6 +1202,45 @@ function abrir(id,foco){
   const q=fila(),i=q.findIndex(x=>x.id===f.id);
   if(i>=0){S.pos=i;salvar();fechar();aba("hoje");renderHoje();window.scrollTo({top:0});}
   else toast("Essa ficha já foi fechada hoje");};
+}
+/* ===== DONO DA FICHA E PASSAGEM (22/10) =====
+   suporte (Rayane) -> closer (rodízio Paulo/Yan) -> sucesso (volta pra Rayane).
+   Quem já quer comprar recebe o link do próprio suporte: não espera closer. */
+const FASE_NOME={suporte:"Suporte do teste",closer:"Fechamento",sucesso:"Sucesso do cliente"};
+function donoHTML(f){
+ if(!EQUIPE.lista.length) return "";
+ const eu=euNaEquipe(), meu=f.dono&&f.dono===EQUIPE.eu, admin=ehDono();
+ const pode=meu||admin||!f.dono;
+ const souCloser=(eu&&eu.funcao==="closer")||(admin&&f.fase==="closer");
+ const bts=[];
+ if(!meu&&(!f.dono||admin)&&eu) bts.push(`<button class="btn ghost" data-dono="assumir">Assumir esta ficha</button>`);
+ if(pode&&f.fase!=="closer") bts.push(`<button class="btn go" data-dono="closer">Passar pro closer</button>`);
+ if(pode&&(f.fase==="closer"||souCloser)) bts.push(`<button class="btn go" data-dono="sucesso">Vendeu: passar pro sucesso</button>`);
+ return `<div class="dr-sec"><h4>Dono da ficha</h4>
+  <div class="kv"><span class="k">Com quem está</span><span class="v">${f.dono?esc(f.donoNome||nomeDe(f.dono)||"—"):"ninguém ainda"}${meu?" (você)":""}</span></div>
+  ${f.fase?`<div class="kv"><span class="k">Fase</span><span class="v">${esc(FASE_NOME[f.fase]||f.fase)}</span></div>`:""}
+  ${bts.length?`<div class="acoes" style="margin-top:8px">${bts.join("")}</div>`:""}
+  <p class="nota" style="margin:8px 0 0">Passe pro closer quando houver sinal de compra que pede conversa (perguntou preço, usou 2 dias, chegou ao último dia ativo). Se a pessoa já quer comprar, mande o link você mesmo.</p>
+ </div>`;
+}
+function ligarDono(root,f){
+ root.querySelectorAll("[data-dono]").forEach(b=>{
+  b.onclick=async()=>{
+   const acao=b.dataset.dono;
+   let r;
+   if(acao==="assumir"){ r=await sb.rpc("crm_assumir",{p_cartao:f.cartaoId}); }
+   else{
+    const motivo=window.prompt(acao==="closer"?"Por que passar pro closer? (ex.: perguntou do anual, usou 2 dias)":"O que ele comprou? (ex.: anual, Pro)");
+    if(motivo===null) return;
+    r=await sb.rpc("crm_passar",{p_cartao:f.cartaoId,p_para:acao,p_motivo:motivo});
+   }
+   if(r.error){ toast(r.error.message); return; }
+   const d=r.data||{};
+   f.dono=d.dono||EQUIPE.eu; f.fase=d.fase||f.fase; f.donoNome=d.dono_nome||nomeDe(f.dono);
+   const g=FICHAS.find(x=>x.id===f.id); if(g) Object.assign(g,{dono:f.dono,fase:f.fase,donoNome:f.donoNome});
+   toast(acao==="assumir"?"Ficha é sua agora":"Passada pra "+(f.donoNome||"o time"));
+   render(); abrir(f.id);
+  };});
 }
 function fechar(){document.getElementById("drawer").dataset.on="0";document.getElementById("veu").dataset.on="0";}
 document.addEventListener("keydown",e=>{if(e.key==="Escape")fechar();});

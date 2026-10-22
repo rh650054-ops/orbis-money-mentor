@@ -20,7 +20,7 @@
     sb: null, me: null,
     users: [], carregado: false, erroUsers: null,
     busca: "", filtro: "assinantes", limite: 150,
-    isSuper: false, adminMap: {},            // cpf(digits) -> is_super_admin
+    isSuper: false, adminMap: {}, papelMap: {},            // cpf(digits) -> is_super_admin
     preset: "mes", ini: null, fim: null, periodo: null, loadingPeriodo: false,
     ocupado: {},                             // user_id -> true while an action runs
   };
@@ -78,8 +78,9 @@
       S.isSuper = !!superData;
       S.adminMap = {};
       if (S.isSuper) {
-        const { data: rows } = await S.sb.from("admin_access").select("cpf, enabled, is_super_admin");
-        (rows || []).forEach((r) => { if (r.enabled) S.adminMap[U.soDigitos(r.cpf)] = !!r.is_super_admin; });
+        const { data: rows } = await S.sb.from("admin_access").select("cpf, enabled, is_super_admin, papel");
+        S.papelMap = {};
+        (rows || []).forEach((r) => { if (r.enabled) { S.adminMap[U.soDigitos(r.cpf)] = !!r.is_super_admin; S.papelMap[U.soDigitos(r.cpf)] = r.papel || "admin"; } });
       }
     } catch (_) { S.isSuper = false; }
   }
@@ -317,7 +318,7 @@
         ${!comp && u.comp_label ? `<span class="pill">${U.esc(u.comp_label)}</span>` : ""}
         <span class="pill ${stCls}">${U.esc(st)}</span>
         ${u.is_demo ? `<span class="pill p3">demo</span>` : ""}
-        ${isUserAdmin ? `<span class="pill p5">${isUserSuper ? "super admin" : "admin"}</span>` : ""}
+        ${isUserAdmin ? `<span class="pill p5">${isUserSuper ? "super admin" : S.papelMap[cpf] === "comercial" ? "comercial (CRM)" : "admin"}</span>` : ""}
       </div>
       <div style="font-size:12px;color:var(--dim);margin-top:4px;word-break:break-all">${U.esc(u.email || "—")}</div>
       <div style="font-size:12px;color:var(--dim);margin-top:2px">Tel: ${U.esc(U.fmtTel(u.phone))} · CPF: ${U.esc(U.fmtCpf(u.cpf))}</div>
@@ -327,6 +328,8 @@
         ${zap ? `<a class="btn ghost" href="${U.esc(zap)}" target="_blank" rel="noopener" style="${BTN_S};color:var(--ok);border-color:var(--ok);text-decoration:none" title="Falar no WhatsApp">WhatsApp</a>` : ""}
         ${S.isSuper ? `<button class="btn ghost" data-act="admin" data-uid="${uid}" style="${BTN_S}${isUserAdmin ? ";color:var(--warn);border-color:var(--warn)" : ""}"
             title="${isUserSuper ? "Super admin (protegido)" : isUserAdmin ? "Remover admin" : "Tornar admin"}" ${busy || isUserSuper ? "disabled" : ""}>${isUserSuper ? "★ Super admin" : isUserAdmin ? "★ Remover admin" : "☆ Tornar admin"}</button>` : ""}
+        ${S.isSuper && !isUserSuper ? `<button class="btn ghost" data-act="crm-suporte" data-uid="${uid}" style="${BTN_S}" title="Libera o CRM como suporte do teste e sucesso do cliente (sem faturamento)" ${busy ? "disabled" : ""}>CRM: suporte</button>
+            <button class="btn ghost" data-act="crm-closer" data-uid="${uid}" style="${BTN_S}" title="Libera o CRM como closer (recebe fichas no rodízio, sem faturamento)" ${busy ? "disabled" : ""}>CRM: closer</button>` : ""}
         <button class="btn ghost" data-act="editar" data-uid="${uid}" style="${BTN_S}" title="Ver/editar perfil">Abrir / editar</button>
         <button class="btn ${u.plan_status === "active" ? "lose" : "win"}" data-act="plano" data-uid="${uid}" style="${BTN_S}" ${busy || comp ? "disabled" : ""}>${u.plan_status === "active" ? "Desativar" : "Ativar"}</button>
         <button class="btn ghost" data-act="excluir" data-uid="${uid}" style="${BTN_S};color:var(--bad);border-color:var(--bad)" title="Excluir conta definitivamente" ${busy ? "disabled" : ""}>Excluir</button>
@@ -356,6 +359,8 @@
       const act = b.dataset.act;
       if (act === "mais3") darMais3(el, u);
       else if (act === "admin") toggleAdmin(el, u);
+      else if (act === "crm-suporte") liberarCrm(el, u, "suporte");
+      else if (act === "crm-closer") liberarCrm(el, u, "closer");
       else if (act === "editar") abrirCliente(el, u);
       else if (act === "plano") toggleAssinatura(el, u);
       else if (act === "excluir") excluirConta(el, u);
@@ -409,6 +414,23 @@
         : await S.sb.from("admin_access").insert({ cpf, role: "admin", enabled: true });
       if (r.error) { U.aviso("Erro: " + (r.error.message || "Tente novamente."), true); return; }
       U.aviso((isUserAdmin ? "Admin removido: " : "✅ Agora é admin: ") + nome);
+      await carregarAdminMeta();
+    });
+  }
+
+  // Super admin: libera alguém do time comercial no CRM (papel "comercial", sem faturamento).
+  // A pessoa precisa ter criado a conta no app com CPF antes. Frentes = esteiras cujas
+  // fichas sem dono aparecem na fila dela (trial, pagante, perdido, base, upgrade).
+  async function liberarCrm(el, u, funcao) {
+    const nome = u.nickname || u.email || "essa pessoa";
+    const padrao = funcao === "suporte" ? "trial, pagante" : "";
+    const frentes = window.prompt(`Liberar "${nome}" no CRM como ${funcao}.\n\nFrentes próprias (fichas sem dono que aparecem na fila). Opções: trial, pagante, perdido, base, upgrade. Separe por vírgula:`, padrao);
+    if (frentes === null) return;
+    const esteiras = frentes.split(",").map((x) => x.trim()).filter(Boolean);
+    await comOcupado(el, u, async () => {
+      const { error } = await S.sb.rpc("crm_liberar_time", { p_user: u.user_id, p_funcao: funcao, p_esteiras: esteiras });
+      if (error) { U.aviso("Erro: " + (error.message || "Tente novamente."), true); return; }
+      U.aviso(`✅ ${nome} liberado no CRM como ${funcao}. Já pode entrar no CRM com o mesmo CPF e senha do app (quem já era admin continua admin).`);
       await carregarAdminMeta();
     });
   }
