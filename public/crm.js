@@ -685,7 +685,7 @@ function renderHoje(){
      ${travaDe(f)?`<span class="pill bad">travado ${travaDe(f)}d</span>`:`<span class="pill">${Math.round(f.d)}d aqui</span>`}</div></div>
    <button class="btn ghost" style="flex:none;align-self:flex-start" data-painel="${f.id}">Painel</button></div>
   <p class="porque"><span style="flex:none;color:var(--dim)">→</span><span><b>Por que esse agora:</b> ${f.porque}</span></p>
-  ${descDe(f)?`<p class="porque"><span style="flex:none;color:var(--dim)">📝</span><span><b>Sobre ele:</b> ${esc(descDe(f))}</span></p>`:""}
+  ${descDe(f)?`<p class="porque"><span style="flex:none;color:var(--dim)">📝</span><span style="color:var(--ok)"><b>Sobre ele:</b> ${esc(descDe(f))}</span></p>`:""}
   ${sinaisHTML(f)}
   <div class="blk"><h4>Atividades — clique para ver a mensagem</h4>
    <div id="ativs">${ats.map((a,i)=>ativHTML(f,a,i,fei.includes(i))).join("")}</div>
