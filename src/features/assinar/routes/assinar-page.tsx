@@ -7,6 +7,7 @@ import { useSearchParams } from "react-router-dom";
 import { Check } from "lucide-react";
 import { aoClicarCheckout, comIdentidade, getCheckoutUrl, getProCheckoutUrl } from "@/shared/lib/checkout";
 import { useQuemAssinaQuery } from "../api/use-assinar-token";
+import { RenovarPix, useRenovacaoPixPorToken } from "@/features/renovacao";
 
 const GOLD = "#F5B800";
 const MUTE = "#7b766e";
@@ -24,6 +25,7 @@ export default function AssinarPage() {
   const quem = useQuemAssinaQuery(token);
   const [plano, setPlano] = useState<Plano>("mensal");
   const p = quem.data ?? null;
+  const renovacao = useRenovacaoPixPorToken(token).data ?? null;
   // Essencial subscriber: this is an upgrade, hide the Essencial card
   const lista = PLANOS.filter((x) => !(p?.plano_atual === "essencial" && x.id === "essencial"));
   const escolhido = lista.find((x) => x.id === plano) ?? lista[0]!;
@@ -33,9 +35,14 @@ export default function AssinarPage() {
   return (
     <div className="min-h-screen px-5 pt-10 pb-12 max-w-md mx-auto text-[#F4F1EA]" style={{ background: "radial-gradient(80% 50% at 50% 0%, #1a1305, #000 70%)" }}>
       <p className="text-center font-mono text-[11px] font-bold tracking-[.3em]" style={{ color: GOLD }}>VANT</p>
-      <h1 className="text-center text-[30px] font-black tracking-[-.02em] mt-1">{p?.plano_atual === "essencial" ? "Suba pro VANT Pro" : "Assine a VANT"}</h1>
+      <h1 className="text-center text-[30px] font-black tracking-[-.02em] mt-1">{renovacao ? "Renove a VANT" : p?.plano_atual === "essencial" ? "Suba pro VANT Pro" : "Assine a VANT"}</h1>
 
-      <p className="font-mono text-[10.5px] font-bold tracking-[.2em] mt-8 mb-2.5" style={{ color: MUTE }}>PLANO</p>
+      {renovacao && (<>
+        <div className="mt-7"><RenovarPix pix={renovacao} /></div>
+        <p className="font-mono text-[10.5px] font-bold tracking-[.2em] mt-9 mb-1" style={{ color: MUTE }}>OU TROCAR DE PLANO</p>
+      </>)}
+
+      <p className="font-mono text-[10.5px] font-bold tracking-[.2em] mt-4 mb-2.5" style={{ color: MUTE }}>PLANO</p>
       <div className="space-y-2.5">
         {lista.map((x) => {
           const on = x.id === escolhido.id;

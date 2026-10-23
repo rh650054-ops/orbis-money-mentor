@@ -29,6 +29,7 @@ import { MesCard } from "./foco/mes-card";
 import { ComoRecebeu } from "./foco/como-recebeu";
 import { UltimasCompras } from "./foco/ultimas-compras";
 import { useAcessoProdutosQuery } from "@/features/produtos";
+import { AvisoRenovacaoPix } from "@/features/renovacao";
 import { Utilitarios } from "./foco/utilitarios";
 import { BlocosDeHoje } from "./foco/blocos-de-hoje";
 import { CATEGORIAS_CUSTO, PRESS, type CategoriaCusto, type DayTotals, type ItemCarga } from "./foco/foco-tipos";
@@ -430,6 +431,9 @@ export default function DefconHub() {
 
       {/* o mês: com o que ele faz por dia, bate a meta final? (bloco próprio, não embola com a meta de hoje) */}
       {temFaixas && metaViavel && <MesCard m={metaViavel} onReplanejar={() => setReplanOpen(true)} />}
+
+      {/* Pix da renovação em aberto (Hotmart): paga aqui, sem procurar e-mail (23/10/2026) */}
+      <AvisoRenovacaoPix className="mt-4" />
 
       <AcoesRapidas onMercado={irAoMercado} />
 
