@@ -86,10 +86,13 @@ serve(async (req) => {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    // Atualizar perfil para demo
-    const { error: updateError } = await supabaseAdmin
+    // Perfil demo: UPSERT, não update. Conta criada aqui (por e-mail, fora do cadastro do app)
+    // não tem perfil — o update batia em 0 linhas e respondia "criada com sucesso" (23/10/2026).
+    const { data: perfil, error: updateError } = await supabaseAdmin
       .from('profiles')
-      .update({
+      .upsert({
+        user_id: userId,
+        email,
         is_demo: true,
         demo_created_by: requestingUser.id,
         demo_note: note || 'Conta de demonstração',
@@ -99,11 +102,29 @@ serve(async (req) => {
         trial_start: null,
         trial_end: null,
         is_trial_active: false,
-        nickname: nickname || email.split('@')[0]
-      })
-      .eq('user_id', userId);
+        nickname: nickname || email.split('@')[0],
+        // Conta NOVA (revisor das lojas / demonstração): fora do ranking e sem cair no onboarding.
+        // Conta existente convertida (gente da equipe) continua como estava nesses pontos.
+        ...(existingUser ? {} : {
+          ranking_hidden: true,
+          onboarding_completed: true,
+          termos_aceitos_versao: '2026-07-28',
+          termos_aceitos_em: new Date().toISOString(),
+        }),
+      }, { onConflict: 'user_id' })
+      .select('user_id');
 
     if (updateError) throw updateError;
+    if (!perfil || perfil.length === 0) throw new Error('Perfil da conta demo não foi gravado');
+
+    // Conta NOVA vê o app inteiro (produtos/estoque são só Pro): Pro de cortesia sem validade.
+    // Conta existente convertida NÃO ganha Pro por aqui.
+    if (!existingUser) {
+      const { error: proError } = await supabaseAdmin
+        .from('orbis_pro')
+        .upsert({ user_id: userId, ativo: true, origem: 'cortesia', atualizado_em: new Date().toISOString() }, { onConflict: 'user_id' });
+      if (proError) throw proError;
+    }
 
     console.log('Conta demo configurada com sucesso!');
 
