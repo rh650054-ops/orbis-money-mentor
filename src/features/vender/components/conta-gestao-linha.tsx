@@ -36,7 +36,7 @@ export function ContaGestaoLinha({ banco, conta, salvando, saindo, onPapel, onDe
       <Segmentado<Papel> rotulo={`Papel da conta ${banco.institution_name ?? ""}`} valor={papel} disabled={salvando || (conta ? !conta.pode_trocar : false)}
         onEscolher={(p) => void escolher(p)}
         opcoes={[{ valor: "trabalho", texto: "Trabalho", cor: COR.ouro }, { valor: "pessoal", texto: "Pessoal", cor: "#b9b3a6" }]} />
-      {!papel && conta?.sugestao && (
+      {conta?.sugestao && (!papel || (conta.papel_auto && conta.sugestao !== papel)) && (
         <button type="button" onClick={() => void escolher(conta.sugestao!)} disabled={salvando}
           className="text-left rounded-lg px-2.5 py-2 flex items-start gap-2 active:opacity-70"
           style={{ background: "rgba(245,184,0,.07)", border: "1px dashed rgba(245,184,0,.35)" }}>
@@ -47,7 +47,7 @@ export function ContaGestaoLinha({ banco, conta, salvando, saindo, onPapel, onDe
         </button>
       )}
       {conta && !conta.pode_trocar && (
-        <p className="text-[11px] font-bold flex items-center gap-1" style={{ color: COR.apagado }}><Lock className="w-3 h-3" /> próxima troca liberada em {ddmm(conta.troca_liberada_em)}</p>
+        <p className="text-[11px] font-bold flex items-center gap-1" style={{ color: COR.apagado }}><Lock className="w-3 h-3" /> virar pessoal liberado em {ddmm(conta.troca_liberada_em)}</p>
       )}
       {confirmar ? (
         <div className="grid grid-cols-2 gap-2">

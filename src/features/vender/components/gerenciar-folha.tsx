@@ -42,7 +42,7 @@ export function GerenciarFolha({ aberta, onFechar, bancos, contas, atualizando, 
         ))}
       </div>
       <p className="text-[11px] leading-relaxed" style={{ color: COR.apagado }}>
-        Cada conta troca 1 vez por semana. A Vant só lê o que entrou: não move dinheiro nem vê senha.
+        Conta nova começa como trabalho. Virar trabalho é livre; virar pessoal, 1 vez por semana. A Vant só lê o que entrou: não move dinheiro nem vê senha.
       </p>
     </Folha>
   );

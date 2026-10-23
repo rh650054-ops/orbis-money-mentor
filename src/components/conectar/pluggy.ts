@@ -211,6 +211,8 @@ export interface ContaVenda {
   id: string; banco: string | null; logo: string | null; papel: "trabalho" | "pessoal" | null; saldo: number | null;
   sugestao: "trabalho" | "pessoal" | null; motivo: string | null; entradas_30d: number;
   pode_trocar: boolean; troca_liberada_em: string | null; conta_venda: boolean;
+  /** papel escolhido pela Vant ao ligar (começa Trabalho), não pelo vendedor */
+  papel_auto?: boolean;
 }
 
 /** Cada banco ligado com o papel, o saldo e a sugestão da Vant pelo histórico. */

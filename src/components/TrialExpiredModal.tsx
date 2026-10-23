@@ -14,7 +14,7 @@ import { useVoltaDoCheckout } from "@/hooks/useVoltaDoCheckout";
 import { verificarAcessoPago } from "@/shared/lib/verificar-acesso";
 import { assinaPeloSite } from "@/shared/lib/cobranca-loja";
 import { TelaAssinarPeloSite } from "@/shared/components/assinatura-loja";
-import { BotaoCopiarPix, RenovarPix, useRenovacaoPixQuery } from "@/features/renovacao";
+import { BotaoCopiarPix, BotaoGerarNovoPix, PixVencido, RenovarPix, useRenovacaoPixQuery, useRenovacaoVencidaQuery } from "@/features/renovacao";
 
 interface TrialExpiredModalProps {
   isOpen: boolean;
@@ -31,7 +31,10 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
   const { status: assinatura } = useSubscription(user?.id);
   const exAssinante = ["expired", "canceled", "cancelled", "past_due"].includes(String(assinatura.status));
   // Pix da renovação em aberto (Hotmart): renovar vem antes de "assinar de novo" (23/10/2026)
-  const renovacao = useRenovacaoPixQuery(user?.id).data ?? null;
+  const qRenovacao = useRenovacaoPixQuery(user?.id);
+  const renovacao = qRenovacao.data ?? null;
+  // Pix venceu e a Hotmart não mandou outro: "Gerar novo Pix" na área do cliente (23/10/2026)
+  const vencida = useRenovacaoVencidaQuery(user?.id, qRenovacao.isSuccess && !renovacao).data ?? null;
   // voltou da Hotmart: confere sozinho e libera sem precisar do "Já paguei"
   useVoltaDoCheckout({ ativo: isOpen, verificar: verificarAcessoPago, aoLiberar: () => window.location.reload() });
 
@@ -88,12 +91,13 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
                 ? <>Sua assinatura não está ativa ou expirou.<br />Para continuar na VANT você precisa de uma assinatura ativa.</>
                 : <>Seus 3 dias de teste terminaram.<br />Pra continuar vendendo com a VANT, assine pelo site.</>}
               onTentar={handleCheckAccess} tentando={isChecking} onSair={handleLogout}
-              renovacao={renovacao ? <BotaoCopiarPix pix={renovacao} /> : undefined} />
+              renovacao={renovacao ? <BotaoCopiarPix pix={renovacao} /> : vencida ? <BotaoGerarNovoPix /> : undefined} />
           ) : (<>
           {/* Fim do teste (06/10): os 3 planos — VANT Pro Anual (selecionado), Pro Mensal e Essencial */}
           <p className="text-center font-mono text-[10px] font-bold tracking-[.18em] mb-3" style={{ color: "#F5B800" }}>{exAssinante ? "SEU PLANO ENCERROU" : "SEU TESTE ACABOU"}</p>
           {renovacao && <div className="mb-4"><RenovarPix pix={renovacao} /></div>}
-          {renovacao && <p className="text-center text-[11px] font-black tracking-[.14em] mb-2" style={{ color: "#7b766e" }}>OU TROCAR DE PLANO</p>}
+          {!renovacao && vencida && <div className="mb-4"><PixVencido vencida={vencida} /></div>}
+          {(renovacao || vencida) && <p className="text-center text-[11px] font-black tracking-[.14em] mb-2" style={{ color: "#7b766e" }}>OU TROCAR DE PLANO</p>}
           <EscolhaPlano vendido={vendido} titulo={exAssinante ? "Escolha como voltar pra VANT" : undefined} />
           </>)}
 

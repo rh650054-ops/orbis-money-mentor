@@ -19,10 +19,10 @@ describe("conta de trabalho × pessoal", () => {
     expect(screen.getByText("falta 1")).toBeTruthy();
     expect(screen.getByText(/A Vant acha que é/)).toBeTruthy();
   });
-  it("conta travada mostra quando libera a troca", () => {
+  it("conta travada mostra quando libera virar pessoal", () => {
     render(<ContasDeVenda onMudou={() => {}} contas={[
       conta({ papel: "trabalho", pode_trocar: false, troca_liberada_em: "2026-10-11T12:00:00Z" }), conta({ id: "b", papel: "pessoal" })]} />);
-    expect(screen.getByText(/troca liberada em 11\/10/)).toBeTruthy();
+    expect(screen.getByText(/virar pessoal liberado em 11\/10/)).toBeTruthy();
   });
   it("o toggle avisa a escolha", () => {
     const fn = vi.fn();
@@ -39,5 +39,14 @@ describe("conta de trabalho × pessoal", () => {
     const a = screen.getByText("QUERO LIGAR MAIS UM BANCO").closest("a");
     expect(a?.getAttribute("href")).toContain("off=3nnrr1xn");
     expect(a?.getAttribute("href")).toContain("email=rick%40vant.com");
+  });
+});
+
+describe("conta que começa como trabalho (23/10)", () => {
+  it("papel automático + Vant acha pessoal: mostra a sugestão", () => {
+    render(<ContasDeVenda onMudou={() => {}} contas={[
+      { id: "a", banco: "Nubank", logo: null, papel: "trabalho", papel_auto: true, saldo: null, sugestao: "pessoal", motivo: "Poucas entradas.",
+        entradas_30d: 2, pode_trocar: true, troca_liberada_em: null, conta_venda: true }]} />);
+    expect(screen.getByText(/A Vant acha que é/)).toBeTruthy();
   });
 });
