@@ -49,6 +49,7 @@ const RelatorioPage = lazyWithReload(() => import("@/features/relatorio/routes/r
 const Profile = lazyWithReload(() => import("@/pages/Profile"));
 const ContaPage = lazyWithReload(() => import("@/features/conta/routes/conta-page"));
 const Settings = lazyWithReload(() => import("@/pages/Settings"));
+import { SoProProdutos } from "@/features/produtos";
 const Products = lazyWithReload(() => import("@/pages/Products"));
 const ProdutosPage = lazyWithReload(() => import("@/features/produtos/routes/produtos-page"));
 const QuizProdutoPage = lazyWithReload(() => import("@/features/produtos/routes/quiz-produto-page"));
@@ -181,12 +182,12 @@ export function AppRouter() {
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/my-account" element={<FeatureErrorBoundary title="Minha conta"><ContaPage /></FeatureErrorBoundary>} />
                     <Route path="/settings" element={<Settings />} />
-                    <Route path="/products" element={<FeatureErrorBoundary title="Produtos"><ProdutosPage /></FeatureErrorBoundary>} />
-                    <Route path="/products/novo" element={<FeatureErrorBoundary title="Produtos"><QuizProdutoPage /></FeatureErrorBoundary>} />
-                    <Route path="/products/ficha" element={<Products />} />
-                    <Route path="/products/mercado" element={<FeatureErrorBoundary title="Produtos"><MercadoPage /></FeatureErrorBoundary>} />
-                    <Route path="/products/:id" element={<FeatureErrorBoundary title="Produtos"><FichaProdutoPage /></FeatureErrorBoundary>} />
-                    <Route path="/custo-produto" element={<CustoProduto />} />
+                    <Route path="/products" element={<FeatureErrorBoundary title="Produtos"><SoProProdutos><ProdutosPage /></SoProProdutos></FeatureErrorBoundary>} />
+                    <Route path="/products/novo" element={<FeatureErrorBoundary title="Produtos"><SoProProdutos><QuizProdutoPage /></SoProProdutos></FeatureErrorBoundary>} />
+                    <Route path="/products/ficha" element={<SoProProdutos><Products /></SoProProdutos>} />
+                    <Route path="/products/mercado" element={<FeatureErrorBoundary title="Produtos"><SoProProdutos><MercadoPage /></SoProProdutos></FeatureErrorBoundary>} />
+                    <Route path="/products/:id" element={<FeatureErrorBoundary title="Produtos"><SoProProdutos><FichaProdutoPage /></SoProProdutos></FeatureErrorBoundary>} />
+                    <Route path="/custo-produto" element={<SoProProdutos><CustoProduto /></SoProProdutos>} />
                     <Route path="/bank-connections" element={<BankConnections />} />
                     <Route path="/spot-finder" element={<SpotFinder />} />
                     <Route path="/meu-extrato" element={<MeuExtrato />} />
