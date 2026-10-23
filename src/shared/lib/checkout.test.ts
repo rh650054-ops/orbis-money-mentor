@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 import { abrirCheckout, checkoutAbertoEm, comIdentidade, limparCheckoutAberto, PRO_CHECKOUT } from "./checkout";
 import { HOTMART_CHECKOUT_URL } from "./constants";
 
