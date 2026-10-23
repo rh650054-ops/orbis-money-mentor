@@ -257,7 +257,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
 
       let falhouExtra = false; // venda salva, mas algum registro derivado falhou — não esconde o aviso com o toast de sucesso
       // Atualizar blocos de hora se existir plano hoje (usa fuso de Brasília)
-      const currentHour = parseInt(getBrazilTime().split(":")[0], 10);
+      const currentHour = parseInt(getBrazilTime().split(":")[0] ?? "", 10);
       const { data: planData } = await supabase
         .from("daily_goal_plans")
         .select("id, work_hours")

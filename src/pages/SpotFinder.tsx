@@ -440,7 +440,7 @@ export default function SpotFinder() {
         const rota = `https://www.google.com/maps/dir/?api=1&destination=${s0.lat},${s0.lng}&travelmode=transit`;
         return (
           <div className="rounded-[22px] p-4" style={{ background: "linear-gradient(160deg,#2a1205 0%,#0e0e10 60%)", border: `1px solid ${HOT}66`, boxShadow: "0 20px 50px -30px rgba(255,122,26,.5)" }}>
-            <p className="text-[10px] font-black tracking-[.16em]" style={{ color: "#ff9d4d" }}>O SINAL DE AGORA · {DIAS_SEM[agora.getDay()].toUpperCase()} {h}H</p>
+            <p className="text-[10px] font-black tracking-[.16em]" style={{ color: "#ff9d4d" }}>O SINAL DE AGORA · {DIAS_SEM[agora.getDay()]!.toUpperCase()} {h}H</p>
             <p className="text-[20px] font-black text-foreground leading-tight mt-1.5">{nomeDoSinal(s0)}</p>
             <div className="grid grid-cols-3 gap-2 mt-3">
               {([
@@ -469,7 +469,7 @@ export default function SpotFinder() {
           </div>
           <p className="text-[11px] mt-1" style={{ color: "#b3ab9c" }}>
             {nomeDoSinal({ vias: melhorMeu.vias, osm_id: melhorMeu.osm_id })} — <b className="text-foreground">{formatCurrency(melhorMeu.rs_hora)}/h</b> em {melhorMeu.dias} dia{melhorMeu.dias === 1 ? "" : "s"}.
-            {melhorMeu.melhor_dia_semana != null && melhorMeu.melhor_hora != null && <> {DIAS_SEM[melhorMeu.melhor_dia_semana].charAt(0).toUpperCase() + DIAS_SEM[melhorMeu.melhor_dia_semana].slice(1)} às {melhorMeu.melhor_hora}h é seu melhor horário lá.</>}
+            {melhorMeu.melhor_dia_semana != null && melhorMeu.melhor_hora != null && <> {(DIAS_SEM[melhorMeu.melhor_dia_semana] ?? "").charAt(0).toUpperCase() + (DIAS_SEM[melhorMeu.melhor_dia_semana] ?? "").slice(1)} às {melhorMeu.melhor_hora}h é seu melhor horário lá.</>}
             {meuHoje && meuHoje.osm_id !== melhorMeu.osm_id && <> Hoje ({DIAS_SEM[agora.getDay()]}) seu melhor histórico é em <b className="text-foreground">{nomeDoSinal({ vias: meuHoje.vias, osm_id: meuHoje.osm_id })}</b>.</>}
           </p>
         </div>

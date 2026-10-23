@@ -65,7 +65,7 @@ export function RegistrarRecebimentoModal({ open, onOpenChange, userId, date, fa
       if (selErr) throw selErr;
 
       if (row) {
-        const r = row as Record<string, number | null> & { id: string };
+        const r = row;
         const { error: updErr } = await supabase
           .from("daily_sales")
           .update({

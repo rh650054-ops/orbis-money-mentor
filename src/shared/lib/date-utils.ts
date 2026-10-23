@@ -24,7 +24,7 @@ export function getExtratoDia(): string {
   const today = getBrazilDate();
   if (hour >= getExtratoDeadlineHour()) return today;
   const [y, m, d] = today.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
+  const dt = new Date(Date.UTC(y!, m! - 1, d!)); // getBrazilDate() is always YYYY-MM-DD
   dt.setUTCDate(dt.getUTCDate() - 1);
   return dt.toISOString().slice(0, 10);
 }

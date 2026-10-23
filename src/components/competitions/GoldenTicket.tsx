@@ -274,8 +274,10 @@ export function GoldenTicket({
   // bloqueia o scroll durante o gesto e completa com folga (75% já abre).
   const beginDrag = (e: React.PointerEvent<HTMLDivElement>) => {
     if (drag.current.done || drag.current.on) return; // evita sessão dupla (multi-touch)
-    const track = trackRef.current, handle = handleRef.current, fill = fillRef.current;
-    if (!track || !handle || !fill) return;
+    const track = trackRef.current, handleEl = handleRef.current, fillEl = fillRef.current;
+    if (!track || !handleEl || !fillEl) return;
+    // Non-null aliases: hoisted `function` declarations below don't inherit the narrowing.
+    const handle: HTMLDivElement = handleEl, fill: HTMLDivElement = fillEl;
     drag.current.on = true;
     const startX = e.clientX;
     const max = track.offsetWidth - handle.offsetWidth - 12;

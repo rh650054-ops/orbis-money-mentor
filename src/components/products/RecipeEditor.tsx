@@ -140,7 +140,7 @@ export default function RecipeEditor({
               </div>
             );
           })}
-          {recipeMode !== "none" && items.length === 0 && ingredients.length > 0 && (
+          {items.length === 0 && ingredients.length > 0 && (
             <p className="text-xs text-muted-foreground">Toque em "Adicionar" pra incluir um ingrediente.</p>
           )}
         </div>

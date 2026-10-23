@@ -18,8 +18,10 @@ import { linhasMudadas } from "./pluggy-linhas.ts";
 const BRT = "America/Sao_Paulo";
 
 export async function pluggyKey(): Promise<string | null> {
-  const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
-  const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
+  // Same object as the `Deno` global; typed via globalThis so the src test typecheck (no Deno lib) compiles too.
+  const env = (globalThis as unknown as { Deno: { env: { get(k: string): string | undefined } } }).Deno.env;
+  const clientId = env.get("PLUGGY_CLIENT_ID");
+  const clientSecret = env.get("PLUGGY_CLIENT_SECRET");
   if (!clientId || !clientSecret) return null;
   const r = await fetch("https://api.pluggy.ai/auth", {
     method: "POST",

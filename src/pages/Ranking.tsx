@@ -90,7 +90,7 @@ export default function Ranking() {
   // Antes disso (semana de recrutamento), abre no Mensal.
   // Ranking ÚNICO (global) — a liga semanal foi removida. Tipo em união só pra
   // as comparações antigas (dead code do semanal) continuarem compilando.
-  const activeTab: "mensal" | "semanal" = "mensal";
+  const activeTab = "mensal" as "mensal" | "semanal"; // assertion keeps the union (no narrowing to "mensal")
   const weekly = useWeeklyLeaderboard(user?.id, activeTab === "semanal");
   // "Ocultar meu resultado": escolha do vendedor de ficar fora do ranking (padrão: participa).
   const [rankingOculto, setRankingOculto] = useRankingOculto(user?.id);

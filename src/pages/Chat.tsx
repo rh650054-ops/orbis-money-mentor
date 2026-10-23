@@ -9,6 +9,7 @@ import { PostCard } from "@/components/community/PostCard";
 import { CommentsSheet } from "@/components/community/CommentsSheet";
 import { generatePostShareImage } from "@/components/community/postShareImage";
 import PublicProfileModal from "@/components/PublicProfileModal";
+import { MenuDenuncia, useBloqueadosQuery } from "@/features/moderacao";
 
 export default function Chat() {
   const { user } = useAuth();
@@ -28,7 +29,10 @@ export default function Chat() {
   }, [user]);
   useEffect(() => { loadProfile(); }, [loadProfile]);
 
-  const { posts, loading, reload, toggleLike } = useCommunityFeed();
+  const { posts: todos, loading, reload, toggleLike } = useCommunityFeed();
+  // posts from people I blocked don't show up for me
+  const bloqueados = useBloqueadosQuery(user?.id).data;
+  const posts = bloqueados?.size ? todos.filter((p) => !bloqueados.has(p.user_id)) : todos;
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("community_posts").update({ is_deleted: true }).eq("id", id);
@@ -116,6 +120,7 @@ export default function Chat() {
                 onRepost={() => handleRepost(p)}
                 onDelete={() => handleDelete(p.id)}
                 onOpenAuthor={(uid) => setProfileUid(uid)}
+                menu={<MenuDenuncia autorId={p.user_id} autorNome={p.nickname} postId={p.id} />}
               />
             ))}
           </div>

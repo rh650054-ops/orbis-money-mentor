@@ -145,7 +145,8 @@ export default function Auth() {
         // e só diz QUAL campo já está em uso — sem expor dados de ninguém.
         const { data: takenField } = await supabase.rpc("check_signup_available", {
           p_phone: cleanedPhone,
-          p_email: email.trim() || null,
+          // SQL accepts NULL (no e-mail); generated RPC arg types don't model nullable params.
+          p_email: (email.trim() || null) as string,
         });
         if (takenField === "phone") {
           throw new Error("Já existe uma conta com esse telefone.");

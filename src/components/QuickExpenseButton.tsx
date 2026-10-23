@@ -200,7 +200,7 @@ export default function QuickExpenseButton({
         .limit(200),
     ]);
     const manuais = (data as HistoryExpense[]) || [];
-    const cmvs: HistoryExpense[] = (ds || []).map((r: { id: string; cost: number; date: string }) => ({
+    const cmvs: HistoryExpense[] = (ds || []).map((r: { id: string; cost: number | null; date: string }) => ({
       id: r.id,
       name: "Mercadoria vendida (CMV)",
       amount: Number(r.cost),
