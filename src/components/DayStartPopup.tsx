@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useToast } from "@/shared/hooks/use-toast";
+import { carregarMetaDoDia } from "@/hooks/useMetaDoDia";
 
 interface DayStartPopupProps {
   userId: string;
@@ -69,8 +70,14 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
       .eq("user_id", userId)
       .maybeSingle();
 
+    // Meta do dia = a MESMA do Foco (meta_do_dia, "meta viável"). Antes o popup mostrava
+    // base_daily_goal (meta do mês ÷ dias) e o Foco mostrava outra: R$ 210 × R$ 400 (23/10).
+    const viavel = await carregarMetaDoDia(today);
+    const metaHoje = viavel && viavel.status !== "aprendendo" && viavel.meta > 0
+      ? viavel.meta : (profile?.base_daily_goal || 0);
+
     if (profile) {
-      setDailyGoal(profile.base_daily_goal || 0);
+      setDailyGoal(metaHoje);
       setWeeklyGoal(profile.weekly_goal || 0);
       setMonthlyGoal(profile.monthly_goal || 0);
       setWorkHours(profile.goal_hours || 0);
@@ -81,8 +88,8 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
       if (session.status === 'finished') {
         setDayStatus('finished');
         setTotalSold(session.total_vendido || 0);
-        if (profile?.base_daily_goal) {
-          setPercentageAchieved(((session.total_vendido || 0) / profile.base_daily_goal) * 100);
+        if (metaHoje > 0) {
+          setPercentageAchieved(((session.total_vendido || 0) / metaHoje) * 100);
         }
       } else if (session.status === 'active') {
         setDayStatus('in_progress');

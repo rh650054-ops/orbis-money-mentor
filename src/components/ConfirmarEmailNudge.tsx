@@ -30,11 +30,12 @@ export default function ConfirmarEmailNudge({ userId }: { userId: string }) {
     // email_verificado_em ainda não está nos types gerados (mesmo padrão do Auth.tsx)
     (supabase as any)
       .from("profiles")
-      .select("email_verificado_em")
+      .select("email_verificado_em, is_demo")
       .eq("user_id", userId)
       .maybeSingle()
-      .then(({ data }: { data: { email_verificado_em: string | null } | null }) => {
-        if (!cancel && data && !data.email_verificado_em) setShow(true);
+      .then(({ data }: { data: { email_verificado_em: string | null; is_demo: boolean | null } | null }) => {
+        // conta demo (revisor das lojas, equipe) não tem caixa de e-mail pra confirmar
+        if (!cancel && data && !data.email_verificado_em && !data.is_demo) setShow(true);
       });
     return () => { cancel = true; };
   }, [userId]);
