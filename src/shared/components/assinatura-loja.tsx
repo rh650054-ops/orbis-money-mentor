@@ -4,8 +4,9 @@
  *  - "fora" (reserva): aviso neutro, só suporte. */
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { ExternalLink, LogOut, RefreshCw } from "lucide-react";
-import { EVENTO_ASSINATURA_LOJA, LINK_ASSINAR_SITE, assinaPeloSite, podeMostrarAssinatura } from "@/shared/lib/cobranca-loja";
+import { EVENTO_ASSINATURA_LOJA, assinaPeloSite, podeMostrarAssinatura } from "@/shared/lib/cobranca-loja";
 import { abrirLinkExterno } from "@/shared/lib/link-externo";
+import { abrirAssinarNoSite } from "@/shared/lib/assinar-no-site";
 
 const SUPORTE = "https://wa.me/5511915054830?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20com%20a%20minha%20conta%20da%20Vant";
 const GOLD = "#F5B800";
@@ -24,7 +25,7 @@ export function TelaAssinarPeloSite({ titulo, texto, onTentar, tentando, onSair 
         {texto ?? <>Sua assinatura não está ativa ou expirou.<br />Para usar a VANT você precisa de uma assinatura ativa.</>}
       </p>
       <div className="mt-5 space-y-2.5">
-        <button type="button" onClick={() => void abrirLinkExterno(LINK_ASSINAR_SITE)} className={btn("")} style={{ background: GOLD, color: "#1A1200" }}>
+        <button type="button" onClick={() => void abrirAssinarNoSite()} className={btn("")} style={{ background: GOLD, color: "#1A1200" }}>
           <ExternalLink className="w-4 h-4" strokeWidth={2.6} /> Assinar
         </button>
         {onTentar && (

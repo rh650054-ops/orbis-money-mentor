@@ -14,6 +14,8 @@ const FREE_PATHS = [
   "/entrar",
   // os 3 planos: quem expirou precisa conseguir escolher e pagar
   "/planos",
+  // página aberta pelo app da loja no navegador (modelo Néctar): quem expirou precisa chegar nela
+  "/assinar",
   // Ler os Termos e a Política de Privacidade NUNCA pode ser bloqueado: é direito
   // do vendedor (LGPD) e ele precisa disso justamente na hora de aceitar. Sem estas
   // duas linhas, quem estava com o teste expirado clicava pra ler e caía no modal

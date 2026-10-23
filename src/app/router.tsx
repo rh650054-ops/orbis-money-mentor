@@ -99,6 +99,7 @@ const BankConnections = lazyWithReload(() => import("@/pages/BankConnections"));
 const SpotFinder = lazyWithReload(() => import("@/pages/SpotFinder"));
 const Privacidade = lazyWithReload(() => import("@/pages/Privacidade"));
 const Termos = lazyWithReload(() => import("@/pages/Termos"));
+const AssinarPage = lazyWithReload(() => import("@/features/assinar/routes/assinar-page"));
 
 function PageLoader() {
   // Centralizado no viewport de verdade: com min-h-[50vh] o spinner ficava no alto
@@ -132,6 +133,8 @@ export function AppRouter() {
           <Route path="/entrar" element={<FeatureErrorBoundary title="Entrar"><EntrarNovoDominio /></FeatureErrorBoundary>} />
           <Route path="/privacidade" element={<Privacidade />} />
           <Route path="/termos" element={<Termos />} />
+          {/* aberta pelo app da loja no navegador do celular (modelo Néctar), sem login */}
+          <Route path="/assinar" element={<FeatureErrorBoundary title="Assinar"><AssinarPage /></FeatureErrorBoundary>} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/force-password-change" element={<ForcePasswordChange />} />
