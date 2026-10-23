@@ -25,6 +25,7 @@ import { ComprovanteCard } from "../components/comprovante-card";
 import { OndeRecebe } from "../components/onde-recebe";
 import { GerenciarFolha } from "../components/gerenciar-folha";
 import { PrimeiroBanco } from "../components/primeiro-banco";
+import { AvisoRenovacaoPix } from "@/features/renovacao";
 
 export default function VenderPage() {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ export default function VenderPage() {
 
   const d = bancosQ.data;
   const pro = d?.pro;
-  const cabecalho = (
+  const CabecalhoSo = () => (
     <header className="flex items-center justify-between px-1">
       <div>
         <p className="text-[10.5px] font-black tracking-[.16em]" style={{ color: COR.apagado }}>VENDER</p>
@@ -50,6 +51,8 @@ export default function VenderPage() {
       {pro?.pro && <Pilula tom="ok">PRO ATIVO</Pilula>}
     </header>
   );
+  // o aviso do Pix da renovação vai logo abaixo do título, em todas as variações da tela
+  const cabecalho = <><CabecalhoSo /><AvisoRenovacaoPix /></>;
 
   if (!user?.id || bancosQ.isLoading || !d || !pro) {
     return <div className="max-w-md mx-auto flex flex-col gap-3">{cabecalho}<SkeletonCard /><SkeletonCard /><SkeletonCard /></div>;

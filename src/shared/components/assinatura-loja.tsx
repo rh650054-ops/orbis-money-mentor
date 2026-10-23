@@ -14,8 +14,10 @@ const GOLD = "#F5B800";
 const btn = (extra: string) => `w-full h-[50px] rounded-[14px] inline-flex items-center justify-center gap-2 text-[14.5px] font-black ${extra}`;
 
 /** Néctar-style block: "Assinatura inválida" + Assinar (site) · Tentar novamente · Sair. */
-export function TelaAssinarPeloSite({ titulo, texto, onTentar, tentando, onSair }: {
+export function TelaAssinarPeloSite({ titulo, texto, onTentar, tentando, onSair, renovacao }: {
   titulo?: string; texto?: ReactNode; onTentar?: () => void; tentando?: boolean; onSair?: () => void;
+  /** Pix da renovação em aberto: vira o botão principal; "Assinar" vira "Trocar de plano" */
+  renovacao?: ReactNode;
 }) {
   return (
     <div className="rounded-[22px] border px-5 py-6 text-center text-[#F4F1EA]" style={{ background: "#0b0b0d", borderColor: "rgba(255,90,69,.55)" }}>
@@ -25,8 +27,10 @@ export function TelaAssinarPeloSite({ titulo, texto, onTentar, tentando, onSair 
         {texto ?? <>Sua assinatura não está ativa ou expirou.<br />Para usar a VANT você precisa de uma assinatura ativa.</>}
       </p>
       <div className="mt-5 space-y-2.5">
-        <button type="button" onClick={() => void abrirAssinarNoSite()} className={btn("")} style={{ background: GOLD, color: "#1A1200" }}>
-          <ExternalLink className="w-4 h-4" strokeWidth={2.6} /> Assinar
+        {renovacao}
+        <button type="button" onClick={() => void abrirAssinarNoSite()} className={btn("")}
+          style={renovacao ? { background: "#121211", border: "1px solid #2a2823" } : { background: GOLD, color: "#1A1200" }}>
+          <ExternalLink className="w-4 h-4" strokeWidth={2.6} /> {renovacao ? "Trocar de plano" : "Assinar"}
         </button>
         {onTentar && (
           <button type="button" onClick={onTentar} disabled={tentando} className={btn("disabled:opacity-60")} style={{ background: "#121211", border: "1px solid #2a2823" }}>
