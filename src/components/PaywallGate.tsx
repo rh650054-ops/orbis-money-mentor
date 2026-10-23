@@ -22,6 +22,9 @@ const FREE_PATHS = [
   // de "assine agora" — parecia que o link estava quebrado.
   "/termos",
   "/privacidade",
+  // links das lojas (Apple: suporte; Google: excluir conta sem o app)
+  "/suporte",
+  "/excluir-conta",
   "/payment",
   "/benefits",
   "/install",

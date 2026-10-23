@@ -109,7 +109,7 @@ export default function Termos() {
           <p>
             Podemos atualizar estes termos, indicando a data no topo e avisando mudanças relevantes
             no app. Lei aplicável: brasileira; foro do seu domicílio, quando você for consumidor.
-            Dúvidas: <strong>rh650054@gmail.com</strong>.
+            Dúvidas: <strong>suporte@vantapp.com.br</strong>.
           </p>
         </S>
 
