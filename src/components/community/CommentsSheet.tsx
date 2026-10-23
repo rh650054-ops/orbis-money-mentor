@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Heart, Loader2, Send, Trash2 } from "lucide-react";
+import { MenuDenuncia, useBloqueadosQuery } from "@/features/moderacao";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,6 +32,7 @@ interface Props {
 
 export function CommentsSheet({ postId, onClose, profile }: Props) {
   const { user } = useAuth();
+  const bloqueados = useBloqueadosQuery(user?.id).data;
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(false);
   const [text, setText] = useState("");
@@ -118,7 +120,7 @@ export function CommentsSheet({ postId, onClose, profile }: Props) {
           ) : comments.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-10">Seja o primeiro a comentar.</p>
           ) : (
-            comments.map((c) => (
+            comments.filter((c) => !bloqueados?.has(c.user_id)).map((c) => (
               <div key={c.id} className="flex gap-2.5">
                 <Avatar className="h-8 w-8 shrink-0">
                   <AvatarImage src={avatarThumb(c.avatar_url, 64)} />
@@ -147,6 +149,7 @@ export function CommentsSheet({ postId, onClose, profile }: Props) {
                         <Trash2 className="h-4 w-4" />
                       </button>
                     )}
+                    {c.user_id !== user?.id && <span className="-my-2"><MenuDenuncia autorId={c.user_id} autorNome={c.nickname} commentId={c.id} /></span>}
                   </div>
                 </div>
               </div>

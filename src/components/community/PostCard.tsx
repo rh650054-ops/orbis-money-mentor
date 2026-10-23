@@ -16,6 +16,8 @@ interface Props {
   onRepost: () => void;
   onDelete: () => void;
   onOpenAuthor?: (userId: string) => void;
+  /** report/block menu, shown on other people's posts (stores' UGC rules, 23/10/2026) */
+  menu?: React.ReactNode;
 }
 
 // Destaca #hashtags e @menções no texto do post
@@ -30,7 +32,7 @@ function renderContent(text: string) {
   );
 }
 
-export function PostCard({ post, isMine, onLike, onOpenComments, onShare, onRepost, onDelete, onOpenAuthor }: Props) {
+export function PostCard({ post, isMine, onLike, onOpenComments, onShare, onRepost, onDelete, onOpenAuthor, menu }: Props) {
   return (
     <article className="px-4 py-3 transition-colors hover:bg-muted/20">
       <div className="flex gap-3">
@@ -77,6 +79,7 @@ export function PostCard({ post, isMine, onLike, onOpenComments, onShare, onRepo
                 <Trash2 className="h-4 w-4" />
               </button>
             )}
+            {!isMine && menu && <span className="ml-auto -mr-1">{menu}</span>}
           </div>
 
           {post.content && (
