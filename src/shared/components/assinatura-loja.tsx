@@ -1,21 +1,60 @@
-/* App da loja no modo "fora" (cobranca-loja.ts): no lugar de preço e botão de
-   assinar, um aviso neutro — sem link nem preço, só suporte. */
-import { useEffect, useState, type ComponentType } from "react";
-import { EVENTO_ASSINATURA_LOJA, podeMostrarAssinatura } from "@/shared/lib/cobranca-loja";
+/* App da loja (cobranca-loja.ts):
+ *  - "link" (modelo Néctar, padrão): sem preço nem checkout no app. Um cartão/tela com
+ *    "Assinar" que abre o site da VANT no navegador, "Tentar novamente" e "Sair da conta".
+ *  - "fora" (reserva): aviso neutro, só suporte. */
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { ExternalLink, LogOut, RefreshCw } from "lucide-react";
+import { EVENTO_ASSINATURA_LOJA, LINK_ASSINAR_SITE, assinaPeloSite, podeMostrarAssinatura } from "@/shared/lib/cobranca-loja";
+import { abrirLinkExterno } from "@/shared/lib/link-externo";
 
 const SUPORTE = "https://wa.me/5511915054830?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20com%20a%20minha%20conta%20da%20Vant";
+const GOLD = "#F5B800";
 
+const btn = (extra: string) => `w-full h-[50px] rounded-[14px] inline-flex items-center justify-center gap-2 text-[14.5px] font-black ${extra}`;
+
+/** Néctar-style block: "Assinatura inválida" + Assinar (site) · Tentar novamente · Sair. */
+export function TelaAssinarPeloSite({ titulo, texto, onTentar, tentando, onSair }: {
+  titulo?: string; texto?: ReactNode; onTentar?: () => void; tentando?: boolean; onSair?: () => void;
+}) {
+  return (
+    <div className="rounded-[22px] border px-5 py-6 text-center text-[#F4F1EA]" style={{ background: "#0b0b0d", borderColor: "rgba(255,90,69,.55)" }}>
+      <span className="mx-auto w-14 h-14 rounded-full flex items-center justify-center text-[26px] font-black" style={{ background: "rgba(255,90,69,.14)", color: "#ff7d6b" }}>!</span>
+      <p className="text-[21px] font-black mt-4 leading-tight">{titulo ?? "Assinatura inválida"}</p>
+      <p className="text-[13.5px] mt-1.5 leading-snug" style={{ color: "#b9b3a6" }}>
+        {texto ?? <>Sua assinatura não está ativa ou expirou.<br />Para usar a VANT você precisa de uma assinatura ativa.</>}
+      </p>
+      <div className="mt-5 space-y-2.5">
+        <button type="button" onClick={() => void abrirLinkExterno(LINK_ASSINAR_SITE)} className={btn("")} style={{ background: GOLD, color: "#1A1200" }}>
+          <ExternalLink className="w-4 h-4" strokeWidth={2.6} /> Assinar
+        </button>
+        {onTentar && (
+          <button type="button" onClick={onTentar} disabled={tentando} className={btn("disabled:opacity-60")} style={{ background: "#121211", border: "1px solid #2a2823" }}>
+            <RefreshCw className={`w-4 h-4 ${tentando ? "animate-spin" : ""}`} /> {tentando ? "Verificando..." : "Tentar novamente"}
+          </button>
+        )}
+        {onSair && (
+          <button type="button" onClick={onSair} className={btn("")} style={{ background: "transparent", border: "1px solid rgba(255,90,69,.55)", color: "#ff7d6b" }}>
+            <LogOut className="w-4 h-4" /> Sair da conta
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Modo "fora": aviso neutro, sem link nem preço, só suporte. */
 export function AvisoAssinaturaLoja({ onFechar }: { onFechar?: () => void }) {
+  if (assinaPeloSite()) return <TelaAssinarPeloSite />;
   return (
     <div className="rounded-[20px] border px-5 py-5 flex flex-col gap-2.5 text-left" style={{ background: "#0e0e10", borderColor: "rgba(245,184,0,.35)" }}>
-      <span className="text-[11px] font-black tracking-[.14em]" style={{ color: "#F5B800" }}>SUA CONTA</span>
+      <span className="text-[11px] font-black tracking-[.14em]" style={{ color: GOLD }}>SUA CONTA</span>
       <p className="text-[17px] font-extrabold leading-snug">Pelo app não dá pra assinar.</p>
       <p className="text-[13.5px] leading-snug" style={{ color: "#b9b3a6" }}>
         Se você já assina a VANT, entra com a mesma conta que tudo libera aqui. Qualquer dúvida, o suporte te ajuda.
       </p>
       <div className="flex gap-2 mt-1">
-        <button type="button" onClick={() => window.open(SUPORTE, "_blank")}
-          className="h-11 px-4 rounded-[12px] text-[14px] font-black" style={{ background: "#F5B800", color: "#1A1200" }}>
+        <button type="button" onClick={() => void abrirLinkExterno(SUPORTE)}
+          className="h-11 px-4 rounded-[12px] text-[14px] font-black" style={{ background: GOLD, color: "#1A1200" }}>
           Falar com o suporte
         </button>
         {onFechar && (
@@ -28,7 +67,7 @@ export function AvisoAssinaturaLoja({ onFechar }: { onFechar?: () => void }) {
   );
 }
 
-/** Ouve qualquer tentativa de abrir checkout no app da loja e mostra o aviso. */
+/** Ouve qualquer tentativa de abrir checkout no app da loja e mostra o aviso/tela. */
 export function OuvinteAssinaturaLoja() {
   const [aberto, setAberto] = useState(false);
   useEffect(() => {
@@ -46,7 +85,7 @@ export function OuvinteAssinaturaLoja() {
   );
 }
 
-/** Tela/caixa de venda: no app da loja (modo "fora") vira o aviso (ou some). */
+/** Tela/caixa de venda: no app da loja vira a tela "Assinar pelo site" (ou some). */
 export function soComAssinatura<P extends object>(Componente: ComponentType<P>, semAssinatura: "aviso" | "nada" = "aviso") {
   function ComAssinatura(props: P) {
     if (podeMostrarAssinatura()) return <Componente {...props} />;

@@ -12,6 +12,8 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { useVoltaDoCheckout } from "@/hooks/useVoltaDoCheckout";
 import { verificarAcessoPago } from "@/shared/lib/verificar-acesso";
+import { assinaPeloSite } from "@/shared/lib/cobranca-loja";
+import { TelaAssinarPeloSite } from "@/shared/components/assinatura-loja";
 
 interface TrialExpiredModalProps {
   isOpen: boolean;
@@ -75,12 +77,22 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
         <div className="absolute -bottom-24 -left-24 w-56 h-56 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative overflow-y-auto max-h-[92dvh] px-5 py-6 sm:px-7 sm:py-7 text-[#F4F1EA]" style={{ background: "#000" }}>
+          {/* App da loja (modelo Néctar, 23/10/2026): sem preço; Assinar abre o site */}
+          {assinaPeloSite() ? (
+            <TelaAssinarPeloSite
+              titulo={exAssinante ? "Assinatura inválida" : "Seu teste acabou"}
+              texto={exAssinante
+                ? <>Sua assinatura não está ativa ou expirou.<br />Para continuar na VANT você precisa de uma assinatura ativa.</>
+                : <>Seus 3 dias de teste terminaram.<br />Pra continuar vendendo com a VANT, assine pelo site.</>}
+              onTentar={handleCheckAccess} tentando={isChecking} onSair={handleLogout} />
+          ) : (<>
           {/* Fim do teste (06/10): os 3 planos — VANT Pro Anual (selecionado), Pro Mensal e Essencial */}
           <p className="text-center font-mono text-[10px] font-bold tracking-[.18em] mb-3" style={{ color: "#F5B800" }}>{exAssinante ? "SEU PLANO ENCERROU" : "SEU TESTE ACABOU"}</p>
           <EscolhaPlano vendido={vendido} titulo={exAssinante ? "Escolha como voltar pra VANT" : undefined} />
+          </>)}
 
-          {/* Já pagou / sair */}
-          <div className="space-y-2 mt-4">
+          {/* Já pagou / sair (no app da loja esses dois já estão na tela acima) */}
+          {!assinaPeloSite() && <div className="space-y-2 mt-4">
             <Button
               onClick={handleCheckAccess}
               variant="outline"
@@ -99,7 +111,7 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
               <LogOut className="w-3.5 h-3.5 mr-2" />
               Sair
             </Button>
-          </div>
+          </div>}
 
         </div>
       </DialogContent>

@@ -1,7 +1,8 @@
 import { HOTMART_CHECKOUT_URL } from "./constants";
 import { avisar } from "@/shared/lib/avisar";
 import { validateCPF } from "@/shared/lib/cpf-validation";
-import { EVENTO_ASSINATURA_LOJA, modoCobranca } from "./cobranca-loja";
+import { EVENTO_ASSINATURA_LOJA, LINK_ASSINAR_SITE, modoCobranca } from "./cobranca-loja";
+import { abrirLinkExterno } from "./link-externo";
 
 // Atribuição de influenciador por cupom, mesmo com o teste grátis no app.
 // Quando a pessoa entra pelo link do influenciador (ex: ".../?cupom=ZECK15"),
@@ -166,8 +167,11 @@ function marcarCheckoutAberto(): void {
  *  returns null by spec and the fallback would always replace the app — the
  *  opener is cut by hand instead. */
 export function abrirCheckout(url: string): void {
-  // app da loja no modo "fora": nunca abre a Hotmart; mostra o aviso neutro
-  if (modoCobranca() === "fora") {
+  // app da loja: nunca abre a Hotmart. "link" (Néctar) abre a página de planos do site
+  // no navegador do celular; "fora" mostra o aviso neutro.
+  const modo = modoCobranca();
+  if (modo === "link") { marcarCheckoutAberto(); void abrirLinkExterno(LINK_ASSINAR_SITE); return; }
+  if (modo === "fora") {
     window.dispatchEvent(new CustomEvent(EVENTO_ASSINATURA_LOJA));
     return;
   }
