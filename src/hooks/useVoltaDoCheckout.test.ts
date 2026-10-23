@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 import { act, renderHook } from "@testing-library/react";
 
 const toast = vi.fn();

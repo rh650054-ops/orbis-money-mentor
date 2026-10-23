@@ -54,7 +54,7 @@ function visivelPraMim(x){
   if(!minhaVisao()) return true;
   if(x.resp && x.resp===EU) return true;
   if(!MEU.esteiras.includes(x.e)) return false;
-  if(x.e==="upgrade" && x.resp && x.resp!==EU) return false;   // Upgrade é dividido entre os closers
+  if(x.resp && x.resp!==EU) return false;   // ficha com responsável só aparece pra ele (Rick, 23/10) — antes valia só no Upgrade
   return true;
 }
 const esteiraVisivel=k=>!minhaVisao()||MEU.esteiras.includes(k)||FICHAS.some(x=>x.e===k);
@@ -476,6 +476,17 @@ function contatosHoje(){
  return ids.size;
 }
 const notaDe=(f,i)=>String((estDe(f).notas||{})[String(i)]||"");
+/* Descrição do lead (Rick, 23/10): texto livre que fica À MOSTRA no cartão da esteira, sem abrir.
+   Mora em crm_estado.notas.desc — mesma gravação das notas das atividades. */
+const descDe=f=>String((estDe(f).notas||{}).desc||"");
+function ligarDesc(root,f){
+ const ta=root.querySelector("[data-desc]"); if(!ta) return;
+ let antes=ta.value;
+ const gravar=async()=>{ if(ta.value===antes) return; antes=ta.value;
+   if(await gravarEstado(f,{notas:{desc:ta.value.trim()}})){ toast("Descrição salva"); renderEsteiras(); } };
+ ta.addEventListener("blur",()=>void gravar());
+ ta.addEventListener("keydown",e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); ta.blur(); } });
+}
 /* "travado" só existe onde há atividade que destrava: Trial (dias 1–3) e Pagantes. Lead da LP e Base só "estão" ali. */
 const travaDe=f=>{const c=etapaDe(f); return ((f.e==="trial"&&c!=="lp"&&c!=="acabou")||f.e==="pagante")?f.trava:0;};
 const atividades=f=>E[f.e].ativ[etapaDe(f)]||[];
@@ -674,6 +685,7 @@ function renderHoje(){
      ${travaDe(f)?`<span class="pill bad">travado ${travaDe(f)}d</span>`:`<span class="pill">${Math.round(f.d)}d aqui</span>`}</div></div>
    <button class="btn ghost" style="flex:none;align-self:flex-start" data-painel="${f.id}">Painel</button></div>
   <p class="porque"><span style="flex:none;color:var(--dim)">→</span><span><b>Por que esse agora:</b> ${f.porque}</span></p>
+  ${descDe(f)?`<p class="porque"><span style="flex:none;color:var(--dim)">📝</span><span><b>Sobre ele:</b> ${esc(descDe(f))}</span></p>`:""}
   ${sinaisHTML(f)}
   <div class="blk"><h4>Atividades — clique para ver a mensagem</h4>
    <div id="ativs">${ats.map((a,i)=>ativHTML(f,a,i,fei.includes(i))).join("")}</div>
@@ -957,15 +969,18 @@ function renderEsteiras(){
    ${def.cols.map(([c,titulo])=>{
      const qtd=QTD[k+"/"+c]||0,morto=(c==="acabou");
      const am=FICHAS.filter(x=>x.e===k&&etapaDe(x)===c&&!escondida(x));
-     return `<div class="col" data-drop="${k}/${c}"><div class="col-h"><span class="t"${morto?' style="color:var(--bad)"':''}>${esc(titulo)}</span><span class="q num">${qtd}</span></div>
+     // o número da coluna é o que está À MOSTRA; quem já foi atendido hoje (volta amanhã / em 2 dias) ou
+     // foi resolvido/perdido fica fora da conta e aparece como "em espera" (Rick, 23/10)
+     const espera=Math.max(0,qtd-am.length);
+     return `<div class="col" data-drop="${k}/${c}"><div class="col-h"><span class="t"${morto?' style="color:var(--bad)"':''}>${esc(titulo)}</span><span class="q num" title="${espera?espera+" já atendida(s): voltam sozinhas":""}">${am.length}${espera?`<small style="color:var(--faint);font-weight:500"> +${espera}</small>`:""}</span></div>
       <div class="col-lista">${am.map(x=>{
         const semMotivo=etapaDe(x)==="acabou"&&!notaDe(x,0).trim();
         return `<button class="chip${morto?" morto":""}" style="border-left-color:var(--${morto?"bad":def.cor})" data-painel="${x.id}" data-arrasta="${x.id}">
          <div class="nm">${esc(x.n)}</div>
          <div class="sb${travaDe(x)||semMotivo||(k==="upgrade"&&x.d>=1&&!["renovou","nao_renovou"].includes(c))?" bad":""}">${semMotivo?"sem motivo · conta como sem contato"
-           :travaDe(x)?`travado ${travaDe(x)}d`:`${Math.round(x.d)}d nessa coluna`}${k==="upgrade"?upgradeInfo(x):""}${!minhaVisao()&&donoDe(x)?` · ${esc(donoDe(x).nome)}`:""}</div></button>`;}).join("")}
+           :travaDe(x)?`travado ${travaDe(x)}d`:`${Math.round(x.d)}d nessa coluna`}${k==="upgrade"?upgradeInfo(x):""}${!minhaVisao()&&donoDe(x)?` · ${esc(donoDe(x).nome)}`:""}</div>${descDe(x)?`<div class="ds">${esc(descDe(x))}</div>`:""}</button>`;}).join("")}
       </div>
-      ${qtd===0?`<div class="mais">vazia</div>`:""}</div>`;}).join("")}
+      ${am.length===0?`<div class="mais">${espera?`${espera} em espera · já falou, volta sozinha`:"vazia"}</div>`:""}</div>`;}).join("")}
    </div></div>`;}
  const errados=FICHAS.filter(contatoErrado);
  h+=`<div class="box" style="margin-bottom:14px;border-color:var(--warn)">
@@ -1213,6 +1228,9 @@ function abrir(id,foco){
    </div>`:""}
    <div class="dr-sec"><h4>Situação</h4>
     <p style="margin:0;font-size:13px;line-height:1.55">${f.porque}</p></div>
+   <div class="dr-sec"><h4>Descrição do lead</h4>
+    <textarea class="txtarea" data-desc rows="3" placeholder="Ex.: vende bolo no sinal da Raposo, prefere áudio, só responde de noite">${esc(descDe(f))}</textarea>
+    <p class="nota" style="margin:6px 0 0">Fica à mostra no cartão da esteira, sem precisar abrir. Salva ao sair do campo (ou Ctrl+Enter). Quem pegar a ficha depois vê também.</p></div>
    <div class="dr-sec"><h4>Onde ele está na esteira</h4>
     <div class="trilha">${cols.map(([c,t],i)=>`<span class="tstep ${c===et?(c==="acabou"?"bad":"now"):(i<idx?"pass":"")}">${esc(t)}</span>`).join("")}</div>
     <p class="nota" style="margin:11px 0 0"><b>Mover para:</b></p>
@@ -1239,7 +1257,7 @@ function abrir(id,foco){
  document.getElementById("dr-x").onclick=fechar;
  ligarDono(f);
  veu.onclick=fechar;
- ligarAtividades(dr,f); ligarChat(dr,f);
+ ligarAtividades(dr,f); ligarChat(dr,f); ligarDesc(dr,f);
  ["dr-zap-fix","dr-zap-edit"].forEach(id=>{const b=document.getElementById(id); if(b) b.onclick=()=>corrigirZap(f);});
  {const b=document.getElementById("dr-zap-errado"); if(b) b.onclick=()=>marcarErrado(f);}
  dr.querySelectorAll("[data-mover]").forEach(b=>{if(!b.disabled)b.onclick=()=>mover(f,b.dataset.mover);});
