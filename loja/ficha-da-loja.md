@@ -15,7 +15,11 @@ Alternativa: **VANT: Gestão pra Ambulante** (26)
 **Registre vendas em 1 toque, veja o lucro do dia e dispute o ranking.** (68)
 
 ## Texto promocional (Apple, 170, muda sem nova versão)
-Desafio Avante: novembro e dezembro valendo prêmio pra quem mais vender. Ative o Modo Foco, registre cada venda e acompanhe sua posição ao vivo.
+Ative o Modo Foco, registre cada venda com um toque e veja na hora se a meta do dia está batendo. Novo: Caça-Sinal com os semáforos que mais vendem.
+
+> Sem "valendo prêmio" aqui: concurso com prêmio exige regulamento oficial e o aviso
+> de que a Apple não patrocina (diretriz 5.3). Se for divulgar o Desafio Avante na loja,
+> antes publicar o regulamento e linkar.
 
 ## Descrição completa (as duas lojas)
 
@@ -28,7 +32,10 @@ META DO DIA QUE FAZ SENTIDO
 Diga quanto quer fazer no mês e a VANT quebra em meta do dia e da hora. No fim do dia, um relatório mostra quanto entrou, quanto sobrou e o que mudar amanhã.
 
 RANKING E DESAFIOS
-Dispute com vendedores do Brasil inteiro. Suba de posição, defenda seu lugar no X1 e participe dos desafios da temporada.
+Dispute com vendedores do Brasil inteiro. Suba de posição, desafie outro vendedor no X1 valendo pontos e participe dos desafios da temporada.
+
+CAÇA-SINAL
+Veja os semáforos onde os vendedores da VANT mais vendem perto de você, com o tempo do sinal e os melhores horários.
 
 SEU DINHEIRO ORGANIZADO
 Separe o que é do negócio e o que é da casa, acompanhe gastos com mercadoria e veja quanto você realmente lucra. Na VANT Pro, conecte sua conta do banco pelo Open Finance e as entradas de Pix caem sozinhas, sem digitar nada.
@@ -43,10 +50,16 @@ ACHE OS MELHORES PONTOS
 Veja a previsão do tempo do seu ponto e descubra lugares com movimento perto de você.
 
 PLANOS
-Teste grátis por 3 dias. Depois, escolha entre VANT Essencial e VANT Pro (mensal ou anual), com assinatura pela loja do seu celular. A renovação é automática e você cancela quando quiser nas configurações da loja.
+Teste grátis por 3 dias. Depois, escolha o plano que cabe no seu corre.
 
-Termos de Uso: https://app.orbis.inf.br/termos
-Política de Privacidade: https://app.orbis.inf.br/privacidade
+Termos de Uso: https://app.vantapp.com.br/termos
+Política de Privacidade: https://app.vantapp.com.br/privacidade
+Suporte: https://app.vantapp.com.br/suporte
+
+> 23/10/2026 (modelo Néctar): a descrição NÃO fala de preço, de onde assinar nem de
+> "assinatura pela loja do celular". A compra é no site, e a Apple não aceita texto da
+> ficha mandando pagar fora. O antigo "assinatura pela loja... cancela nas configurações
+> da loja" estava errado pra esse modelo e saiu.
 
 ## Palavras-chave (Apple, 100, sem espaço depois da vírgula)
 ambulante,vendedor,feirante,caixa,controle,financeiro,pix,lucro,ranking,camelô,MEI,autônomo,carrinho
@@ -58,16 +71,14 @@ ambulante,vendedor,feirante,caixa,controle,financeiro,pix,lucro,ranking,camelô,
 - Apple: **Negócios** (principal), **Finanças** (secundária).
 
 ## Classificação etária
-Livre / 4+ na maioria das perguntas. Atenção: o **X1** com depósito em dinheiro
-pode ser lido como aposta. Se o X1 envolver valor em dinheiro entre jogadores,
-ele precisa ficar fora do app da loja ou o app vira 18+ e cai em regras de jogos
-de azar nas duas lojas. Decidir antes do envio.
+Livre / 4+. O X1 no app da loja vale só pontos (sem depósito nem prêmio em dinheiro,
+`x1-loja.ts`, 22/10/2026), então não entra em regra de jogo de azar.
+Responder "Não" a apostas/jogos com dinheiro real nas duas lojas.
 
 ## URLs que as lojas pedem
-- Política de privacidade: https://app.orbis.inf.br/privacidade
-- Termos: https://app.orbis.inf.br/termos
-- Excluir conta (Google): https://app.orbis.inf.br/excluir-conta
-- Suporte (Apple exige): usar a página de privacidade ou criar `/suporte` com o WhatsApp
-- Site de marketing (opcional na Apple)
-
-> Quando o domínio da VANT existir, troque as URLs — a página da loja aceita mudança a qualquer momento.
+- Política de privacidade: https://app.vantapp.com.br/privacidade
+- Termos: https://app.vantapp.com.br/termos
+- Suporte (Apple exige): https://app.vantapp.com.br/suporte
+- Excluir conta (Google exige, funciona sem o app): https://app.vantapp.com.br/excluir-conta
+- E-mail de contato das duas lojas: suporte@vantapp.com.br
+- Site de marketing (opcional na Apple): https://vantapp.com.br

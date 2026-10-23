@@ -41,7 +41,7 @@ export default function Privacidade() {
             (Lei nº 13.709/2018 — LGPD).
           </p>
           <p>
-            Canal do encarregado de dados (DPO): <strong>rh650054@gmail.com</strong>.
+            Canal do encarregado de dados (DPO): <strong>suporte@vantapp.com.br</strong>.
           </p>
         </S>
 
@@ -99,7 +99,7 @@ export default function Privacidade() {
             (diretamente no app, em Minha Conta); pedir anonimização, bloqueio ou eliminação;
             solicitar portabilidade; saber com quem compartilhamos; revogar consentimentos (ex.:
             desconectar o banco); e excluir sua conta pelo próprio app. Para qualquer pedido, fale
-            com o encarregado: <strong>rh650054@gmail.com</strong>. Respondemos nos prazos da LGPD.
+            com o encarregado: <strong>suporte@vantapp.com.br</strong>. Respondemos nos prazos da LGPD.
           </p>
         </S>
 
