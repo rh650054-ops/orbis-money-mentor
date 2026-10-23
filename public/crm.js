@@ -1082,10 +1082,20 @@ function ligarArrasto(el){
 }
 
 /* ===== UPGRADE PRO: o que aparece no cartão e o resumo pro Rick analisar o comercial ===== */
+/* há quantos dias assina (crm_funil faz.assina_desde = 1ª assinatura, "DD/MM/AAAA") e
+   quantas mensalidades já pagou (Hotmart) — Rick, 23/10: vender o Pro a partir do 2º mês */
+function tempoAssinante(x){
+ const m=String((x.faz||{}).assina_desde||"").match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+ const d=m?Math.max(0,Math.floor((HOJE-new Date(+m[3],+m[2]-1,+m[1]))/86400000)):null;
+ const n=+((x.hot||{}).recorrencia)||0;
+ return {dias:d, mensalidades:n};
+}
 function upgradeInfo(x){
  const fz=x.faz||{}, mes=Math.max(+fz.mes||0,+fz.mes_passado||0);
  const origem=x.parceiro||(x.ref&&x.ref!=="—"?x.ref:"");
- return `<br>${mes>0?`faz ${brl(Math.round(mes)).replace(/,00$/,"")}/mês`:"sem venda no mês"}${origem?` · ${esc(origem)}`:""}`;
+ const t=tempoAssinante(x);
+ const tempo=t.dias!=null?`<b style="color:var(--ink)">${t.dias}d na Vant</b>${t.mensalidades?` · ${t.mensalidades}ª mens.`:""}<br>`:"";
+ return `<br>${tempo}${mes>0?`faz ${brl(Math.round(mes)).replace(/,00$/,"")}/mês`:"sem venda no mês"}${origem?` · ${esc(origem)}`:""}`;
 }
 function resumoUpgrade(){
  const t=FICHAS.filter(f=>f.e==="upgrade");
@@ -1181,7 +1191,7 @@ function abrir(id,foco){
     ${f.e==="upgrade"&&f.faz?`<div class="kv"><span class="k">Faz este mês</span><span class="v">${brl(+f.faz.mes||0)}</span></div>
     <div class="kv"><span class="k">Fez mês passado</span><span class="v">${brl(+f.faz.mes_passado||0)}</span></div>
     <div class="kv"><span class="k">Média por dia</span><span class="v">${brl(+f.faz.media_dia||0)} · ${+f.faz.dias_30||0} dias de venda em 30</span></div>
-    ${f.faz.assina_desde?`<div class="kv"><span class="k">Assina desde</span><span class="v">${esc(f.faz.assina_desde)}</span></div>`:""}`:""}
+    ${f.faz.assina_desde?`<div class="kv"><span class="k">Assina desde</span><span class="v">${esc(f.faz.assina_desde)} · ${tempoAssinante(f).dias} dias${tempoAssinante(f).mensalidades?` · ${tempoAssinante(f).mensalidades}ª mensalidade`:""}</span></div>`:""}`:""}
     ${f.email?`<div class="kv"><span class="k">E-mail</span><span class="v">${esc(f.email)}</span></div>`:""}
     ${f.cidade?`<div class="kv"><span class="k">Cidade</span><span class="v">${esc(f.cidade)}</span></div>`:""}
     ${f.entrou?`<div class="kv"><span class="k">Entrou em</span><span class="v">${dbr(f.entrou)}</span></div>`:""}
