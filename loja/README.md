@@ -17,12 +17,15 @@ Tudo o que a Play Store e a App Store pedem, num lugar só. Textos prontos em
 
 | Onde | Como assina | Por quê |
 |---|---|---|
-| Web / PWA (`app.orbis.inf.br`) | Hotmart, como hoje | Fora das lojas, vale a regra que você quiser |
-| App Android (Play Store) | **Google Play Billing** | O Brasil não está no programa de cobrança alternativa do Google (out/2026). Link pra Hotmart dentro do app = app recusado ou removido |
-| App iPhone (App Store) | **Compra no app da Apple** | Desde jun/2026 a Apple aceita link externo no Brasil, mas cobra comissão sobre ele também — pagar pela Apple sai quase igual e é mais simples |
+| Web / PWA (`app.vantapp.com.br`) | Hotmart, os 3 planos na tela | Fora das lojas, vale a regra que você quiser |
+| App Android e iPhone | **Modelo Néctar** (Rick, 23/10/2026): o app não mostra preço nem checkout. Quem não tem acesso vê "Assinatura inválida" com **Assinar** (abre beta.vantapp.com.br/#planos no navegador do celular), **Tentar novamente** e **Sair da conta** | É o que o Néctar faz nas duas lojas. Se uma loja recusar, `VITE_COBRANCA_LOJA=fora` tira o botão (só aviso + suporte) sem mexer em código |
 
-`src/shared/lib/platform.ts` tem `podeUsarCheckoutWeb()`: todo botão que abre a Hotmart
-precisa checar isso. A integração com as lojas (RevenueCat) entra no próximo PR.
+Código: `src/shared/lib/cobranca-loja.ts` (`modoCobranca`, `assinaPeloSite`), a tela em
+`src/shared/components/assinatura-loja.tsx` (`TelaAssinarPeloSite`), o link externo em
+`src/shared/lib/link-externo.ts` (plugin `@capacitor/browser`, abre no navegador do sistema).
+
+Todo botão que abre a Hotmart passa por `abrirCheckout` (`src/shared/lib/checkout.ts`), que no
+app da loja abre o site em vez da Hotmart.
 
 ## Gerar o Android (.aab)
 

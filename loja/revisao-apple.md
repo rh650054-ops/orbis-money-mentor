@@ -23,7 +23,9 @@ How to test the core flow:
    requires a real Brazilian bank account, so it is pre-connected in the demo account.
 5. The AI mentor is the chat button; it answers in Portuguese.
 
-Subscriptions are sold only through In-App Purchase on iOS. Account deletion:
+The app does not sell anything: when an account has no active subscription it shows a
+"subscription invalid" screen with a button that opens our website in Safari, where the
+subscription is purchased. No prices are shown inside the app. Account deletion:
 "Minha Conta" > "Excluir minha conta".
 
 Location is used for local weather at the vendor's spot and to suggest selling
@@ -34,6 +36,6 @@ photograph receipts.
 
 ## Antes de enviar
 - [ ] Criar a conta demo (CPF fictício válido), com Pro ativo e dados de exemplo
-- [ ] Conferir que nada no app iOS mostra Hotmart, preço fora da Apple ou "assine no site"
+- [x] Nada no app da loja mostra preço nem checkout (modelo Néctar, 23/10/2026); o botão "Assinar" abre o site
 - [ ] Testar excluir conta numa conta descartável
 - [x] X1: só pontos no app da loja (22/10/2026, `x1-loja.ts`) — sem carteira nem aposta
