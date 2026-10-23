@@ -16,6 +16,7 @@ import { DefconRunning } from "@/components/defcon/DefconRunning";
 import { DefconBreak } from "@/components/defcon/DefconBreak";
 import { DefconEndScreen } from "@/components/defcon/DefconEndScreen";
 import { DefconCargaDoDia } from "@/components/defcon/DefconCargaDoDia";
+import { useAcessoProdutosQuery } from "@/features/produtos";
 import { DefconLunchPause } from "@/components/defcon/DefconLunchPause";
 import { DefconBlockReport } from "@/components/defcon/DefconBlockReport";
 import { DefconSinalSheet } from "@/components/defcon/DefconSinalSheet";
@@ -29,6 +30,9 @@ export default function DefconChallenge() {
   const maisUmaHora = params.get("mais") === "1";
   const estendeuRef = useRef(false);
   const { user, loading: authLoading } = useAuth();
+  // 23/10/2026: produto e estoque são do Pro — Essencial começa direto, sem a Carga do dia
+  const acessoProdutos = useAcessoProdutosQuery(user?.id);
+  const semCarga = acessoProdutos.data?.liberado === false;
   const realDefcon = useDefconChallenge(treino ? undefined : user?.id);
   const onbDefcon = useDefconOnboarding(user?.id);
   const defcon: any = treino ? onbDefcon : realDefcon;
@@ -237,7 +241,7 @@ export default function DefconChallenge() {
         <DefconStartScreen
           dailyGoal={defcon.dailyGoal}
           totalBlocks={defcon.blocks.length}
-          onStart={treino || pulaCarga || (pulaCarga === null && primeiroDia) ? handleStart : () => setCargaAberta(true)}
+          onStart={treino || semCarga || pulaCarga || (pulaCarga === null && primeiroDia) ? handleStart : () => setCargaAberta(true)}
           onExit={handleExit}
           onboardingMode={treino}
           primeiroDia={primeiroDia && !treino}

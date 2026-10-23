@@ -28,6 +28,7 @@ import { CustoRapido, type CustosDia } from "./foco/custo-rapido";
 import { MesCard } from "./foco/mes-card";
 import { ComoRecebeu } from "./foco/como-recebeu";
 import { UltimasCompras } from "./foco/ultimas-compras";
+import { useAcessoProdutosQuery } from "@/features/produtos";
 import { Utilitarios } from "./foco/utilitarios";
 import { BlocosDeHoje } from "./foco/blocos-de-hoje";
 import { CATEGORIAS_CUSTO, PRESS, type CategoriaCusto, type DayTotals, type ItemCarga } from "./foco/foco-tipos";
@@ -43,6 +44,8 @@ import { CATEGORIAS_CUSTO, PRESS, type CategoriaCusto, type DayTotals, type Item
 export default function DefconHub() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const acessoProdutos = useAcessoProdutosQuery(user?.id);
+  const produtosTravados = acessoProdutos.data?.liberado === false;
   const { toast } = useToast();
   const [dailyGoal, setDailyGoal] = useState(0);
   const [planId, setPlanId] = useState<string | null>(null);
@@ -444,11 +447,23 @@ export default function DefconHub() {
       )}
 
       <div id="foco-mercadoria">
+        {produtosTravados ? (
+          <button type="button" onClick={() => navigate("/products")} className={`w-full mt-6 flex items-center gap-3 px-4 py-3.5 rounded-[18px] text-left ${PRESS}`}
+            style={{ border: "1px solid rgba(245,184,0,.35)", background: "linear-gradient(170deg,#1a1305,var(--orbis-surf) 70%)" }}>
+            <span className="flex-1 min-w-0">
+              <span className="block text-[11px] font-black tracking-[.14em]" style={{ color: "var(--orbis-gold)" }}>VANT PRO</span>
+              <span className="block text-[14.5px] font-extrabold mt-0.5">Mercadoria e estoque do dia</span>
+              <span className="block text-[12px] font-semibold" style={{ color: "var(--orbis-fg-3)" }}>o que levou, o que vendeu e o que acaba · libera no Pro</span>
+            </span>
+            <ArrowRight className="w-5 h-5 shrink-0" style={{ color: "var(--orbis-gold)" }} />
+          </button>
+        ) : (
         <MercadoriaDoDia estado={estado} carga={carga} editando={editandoCarga && estado === "antes"}
           onVerEstoque={() => navigate("/products")} onRepor={() => irAoMercado()}>
           <DefconLoadoutManager userId={user.id} />
           <button type="button" onClick={() => { setEditandoCarga(false); void loadAll(); }} className="mt-2 text-[12px] font-bold" style={{ color: "var(--orbis-gold)" }}>fechar</button>
         </MercadoriaDoDia>
+        )}
       </div>
 
       <div className="mt-3"><WeeklyChallengeIcon /></div>
