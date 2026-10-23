@@ -57,7 +57,7 @@ export function avisoPapel(r: Awaited<ReturnType<typeof definirPapel>>, banco: s
     return true;
   }
   if (r.erro === "trava") {
-    toast({ title: "Essa conta já trocou de papel essa semana", description: `Dá pra trocar de novo a partir de ${ddmm(r.liberadaEm)}.`, variant: "destructive" });
+    toast({ title: "Essa conta já virou pessoal essa semana", description: `Dá pra virar pessoal de novo a partir de ${ddmm(r.liberadaEm)}. Virar trabalho é livre.`, variant: "destructive" });
     return false;
   }
   toast({ title: "Não deu pra salvar", description: "Tenta de novo.", variant: "destructive" });
@@ -91,7 +91,8 @@ export function ContasDeVenda({ contas, onMudou }: { contas: ContaVenda[]; onMud
       </p>
       <div className="mt-2.5 rounded-xl px-3" style={{ background: "rgba(0,0,0,.3)" }}>
         {contas.map((c, i) => {
-          const sugere = !c.papel && c.sugestao;
+          // sem papel, ou papel automático (Trabalho ao ligar) e a Vant acha outra coisa (23/10)
+          const sugere = c.sugestao && (!c.papel || (c.papel_auto && c.sugestao !== c.papel));
           return (
             <div key={c.id} className="py-3" style={{ borderTop: i === 0 ? "none" : `1px solid ${LINHA}` }}>
               <div className="flex items-baseline gap-2">
@@ -114,7 +115,7 @@ export function ContasDeVenda({ contas, onMudou }: { contas: ContaVenda[]; onMud
               )}
               {!c.pode_trocar && (
                 <p className="mt-1.5 text-[10.5px] font-bold flex items-center gap-1" style={{ color: MUTE }}>
-                  <Lock className="w-3 h-3" /> troca liberada em {ddmm(c.troca_liberada_em)}
+                  <Lock className="w-3 h-3" /> virar pessoal liberado em {ddmm(c.troca_liberada_em)}
                 </p>
               )}
             </div>
@@ -122,7 +123,7 @@ export function ContasDeVenda({ contas, onMudou }: { contas: ContaVenda[]; onMud
         })}
       </div>
       <p className="text-[10.5px] mt-2 leading-relaxed" style={{ color: MUTE }}>
-        Depois da primeira escolha, cada conta troca de papel 1 vez por semana. Virou trabalho depois? Vale daqui pra frente: Pix antigo não entra no ranking.
+        Conta ligada começa como trabalho. Virar trabalho é livre; virar pessoal, 1 vez por semana. Virou trabalho depois dos 3 primeiros dias? Vale daqui pra frente: Pix antigo não entra no ranking.
       </p>
     </section>
   );

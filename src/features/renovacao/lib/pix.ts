@@ -22,3 +22,17 @@ export function venceTexto(iso: string, agora: Date = new Date()): string {
 }
 
 export const reais = (v: number) => "R$ " + v.toFixed(2).replace(".", ",");
+
+/** Hotmart customer area: "Minhas compras" > the subscription > pay / generate a new Pix. */
+export const HOTMART_AREA_CLIENTE = "https://consumer.hotmart.com/purchase";
+
+/** "venceu ontem" / "venceu dia 22/10" */
+export function venceuTexto(iso: string, agora: Date = new Date()): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "venceu";
+  const dia = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const dif = Math.round((dia(agora) - dia(d)) / 86400000);
+  if (dif <= 0) return "venceu hoje";
+  if (dif === 1) return "venceu ontem";
+  return `venceu dia ${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`;
+}

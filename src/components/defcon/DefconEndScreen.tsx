@@ -1,3 +1,4 @@
+import { ConfirmarZerarDia } from "./confirmar-zerar-dia";
 import { useEffect, useMemo, useState } from "react";
 import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft, Instagram, Check, Loader2, Pencil, X, ChevronDown, Lock, Trophy, RefreshCw } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
@@ -1541,19 +1542,12 @@ export function DefconEndScreen({
           )}
 
           {onRestart && confirmRestart && (
-            <button
-              onClick={async () => {
+            <ConfirmarZerarDia total={totalSold}
+              onCancelar={() => setConfirmRestart(false)}
+              onConfirmar={async () => {
                 setRestarting(true);
-                setConfirmRestart(false);
-                await onRestart();
-                setRestarting(false);
-              }}
-              disabled={extending || restarting}
-              className="flex flex-col items-center justify-center gap-1 h-16 rounded-2xl bg-destructive/15 border border-destructive/50 text-destructive font-bold text-xs active:scale-[0.97] transition-transform disabled:opacity-50"
-            >
-              <RotateCcw className="w-4 h-4" />
-              {restarting ? "Reiniciando..." : "Confirmar reset"}
-            </button>
+                try { await onRestart(); } finally { setRestarting(false); setConfirmRestart(false); }
+              }} />
           )}
         </div>
       </div>

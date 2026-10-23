@@ -43,3 +43,22 @@ export function useRenovacaoPixPorToken(token: string | null) {
     },
   });
 }
+
+/* Renewal Pix that EXPIRED unpaid while the subscription is past_due and Hotmart has not
+   issued a new one yet (23/10/2026). The app shows "Gerar novo Pix" (Hotmart customer area). */
+export type RenovacaoVencida = { subscription_id: string; plano: string | null; valor: number; venceu_em: string };
+
+export function useRenovacaoVencidaQuery(userId: string | undefined, ativo = true) {
+  return useQuery({
+    queryKey: [...renovacaoKeys.byUser(userId ?? ""), "vencida"],
+    enabled: !!userId && ativo,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+    queryFn: async (): Promise<RenovacaoVencida | null> => {
+      const { data, error } = await supabase.rpc("renovacao_pix_vencido" as never);
+      if (error) throw error;
+      const r = ((data as RenovacaoVencida[] | null) ?? [])[0];
+      return r ? { ...r, valor: Number(r.valor) || 0 } : null;
+    },
+  });
+}

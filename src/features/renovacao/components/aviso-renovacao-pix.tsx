@@ -1,6 +1,7 @@
 /* Foco / Vender: "Sua renovação de R$ 29,90 vence dia X · Copiar Pix" while the Pix is open. */
 import { useAuth } from "@/hooks/useAuth";
-import { useRenovacaoPixQuery } from "../api/use-renovacao-pix";
+import { useRenovacaoPixQuery, useRenovacaoVencidaQuery } from "../api/use-renovacao-pix";
+import { PixVencido } from "./gerar-novo-pix";
 import { BotaoCopiarPix } from "./renovar-pix";
 import { reais, venceTexto } from "../lib/pix";
 
@@ -10,7 +11,9 @@ export function AvisoRenovacaoPix({ className = "" }: { className?: string }) {
   const { user } = useAuth();
   const q = useRenovacaoPixQuery(user?.id);
   const pix = q.data;
-  if (!pix) return null;
+  // sem Pix aberto: o Pix venceu e a Hotmart ainda não mandou outro → "Gerar novo Pix"
+  const vencida = useRenovacaoVencidaQuery(user?.id, q.isSuccess && !pix).data;
+  if (!pix) return vencida ? <div className={className}><PixVencido vencida={vencida} compacto /></div> : null;
   const cor = pix.atrasada ? "#ff7d6b" : GOLD;
   return (
     <section className={`rounded-[18px] px-4 py-3.5 ${className}`} aria-label="Renovação" style={{ border: `1px solid ${cor}66`, background: "linear-gradient(170deg,#1a1305,#0e0e0f 70%)" }}>
