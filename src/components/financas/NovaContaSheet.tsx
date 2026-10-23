@@ -57,7 +57,7 @@ function diasUteisAte(ymd: string, workingDays: string[]): number {
   let n = 0;
   for (let d = new Date(ini); d.getTime() <= fim.getTime(); d.setDate(d.getDate() + 1)) {
     const nome = NOMES_DIA[d.getDay()];
-    if (workingDays.length === 0 || workingDays.includes(nome)) n++;
+    if (workingDays.length === 0 || (nome !== undefined && workingDays.includes(nome))) n++;
     if (n > 400) break;
   }
   return n;

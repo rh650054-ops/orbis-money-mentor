@@ -405,7 +405,7 @@ export default function FloatingChatButton() {
               className="w-full max-w-[260px] rounded-xl border border-border"
               loading="lazy"
             />
-            <Button size="sm" onClick={() => setEstudioArte(m[1])} className="h-9 bg-gradient-primary">
+            <Button size="sm" onClick={() => setEstudioArte(m[1] ?? null)} className="h-9 bg-gradient-primary">
               <Download className="w-4 h-4 mr-1.5" /> Colocar meu QR Pix e baixar
             </Button>
           </div>
@@ -480,7 +480,7 @@ export default function FloatingChatButton() {
       // Pedaço do MEIO que falhou: tenta uma vez mais antes de desistir. Sem isso a
       // IA pulava uma frase no meio da fala e o vendedor ouvia um "nada com nada".
       if (!src && anyOk) {
-        src = await fetchTTS(chunks[i]);
+        src = await fetchTTS(chunks[i]!); // i < jobs.length === chunks.length
         if (myToken !== ttsTokenRef.current) return;
       }
       if (src) {

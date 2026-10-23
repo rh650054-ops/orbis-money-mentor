@@ -6,7 +6,7 @@
    blocos do DEFCON — mas isso só é REVELADO no 1º Modo Foco
    ("gravado em silêncio, só avisamos depois" — decisão do Rick).
    ============================================================ */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/shared/api";
 import { avisar } from "@/shared/lib/avisar";
 
 export interface PlanoDoCorre {

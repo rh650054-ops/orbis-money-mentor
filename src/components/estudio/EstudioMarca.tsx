@@ -70,7 +70,7 @@ async function acharAreaBranca(src: string): Promise<{ x: number; y: number; tam
 
   // branco = claro nos 3 canais E sem cor dominante (evita pegar amarelo clarinho)
   const branco = (i: number) => {
-    const r = px[i], g = px[i + 1], b = px[i + 2];
+    const r = px[i] ?? 0, g = px[i + 1] ?? 0, b = px[i + 2] ?? 0;
     return r > 232 && g > 232 && b > 232 && Math.max(r, g, b) - Math.min(r, g, b) < 14;
   };
 
@@ -81,7 +81,7 @@ async function acharAreaBranca(src: string): Promise<{ x: number; y: number; tam
       if (!branco((y * w + x) * 4)) continue;
       const v = (x === 0 || y === 0)
         ? 1
-        : Math.min(dp[(y - 1) * w + x], dp[y * w + (x - 1)], dp[(y - 1) * w + (x - 1)]) + 1;
+        : Math.min(dp[(y - 1) * w + x] ?? 0, dp[y * w + (x - 1)] ?? 0, dp[(y - 1) * w + (x - 1)] ?? 0) + 1;
       dp[y * w + x] = v;
       if (v > melhor) { melhor = v; mx = x; my = y; }
     }
@@ -132,7 +132,7 @@ async function prepararQrEnviado(file: File): Promise<string | null> {
     let x0 = 0, y0 = 0, x1 = w - 1, y1 = h - 1;
     try {
       const px = ctx.getImageData(0, 0, w, h).data;
-      const claro = (i: number) => px[i] > 236 && px[i + 1] > 236 && px[i + 2] > 236;
+      const claro = (i: number) => (px[i] ?? 0) > 236 && (px[i + 1] ?? 0) > 236 && (px[i + 2] ?? 0) > 236;
       const linhaBranca = (y: number) => { for (let x = 0; x < w; x++) if (!claro((y * w + x) * 4)) return false; return true; };
       const colBranca = (x: number) => { for (let y = 0; y < h; y++) if (!claro((y * w + x) * 4)) return false; return true; };
       while (y0 < y1 && linhaBranca(y0)) y0++;

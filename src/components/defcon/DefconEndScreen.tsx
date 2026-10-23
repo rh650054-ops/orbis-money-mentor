@@ -268,7 +268,7 @@ export function DefconEndScreen({
         const dias = [...porDia.values()]
           .map((g) => {
             const t = g.ts.sort((a, b) => a - b);
-            const ritmo = t.length >= 2 ? (t[t.length - 1] - t[0]) / (t.length - 1) / 60000 : null;
+            const ritmo = t.length >= 2 ? (t[t.length - 1]! - t[0]!) / (t.length - 1) / 60000 : null;
             return { rev: g.rev, ritmo };
           })
           .filter((d): d is { rev: number; ritmo: number } => d.ritmo != null);
@@ -293,7 +293,7 @@ export function DefconEndScreen({
     if (vendasReais.length < 2) return null;
     const t = vendasReais.map((s) => new Date(s.created_at).getTime()).sort((a, b) => a - b);
     let sum = 0;
-    for (let i = 1; i < t.length; i++) sum += t[i] - t[i - 1];
+    for (let i = 1; i < t.length; i++) sum += t[i]! - t[i - 1]!;
     return sum / (t.length - 1) / 60000;
   }, [vendasReais]);
 
@@ -608,7 +608,7 @@ export function DefconEndScreen({
         .order("created_at", { ascending: true })
         .limit(1);
       const { error } = row && row.length > 0
-        ? await supabase.from("daily_sales").update({ unpaid_units: caloteUnits } as any).eq("id", row[0].id)
+        ? await supabase.from("daily_sales").update({ unpaid_units: caloteUnits } as any).eq("id", row[0]!.id)
         : await supabase.from("daily_sales").insert({ user_id: userId, date: today, unpaid_units: caloteUnits } as any);
       if (error) throw error;
       setCaloteAcknowledged(true);
@@ -1266,6 +1266,7 @@ export function DefconEndScreen({
             </div>
             {reportView > 0 && blocks[reportView - 1] && (() => {
               const b = blocks[reportView - 1];
+              if (!b) return null; // already guarded above; narrows for TS
               const conv = b.ab > 0 ? (b.vn / b.ab) * 100 : 0;
               return (
                 <div className="rounded-2xl bg-card border border-border divide-y divide-border/60 overflow-hidden">

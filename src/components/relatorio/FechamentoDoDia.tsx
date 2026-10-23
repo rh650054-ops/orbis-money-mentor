@@ -112,7 +112,7 @@ export function FechamentoDoDia({ userId, date, dia, banco = null, travado = fal
         .eq("date", r.sale_date)
         .maybeSingle();
       if (row) {
-        const ds = row as Record<string, number | null> & { id: string };
+        const ds = row;
         const v = Number(r.amount) || 0;
         const { error: updErr } = await supabase
           .from("daily_sales")

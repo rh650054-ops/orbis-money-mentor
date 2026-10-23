@@ -35,6 +35,10 @@ interface LayoutProps {
   children: ReactNode;
 }
 
+// Kill switches for features turned off on 31/08 (were inline `false && ...`, which lint flags).
+const MISSAO_ANTIGA_LIGADA: boolean = false;
+const SCREEN_COACH_LIGADO: boolean = false;
+
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, tourId: "" },
   { name: "Foco", href: "/daily-goals", icon: Zap, tourId: "nav-ritmo" },
@@ -314,16 +318,16 @@ export default function Layout({ children }: LayoutProps) {
       {/* Missao de Boas-Vindas (onboarding gamificado): overlay sobre o app real */}
       {/* DESLIGADO (31/08): a missão antiga travava o dashboard ("Fase 2 de 2") e foi
           substituída pelo Onboarding 2.0 (/onboarding-novo) + cards de 1ª vez por tela. */}
-      {false && user && onboardingChecked && !onboardingCompleto && (
+      {MISSAO_ANTIGA_LIGADA && user && onboardingChecked && !onboardingCompleto && (
         <MissionOrchestrator
-          userId={user.id}
+          userId={user!.id}
           nickname={missionNickname}
           initialIndex={missionStep}
           onCompleted={() => {
             // Liga os tours por tela SÓ pra contas novas (que acabaram de
             // concluir a intro). Quem já usava o app nunca passa por aqui.
             if (typeof window !== "undefined") {
-              localStorage.setItem(`orbis_screen_tours_enabled_${user.id}`, "1");
+              localStorage.setItem(`orbis_screen_tours_enabled_${user!.id}`, "1");
             }
             setOnboardingCompleto(true);
           }}
@@ -332,7 +336,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Coach por tela: explica cada tela na 1ª visita (onboarding natural) */}
       {/* ScreenCoach DESLIGADO (31/08): substituído pelo FirstTimeCard em cada tela */}
-      {false && user && <ScreenCoach userId={user.id} isAdmin={isAdmin} />}
+      {SCREEN_COACH_LIGADO && user && <ScreenCoach userId={user!.id} isAdmin={isAdmin} />}
 
       {/* Morning Commit Modal */}
       {user && onboardingCompleto && (
