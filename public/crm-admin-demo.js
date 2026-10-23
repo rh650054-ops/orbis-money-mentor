@@ -28,6 +28,8 @@
       sb.from("profiles")
         .select("id, user_id, email, nickname, plan_status, trial_end, created_at")
         .eq("plan_status", "trial")
+        // only trials still running (599 old ones from June stayed "trial" until they reopen the app)
+        .gte("trial_end", U.hojeBR())
         .order("trial_end", { ascending: true }),
       sb.from("profiles")
         .select("id, user_id, email, nickname, demo_note, created_at")
@@ -127,10 +129,10 @@
         <b>Usuários demo</b>
         <div style="font-size:12px;color:var(--dim);margin-top:2px">Crie e gerencie contas de demonstração ilimitadas.</div>
       </div>
-      ${htmlTrial(d.trial, d.trialErro)}
       ${htmlForm()}
       <div id="demo-cred">${htmlCredenciais()}</div>
-      ${htmlDemo(d.demo, d.demoErro)}`;
+      ${htmlDemo(d.demo, d.demoErro)}
+      ${htmlTrial(d.trial, d.trialErro)}`;
 
     // Keep the draft in memory so a re-render does not wipe it.
     const fEmail = el.querySelector("#demo-email"), fNick = el.querySelector("#demo-nick"), fNote = el.querySelector("#demo-note");
