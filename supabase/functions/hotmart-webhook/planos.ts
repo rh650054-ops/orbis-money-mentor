@@ -8,6 +8,7 @@ export const PRO_OFFERS: Record<string, number> = {
   "6vkxbh8c": 365,  // anual antigo (quem já assinou)
   "ew11enu0": 365,  // anual R$ 418,80 (06/10)
   "t9xt3k4z": 365,  // anual R$ 319,08 (19/10)
+  "ckkw1xkf": 30,   // mensal "Vant Pro" R$ 22 (24/10: já vendia, entrava só pelo nome)
 };
 
 export function diasDePro(offerCode: string, planoNome: string): number | null {

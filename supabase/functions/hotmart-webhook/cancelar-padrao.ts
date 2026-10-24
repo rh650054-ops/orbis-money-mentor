@@ -5,19 +5,21 @@
 
    Credenciais (só pelo painel do Supabase, nunca no código): HOTMART_CLIENT_ID,
    HOTMART_CLIENT_SECRET e HOTMART_BASIC (o "Basic" das Credenciais da Hotmart). */
-import { PRO_OFFERS } from "./planos.ts";
+import { diasDePro } from "./planos.ts";
 
 export const BANCO_EXTRA = new Set(["3nnrr1xn", "otgozkn9"]);
 const TOKEN_URL = "https://api-sec-vlc.hotmart.com/security/oauth/token";
 const CANCEL_URL = "https://developers.hotmart.com/payments/api/v1/subscriptions/cancel";
 
-export interface AssinaturaAtiva { subscription_id: string; oferta_codigo: string | null }
+export interface AssinaturaAtiva { subscription_id: string; oferta_codigo: string | null; plano?: string | null }
 
 /** Assinaturas ativas que são o plano padrão (nem Pro, nem banco extra), fora a do Pro que acabou de entrar. */
 export function padroesParaCancelar(ativas: AssinaturaAtiva[], codigoDoPro: string): string[] {
   return ativas
     .filter((a) => a.subscription_id && a.subscription_id !== codigoDoPro)
-    .filter((a) => { const o = (a.oferta_codigo ?? "").trim(); return !(o in PRO_OFFERS) && !BANCO_EXTRA.has(o); })
+    // Pro = oferta conhecida OU nome do plano com "Pro" (mesma regra do diasDePro): uma oferta
+    // Pro nova nunca é tratada como plano padrão e cancelada (24/10: ckkw1xkf não estava na lista).
+    .filter((a) => { const o = (a.oferta_codigo ?? "").trim(); return !diasDePro(o, a.plano ?? "") && !BANCO_EXTRA.has(o); })
     .map((a) => a.subscription_id);
 }
 

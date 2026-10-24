@@ -10,6 +10,13 @@ describe("upgrade pro Pro cancela o plano padrão", () => {
       { subscription_id: "BANCO1", oferta_codigo: "3nnrr1xn" },
     ], "BR6F9LHV")).toEqual(["OJ56N5VN"]);
   });
+  it("Pro com oferta nova (só pelo nome do plano) nunca é cancelado", () => {
+    expect(padroesParaCancelar([
+      { subscription_id: "I3P7MU72", oferta_codigo: "8qbxvm9p", plano: "Membro Fundador" },
+      { subscription_id: "IBQSS8SZ", oferta_codigo: "ckkw1xkf", plano: "Vant Pro" },
+      { subscription_id: "NOVO1", oferta_codigo: "zzz99999", plano: "VANT Pro Anual" },
+    ], "XJ04BBBO")).toEqual(["I3P7MU72"]);
+  });
   it("sem credenciais não chama a Hotmart e devolve pra cancelar na mão", async () => {
     const busca = vi.fn();
     const r = await cancelarNaHotmart(["OJ56N5VN"], () => undefined, busca as unknown as typeof fetch);
