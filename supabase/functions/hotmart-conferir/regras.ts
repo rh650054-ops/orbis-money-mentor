@@ -2,8 +2,10 @@
    Pure rules (tested): the edge function feeds the subscriptions that are REALLY active
    at Hotmart (confirmed through the API) and gets back what to cancel and why.
      1) Has an active Pro → every standard plan of that person is cancelled (paid twice).
-     2) No Pro but 2+ active standard plans with the same plan → keeps the oldest
-        (most charges; then oldest approval) and cancels the rest (duplicate checkout).
+     2) No Pro but 2+ active standard plans with the same plan → keeps the one that is
+        IN GOOD STANDING at Hotmart (ACTIVE beats DELAYED/OVERDUE), then the oldest
+        (most charges; then oldest approval), and cancels the rest (duplicate checkout).
+        24/10: without the first criterion it kept Docinho's late one and dropped the paying one.
    Never cancels a Pro, the bank add-on, or anything when there is more than one Pro
    (that one is for a human to look at). */
 import { diasDePro } from "../hotmart-webhook/planos.ts";
@@ -12,14 +14,18 @@ import { BANCO_EXTRA } from "../hotmart-webhook/cancelar-padrao.ts";
 export interface AssinaturaUsuario {
   subscription_id: string; user_id: string; oferta_codigo: string | null; plano: string | null;
   recorrencia_n: number | null; aprovado_em: string | null;
+  /** status real na Hotmart (API): ACTIVE, DELAYED, OVERDUE */
+  status_real?: string | null;
 }
 export interface Cancelar { subscription_id: string; user_id: string; motivo: "upgrade_pro" | "duplicada"; manter: string }
 
 const ehBanco = (a: AssinaturaUsuario) => BANCO_EXTRA.has((a.oferta_codigo ?? "").trim());
 const ehPro = (a: AssinaturaUsuario) => !!diasDePro((a.oferta_codigo ?? "").trim(), a.plano ?? "");
 const chavePlano = (a: AssinaturaUsuario) => (a.plano ?? a.oferta_codigo ?? "").trim().toLowerCase();
+const emDia = (a: AssinaturaUsuario) => (a.status_real ?? "ACTIVE") === "ACTIVE" ? 1 : 0;
 const maisAntiga = (x: AssinaturaUsuario, y: AssinaturaUsuario) =>
-  (y.recorrencia_n ?? 0) - (x.recorrencia_n ?? 0)
+  emDia(y) - emDia(x)
+  || (y.recorrencia_n ?? 0) - (x.recorrencia_n ?? 0)
   || String(x.aprovado_em ?? "9999").localeCompare(String(y.aprovado_em ?? "9999"))
   || x.subscription_id.localeCompare(y.subscription_id);
 
