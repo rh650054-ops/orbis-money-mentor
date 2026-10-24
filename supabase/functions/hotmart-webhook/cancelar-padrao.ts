@@ -26,6 +26,17 @@ export function padroesParaCancelar(ativas: AssinaturaAtiva[], codigoDoPro: stri
 type Env = (k: string) => string | undefined;
 type Busca = typeof fetch;
 
+/** Token da API da Hotmart (null sem credenciais ou se a Hotmart recusar). */
+export async function tokenHotmart(env: Env, busca: Busca = fetch): Promise<string | null> {
+  const id = env("HOTMART_CLIENT_ID"), segredo = env("HOTMART_CLIENT_SECRET"), basic = env("HOTMART_BASIC");
+  if (!id || !segredo || !basic) return null;
+  const qs = new URLSearchParams({ grant_type: "client_credentials", client_id: id, client_secret: segredo });
+  const t = await busca(`${TOKEN_URL}?${qs}`, { method: "POST", headers: { Authorization: basic.startsWith("Basic ") ? basic : `Basic ${basic}` } });
+  if (!t.ok) return null;
+  const { access_token } = await t.json() as { access_token?: string };
+  return access_token ?? null;
+}
+
 /** Pede o token e cancela. Devolve o que cancelou e o que ficou pra fazer na mão. */
 export async function cancelarNaHotmart(codigos: string[], env: Env, busca: Busca = fetch): Promise<{ cancelados: string[]; naMao: string[]; motivo?: string }> {
   if (codigos.length === 0) return { cancelados: [], naMao: [] };
