@@ -356,7 +356,7 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
         // Upgrade: o débito automático do plano padrão (R$ 29,90) sai (Rick, 19/10).
         try {
           const { data: ativas } = await supabase.from("orbis_hotmart_assinatura")
-            .select("subscription_id, oferta_codigo").eq("user_id", userId).eq("status_hotmart", "ACTIVE");
+            .select("subscription_id, oferta_codigo, plano").eq("user_id", userId).eq("status_hotmart", "ACTIVE");
           const codigos = padroesParaCancelar((ativas ?? []) as AssinaturaAtiva[], subscriptionId);
           const r = await cancelarNaHotmart(codigos, (k) => Deno.env.get(k));
           if (r.cancelados.length) console.log(`hotmart-webhook: padrão cancelado no upgrade ${r.cancelados.join(",")} (user ${userId})`);
