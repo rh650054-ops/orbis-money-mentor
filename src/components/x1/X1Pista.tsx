@@ -27,7 +27,7 @@ export function PistaCard({ pista, eu, onTrocar }: { pista: Pista | null; eu: { 
         <X1Avatar url={eu.avatar_url} nome={eu.nome} size={50} cor={ligado ? OK : "#3a3833"} />
         <div className="flex-1 min-w-0">
           <p className="text-[17px] font-black leading-tight">Tô na pista hoje</p>
-          <p className="text-[11.5px] mt-0.5 leading-snug" style={{ color: "#b3ab9c" }}>Quem te encarar já começa o duelo. Sem esperar aceite.</p>
+          <p className="text-[11.5px] mt-0.5 leading-snug" style={{ color: "#b3ab9c" }}>Você aparece pra quem quer duelar hoje. O convite chega pra você aceitar.</p>
         </div>
         <button type="button" role="switch" aria-checked={ligado} aria-label="Tô na pista hoje" onClick={trocar} disabled={mudando}
           className="relative w-[58px] h-[32px] rounded-full shrink-0 transition-colors disabled:opacity-60"
@@ -66,7 +66,7 @@ export function Disponiveis({ lista, encarando, onEncarar, onVerTodos }: { lista
             <p className="text-[11px] truncate" style={{ color: MUTE }}>
               {d.posicao ? `#${d.posicao} · ` : ""}{d.vendido_hoje > 0 ? `já vendeu ${fmt(d.vendido_hoje)} hoje` : "ainda não vendeu hoje"}{d.cidade ? ` · ${d.cidade}` : ""}
             </p>
-            <p className="text-[10.5px] font-bold" style={{ color: OK }}>● {d.na_pista ? "na pista · começa na hora" : "no DEFCON · começa na hora"}</p>
+            <p className="text-[10.5px] font-bold" style={{ color: OK }}>● {d.na_pista ? "na pista · manda convite" : "no DEFCON · manda convite"}</p>
           </div>
           <button type="button" onClick={() => onEncarar(d)} disabled={!!encarando}
             className="h-10 px-3.5 rounded-[12px] text-[12.5px] font-black shrink-0 inline-flex items-center gap-1.5 disabled:opacity-60" style={{ background: GOLD, color: "#1a1305" }}>

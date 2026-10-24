@@ -10,7 +10,6 @@ import { RankingList } from "@/components/ranking/RankingList";
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { GoldenTicket } from "@/components/competitions/GoldenTicket";
 import { X1Andamento } from "@/components/competitions/X1Andamento";
-import X1InvitePopup from "@/components/competitions/X1InvitePopup";
 import { X1HomeBanner } from "@/components/competitions/X1HomeBanner";
 import { ArrowLeft, ChevronRight, Calendar, Lock, CheckCircle2, Swords, Plus } from "lucide-react";
 
@@ -133,7 +132,6 @@ export default function Competitions() {
 
   return (
     <div className="pb-24 px-4 pt-4 max-w-2xl mx-auto space-y-4">
-      {user && <X1InvitePopup userId={user.id} />}
       <div className="flex items-center gap-3">
         <button
           onClick={() => navigate("/")}

@@ -10,7 +10,6 @@ import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Skeleton } from "@/shared/ui/skeleton";
 import PublicProfileModal from "@/components/PublicProfileModal";
-import X1InvitePopup from "@/components/competitions/X1InvitePopup";
 import { RankingShareCard } from "@/components/RankingShareCard";
 import { RankingChase } from "@/components/ranking/RankingChase";
 import { RankingPodium } from "@/components/ranking/RankingPodium";
@@ -318,7 +317,6 @@ export default function Ranking() {
 
   return (
     <div className="pb-8 space-y-5">
-      {user && <X1InvitePopup userId={user.id} />}
       <FirstTimeCard tela="ranking" userId={user?.id} />
       <ConviteProduto />
       {/* Header */}

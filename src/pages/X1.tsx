@@ -166,13 +166,23 @@ export default function X1() {
     void carregar();
   };
 
+  // quem desafiou pode desfazer enquanto o outro não aceitou (24/10: Rick abriu luta sem querer)
+  const cancelar = async (c: Duelo) => {
+    setAgindo(c.id);
+    const { error } = await (supabase as any).rpc("x1_cancel", { p_id: c.id });
+    setAgindo(null);
+    if (error) { toast({ title: "Não rolou", description: erroBonito(error.message), variant: "destructive" }); return; }
+    toast({ title: "Convite cancelado" });
+    void carregar();
+  };
+
   const trocarPista = async (on: boolean) => {
     const r = await ligarPista(on);
     if (!r) { toast({ title: "Não deu pra mudar agora", variant: "destructive" }); return; }
     setPista(r);
-    toast({ title: on ? "Você tá na pista" : "Saiu da pista", description: on ? "Quem te encarar hoje já começa o duelo." : "Agora só aparece na arena com o DEFCON aberto." });
+    toast({ title: on ? "Você tá na pista" : "Saiu da pista", description: on ? "Quem quiser duelar hoje te manda convite." : "Agora só aparece na arena com o DEFCON aberto." });
   };
-  // ENCARAR = 1 toque: amistoso contra quem está na arena começa na hora (x1_lutar)
+  // ENCARAR = 1 toque: manda o convite (x1_lutar); a luta começa quando o outro aceitar (24/10)
   const encarar = async (d: Disponivel) => {
     if (semBanco) { travado(); return; }
     setEncarando(d.user_id);
@@ -287,7 +297,9 @@ export default function X1() {
         <Card key={c.id} className="flex items-center gap-3 x1-up" style={{ "--i": 3 + i } as React.CSSProperties}>
           <X1Avatar url={ele.avatar_url} nome={ele.nome} size={36} cor="#8a8378" />
           <div className="flex-1 min-w-0"><p className="text-[13px] font-black truncate">Esperando {primeiroNome(ele.nome)} aceitar</p><p className="text-[11px]" style={{ color: "#8a8378" }}>{quandoTexto(c.scheduled_date)} · {c.stakes_amount > 0 ? `${fmt(c.stakes_amount)} cada` : "amistoso"} · {expiraEm(c.expires_at)}</p></div>
-          <Chip>ENVIADO</Chip>
+          <button type="button" disabled={agindo === c.id} onClick={() => void cancelar(c)} className="h-8 px-3 rounded-full text-[11.5px] font-black disabled:opacity-50" style={{ background: "#16151a", border: "1px solid #2a2823", color: "#b3ab9c" }}>
+            {agindo === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Cancelar"}
+          </button>
         </Card>
       ); })}
 
