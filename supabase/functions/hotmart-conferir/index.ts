@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
       const corpo = await r.json() as { items?: { subscriber_code?: string; status?: string }[] };
       const real = (corpo.items ?? []).find((i) => i.subscriber_code === c.subscription_id)?.status ?? null;
       if (!real) { falhasApi++; continue; }
-      if (real === "ACTIVE" || real === "DELAYED" || real === "OVERDUE") ativas.push(c as AssinaturaUsuario);
+      if (real === "ACTIVE" || real === "DELAYED" || real === "OVERDUE") ativas.push({ ...(c as AssinaturaUsuario), status_real: real });
       if (real !== c.status_hotmart) {
         mudou.push({ subscription_id: c.subscription_id, status: real });
         if (!teste) await admin.rpc("hotmart_status_conferido", { p_sub: c.subscription_id, p_status: real });

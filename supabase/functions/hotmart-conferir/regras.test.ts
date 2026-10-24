@@ -21,6 +21,12 @@ describe("hotmart-conferir: o que cancelar", () => {
     expect(oQueCancelar([a("UAP8TYZH", "u3", "8qbxvm9p", "Membro Fundador", 2), a("F724WXRA", "u3", "8qbxvm9p", "Membro Fundador", 3)]))
       .toEqual([{ subscription_id: "UAP8TYZH", user_id: "u3", motivo: "duplicada", manter: "F724WXRA" }]);
   });
+  it("duplicada: fica a que está em dia, mesmo com menos cobranças (caso Docinho)", () => {
+    expect(oQueCancelar([
+      { ...a("JISGHSQE", "u7", "8qbxvm9p", "Membro Fundador", 3), status_real: "DELAYED" },
+      { ...a("94VXUOYY", "u7", "8qbxvm9p", "Membro Fundador", 1), status_real: "ACTIVE" },
+    ])).toEqual([{ subscription_id: "JISGHSQE", user_id: "u7", motivo: "duplicada", manter: "94VXUOYY" }]);
+  });
   it("uma assinatura só, dois Pro, ou planos diferentes sem Pro: não mexe", () => {
     expect(oQueCancelar([a("X", "u4", "8qbxvm9p", "Membro Fundador")])).toEqual([]);
     expect(oQueCancelar([a("P1", "u5", "5y86n311", "Vant Pro"), a("P2", "u5", "ew11enu0", "VANT Pro Anual"), a("M", "u5", "8qbxvm9p", "Membro Fundador")])).toEqual([]);
