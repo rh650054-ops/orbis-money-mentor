@@ -35,7 +35,18 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
   const [agindo, setAgindo] = useState<string | null>(null);
   const [aberto, setAberto] = useState(false);
 
+  // 24/10: o convite chega em qualquer tela (montado no app inteiro) e confere de novo
+  // a cada minuto e quando o app volta pra frente — antes só olhava 1 vez, ao abrir Ranking.
+  const [rodada, setRodada] = useState(0);
   useEffect(() => {
+    const tick = () => { if (document.visibilityState === "visible") setRodada((n) => n + 1); };
+    const t = window.setInterval(tick, 60_000);
+    document.addEventListener("visibilitychange", tick);
+    return () => { window.clearInterval(t); document.removeEventListener("visibilitychange", tick); };
+  }, []);
+
+  useEffect(() => {
+    if (aberto) return;
     let vivo = true;
     (async () => {
       const { data } = await supabase
@@ -63,7 +74,7 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
       setAberto(true);
     })().catch((e) => avisar.erro("X1InvitePopup: carregar convite", e));
     return () => { vivo = false; };
-  }, [userId]);
+  }, [userId, rodada, aberto]);
 
   if (!aberto || !convite || !ele || !eu) return null;
 
@@ -92,6 +103,7 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
         style={{ background: "radial-gradient(120% 90% at 50% 0%,#2a0c11 0%,#140508 45%,#0b0b0d 100%)", border: `1px solid ${RED}66`, boxShadow: `0 30px 80px -30px ${RED}88` }}>
         <button type="button" onClick={fechar} aria-label="Depois" className="absolute right-3 top-3 w-8 h-8 rounded-full flex items-center justify-center" style={{ color: "rgba(255,255,255,.5)" }}><X className="w-4 h-4" /></button>
         <p className="text-[10px] font-black tracking-[.18em]" style={{ color: "#ff7d8c" }}>VOCÊ FOI DESAFIADO</p>
+        <p className="text-[17px] font-black mt-1.5 leading-tight">{primeiroNome(ele.nome)} tá te chamando pro X1.<br />Aceita?</p>
 
         <div className="flex items-center justify-center gap-4 mt-4">
           <div>

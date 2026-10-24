@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { x1SoPontos } from "@/shared/lib/x1-loja";
 import Layout from "@/app/layout";
 import RankingAlertas from "@/components/ranking/RankingAlertas";
+import X1ConviteGlobal from "@/components/competitions/x1-convite-global";
 import PulsoOrbis from "@/components/PulsoOrbis";
 import PaywallGate from "@/components/PaywallGate";
 import FeatureErrorBoundary from "@/shared/components/feature-error-boundary";
@@ -124,6 +125,8 @@ export function AppRouter() {
       <OfflineGate />
       {/* Ranking: "fulano te ultrapassou" / "você passou fulano" — em qualquer tela, inclusive no DEFCON */}
       <RankingAlertas />
+      {/* X1: convite pra aceitar/recusar em qualquer tela (24/10) */}
+      <X1ConviteGlobal />
       {/* Pulso: anota por onde ele andou e quanto tempo ficou. Não desenha nada.
           Fica aqui fora do Layout porque o DEFCON não passa pelo Layout — e é lá
           que a retenção mais importa. */}

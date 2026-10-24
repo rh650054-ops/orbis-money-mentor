@@ -2,7 +2,7 @@
    ESCOLHER OPONENTE — grade de cards de lutador (não é lista).
    Filtros: Na sua liga · Acima de você · Revanche · Todos (+ busca por nome).
    Toca num card → "tale of the tape" (você × ele) + valendo (Honra / R$ →
-   volta) → LUTAR HOJE. Amistoso com oponente "na arena" começa na hora;
+   volta) → LUTAR HOJE. Toda luta é convite: começa quando o outro aceita (24/10);
    senão ele recebe o desafio e precisa aceitar.
    ?alvo=uid pré-seleciona (vem do ranking, relatório, alertas).
    Todo hook acima do primeiro return. Sem API externa.
@@ -201,7 +201,7 @@ export default function X1Escolher() {
             <button type="button" onClick={lutar} disabled={enviando} className="x1-btn vermelho mt-2.5">
               {enviando ? <Loader2 className="w-5 h-5 animate-spin" /> : <Swords className="w-5 h-5" strokeWidth={2.6} />} LUTAR HOJE
             </button>
-            <p className="text-[10.5px] text-center mt-1.5" style={{ color: "#8a8378" }}>{sel.na_arena && aposta === 0 ? `${primeiroNome(sel.nome)} tá na arena · começa na hora` : `${primeiroNome(sel.nome)} recebe agora com sua foto · começa quando aceitar`}</p>
+            <p className="text-[10.5px] text-center mt-1.5" style={{ color: "#8a8378" }}>{`${primeiroNome(sel.nome)} recebe o convite com sua foto · começa quando aceitar`}</p>
           </div>
         </div>
       )}
