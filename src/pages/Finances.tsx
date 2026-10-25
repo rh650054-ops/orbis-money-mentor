@@ -65,6 +65,8 @@ import { GuardarHojeCard } from "@/components/financas/planejar/GuardarHojeCard"
 import { VencidasCard } from "@/components/financas/planejar/VencidasCard";
 import { ContasDoMes } from "@/components/financas/planejar/ContasDoMes";
 import { ObjetivosLista } from "@/components/financas/planejar/ObjetivosLista";
+import { BancosTravado, ContasDoBancoPro, LimitePlano, LIMITE_CONTAS_ESSENCIAL, LIMITE_OBJETIVOS_ESSENCIAL, MesFechaPro } from "@/components/financas/pro-financas";
+import { travaPro, useAcessoQuery } from "@/shared/api/acesso";
 import type { DiaAlvo } from "@/components/financas/planejar/RegistrarValorFolha";
 import type { ContaVM, ObjetivoVM } from "@/components/financas/planejar/tipos";
 
@@ -163,7 +165,10 @@ export default function Finances() {
   const [abaParams, setAbaParams] = useSearchParams();
   const { h: casa } = useFinancasHome(user?.id);
   const comBanco = Boolean(casa?.tem_banco);
-  const aba: AbaFinancas = abaValida(abaParams.get("aba"), comBanco);
+  // 25/10 (Rick): Essencial vê a aba Bancos com cadeado e tem limite de contas/objetivos
+  const acessoQ = useAcessoQuery(user?.id);
+  const essencialTravado = travaPro(acessoQ);
+  const aba: AbaFinancas = abaValida(abaParams.get("aba"), comBanco, essencialTravado);
   const irAba = (a: AbaFinancas) => {
     const p = new URLSearchParams(abaParams);
     if (a === "resumo") p.delete("aba"); else p.set("aba", a);
@@ -2361,7 +2366,7 @@ export default function Finances() {
       </div>
 
 
-      <AbasNav aba={aba} onAba={irAba} comBanco={comBanco} />
+      <AbasNav aba={aba} onAba={irAba} comBanco={comBanco} bancosTravado={essencialTravado} />
 
       {/* 04/10: "pra que serve cada conta" mora no Vender. Aqui só o lembrete, se faltar. */}
       {casa?.precisa_papel && (
@@ -2617,8 +2622,13 @@ export default function Finances() {
                 concluido: g.status === "completed" || (alvo > 0 && tem >= alvo),
               };
             });
+          const contasAbertasN = bills.filter((b) => !b.paid).length;
+          const objetivosAtivosN = goals.filter((g) => g.status !== "completed" && g.status !== "concluida").length;
+          const contasNoLimite = essencialTravado && contasAbertasN >= LIMITE_CONTAS_ESSENCIAL;
+          const objetivosNoLimite = essencialTravado && objetivosAtivosN >= LIMITE_OBJETIVOS_ESSENCIAL;
           return (
             <div key="planejar" className="flex flex-col gap-3" style={{ animation: "orbisFadeIn 220ms ease-out" }}>
+              {essencialTravado && <ContasDoBancoPro onPro={() => navigate("/pro")} />}
               <GuardarHojeCard
                 carregando={guardar.carregando || (isLoadingData && bills.length === 0)}
                 diaFechado={diaGuardadoFechado}
@@ -2646,13 +2656,14 @@ export default function Finances() {
               <div id="planejar-contas" className="mt-2 scroll-mt-4">
                 <ContasDoMes
                   contas={contasVM}
-                  onAdicionar={() => setIsAddBillOpen(true)}
+                  onAdicionar={() => (contasNoLimite ? navigate("/pro") : setIsAddBillOpen(true))}
                   onAbrir={(id) => setContaSheet(id)}
                   onPaguei={marcarPaga}
                   onResolver={(id) => setFocoVencida(id)}
                   onVerVencidas={() => document.getElementById("planejar-vencidas")?.scrollIntoView({ behavior: "smooth", block: "start" })}
                   onReabrir={(id) => { const b = bills.find((x) => x.id === id); if (b) handleToggleBillPaid(b); }}
                 />
+                {contasNoLimite && <div className="mt-2"><LimitePlano titulo="Adicionar conta" usados={contasAbertasN} limite={LIMITE_CONTAS_ESSENCIAL} onPro={() => navigate("/pro")} /></div>}
               </div>
 
               {abertas.length > 0 && (
@@ -2667,12 +2678,15 @@ export default function Finances() {
                 />
               )}
 
+              {essencialTravado && <MesFechaPro />}
+
               <div className="mt-2">
                 <ObjetivosLista
                   objetivos={objetivosVM}
                   onAbrir={(id) => { setPorta("objetivos"); setMetaAberta(id); window.setTimeout(() => document.getElementById(`meta-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); }}
-                  onCriar={() => setIsAddGoalOpen(true)}
+                  onCriar={() => (objetivosNoLimite ? navigate("/pro") : setIsAddGoalOpen(true))}
                 />
+                {objetivosNoLimite && <div className="mt-2"><LimitePlano titulo="Criar objetivo" usados={objetivosAtivosN} limite={LIMITE_OBJETIVOS_ESSENCIAL} onPro={() => navigate("/pro")} /></div>}
               </div>
 
               <NovaContaSheet open={isAddBillOpen} onOpenChange={setIsAddBillOpen} userId={user.id} workingDays={workingDays} onCreated={loadFinancialData} />
@@ -3053,6 +3067,8 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
             tela Vender (/verificar), junto do resto da conexão bancária.
             Finanças é sobre CONTROLAR DESPESA e BATER META — não sobre conferir
             o que caiu. */}
+
+        {aba === "bancos" && !comBanco && essencialTravado && <BancosTravado onPro={() => navigate("/pro")} />}
 
         {aba === "resumo" && casa && !comBanco && (
           <ConviteBanco onLigar={() => navigate("/verificar")} texto="Saldo, fôlego e gastos aparecem aqui sozinhos, sem digitar nada." />

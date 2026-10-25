@@ -9,7 +9,7 @@
    contas a pagar, caixinhas…) continua em Finances.tsx, só trocou de aba.
    ============================================================ */
 import { useLayoutEffect, useRef, useState } from "react";
-import { ChevronRight, Landmark, AlertTriangle } from "lucide-react";
+import { ChevronRight, Landmark, AlertTriangle, Lock } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { Folego, type HomeFinancas } from "./FinancasHome";
 
@@ -28,15 +28,16 @@ const hora = (iso: string) =>
   new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 const nomeMes = () => new Date().toLocaleDateString("pt-BR", { month: "long", timeZone: "America/Sao_Paulo" });
 
-export function abaValida(v: string | null, comBanco: boolean): AbaFinancas {
+/** bancosTravado (25/10): Essencial vê a aba Bancos com cadeado, com o que o Pro mostraria (fosco). */
+export function abaValida(v: string | null, comBanco: boolean, bancosTravado = false): AbaFinancas {
   if (v === "planejar" || v === "analise") return v;
-  if (v === "bancos" && comBanco) return v;
+  if (v === "bancos" && (comBanco || bancosTravado)) return v;
   return "resumo";
 }
 
 /* ---------- navegação: texto, ouro no selecionado, sem botões grandes ---------- */
-export function AbasNav({ aba, onAba, comBanco }: { aba: AbaFinancas; onAba: (a: AbaFinancas) => void; comBanco: boolean }) {
-  const lista: AbaFinancas[] = comBanco ? ["resumo", "bancos", "planejar", "analise"] : ["resumo", "planejar", "analise"];
+export function AbasNav({ aba, onAba, comBanco, bancosTravado = false }: { aba: AbaFinancas; onAba: (a: AbaFinancas) => void; comBanco: boolean; bancosTravado?: boolean }) {
+  const lista: AbaFinancas[] = comBanco || bancosTravado ? ["resumo", "bancos", "planejar", "analise"] : ["resumo", "planejar", "analise"];
   // 05/10: o sublinhado ouro desliza até a aba escolhida (~200ms, ease-out) e
   // acompanha a largura do texto.
   const botoes = useRef<Partial<Record<AbaFinancas, HTMLButtonElement | null>>>({});
@@ -44,7 +45,7 @@ export function AbasNav({ aba, onAba, comBanco }: { aba: AbaFinancas; onAba: (a:
   useLayoutEffect(() => {
     const el = botoes.current[aba];
     if (el) setBarra({ x: el.offsetLeft, w: el.offsetWidth });
-  }, [aba, comBanco]);
+  }, [aba, comBanco, bancosTravado]);
   return (
     <div role="tablist" aria-label="Partes das finanças" className="relative flex gap-5 overflow-x-auto" style={{ borderBottom: `1px solid ${LINHA}` }}>
       {lista.map((a) => {
@@ -53,7 +54,7 @@ export function AbasNav({ aba, onAba, comBanco }: { aba: AbaFinancas; onAba: (a:
           <button key={a} ref={(el) => { botoes.current[a] = el; }} type="button" role="tab" aria-selected={on} onClick={() => onAba(a)}
             className={`relative shrink-0 min-h-11 pb-2.5 pt-1 text-[15px] transition-colors duration-200 ${on ? "font-bold" : "font-semibold"}`}
             style={{ color: on ? GOLD : MUTE }}>
-            {ROTULO[a]}
+            <span className="inline-flex items-center gap-1">{ROTULO[a]}{a === "bancos" && bancosTravado && !comBanco && <Lock className="w-3 h-3" aria-label="do VANT Pro" />}</span>
           </button>
         );
       })}

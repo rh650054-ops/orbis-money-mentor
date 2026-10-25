@@ -21,6 +21,7 @@
 --    pra meta do planejamento sozinho.
 -- 6) X1: criar, aceitar e entrar em sala exige recursos do Pro (antes só a tela travava),
 --    e não dá pra desafiar quem não tem o Pro.
+-- 7) Finanças: Essencial cria até 5 contas abertas e 2 objetivos ativos.
 -- Nada é apagado.
 -- ============================================================
 
@@ -197,3 +198,32 @@ create trigger trg_x1_salas_pro before insert on public.x1_salas
 drop trigger if exists trg_x1_sala_participantes_pro on public.x1_sala_participantes;
 create trigger trg_x1_sala_participantes_pro before insert on public.x1_sala_participantes
   for each row execute function public.x1_exigir_pro();
+
+-- 7) Finanças no Essencial (mockup aprovado 25/10): até 5 contas abertas e 2 objetivos
+--    ativos. Só barra CRIAR além do limite; quem já tinha mais fica com o que tem.
+--    Recursos do Pro (Pro, teste, equipe) = sem limite. Rotinas do sistema passam.
+create or replace function public.financas_limite_essencial()
+returns trigger language plpgsql security definer set search_path to 'public' as $$
+declare n int;
+begin
+  if auth.uid() is null or public.vant_recursos_pro(new.user_id) then return new; end if;
+  if tg_table_name = 'planned_bills' then
+    select count(*) into n from public.planned_bills where user_id = new.user_id and not coalesce(paid, false);
+    if n >= 5 then
+      raise exception 'No Essencial são até 5 contas. No VANT Pro é sem limite.' using errcode = 'P0001';
+    end if;
+  elsif tg_table_name = 'financial_goals' then
+    select count(*) into n from public.financial_goals where user_id = new.user_id and coalesce(status, 'active') <> 'completed';
+    if n >= 2 then
+      raise exception 'No Essencial são até 2 objetivos. No VANT Pro é sem limite.' using errcode = 'P0001';
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_planned_bills_limite on public.planned_bills;
+create trigger trg_planned_bills_limite before insert on public.planned_bills
+  for each row execute function public.financas_limite_essencial();
+drop trigger if exists trg_financial_goals_limite on public.financial_goals;
+create trigger trg_financial_goals_limite before insert on public.financial_goals
+  for each row execute function public.financas_limite_essencial();
