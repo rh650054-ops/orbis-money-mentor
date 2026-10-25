@@ -2,13 +2,14 @@
    CARD PRINCIPAL DO FOCO — o DEFCON. Muda de tom com o momento do dia:
    antes (vinho: pressão/meta), rodando (verde: ao vivo), encerrado (ouro).
    Só o que importa pra APERTAR: a meta de hoje, a régua Mínimo · Meta · Turbo
-   (acende conforme passa — não é escolha), o botão e três números de contexto.
+   (só na meta adaptativa, 25/10; acende conforme passa — não é escolha), o botão
+   e três números de contexto.
    O mês mora no card de baixo (MesCard). Sem "olho" de esconder valores (Rick, 18/10).
    Puro: recebe tudo por props.
    ============================================================ */
 import { Check, FileDown, FileText, Loader2, Pencil, Play, Zap } from "lucide-react";
 import { FaixasDaMeta } from "@/components/metas/FaixasDaMeta";
-import { DIAS_PT, type MetaDoDia } from "@/shared/lib/meta-viavel";
+import { DIAS_PT, vendasPara, type MetaDoDia } from "@/shared/lib/meta-viavel";
 import { AnelProgresso, Trio } from "./foco-hero-partes";
 import { brl0, PRESS, type EstadoFoco } from "./foco-tipos";
 
@@ -54,6 +55,9 @@ export function FocoHero(p: Props) {
   const falta = Math.max(0, n.dailyGoal - n.totalVendido);
   const diaNome = meta ? DIAS_PT[meta.diaSemana] ?? "hoje" : "hoje";
   const pctMeta = n.dailyGoal > 0 ? Math.round((n.totalVendido / n.dailyGoal) * 100) : 0;
+  // 25/10: cada hora diz quanto vender em R$ e em quantidade (ticket médio dele)
+  const porHora = n.dailyGoal / Math.max(1, n.workHours);
+  const vendasHora = vendasPara(porHora, meta?.ticket);
   const botao = (cls: string) => `w-full rounded-[17px] font-extrabold flex items-center justify-center gap-2 ${PRESS} ${cls}`;
 
   return (
@@ -103,7 +107,7 @@ export function FocoHero(p: Props) {
       )}
 
       <p className="text-[12.5px] mt-3" style={{ color: "var(--orbis-fg-2)" }}>
-        {estado === "antes" && <><b className="text-foreground">{n.workHours} blocos</b> de 1h · <b className="text-foreground">{v(n.dailyGoal / Math.max(1, n.workHours))}</b> por hora</>}
+        {estado === "antes" && <><b className="text-foreground">{n.workHours} blocos</b> de 1h · <b className="text-foreground">{v(porHora)}</b> por hora{vendasHora ? <> · <b className="text-foreground">≈ {vendasHora} venda{vendasHora > 1 ? "s" : ""}</b></> : null}</>}
         {estado === "rodando" && <>{n.projecao > 0 ? <>Nesse ritmo você fecha em <b className="text-foreground">{v(n.projecao)}</b></> : <>Meta <b className="text-foreground">{v(n.dailyGoal)}</b></>}{n.ativoDesde ? <> · ativo há <b className="text-foreground">{ativoHa(n.ativoDesde)}</b></> : null}</>}
         {estado === "encerrado" && <><b className="text-foreground">{pctMeta}%</b> da meta{n.faltaCair > 0
           ? <> · caiu <b style={{ color: "var(--orbis-ok)" }}>{v(n.totalCaiu)}</b> · falta cair <b style={{ color: "var(--orbis-gold)" }}>{v(n.faltaCair)}</b></>

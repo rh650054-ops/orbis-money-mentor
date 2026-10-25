@@ -26,6 +26,8 @@ import { AcoesRapidas } from "./foco/acoes-rapidas";
 import { MercadoriaDoDia } from "./foco/mercadoria-do-dia";
 import { CustoRapido, type CustosDia } from "./foco/custo-rapido";
 import { MesCard } from "./foco/mes-card";
+import { MetaAdaptativaCard } from "./foco/meta-adaptativa-card";
+import { mostraFaixas } from "@/shared/lib/meta-viavel";
 import { ComoRecebeu } from "./foco/como-recebeu";
 import { UltimasCompras } from "./foco/ultimas-compras";
 import { useAcessoProdutosQuery } from "@/features/produtos";
@@ -72,7 +74,7 @@ export default function DefconHub() {
   const today = getBrazilDate();
   // meta viável (11/10): a meta do cérebro, as faixas e o replanejamento do mês
   const qc = useQueryClient();
-  const { meta: metaViavel, replanejar } = useMetaDoDia(user?.id, today);
+  const { meta: metaViavel, replanejar, definirModo } = useMetaDoDia(user?.id, today);
   const [replanOpen, setReplanOpen] = useState(false);
   // 13/10 (Rick): mudou a meta no Planejar e a conta nova diz que não chega no mês →
   // a Vant avisa e já abre o replanejamento (máximo / realista / manter).
@@ -82,7 +84,7 @@ export default function DefconHub() {
     acabouDePlanejar.current = false;
     if (metaViavel.status === "inviavel") setReplanOpen(true);
   }, [metaViavel]);
-  const temFaixas = !!metaViavel && metaViavel.status !== "aprendendo" && metaViavel.meta > 0;
+
   /* ---- Foco v2 (Rick, 05/09): um card que muda com o momento do dia ---- */
   const [sessao, setSessao] = useState<{ id: string; status: string; current_block_index: number; total_blocks: number; started_at: string | null; ended_at: string | null; worked_minutes: number | null } | null>(null);
   const [blocoFimEm, setBlocoFimEm] = useState<number | null>(null); // ms: quando fecha a hora atual
@@ -397,6 +399,9 @@ export default function DefconHub() {
 
   /* ---- Foco v2: derivados ---- */
   const estado: "antes" | "rodando" | "encerrado" = sessao?.status === "active" ? "rodando" : sessao ? "encerrado" : "antes";
+  // faixas Mínimo · Meta · Turbo: só na meta adaptativa e quando o plano de hoje já segue ela
+  // (trocou de modo com o DEFCON rodando → a régua volta no próximo DEFCON)
+  const temFaixas = mostraFaixas(metaViavel) && !!metaViavel && Math.abs(metaViavel.meta - dailyGoal) < 1;
   const agora = Date.now();
   const minRestantes = blocoFimEm ? Math.max(0, Math.round((blocoFimEm - agora) / 60000)) : null;
   const blocoN = (Number(sessao?.current_block_index) || 0) + 1;
@@ -430,7 +435,11 @@ export default function DefconHub() {
         }} />
 
       {/* o mês: com o que ele faz por dia, bate a meta final? (bloco próprio, não embola com a meta de hoje) */}
-      {temFaixas && metaViavel && <MesCard m={metaViavel} onReplanejar={() => setReplanOpen(true)} />}
+      {metaViavel && metaViavel.status !== "aprendendo" && <MesCard m={metaViavel} onReplanejar={() => setReplanOpen(true)} />}
+
+      {/* 25/10: meta padrão = a do planejamento; a adaptativa (3 faixas) é opcional, a partir do 3º dia vendido */}
+      <MetaAdaptativaCard m={metaViavel} estado={estado} salvando={definirModo.isPending}
+        onTrocar={(adaptativa) => definirModo.mutate(adaptativa, { onSuccess: () => { void loadAll(); } })} />
 
       {/* Pix da renovação em aberto (Hotmart): paga aqui, sem procurar e-mail (23/10/2026) */}
       <AvisoRenovacaoPix className="mt-4" />

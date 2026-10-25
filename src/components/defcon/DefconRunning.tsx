@@ -18,6 +18,7 @@ import { avisar } from "@/shared/lib/avisar";
 import { usePixDoBanco, horaDaLeitura } from "@/components/conectar/banco-pix";
 import { useDefconLoadout } from "@/hooks/useDefconLoadout";
 import { getBrazilDate } from "@/shared/lib/date-utils";
+import { vendasPara } from "@/shared/lib/meta-viavel";
 import { BRAND_COLORS } from "@/shared/lib/theme-colors";
 
 /* Travas de lançamento — ver comentário no estado do componente. */
@@ -53,6 +54,8 @@ interface DefconRunningProps {
   quickSaleValue?: number;
   /** X1 do dia (se houver): faixa de placar ao vivo + banner de virada na tela */
   x1Live?: X1LiveState;
+  /** ticket médio dele (meta do dia): mostra a meta da hora em quantidade de vendas */
+  ticket?: number | null;
 }
 
 export function DefconRunning({
@@ -82,6 +85,7 @@ export function DefconRunning({
   onTreinoCusto,
   quickSaleValue,
   x1Live,
+  ticket,
 }: DefconRunningProps) {
   const { pix: pixBanco } = usePixDoBanco(!!userId && !onboardingMode);
   const [showAddSale, setShowAddSale] = useState(false);
@@ -245,6 +249,7 @@ export function DefconRunning({
   const isUrgent = remainingSeconds < 300; // last 5 minutes
 
   const remaining = Math.max(0, dailyGoal - totalSold);
+  const vendasHora = currentBlock ? vendasPara(currentBlock.target_amount, ticket) : null;
 
   const formatTime = (date: Date | null) => {
     if (!date) return "--:--";
@@ -614,6 +619,13 @@ export function DefconRunning({
         <div className="mt-1 text-xs font-mono text-muted-foreground">
           Meta: {formatCurrency(dailyGoal)} • Feito: <span className="text-success">{formatCurrency(totalSold)}</span>
         </div>
+        {/* 25/10: a meta desta hora, em R$ e em vendas (ticket médio) */}
+        {currentBlock && currentBlock.target_amount > 0 && (
+          <div className="mt-0.5 text-xs font-mono text-muted-foreground">
+            Nessa hora: <span className="text-foreground font-bold">{formatCurrency(currentBlock.target_amount)}</span>
+            {vendasHora ? <> • ≈ <span className="text-foreground font-bold">{vendasHora} venda{vendasHora > 1 ? "s" : ""}</span></> : null}
+          </div>
+        )}
         {/* X1 ao vivo — placar simultâneo ao DEFCON + banner quando a liderança vira */}
         {x1Live && (
           <div className="mt-2 flex justify-center">

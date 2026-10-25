@@ -13,9 +13,19 @@
      máximo  = dias de folga + até 2 blocos a mais, até chegar no sonho (≤ 6 dias/semana)
      realista= ritmo turbo (1,2×) nos dias que já trabalha
    Conta nova: 'aprendendo' (meta manual) até o 1º dia vendido.
+
+   25/10/2026 — dois modos (profiles.meta_adaptativa):
+     padrão     = meta é o que falta do mês ÷ dias de trabalho que faltam, sem trava.
+                  Um número só (sem Mínimo/Turbo). Todo mundo começa aqui.
+     adaptativo = a regra de cima (pelo ritmo) com as três faixas. Liga no Foco,
+                  oferecido a partir do 3º dia vendido (DIAS_PRA_ADAPTATIVA).
+   O status continua calculado nos dois: é o que oferece o replanejamento.
    ============================================================ */
 
 export type StatusMes = "aprendendo" | "folga" | "no_ritmo" | "apertado" | "inviavel";
+export type ModoMeta = "padrao" | "adaptativo";
+/** dias vendidos antes de a Vant oferecer a meta adaptativa */
+export const DIAS_PRA_ADAPTATIVA = 3;
 
 export interface PlanoMaximo {
   diasExtra: string[];
@@ -48,6 +58,12 @@ export interface MetaDoDia {
   ticket: number | null;
   maximo: PlanoMaximo | null;
   curva: number[];
+  /** padrão = a meta dele (planejamento); adaptativo = pelo ritmo, com faixas */
+  modo: ModoMeta;
+  /** meta pelo ritmo (a do modo adaptativo), pra mostrar na oferta */
+  metaAdaptativa: number;
+  /** dias com venda nas últimas 8 semanas */
+  diasVendidos: number;
 }
 
 export const NOMES_DIA = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
@@ -85,7 +101,26 @@ export function lerMetaDoDia(row: unknown): MetaDoDia | null {
       vendasDiaRealista: pm.vendas_dia_realista == null ? null : Number(pm.vendas_dia_realista),
     } : null,
     curva: Array.isArray(r.curva) ? r.curva.map((x) => Number(x) || 0) : [],
+    modo: r.modo === "adaptativo" ? "adaptativo" : "padrao",
+    metaAdaptativa: r.meta_adaptativa == null ? n(r.meta) : n(r.meta_adaptativa),
+    diasVendidos: Number(r.dias_vendidos) || 0,
   };
+}
+
+/** Faixas Mínimo · Meta · Turbo só no modo adaptativo, com ritmo conhecido. */
+export function mostraFaixas(m: MetaDoDia | null): boolean {
+  return !!m && m.modo === "adaptativo" && m.status !== "aprendendo" && m.meta > 0;
+}
+
+/** A Vant já tem como analisar: oferece (ou mostra) a meta adaptativa. */
+export function ofereceAdaptativa(m: MetaDoDia | null): boolean {
+  return !!m && (m.modo === "adaptativo" || m.diasVendidos >= DIAS_PRA_ADAPTATIVA);
+}
+
+/** Quantas vendas cabem num valor, pelo ticket médio. Null sem ticket. */
+export function vendasPara(valor: number, ticket: number | null | undefined): number | null {
+  if (!ticket || ticket <= 0 || !(valor > 0)) return null;
+  return Math.max(1, Math.ceil(valor / ticket));
 }
 
 /** Faixa que o vendido de hoje já alcançou. */

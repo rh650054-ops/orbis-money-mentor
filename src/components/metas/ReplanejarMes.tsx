@@ -60,7 +60,7 @@ export function ReplanejarMes({ aberto, onFechar, m, onEscolher, salvando = fals
             linha={`Seus dias de sempre · ${brl0(metaTurbo)}/dia`}
             onClick={() => onEscolher("realista")} disabled={salvando} />
           <Opcao cor="#b9b3a6" icone={<Flag className="w-[18px] h-[18px]" strokeWidth={2.4} />}
-            titulo="Manter a meta" valor={brl0(m.metaMensal)}
+            titulo="Continuar com a minha meta" valor={brl0(m.metaMensal)}
             linha={`Meta de hoje ${brl0(m.meta)}`}
             onClick={() => onEscolher("manter")} disabled={salvando} />
         </div>
