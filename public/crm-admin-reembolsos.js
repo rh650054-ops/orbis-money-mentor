@@ -23,7 +23,8 @@
       </div>
       ${feito
         ? `<span class="pill">Reembolsado ${esc(dia(r.reembolsado_em))}</span>`
-        : `<button class="btn win" data-reemb="${i}">Reembolsar ${esc(brl(r.valor))}</button>`}
+        : `<div style="display:flex;gap:6px"><button class="btn win" data-reemb="${i}">Reembolsar ${esc(brl(r.valor))}</button>
+           <button class="btn ghost" data-dispensa="${i}">Não reembolsar</button></div>`}
     </div>`;
   }
 
@@ -52,6 +53,20 @@
         return;
       }
       U.aviso(`Reembolsado: ${brl(r.valor)} pra ${r.nome}`);
+      window.CRMAdmin.recarregar();
+    }));
+    ligarDispensa(el, lista);
+  }
+
+  // registrado como 'dispensado' e some da lista (25/10)
+  function ligarDispensa(el, lista) {
+    el.querySelectorAll("[data-dispensa]").forEach((b) => b.addEventListener("click", async () => {
+      const r = lista[+b.dataset.dispensa];
+      if (!r || !U.confirmar(`Não reembolsar ${brl(r.valor)} de ${r.nome}?\n\nSai da lista e fica registrado.`)) return;
+      b.disabled = true;
+      const res = await U.rpc("admin_reembolso_dispensar", { p_purchase: r.purchase_id });
+      if (res.error) { b.disabled = false; U.aviso("Não deu: " + res.error, true); return; }
+      U.aviso("Tirado da lista");
       window.CRMAdmin.recarregar();
     }));
   }
