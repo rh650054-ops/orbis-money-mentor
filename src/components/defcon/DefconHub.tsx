@@ -27,6 +27,7 @@ import { MercadoriaDoDia } from "./foco/mercadoria-do-dia";
 import { CustoRapido, type CustosDia } from "./foco/custo-rapido";
 import { MesCard } from "./foco/mes-card";
 import { MetaAdaptativaCard } from "./foco/meta-adaptativa-card";
+import { travaPro, useAcessoQuery } from "@/shared/api/acesso";
 import { mostraFaixas } from "@/shared/lib/meta-viavel";
 import { ComoRecebeu } from "./foco/como-recebeu";
 import { UltimasCompras } from "./foco/ultimas-compras";
@@ -75,6 +76,7 @@ export default function DefconHub() {
   // meta viável (11/10): a meta do cérebro, as faixas e o replanejamento do mês
   const qc = useQueryClient();
   const { meta: metaViavel, replanejar, definirModo } = useMetaDoDia(user?.id, today);
+  const acesso = useAcessoQuery(user?.id);
   const [replanOpen, setReplanOpen] = useState(false);
   // 13/10 (Rick): mudou a meta no Planejar e a conta nova diz que não chega no mês →
   // a Vant avisa e já abre o replanejamento (máximo / realista / manter).
@@ -439,6 +441,7 @@ export default function DefconHub() {
 
       {/* 25/10: meta padrão = a do planejamento; a adaptativa (3 faixas) é opcional, a partir do 3º dia vendido */}
       <MetaAdaptativaCard m={metaViavel} estado={estado} salvando={definirModo.isPending}
+        travado={travaPro(acesso)} onPro={() => navigate("/pro")}
         onTrocar={(adaptativa) => definirModo.mutate(adaptativa, { onSuccess: () => { void loadAll(); } })} />
 
       {/* Pix da renovação em aberto (Hotmart): paga aqui, sem procurar e-mail (23/10/2026) */}

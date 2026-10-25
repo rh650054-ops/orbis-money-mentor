@@ -14,6 +14,9 @@ import { avisar } from "@/shared/lib/avisar";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getUltimaPosicao } from "@/shared/lib/gps-last";
 import { nomeDoSinal } from "@/components/defcon/DefconSinalSheet";
+import { useAuth } from "@/hooks/useAuth";
+import { travaPro, useAcessoQuery } from "@/shared/api/acesso";
+import { DadoPro } from "@/shared/components/pro/dado-pro";
 
 const brl0 = (v: number) => formatCurrency(v).replace(/,00$/, "");
 const GOLD = "#F5B800";
@@ -42,9 +45,16 @@ export function RetomarLugar({ de, para, falta }: { de: number; para: number; fa
 
 type Sinal = { osm_id: number; vias: string | null; lat: number; lng: number; rs_hora: number | null; melhor_hora?: number | null; dist?: number | null; meu: boolean };
 
+// 25/10 (Rick): Caça-Sinal é do Pro. Essencial vê o card FOSCO (o sinal dele, ou um exemplo)
+const EXEMPLO: Sinal = { osm_id: 0, vias: "Av. Principal;Rua das Flores", lat: 0, lng: 0, rs_hora: 96, melhor_hora: 17, meu: true };
+
 export function SinalDeHoje() {
   const navigate = useNavigate();
-  const [s, setS] = useState<Sinal | null>(null);
+  const { user } = useAuth();
+  const acesso = useAcessoQuery(user?.id);
+  const travado = travaPro(acesso);
+  const [achado, setS] = useState<Sinal | null>(null);
+  const s = achado ?? (travado ? EXEMPLO : null);
   useEffect(() => {
     let vivo = true;
     (async () => {
@@ -79,17 +89,27 @@ export function SinalDeHoje() {
           Caça-Sinal <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>
+      <DadoPro travado={travado} compacto>
       <p className="text-[16px] font-extrabold mt-1.5 leading-snug">{nomeDoSinal(s)}</p>
       <p className="text-[12px] mt-1" style={{ color: "var(--orbis-fg-2)" }}>
         {s.rs_hora ? <><b style={{ color: "var(--orbis-ok)" }}>{brl0(s.rs_hora)}/hora</b>{s.meu ? " pra você aqui" : " de média"}</> : "Ainda sem vendas medidas"}
         {s.melhor_hora != null ? <> · melhor às <b className="text-foreground">{String(s.melhor_hora).padStart(2, "0")}h</b></> : null}
         {s.dist != null ? <> · {s.dist.toFixed(1).replace(".", ",")} km</> : null}
       </p>
+      </DadoPro>
+      {travado ? (
+        <button type="button" onClick={() => navigate("/pro")}
+          className="w-full h-[44px] rounded-[14px] mt-3 inline-flex items-center justify-center gap-2 text-[13px] font-black"
+          style={{ background: "linear-gradient(180deg,#FFC63A,#F5B800)", color: "#1a1408" }}>
+          Liberar o Caça-Sinal com o Pro
+        </button>
+      ) : (
       <button type="button" onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}`, "_blank")}
         className="w-full h-[44px] rounded-[14px] mt-3 inline-flex items-center justify-center gap-2 text-[13px] font-black"
         style={{ border: "1px solid rgba(245,184,0,.45)", color: GOLD }}>
         <Navigation className="w-4 h-4" strokeWidth={2.4} /> IR PRA LÁ
       </button>
+      )}
     </div>
   );
 }

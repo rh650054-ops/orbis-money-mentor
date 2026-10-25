@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { lerMetaDoDia, type MetaDoDia } from "@/shared/lib/meta-viavel";
+import { MemoryRouter } from "react-router-dom";
 import { MetaAdaptativaCard } from "./meta-adaptativa-card";
 
 const linha = (extra: object) => lerMetaDoDia({
@@ -29,5 +30,14 @@ describe("MetaAdaptativaCard", () => {
   it("conta nova não vê o card", () => {
     const { container } = render(<MetaAdaptativaCard m={linha({ modo: "padrao", dias_vendidos: 1 })} estado="antes" salvando={false} onTrocar={() => {}} />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("Essencial: as 3 metas ficam foscas e o botão leva pro Pro", () => {
+    const onPro = vi.fn(); const onTrocar = vi.fn();
+    render(<MemoryRouter><MetaAdaptativaCard m={linha({ modo: "padrao" })} estado="antes" salvando={false} onTrocar={onTrocar} travado onPro={onPro} /></MemoryRouter>);
+    expect(screen.getByText("Só no VANT Pro")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Liberar com o VANT Pro/ }));
+    expect(onPro).toHaveBeenCalled();
+    expect(onTrocar).not.toHaveBeenCalled();
   });
 });
