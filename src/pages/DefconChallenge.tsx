@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { useDefconChallenge } from "@/hooks/useDefconChallenge";
+import { useMetaDoDia } from "@/hooks/useMetaDoDia";
 import { useDistanceTracker } from "@/hooks/useDistanceTracker";
 import { useDefconOnboarding } from "@/hooks/useDefconOnboarding";
 import { useDefconPresence } from "@/hooks/useDefconPresence";
@@ -30,6 +31,8 @@ export default function DefconChallenge() {
   const maisUmaHora = params.get("mais") === "1";
   const estendeuRef = useRef(false);
   const { user, loading: authLoading } = useAuth();
+  // 25/10: ticket médio (meta do dia) pra mostrar a meta da hora em quantidade de vendas
+  const { meta: metaDoDia } = useMetaDoDia(user?.id, getBrazilDate());
   // 23/10/2026: produto e estoque são do Pro — Essencial começa direto, sem a Carga do dia
   const acessoProdutos = useAcessoProdutosQuery(user?.id);
   const semCarga = acessoProdutos.data?.liberado === false;
@@ -277,6 +280,7 @@ export default function DefconChallenge() {
           onTreinoCusto={treino ? defcon.addCost : undefined}
           quickSaleValue={defcon.quickSaleValue}
           x1Live={treino ? undefined : x1Live}
+          ticket={metaDoDia?.ticket ?? null}
         />
       );
 

@@ -73,7 +73,8 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
     // Meta do dia = a MESMA do Foco (meta_do_dia, "meta viável"). Antes o popup mostrava
     // base_daily_goal (meta do mês ÷ dias) e o Foco mostrava outra: R$ 210 × R$ 400 (23/10).
     const viavel = await carregarMetaDoDia(today);
-    const metaHoje = viavel && viavel.status !== "aprendendo" && viavel.meta > 0
+    // 25/10: no modo padrão a meta é a do planejamento, até na conta nova
+    const metaHoje = viavel && (viavel.modo === "padrao" || viavel.status !== "aprendendo") && viavel.meta > 0
       ? viavel.meta : (profile?.base_daily_goal || 0);
 
     if (profile) {

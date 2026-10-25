@@ -1,4 +1,5 @@
-/* META DO DIA — lê metas_dia pelo RPC meta_do_dia() e replaneja por meta_replanejar().
+/* META DO DIA — lê metas_dia pelo RPC meta_do_dia(), replaneja por meta_replanejar()
+   e troca o modo (padrão / adaptativo) por meta_definir_modo().
    A conta é do servidor (cérebro); aqui é só leitura + invalidação. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,5 +37,17 @@ export function useMetaDoDia(userId: string | undefined, dia: string) {
       void qc.invalidateQueries({ queryKey: ["meta-do-dia"] });
     },
   });
-  return { meta: q.data ?? null, carregando: q.isLoading, replanejar };
+  // 25/10: liga/desliga a meta adaptativa (Mínimo · Meta · Turbo pelo ritmo)
+  const definirModo = useMutation({
+    mutationFn: async (adaptativa: boolean) => {
+      const { data, error } = await rpc.rpc("meta_definir_modo", { p_adaptativa: adaptativa });
+      if (error) throw new Error(error.message);
+      return lerMetaDoDia(data);
+    },
+    onSuccess: (m) => {
+      qc.setQueryData(metaKeys.dia(userId, dia), m);
+      void qc.invalidateQueries({ queryKey: ["meta-do-dia"] });
+    },
+  });
+  return { meta: q.data ?? null, carregando: q.isLoading, replanejar, definirModo };
 }

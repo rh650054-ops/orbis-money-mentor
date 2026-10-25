@@ -19,6 +19,9 @@ export interface PlanoDoDia { id: string; daily_goal: number; date: string; work
 async function metaDeHoje(date: string, metaBase: number): Promise<{ meta: number; curva: number[]; aprendendo: boolean }> {
   let m: MetaDoDia | null = null;
   try { m = await carregarMetaDoDia(date); } catch (e) { avisar.silencioso("plano-do-dia: meta do cérebro", e); }
+  // 25/10: modo padrão = a meta que ele planejou, dividida IGUAL pelas horas (sem curva),
+  // inclusive na conta nova. Adaptativo: como antes (curva dele; conta nova na meta manual).
+  if (m && m.modo === "padrao" && m.meta > 0) return { meta: m.meta, curva: [], aprendendo: false };
   if (!m || m.status === "aprendendo" || !(m.meta > 0)) return { meta: metaBase, curva: m?.curva ?? [], aprendendo: true };
   return { meta: m.meta, curva: m.curva, aprendendo: false };
 }
