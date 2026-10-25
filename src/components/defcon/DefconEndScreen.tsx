@@ -91,6 +91,7 @@ export function DefconEndScreen({
   const [cartao, setCartao] = useState("");
   const [dinheiro, setDinheiro] = useState("");
   const [dinheiroLancado, setDinheiroLancado] = useState("");
+  const [dinheiroInformado, setDinheiroInformado] = useState<string | null>(null);
   // O vendedor encostou nos campos de recebimento? Sem isso não dá pra
   // diferenciar "ainda não carregou" de "ele zerou porque ninguém pagou".
   const [mexeu, setMexeu] = useState(false);
@@ -202,7 +203,7 @@ export function DefconEndScreen({
       .then(({ count }) => setClientsCount(count ?? 0));
     supabase
       .from("daily_sales")
-      .select("tip_sales, cash_sales, card_sales, pix_sales")
+      .select("tip_sales, cash_sales, card_sales, pix_sales, dinheiro_informado")
       .eq("user_id", userId)
       .eq("date", today)
       .maybeSingle()
@@ -217,6 +218,9 @@ export function DefconEndScreen({
         // 18/10 23:10 (Rick): com Open Finance o lançado é só base — o dinheiro ele INFORMA
         // no fechamento. O pré-preenchimento só vale pra quem não tem banco (efeito abaixo).
         setDinheiroLancado(c ? String(c) : "");
+        // 24/10: o que ele já informou no fechamento volta preenchido (antes abria vazio)
+        const inf = (data as any)?.dinheiro_informado;
+        setDinheiroInformado(inf == null ? null : String(Number(inf)));
         if (cd) setCartao(String(cd));
         if (px) setPix(String(px));
       });
@@ -562,8 +566,8 @@ export function DefconEndScreen({
   // vazio e o vendedor digita quanto recebeu em dinheiro de verdade (Rick, 18/10 23:10).
   useEffect(() => {
     if (mexeu) return;
-    setDinheiro(travado ? "" : dinheiroLancado);
-  }, [travado, dinheiroLancado, mexeu]);
+    setDinheiro(travado ? (dinheiroInformado ?? "") : dinheiroLancado);
+  }, [travado, dinheiroLancado, dinheiroInformado, mexeu]);
   // maquininha que caiu = cartão (travado), até o que falta depois do dinheiro
   const cartaoNum = travado
     ? Math.max(0, pixBanco.maquininha) // tudo que caiu na maquininha (sem teto — Rick, 18/10)
@@ -967,6 +971,33 @@ export function DefconEndScreen({
     }
   };
 
+  // Guarda o dinheiro informado (só com banco ligado: sem banco o dinheiro já vem do Foco).
+  const gravarDinheiroInformado = async (valor: number) => {
+    if (!userId || !travado) return;
+    const { error } = await supabase.from("daily_sales")
+      .update({ dinheiro_informado: valor } as never)
+      .eq("user_id", userId).eq("date", getBrazilDate());
+    if (error) console.warn("dinheiro_informado:", error.message);
+    else setDinheiroInformado(String(valor));
+  };
+
+  // 24/10 (Rick): salva sozinho 1,5 s depois de parar de digitar o dinheiro. Antes só
+  // salvava no "Finalizar"; saindo pelo celular (início, fechar o app) perdia o valor.
+  useEffect(() => {
+    if (!mexeu || !travado || saving) return;
+    if (sobra(totalRecebido, totalSold) > 0) return;
+    const t = window.setTimeout(() => {
+      void (async () => {
+        try {
+          await onSaveBreakdown(dinheiroNum, cartaoNum, pixNum);
+          await gravarDinheiroInformado(dinheiroNum);
+        } catch (e) { console.warn("salvar dinheiro automático:", e); }
+      })();
+    }, 1500);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dinheiroNum, mexeu, travado]);
+
   const handleFinalize = async () => {
     if (sobra(totalRecebido, totalSold) > 0) {
       toast({
@@ -990,6 +1021,7 @@ export function DefconEndScreen({
       // como se tivesse sido recebido, e a dívida sumia sem ninguém ver.
       if (totalRecebido > 0 || mexeu) {
         await onSaveBreakdown(dinheiroNum, cartaoNum, pixNum);
+        await gravarDinheiroInformado(dinheiroNum);
         // sócio: o dia destravado não é mais refeito pelo banco; travado volta a ser
         if (podeDestravar) await marcarDiaManual(getBrazilDate(), destravado);
       }
