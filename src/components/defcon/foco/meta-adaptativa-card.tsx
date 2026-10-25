@@ -5,7 +5,8 @@
    Mínimo · Meta · Turbo pelo ritmo real. Liga e desliga a qualquer hora.
    Conta nova não vê este card (ofereceAdaptativa). Puro: recebe tudo por props.
    ============================================================ */
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Lock, Sparkles } from "lucide-react";
+import { DadoPro } from "@/shared/components/pro/dado-pro";
 import { ofereceAdaptativa, type MetaDoDia } from "@/shared/lib/meta-viavel";
 import { brl0, PRESS, type EstadoFoco } from "./foco-tipos";
 
@@ -14,9 +15,12 @@ interface Props {
   estado: EstadoFoco;
   salvando: boolean;
   onTrocar: (adaptativa: boolean) => void;
+  /** 25/10: "Diária definida" é do Pro — no Essencial as 3 metas ficam foscas e o botão leva pro Pro */
+  travado?: boolean;
+  onPro?: () => void;
 }
 
-export function MetaAdaptativaCard({ m, estado, salvando, onTrocar }: Props) {
+export function MetaAdaptativaCard({ m, estado, salvando, onTrocar, travado = false, onPro }: Props) {
   if (!m || !ofereceAdaptativa(m)) return null;
   const ligada = m.modo === "adaptativo";
   const valeAmanha = estado !== "antes";
@@ -49,6 +53,7 @@ export function MetaAdaptativaCard({ m, estado, salvando, onTrocar }: Props) {
       <p className="text-[12.5px] mt-1 leading-snug" style={{ color: "var(--orbis-fg-2)" }}>
         A Vant analisou seus <b className="text-foreground">{m.diasVendidos} dias</b> de venda e monta 3 metas pelo seu ritmo. Hoje seria:
       </p>
+      <DadoPro travado={travado} compacto>
       <div className="grid grid-cols-3 gap-1.5 mt-2.5">
         {([["Mínimo", minimo], ["Meta", m.metaAdaptativa], ["Turbo", turbo]] as const).map(([k, v]) => (
           <div key={k} className="rounded-[12px] px-2 py-1.5 min-w-0" style={{ background: "rgba(0,0,0,.35)", border: "1px solid var(--orbis-line)" }}>
@@ -57,13 +62,22 @@ export function MetaAdaptativaCard({ m, estado, salvando, onTrocar }: Props) {
           </div>
         ))}
       </div>
+      </DadoPro>
+      {travado ? (
+        <button type="button" onClick={onPro}
+          className={`w-full h-11 mt-3 rounded-[14px] text-[13.5px] font-extrabold flex items-center justify-center gap-2 ${PRESS}`}
+          style={{ background: "linear-gradient(180deg,#FFC63A,#F5B800)", color: "#1a1408" }}>
+          <Lock className="w-4 h-4" strokeWidth={2.6} /> Liberar com o VANT Pro
+        </button>
+      ) : (
       <button type="button" disabled={salvando} onClick={() => onTrocar(true)}
         className={`w-full h-11 mt-3 rounded-[14px] text-[13.5px] font-extrabold flex items-center justify-center gap-2 disabled:opacity-60 ${PRESS}`}
         style={{ background: "linear-gradient(180deg,#FFC63A,#F5B800)", color: "#1a1408" }}>
         {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : "Ligar meta adaptativa"}
       </button>
+      )}
       <p className="text-[11px] mt-2 text-center" style={{ color: "var(--orbis-fg-3)" }}>
-        {valeAmanha ? "Vale a partir do próximo DEFCON. " : ""}Dá pra voltar pra sua meta quando quiser.
+        {travado ? "A Vant define sua diária pelo seu ritmo. Recurso do VANT Pro." : <>{valeAmanha ? "Vale a partir do próximo DEFCON. " : ""}Dá pra voltar pra sua meta quando quiser.</>}
       </p>
     </section>
   );

@@ -10,8 +10,11 @@
    ============================================================ */
 import { useMarcarPasso } from "@/components/jornada/useJornada";
 import { useEffect, useMemo, useState } from "react";
-import { Navigation, LocateFixed, Flame, Loader2, MapPin, Search, Check, ChevronDown, Trophy, X } from "lucide-react";
+import { Navigation, LocateFixed, Flame, Loader2, MapPin, Search, Check, ChevronDown, Trophy, X, Radar } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { travaPro, useAcessoQuery } from "@/shared/api/acesso";
+import { TelaSoPro } from "@/shared/components/pro/tela-so-pro";
+import { PreviaSinais } from "@/shared/components/pro/previas";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { useToast } from "@/shared/hooks/use-toast";
@@ -210,7 +213,7 @@ function SeletorCidade({ cidades, atual, onEscolher, onFechar }: { cidades: Cida
   );
 }
 
-export default function SpotFinder() {
+function SpotFinderTela() {
   // jornada do teste: abrir esta tela cumpre o passo "sinal" do dia
   useMarcarPasso("sinal");
   const { user } = useAuth();
@@ -524,4 +527,18 @@ export default function SpotFinder() {
 
     </div>
   );
+}
+
+/* Caça-Sinal é do VANT Pro (Rick, 25/10/2026). Essencial vê a tela do Pro com a prévia fosca. */
+export default function SpotFinder() {
+  const { user } = useAuth();
+  const acesso = useAcessoQuery(user?.id);
+  if (travaPro(acesso)) {
+    return (
+      <TelaSoPro icone={<Radar className="w-5 h-5" strokeWidth={2.4} />} titulo="O Caça-Sinal é do VANT Pro"
+        texto="Os semáforos que mais vendem perto de você, quanto dá por hora e o melhor horário de cada um. Sobe pro Pro e chega antes dos outros."
+        previa={<PreviaSinais />} comEssencial={acesso.data?.plano === "sem_plano"} />
+    );
+  }
+  return <SpotFinderTela />;
 }
