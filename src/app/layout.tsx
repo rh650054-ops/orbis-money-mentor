@@ -249,8 +249,9 @@ export default function Layout({ children }: LayoutProps) {
             <BackButton to={location.pathname === "/profile" ? "/" : undefined} />
           </div>
         )}
-        {/* Teste: só um selo pequeno (jornada do teste, 06/10). A oferta vem uma vez por dia, no fim do Foco. */}
-        <SeloTeste />
+        {/* Teste: só um selo pequeno (jornada do teste, 06/10). A oferta vem uma vez por dia, no fim do Foco.
+            Na aba Vender a vitrine do Pro já mostra o teste (com cor): sem selo repetido (Rick, 25/10). */}
+        {location.pathname !== "/verificar" && <SeloTeste />}
         {/* Lembrete de extrato removido (Rick, 09/09): a competição não usa mais extrato. */}
         {user && <WeeklyChallengeTicket />}
         {user && <DesafioFluxoBar />}

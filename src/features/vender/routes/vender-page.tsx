@@ -75,7 +75,8 @@ export default function VenderPage() {
     const hoje = concQ.data?.hoje ?? getBrazilDate();
     return (
       <div className="max-w-md mx-auto flex flex-col gap-4" style={{ color: COR.texto }}>
-        {cabecalho}
+        {/* 25/10 (Rick): sem o título "Vender · Open Finance" na vitrine; o aviso do Pix da renovação fica */}
+        <AvisoRenovacaoPix />
         <div data-tour="conectar-banco">
           <VitrinePro lancado={lancadoUltimos3Dias(concQ.data?.dias ?? [], hoje)} assinaEssencial={assinaEssencial(assinatura)}
             diasDeTeste={diasRestantesDeTeste(assinatura.status, assinatura.graceUntil, hoje)} />
