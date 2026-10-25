@@ -7,7 +7,6 @@ vi.mock("@/shared/api", () => ({ supabase: {}, createQueryKeys: (f: string) => (
 vi.mock("@/features/renovacao", () => ({ AvisoRenovacaoPix: () => null }));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "u1", email: "r@v.com" } }) }));
 vi.mock("@/components/ranking/AvatarRanking", () => ({ SeloVerificado: () => null }));
-vi.mock("@/components/conectar/ConviteBanco", () => ({ ConviteBanco: () => null }));
 vi.mock("@/components/conectar/PapelContas", () => ({ BancoExtra: () => null, avisoPapel: () => true }));
 vi.mock("@/components/conectar/comprovante-renda", () => ({ gerarComprovante: vi.fn(), baixarComprovantePDF: vi.fn() }));
 vi.mock("../api/use-leitura-ao-abrir", () => ({ useLeituraAoAbrir: () => undefined }));

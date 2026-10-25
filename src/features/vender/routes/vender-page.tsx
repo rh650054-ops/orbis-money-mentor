@@ -1,7 +1,7 @@
 /* /verificar — the "Vender" tab: the vendor's Open Finance control panel
    (Rick, 18/10/2026). Not a dashboard, not a report. Order follows the brief:
    reconciliation today → 7 days → income proof → where you receive →
-   work × personal → manage. Three cases: not Pro, Pro without bank, with bank. */
+   work × personal → manage. Three cases: not Pro (the Pro showcase), Pro without bank, with bank. */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
@@ -10,7 +10,9 @@ import { SkeletonCard } from "@/shared/components/skeletons";
 import { COR } from "@/shared/components/vant-ui";
 import { Pilula } from "@/shared/components/vant-status";
 import { SeloVerificado } from "@/components/ranking/AvatarRanking";
-import { ConviteBanco } from "@/components/conectar/ConviteBanco";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useVoltaDoCheckout } from "@/hooks/useVoltaDoCheckout";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 import { BancoExtra } from "@/components/conectar/PapelContas";
 import { useBancosQuery } from "../api/use-bancos-query";
 import { useConciliacaoQuery } from "../api/use-conciliacao-query";
@@ -25,6 +27,8 @@ import { ComprovanteCard } from "../components/comprovante-card";
 import { OndeRecebe } from "../components/onde-recebe";
 import { GerenciarFolha } from "../components/gerenciar-folha";
 import { PrimeiroBanco } from "../components/primeiro-banco";
+import { VitrinePro } from "../components/vitrine/vitrine-pro";
+import { assinaEssencial, diasRestantesDeTeste, lancadoUltimos3Dias } from "../lib/vitrine";
 import { AvisoRenovacaoPix } from "@/features/renovacao";
 
 export default function VenderPage() {
@@ -37,6 +41,14 @@ export default function VenderPage() {
   const banco = useLigarBanco(temBanco);
   const [gerenciar, setGerenciar] = useState(false);
   useLeituraAoAbrir(bancosQ.data?.bancos);
+  const { status: assinatura } = useSubscription(user?.id);
+  const semPro = !!bancosQ.data && !bancosQ.data.pro.pro && !bancosQ.data.pro.liberado;
+  // checkout opened from the showcase: when the Pro lands, the screen moves on to "connect your bank"
+  useVoltaDoCheckout({
+    ativo: semPro,
+    verificar: () => bancosQ.refetch().then((r) => !!(r.data?.pro.pro || r.data?.pro.liberado)),
+    aoLiberar: () => void bancosQ.refetch(),
+  });
 
   const d = bancosQ.data;
   const pro = d?.pro;
@@ -58,13 +70,16 @@ export default function VenderPage() {
     return <div className="max-w-md mx-auto flex flex-col gap-3">{cabecalho}<SkeletonCard /><SkeletonCard /><SkeletonCard /></div>;
   }
 
-  // A) no Open Finance yet: the invitation, then the paywall in /pro
-  if (!pro.pro && !pro.liberado) {
+  // A) not Pro yet: the VANT Pro showcase with the plans and direct checkout (25/10/2026)
+  if (semPro) {
+    const hoje = concQ.data?.hoje ?? getBrazilDate();
     return (
       <div className="max-w-md mx-auto flex flex-col gap-4" style={{ color: COR.texto }}>
         {cabecalho}
-        <div data-tour="conectar-banco"><ConviteBanco onConectar={() => navigate("/pro")} /></div>
-        <SemanaCard dias={concQ.data?.dias ?? []} travado onDesbloquear={() => navigate("/pro")} />
+        <div data-tour="conectar-banco">
+          <VitrinePro lancado={lancadoUltimos3Dias(concQ.data?.dias ?? [], hoje)} assinaEssencial={assinaEssencial(assinatura)}
+            diasDeTeste={diasRestantesDeTeste(assinatura.status, assinatura.graceUntil, hoje)} />
+        </div>
       </div>
     );
   }

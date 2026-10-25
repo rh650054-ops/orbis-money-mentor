@@ -1,0 +1,51 @@
+/* Motion for the Pro showcase on the Vender tab (Rick, 25/10/2026).
+   Everything is disabled under prefers-reduced-motion. */
+.vv-sheen { background: linear-gradient(90deg, #FFE27A, #FFC800, #FFF1B3, #FFC800); background-size: 300% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: vv-sheen 5s linear infinite; }
+.vv-faixa { background: linear-gradient(90deg, #d9a800, #FFC800, #FFF1B3, #FFC800, #d9a800); background-size: 200% 100%; animation: vv-sheen 4s linear infinite; }
+@keyframes vv-sheen { to { background-position: 300% 0; } }
+
+.vv-aura { animation: vv-breath 4s ease-in-out infinite; }
+@keyframes vv-breath { 50% { transform: scale(1.12); opacity: .7; } }
+.vv-ping { animation: vv-ping 2.6s ease-out infinite; }
+.vv-ping-2 { animation-delay: 1.3s; }
+@keyframes vv-ping { 0% { transform: scale(.7); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+
+@property --vv-a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.vv-borda::before { content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1.5px; pointer-events: none;
+  background: conic-gradient(from var(--vv-a), transparent 0 70%, rgba(255, 200, 0, .9) 80%, transparent 90%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: vv-spin 5s linear infinite; }
+.vv-borda-cheia::before { background: conic-gradient(from var(--vv-a), #FFC800, #FFF1B3, #d9a800, #FFC800); padding: 2px; animation-duration: 4s; }
+@keyframes vv-spin { to { --vv-a: 360deg; } }
+
+.vv-pisca { animation: vv-blink 1.2s infinite; }
+@keyframes vv-blink { 50% { opacity: .25; } }
+.vv-scan { position: relative; overflow: hidden; }
+.vv-scan::after { content: ""; position: absolute; left: 0; right: 0; height: 40%; top: -40%;
+  background: linear-gradient(180deg, transparent, rgba(79, 179, 255, .35), transparent); animation: vv-scan 1.1s linear infinite; }
+@keyframes vv-scan { to { top: 100%; } }
+
+.vv-cai { animation: vv-drop .5s cubic-bezier(.2, .9, .3, 1.3) both; }
+@keyframes vv-drop { from { transform: translateY(-16px) scale(.96); opacity: 0; } }
+
+.vv-entra { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s cubic-bezier(.2, .8, .2, 1); }
+.vv-entra.vv-in { opacity: 1; transform: none; }
+
+.vv-moeda { animation: vv-coin 1s cubic-bezier(.5, 0, .8, .6) forwards; }
+@keyframes vv-coin { 0% { opacity: 0; transform: translateY(-10px) scale(.6); } 20% { opacity: 1; } 85% { opacity: 1; transform: translateY(34px) scale(1); } 100% { opacity: 0; transform: translateY(40px) scale(.7); } }
+.vv-sobe { animation: vv-plus 1.7s ease forwards; }
+@keyframes vv-plus { 0% { opacity: 0; transform: translateY(8px); } 25% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+.vv-pulso::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid rgba(79, 179, 255, .7); animation: vv-ring 1.4s ease-out; opacity: 0; }
+@keyframes vv-ring { 0% { opacity: 1; transform: scale(.9); } 100% { opacity: 0; transform: scale(1.35); } }
+
+.vv-brilho { position: relative; overflow: hidden; }
+.vv-brilho::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .7), transparent); animation: vv-shine 3s ease-in-out infinite; }
+@keyframes vv-shine { 60%, 100% { left: 130%; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .vv-sheen, .vv-faixa, .vv-aura, .vv-ping, .vv-pisca, .vv-cai, .vv-moeda, .vv-sobe, .vv-borda::before,
+  .vv-scan::after, .vv-pulso::after, .vv-brilho::after { animation: none !important; }
+  .vv-entra { opacity: 1; transform: none; transition: none; }
+}
