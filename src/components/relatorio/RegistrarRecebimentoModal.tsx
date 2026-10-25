@@ -64,38 +64,45 @@ export function RegistrarRecebimentoModal({ open, onOpenChange, userId, date, fa
         .maybeSingle();
       if (selErr) throw selErr;
 
+      // 24/10 (Rick): o que caiu depois só ABATE o que faltava cair. Nunca vira venda nova
+      // nem aumenta o faturamento. Antes, lançar mais do que faltava (ou num dia sem nada
+      // faltando, comum com banco ligado) somava a diferença como venda.
+      const faltava = row ? Math.max(0, Number(row.total_debt) || 0) : 0;
+      if (faltava <= 0) {
+        toast({ title: `Nada faltando cair em ${prettyDate(date)}`, description: "Esse dia já fechou com tudo recebido. O que caiu depois não vira venda nova.", variant: "destructive" });
+        return;
+      }
+      const aplicado = Math.min(v, faltava);
+
       if (row) {
         const r = row;
         const { error: updErr } = await supabase
           .from("daily_sales")
           .update({
-            total_profit: (Number(r.total_profit) || 0) + v,
-            [col]: (Number(r[col]) || 0) + v,
+            total_profit: (Number(r.total_profit) || 0) + aplicado,
+            [col]: (Number(r[col]) || 0) + aplicado,
             // O que caiu depois era parte do que FALTAVA cair: "caiu" sobe, "faltou" desce,
             // "era pra cair" (vendido) continua igual.
-            total_debt: Math.max(0, (Number(r.total_debt) || 0) - v),
+            total_debt: Math.max(0, (Number(r.total_debt) || 0) - aplicado),
             updated_at: new Date().toISOString(),
           } as never)
           .eq("id", r.id);
         if (updErr) throw updErr;
-      } else {
-        const { error: insErr } = await supabase
-          .from("daily_sales")
-          .insert({ user_id: userId, date, total_profit: v, [col]: v } as never);
-        if (insErr) throw insErr;
       }
 
       // Histórico do lançamento (pra desfazer e pra medir recuperação de calote).
       const { error: histErr } = await supabase
         .from("late_pix_entries")
-        .insert({ user_id: userId, amount: v, sale_date: date, metodo } as never);
+        .insert({ user_id: userId, amount: aplicado, sale_date: date, metodo } as never);
       if (histErr) console.warn("late_pix_entries:", histErr.message);
 
       await syncLeaderboardRevenue(userId);
-      const restante = Math.max(0, faltouCair - v);
+      const restante = Math.max(0, faltava - aplicado);
       toast({
-        title: `${METODO_INFO[metodo].icon} ${formatCurrency(v)} lançado em ${prettyDate(date)}`,
-        description: restante > 0
+        title: `${METODO_INFO[metodo].icon} ${formatCurrency(aplicado)} lançado em ${prettyDate(date)}`,
+        description: aplicado < v
+          ? `Só faltavam ${formatCurrency(faltava)} nesse dia, então entrou ${formatCurrency(aplicado)}. O resto não vira venda.`
+          : restante > 0
           ? `Ainda faltam ${formatCurrency(restante)} desse dia.`
           : "Esse dia fechou sem calote 🎉",
       });
