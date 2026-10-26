@@ -39,6 +39,42 @@ export function ingredientesSugeridos(nomeProduto: string, rende = 20): Ingredie
   return nomes.map((nome) => ({ ...novoIngrediente(nome, ehEmbalagem(nome) ? rende : 1), ...(ehEmbalagem(nome) ? { pacote: 100 } : {}) }));
 }
 
+/** Tamanho de compra que faz sentido ao trocar a unidade (26/10, bug do R$ 404 por garrafinha:
+ *  "500 g" numa leva com "você compra 1 g por R$ 4" = R$ 2.000). g/ml → 1000; kg/l/un → 1. */
+export function pacoteAoTrocarUnidade(unidade: Unidade, pacoteAtual: number, unidadeAnterior: Unidade): number {
+  if (unidade === unidadeAnterior) return pacoteAtual;
+  if (unidade === "g" || unidade === "ml") return pacoteAtual > 1 && (unidadeAnterior === "g" || unidadeAnterior === "ml") ? pacoteAtual : 1000;
+  return 1;
+}
+
+/** Como mostrar o tamanho da compra: 1000 g vira "1 kg", 1500 ml vira "1,5 l" (26/10).
+ *  O banco e a conta continuam na unidade da leva (g/ml); só a tela mostra na unidade grande. */
+export type UnidadeCompra = Unidade;
+export function compraNaTela(unidade: Unidade, pacote: number): { valor: number; unidade: UnidadeCompra } {
+  if ((unidade === "g" || unidade === "ml") && pacote >= 1000) {
+    return { valor: Math.round((pacote / 1000) * 1000) / 1000, unidade: unidade === "g" ? "kg" : "l" };
+  }
+  return { valor: pacote, unidade };
+}
+/** O que ele digitou na compra ("1 kg") de volta pra unidade da leva (1000 g). */
+export function pacoteDaCompra(valor: number, unidadeCompra: UnidadeCompra, unidadeLeva: Unidade): number {
+  if (unidadeLeva === "g" && unidadeCompra === "kg") return valor * 1000;
+  if (unidadeLeva === "ml" && unidadeCompra === "l") return valor * 1000;
+  return valor;
+}
+/** Unidades que fazem sentido pra compra desse ingrediente: g → g ou kg; ml → ml ou l. */
+export function unidadesDeCompra(unidadeLeva: Unidade): UnidadeCompra[] {
+  if (unidadeLeva === "g") return ["kg", "g"];
+  if (unidadeLeva === "ml") return ["l", "ml"];
+  return [unidadeLeva];
+}
+
+/** Preço de 1 g/ml acima disso é quase sempre erro de digitação (R$ 4,00 o grama). */
+export function precoSuspeito(i: Pick<IngredienteRascunho, "unidade" | "pacote" | "precoPacote">): boolean {
+  const p1 = precoDe1(i);
+  return p1 > 0 && ((i.unidade === "g" || i.unidade === "ml") ? p1 > 0.5 : (i.unidade === "kg" || i.unidade === "l") ? p1 > 500 : false);
+}
+
 /** Preço de 1 unidade de medida: pacote de 100 por R$ 8 → R$ 0,08 cada. */
 export function precoDe1(i: Pick<IngredienteRascunho, "pacote" | "precoPacote">): number {
   return i.precoPacote > 0 && i.pacote > 0 ? i.precoPacote / i.pacote : 0;
