@@ -10,6 +10,7 @@ import { MercadoBanco } from "./mercado-banco";
 import { MercadoRendimento } from "./mercado-rendimento";
 import { MercadoSobra } from "./mercado-sobra";
 import { MercadoSabores } from "./mercado-sabores";
+import { MercadoAprendeu } from "./mercado-aprendeu";
 import { useSobraEstoqueQuery } from "../api/use-sobra-estoque-query";
 import type { ProdutoMercado } from "../lib/mercado";
 
@@ -101,6 +102,7 @@ export function MercadoPronto({ resultado, prontos, resumo, faz = [], onProdutos
                     {un(p.receitas)} {p.receitas === 1 ? "leva" : "levas"} da receita
                     {resumo.receitaNova && resumo.receitaNova.nome === p.nome ? " · receita guardada pra próxima compra" : ""}
                   </span>
+                  <MercadoAprendeu compraId={resultado.compra_id} produtoId={p.id} nome={p.nome} unidades={p.unidades} />
                   <MercadoSabores produtoId={p.id} nome={p.nome} unidades={p.unidades} />
                   {sobra.data?.[p.id] && p.receitas > 0 && (
                     <MercadoSobra nome={p.nome} itens={sobra.data[p.id] ?? []} porLeva={Math.round(p.unidades / p.receitas)} custo={p.custo_depois} />

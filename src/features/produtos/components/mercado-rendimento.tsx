@@ -8,6 +8,7 @@ import type { ProdutoMercado } from "../lib/mercado";
 import { Contador, reais } from "./campos";
 import { Chip } from "./mercado-casca";
 import { BotaoOuro } from "./quiz-casca";
+import { MercadoAprendeu } from "./mercado-aprendeu";
 
 const OURO = "#F5B800";
 
@@ -28,6 +29,7 @@ export function MercadoRendimento({ compraId, total, faz }: { compraId: string; 
           Os insumos estão no estoque. Quando produzir, vai em <b style={{ color: OURO }}>Produtos › Estoque</b> e toca em
           <b style={{ color: OURO }}> Produzi</b> — aí as {prod.name.toLowerCase()}s entram no estoque e os insumos baixam.
         </span>
+        <MercadoAprendeu compraId={compraId} produtoId={prod.id} nome={prod.name} unidades={unidades} />
       </section>
     );
   }

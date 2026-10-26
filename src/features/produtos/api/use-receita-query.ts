@@ -5,14 +5,14 @@ import { produtosKeys } from "./use-produtos-query";
 import { unidadeDe, type Unidade } from "../types";
 
 const num = z.coerce.number().catch(0);
-const linhaSchema = z.object({ ingredient_id: z.string(), quantity: num });
+const linhaSchema = z.object({ ingredient_id: z.string(), quantity: num, aprender: z.boolean().catch(false) });
 const ingSchema = z.object({
   id: z.string(), name: z.string(), cost_per_unit: num, stock_quantity: num,
   unit: z.string().nullable().catch("un"), pacote_qtd: z.coerce.number().catch(1),
 });
 
 export interface IngredienteDaReceita {
-  id: string; nome: string; qtd: number; preco: number; estoque: number; unidade: Unidade; pacote: number;
+  id: string; nome: string; qtd: number; preco: number; estoque: number; unidade: Unidade; pacote: number; aprender?: boolean;
 }
 
 /** A receita salva do produto, com o custo e o estoque atual de cada ingrediente. */
@@ -23,7 +23,7 @@ export function useReceitaQuery(produtoId: string | undefined) {
     refetchOnMount: "always",
     queryFn: async (): Promise<IngredienteDaReceita[]> => {
       // só a BASE (26/10): os extras de cada sabor vêm em useSaboresQuery
-      const rec = await supabase.from("product_recipes").select("ingredient_id, quantity").eq("product_id", produtoId!).is("variant_id", null);
+      const rec = await supabase.from("product_recipes").select("ingredient_id, quantity, aprender").eq("product_id", produtoId!).is("variant_id", null);
       if (rec.error) throw rec.error;
       const linhas = z.array(linhaSchema).parse(rec.data ?? []);
       if (linhas.length === 0) return [];
@@ -35,7 +35,7 @@ export function useReceitaQuery(produtoId: string | undefined) {
         const i = porId.get(l.ingredient_id);
         return i ? [{
           id: i.id, nome: i.name, qtd: l.quantity, preco: i.cost_per_unit, estoque: i.stock_quantity,
-          unidade: unidadeDe(i.unit), pacote: i.pacote_qtd > 0 ? i.pacote_qtd : 1,
+          unidade: unidadeDe(i.unit), pacote: i.pacote_qtd > 0 ? i.pacote_qtd : 1, ...(l.aprender ? { aprender: true } : {}),
         }] : [];
       });
     },
