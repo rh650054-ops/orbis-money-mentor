@@ -64,6 +64,8 @@ export function LinhaIngrediente({ it, estoque, sugestoes, onMudar }: {
   it: IngredienteRascunho; estoque?: number; sugestoes: IngredienteGuardado[]; onMudar: (m: Partial<IngredienteRascunho>) => void;
 }) {
   const [editando, setEditando] = useState(false);
+  // 26/10 (Rick): item em "un" pensa em "R$ 1,19 cada"; o pacote (100 por R$ 119) é opcional
+  const [mostraPacote, setMostraPacote] = useState(false);
   const p1 = precoDe1(it);
   // 26/10 (Rick): "Você compra 1 kg por R$ 9,90" enquanto na leva vai 200 g — a conta fica em g
   const compra = compraNaTela(it.unidade, it.pacote);
@@ -101,6 +103,17 @@ export function LinhaIngrediente({ it, estoque, sugestoes, onMudar }: {
             className="self-start text-[11px] font-extrabold pl-[30px] py-0.5 underline underline-offset-2" style={{ color: it.aprender ? "#F5B800" : "#7b766e" }}>
             {it.aprender ? "sei a quantidade, vou digitar" : "não sei quanto vai · descubro na compra"}
           </button>
+          {it.unidade === "un" && (
+            <div className="flex items-center gap-1.5 flex-wrap text-[12px] font-bold pl-[30px]" style={{ color: "#b9b3a6" }}>
+              <span>Cada un custa</span>
+              <MiniDinheiro key={`cada-${it.pacote}-${mostraPacote}`} valor={Math.round(p1 * 100) / 100} rotulo="Preço de 1 un do ingrediente"
+                onChange={(v) => onMudar({ precoPacote: Math.round(v * (it.pacote > 0 ? it.pacote : 1) * 100) / 100 })} />
+              <button type="button" onClick={() => setMostraPacote((m) => !m)} className="underline underline-offset-2 text-[11px]" style={{ color: it.pacote > 1 ? "#F5B800" : "#7b766e" }}>
+                {it.pacote > 1 ? `pacote de ${fmt(it.pacote)} por ${reais(it.precoPacote)}` : "vem em pacote?"}
+              </button>
+            </div>
+          )}
+          {(it.unidade !== "un" || mostraPacote) && (
           <div className="flex items-center gap-1.5 flex-wrap text-[12px] font-bold pl-[30px]" style={{ color: "#b9b3a6" }}>
             <span>Você compra</span>
             <MiniNumero key={`${it.unidade}-${compra.unidade}`} valor={compra.valor} rotulo="Quanto vem na compra"
@@ -113,8 +126,9 @@ export function LinhaIngrediente({ it, estoque, sugestoes, onMudar }: {
               </select>
             ) : <span>{it.unidade}</span>}
             <span>por</span>
-            <MiniDinheiro valor={it.precoPacote} onChange={(precoPacote) => onMudar({ precoPacote })} />
+            <MiniDinheiro key={`pac-${mostraPacote}`} valor={it.precoPacote} onChange={(precoPacote) => onMudar({ precoPacote })} />
           </div>
+          )}
           <span className="text-[10.5px] font-bold pl-[30px]" style={{ color: precoSuspeito(it) ? "#FF7A6B" : "#7b766e" }}>
             {p1 > 0 ? `≈ ${reais(p1)} cada ${it.unidade} · ` : ""}
             {precoSuspeito(it) ? `confere "Você compra": ${fmt(compra.valor)} ${compra.unidade} por ${reais(it.precoPacote)} tá caro demais · ` : ""}
@@ -146,12 +160,12 @@ function SeletorUnidade({ valor, onChange }: { valor: Unidade; onChange: (u: Uni
   );
 }
 
-function MiniDinheiro({ valor, onChange }: { valor: number; onChange: (n: number) => void }) {
+function MiniDinheiro({ valor, onChange, rotulo = "Quanto paga nessa compra" }: { valor: number; onChange: (n: number) => void; rotulo?: string }) {
   const campo = useTextoDinheiro(valor, onChange);
   return (
     <span className="w-[92px] h-9 rounded-[10px] bg-[#1a1a19] flex items-center px-2 gap-1">
       <span className="text-[11px] font-bold" style={{ color: "#7b766e" }}>R$</span>
-      <input type="text" inputMode="decimal" placeholder="0" aria-label="Quanto paga nessa compra" {...campo}
+      <input type="text" inputMode="decimal" placeholder="0" aria-label={rotulo} {...campo}
         onFocus={(e) => e.currentTarget.select()}
         className="w-full bg-transparent text-right outline-none text-sm font-black tabular-nums text-[#F4F1EA]" />
     </span>
