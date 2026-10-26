@@ -1,10 +1,28 @@
 /* Moldura da tela "Tô no mercado": voltar, título, conteúdo e rodapé fixo. */
-import type { ReactNode } from "react";
+import { useRef, useState, type FocusEvent, type ReactNode } from "react";
+
+const DIGITA = (el: EventTarget | null): el is HTMLElement =>
+  el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
 import { ChevronLeft } from "lucide-react";
 
 export function MercadoCasca({ titulo, sub, onVoltar, children, rodape }: {
   titulo: ReactNode; sub?: ReactNode; onVoltar: () => void; children: ReactNode; rodape?: ReactNode;
 }) {
+  // 26/10 (Rick): com o teclado aberto o rodapé fixo subia junto e cobria os ingredientes.
+  // Enquanto digita num campo da lista, o rodapé para de flutuar (fica no fim da lista) e
+  // o campo rola pro meio da tela.
+  const conteudo = useRef<HTMLDivElement>(null);
+  const [digitando, setDigitando] = useState(false);
+  const aoFocar = (e: FocusEvent<HTMLDivElement>) => {
+    if (!DIGITA(e.target)) return;
+    setDigitando(true);
+    const el = e.target;
+    window.setTimeout(() => el.scrollIntoView({ block: "center", behavior: "smooth" }), 320);
+  };
+  const aoSair = () => window.setTimeout(() => {
+    const a = document.activeElement;
+    setDigitando(DIGITA(a) && !!conteudo.current?.contains(a));
+  }, 60);
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto bg-black">
       <div className="min-h-[100dvh] text-[#F4F1EA] px-4 max-w-md mx-auto flex flex-col gap-3"
@@ -18,10 +36,10 @@ export function MercadoCasca({ titulo, sub, onVoltar, children, rodape }: {
             {sub && <p className="text-[13px]" style={{ color: "#b9b3a6" }}>{sub}</p>}
           </div>
         </div>
-        {children}
+        <div ref={conteudo} onFocus={aoFocar} onBlur={aoSair} className="flex flex-col gap-3">{children}</div>
         <div className="flex-grow" />
         {rodape && (
-          <div className="sticky bottom-0 -mx-4 px-4 pt-3 flex flex-col gap-2 bg-black"
+          <div className={`${digitando ? "" : "sticky bottom-0 "}-mx-4 px-4 pt-3 flex flex-col gap-2 bg-black`}
             style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid #1c1a16" }}>
             {rodape}
           </div>

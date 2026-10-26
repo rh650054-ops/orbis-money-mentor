@@ -1,4 +1,4 @@
-/* Últimas compras do mercado — tocar abre a compra pra editar (Rick, 19/10). */
+/* Últimas compras do mercado — tocar abre o detalhe da compra (26/10; antes ia direto pra editar). */
 import { ChevronRight } from "lucide-react";
 import { useComprasMercadoQuery } from "../api/use-compra-mercado";
 import { reais } from "./campos";
@@ -19,7 +19,7 @@ export function ComprasRecentes({ userId, onAbrir }: { userId: string | undefine
             <span className="text-sm font-black">{reais(c.total)}</span>
             <span className="text-xs font-bold" style={{ color: "#7b766e" }}>{quando(c.criada_em)} · {c.itens} {c.itens === 1 ? "item" : "itens"}</span>
           </span>
-          <span className="text-xs font-black" style={{ color: "#F5B800" }}>editar</span>
+          <span className="text-xs font-black" style={{ color: "#F5B800" }}>ver</span>
           <ChevronRight className="w-4 h-4" style={{ color: "#7b766e" }} />
         </button>
       ))}
