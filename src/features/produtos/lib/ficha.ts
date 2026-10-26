@@ -34,9 +34,9 @@ export function fichaDe(p: ProdutoComFaixas, receita: IngredienteDaReceita[], sa
     preco: p.sale_price, precoLivre: !!p.open_price,
     combos: p.faixas.filter((f) => f.qty >= 2).map((f) => ({ qty: f.qty, price: f.price })),
     custo: p.cost, estoque: p.stock_quantity, estoqueMin: p.stock_min, controlaEstoque: p.controla_estoque !== false,
-    itens: rascunhoDaReceita(receita),
+    itens: rascunhoDaReceita(receita, p.batch_yield),
     rende: p.batch_yield > 0 ? p.batch_yield : 20,
-    sabores: sabores.map((s) => ({ id: s.id, nome: s.nome, emoji: s.emoji, itens: rascunhoDaReceita(s.extras) })),
+    sabores: sabores.map((s) => ({ id: s.id, nome: s.nome, emoji: s.emoji, itens: rascunhoDaReceita(s.extras, p.batch_yield) })),
   };
 }
 

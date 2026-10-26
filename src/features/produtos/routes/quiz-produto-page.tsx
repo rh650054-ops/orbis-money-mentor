@@ -59,7 +59,7 @@ function Quiz({ inicial, userId }: { inicial?: RascunhoProduto; userId?: string 
       return <PassoOrigem total={TOTAL_PASSOS} onEscolher={q.setOrigem} onVoltar={voltar} />;
     case "custo":
       return r.origem === "faz"
-        ? <PassoCustoFaz total={TOTAL_PASSOS} nome={r.nome} custo={r.custo} receitaInicial={r.receita ? rascunhoDaReceita(r.receita) : null}
+        ? <PassoCustoFaz total={TOTAL_PASSOS} nome={r.nome} custo={r.custo} receitaInicial={r.receita ? rascunhoDaReceita(r.receita, r.rende) : null}
             rendeInicial={r.rende} onCusto={q.setCusto} onRende={(n) => q.setPacote(n)} onReceita={q.setReceita} onContinuar={q.avancar} onVoltar={voltar} />
         : <PassoCustoCompra total={TOTAL_PASSOS} nome={r.nome} custo={r.custo} onCusto={q.setCusto} onPacote={(n) => q.setPacote(n)}
             onFaco={() => q.setOrigem("faz")} onContinuar={q.avancar} onVoltar={voltar} />;

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { IngredienteRascunho } from "../lib/receitas";
 
@@ -6,38 +7,31 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 vi.mock("../api/use-ingredientes-guardados-query", () => ({ useIngredientesGuardadosQuery: () => ({ data: [] }) }));
 import { EditorReceita } from "./editor-receita";
 
-describe("EditorReceita — fruta em gramas", () => {
-  it("trocar pra g deixa a compra em 1 kg; 200 g de polpa a R$ 9,90 o quilo custa R$ 1,98 na leva", () => {
-    let itens: IngredienteRascunho[] = [{ nome: "Fruta / polpa", qtd: 1, unidade: "un", pacote: 1, precoPacote: 9.9, usa: true }];
-    const onItens = vi.fn((n: IngredienteRascunho[]) => { itens = n; });
-    const { rerender } = render(<EditorReceita itens={itens} rende={5} onItens={onItens} onRende={() => {}} />);
-    fireEvent.change(screen.getByLabelText("Unidade"), { target: { value: "g" } });
-    expect(itens[0]).toMatchObject({ unidade: "g", pacote: 1000 });
-    rerender(<EditorReceita itens={itens} rende={5} onItens={onItens} onRende={() => {}} />);
-    expect(screen.getByLabelText("Unidade da compra")).toHaveValue("kg");
-    expect(screen.getByLabelText("Quanto vem na compra")).toHaveValue("1");
-    fireEvent.change(screen.getByLabelText("Quantidade na leva"), { target: { value: "200" } });
-    rerender(<EditorReceita itens={itens} rende={5} onItens={onItens} onRende={() => {}} />);
-    // leva de R$ 1,98 ÷ 5 = R$ 0,40 cada
-    expect(screen.getByText(/leva de R\$ 1,98/)).toBeInTheDocument();
-  });
-});
+function Harness({ inicial }: { inicial: IngredienteRascunho[] }) {
+  // estado real: o editor devolve itens e rende, a tela guarda
+  const [itens, setItens] = useState(inicial);
+  const [rende, setRende] = useState(20);
+  return <EditorReceita itens={itens} rende={rende} nomeProduto="garrafinhas" onItens={setItens} onRende={setRende} />;
+}
 
-describe("EditorReceita — item em unidade", () => {
-  it('pergunta "cada un custa" e o pacote é opcional: 100 por R$ 119 = R$ 1,19 cada', () => {
-    let itens: IngredienteRascunho[] = [{ nome: "Garrafa 300ml", qtd: 5, unidade: "un", pacote: 1, precoPacote: 0, usa: true }];
-    const onItens = vi.fn((n: IngredienteRascunho[]) => { itens = n; });
-    const { rerender } = render(<EditorReceita itens={itens} rende={5} onItens={onItens} onRende={() => {}} />);
-    expect(screen.queryByLabelText("Quanto vem na compra")).toBeNull();
-    fireEvent.change(screen.getByLabelText("Preço de 1 un do ingrediente"), { target: { value: "1,19" } });
-    expect(itens[0]?.precoPacote).toBe(1.19);
-    rerender(<EditorReceita itens={itens} rende={5} onItens={onItens} onRende={() => {}} />);
-    // leva de 5 × 1,19 = 5,95 ÷ 5 = 1,19 cada
-    expect(screen.getByText(/leva de R\$ 5,95/)).toBeInTheDocument();
-    fireEvent.click(screen.getByText("vem em pacote?"));
-    fireEvent.change(screen.getByLabelText("Quanto vem na compra"), { target: { value: "100" } });
-    rerender(<EditorReceita itens={itens} rende={5} onItens={onItens} onRende={() => {}} />);
-    fireEvent.change(screen.getByLabelText("Quanto paga nessa compra"), { target: { value: "119" } });
-    expect(itens[0]).toMatchObject({ pacote: 100, precoPacote: 119 });
+describe("EditorReceita — do jeito que o Rick pensa", () => {
+  it("leite em pó: compro 1 kg por R$ 35,99 e dá pra 100 → R$ 0,36 cada; a leva vira 100", () => {
+    render(<Harness inicial={[{ nome: "Leite em pó", qtd: 1, unidade: "un", pacote: 1, precoPacote: 0, usa: true }]} />);
+    fireEvent.change(screen.getByLabelText("Unidade da compra"), { target: { value: "kg" } });
+    fireEvent.change(screen.getByLabelText("Quanto paga nessa compra"), { target: { value: "35,99" } });
+    fireEvent.change(screen.getByLabelText("Dá pra quantas garrafinhas"), { target: { value: "100" } });
+    expect(screen.getByText("→ R$ 0,36 cada")).toBeInTheDocument();
+    expect(screen.getByText(/numa leva de 100 vai 1000 g/)).toBeInTheDocument();
+    expect(screen.getByText(/100 garrafinhas por R\$ 35,99/)).toBeInTheDocument();
+  });
+
+  it("leite condensado 1 un por R$ 3,39 dá pra 5 + leite em pó pra 100: custo soma certo", () => {
+    render(<Harness inicial={[
+      { nome: "Leite condensado", qtd: 0, unidade: "un", pacote: 1, precoPacote: 3.39, usa: true, daPra: 5 },
+      { nome: "Leite em pó", qtd: 0, unidade: "g", pacote: 1000, precoPacote: 35.99, usa: true, daPra: 100 },
+    ]} />);
+    // as quantidades por leva (de 100) vêm sozinhas do "dá pra": 20 latas e 1000 g
+    // 3,39 ÷ 5 = 0,678 + 35,99 ÷ 100 = 0,36 → R$ 1,04 cada
+    expect(screen.getAllByText(/1,04/).length).toBeGreaterThan(0);
   });
 });

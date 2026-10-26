@@ -1,42 +1,62 @@
-/* A receita de quem faz (quiz e ficha): o que vai numa leva e quanto de cada um,
-   como ele compra cada coisa ("pacote de 100 por R$ 8", "lata de 800 g por R$ 30",
-   pode ser aproximado) e quanto a leva rende. A VANT faz a conta do custo. */
-import { useState } from "react";
+/* A receita de quem faz (quiz e ficha). Do jeito que o vendedor pensa (Rick, 26/10/2026):
+   "compro 1 kg de leite em pó por R$ 35,99 e dá pra 100 garrafinhas". De cada ingrediente
+   ele diz o que compra, quanto paga e pra quantas dá. A VANT converte isso em quantidade
+   por leva (a leva = o maior "dá pra") e faz o custo de cada unidade.
+   "Não sei pra quantas dá" → a 1ª compra ensina (aprender). */
+import { useEffect, useState } from "react";
 import { Check, Plus } from "lucide-react";
 import { reaisDeTexto } from "@/shared/lib/dinheiro";
 import { useIngredientesGuardadosQuery, type IngredienteGuardado } from "../api/use-ingredientes-guardados-query";
 import { custoPorUnidade } from "../lib/conta";
-import { compraNaTela, novoIngrediente, pacoteAoTrocarUnidade, pacoteDaCompra, precoDe1, precoSuspeito, totalDaReceita, unidadesDeCompra, type IngredienteRascunho } from "../lib/receitas";
-import { UNIDADES, type Unidade } from "../types";
-import { Contador, reais, useTextoDinheiro } from "./campos";
+import { compraNaTela, custoPorDaPra, novoIngrediente, pacoteDaCompra, qtdPorDaPra, rendePelosDaPra, totalDaReceita, type IngredienteRascunho } from "../lib/receitas";
+import type { Unidade } from "../types";
+import { reais, useTextoDinheiro } from "./campos";
 import { ResultadoOuro } from "./quiz-casca";
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toLocaleString("pt-BR", { maximumFractionDigits: 2 }));
+/** unidade da compra na tela → unidade da leva + fator */
+const COMPRA: { rotulo: string; leva: Unidade; fator: number }[] = [
+  { rotulo: "un", leva: "un", fator: 1 }, { rotulo: "kg", leva: "g", fator: 1000 }, { rotulo: "g", leva: "g", fator: 1 },
+  { rotulo: "l", leva: "ml", fator: 1000 }, { rotulo: "ml", leva: "ml", fator: 1 },
+];
 
-export function EditorReceita({ itens, rende, onItens, onRende, estoques }: {
+export function EditorReceita({ itens, rende, onItens, onRende, estoques, nomeProduto = "unidades" }: {
   itens: IngredienteRascunho[]; rende: number;
   onItens: (i: IngredienteRascunho[]) => void; onRende: (n: number) => void;
   /** estoque de cada ingrediente pelo nome (minúsculo), quando já existe */
   estoques?: Map<string, number>;
+  nomeProduto?: string;
 }) {
-  const mudar = (i: number, m: Partial<IngredienteRascunho>) => onItens(itens.map((it, j) => (j === i ? { ...it, ...m } : it)));
   const guardados = useIngredientesGuardadosQuery().data ?? [];
+  // a leva segue o maior "dá pra": quem compra pra 100 define a leva de 100
+  const rendeAuto = rendePelosDaPra(itens, rende);
+  useEffect(() => {
+    if (rendeAuto !== rende) onRende(rendeAuto);
+    // quem tem "dá pra" ganha a quantidade por leva sozinho (inclusive ao voltar do banco)
+    const ajustados = itens.map((it) => (it.daPra ? { ...it, qtd: qtdPorDaPra(it, rendeAuto) } : it));
+    if (ajustados.some((a, i) => a.qtd !== itens[i]?.qtd)) onItens(ajustados);
+  }, [rendeAuto, rende, itens, onRende, onItens]);
+  const mudar = (i: number, m: Partial<IngredienteRascunho>) => onItens(itens.map((it, j) => {
+    if (j !== i) return it.daPra ? { ...it, qtd: qtdPorDaPra(it, rendeAuto) } : it;
+    const n = { ...it, ...m };
+    return n.daPra ? { ...n, qtd: qtdPorDaPra(n, rendePelosDaPra(itens.map((x, k) => (k === i ? n : x)), rende)) } : n;
+  }));
   const total = totalDaReceita(itens);
   const custo = custoPorUnidade(total, rende);
+  const aprendendo = itens.filter((i) => i.usa && i.aprender && i.nome.trim()).map((i) => i.nome.trim());
   return (
     <div className="flex flex-col gap-2.5">
       {itens.map((it, i) => (
-        <LinhaIngrediente key={i} it={it} estoque={estoques?.get(it.nome.trim().toLowerCase())} onMudar={(m) => mudar(i, m)}
+        <LinhaIngrediente key={i} it={it} rende={rendeAuto} nomeProduto={nomeProduto} estoque={estoques?.get(it.nome.trim().toLowerCase())} onMudar={(m) => mudar(i, m)}
           sugestoes={guardados.filter((g) => !itens.some((x, j) => j !== i && x.nome.trim().toLowerCase() === g.nome.trim().toLowerCase()))} />
       ))}
       <button type="button" onClick={() => onItens([...itens, novoIngrediente()])}
         className="flex items-center gap-1 text-[12.5px] font-black px-0.5 py-1 self-start" style={{ color: "#F5B800" }}>
         <Plus className="w-3.5 h-3.5" /> adicionar ingrediente
       </button>
-      <Contador rotulo="Uma leva rende quantas unidades?" valor={rende} min={1} onChange={onRende} />
       {custo > 0
-        ? <ResultadoOuro rotulo="Cada uma te custa" valor={reais(custo)}
-            detalhe={`leva de ${reais(total)} ÷ ${rende}${itens.some((i) => i.usa && i.aprender && i.nome.trim()) ? ` · + ${itens.filter((i) => i.usa && i.aprender && i.nome.trim()).map((i) => i.nome.trim()).join(", ")} entra depois da compra` : ""}`} />
+        ? <ResultadoOuro rotulo={`Cada ${nomeProduto === "unidades" ? "uma" : nomeProduto} te custa`} valor={reais(custo)}
+            detalhe={`${rende} ${nomeProduto} por ${reais(total)}${aprendendo.length ? ` · + ${aprendendo.join(", ")} entra depois da compra` : ""}`} />
         : <p className="text-[11.5px] font-bold px-1" style={{ color: "#7b766e" }}>Sem preço? Tudo bem: o custo aparece quando você anotar a compra no "Tô no mercado".</p>}
     </div>
   );
@@ -60,16 +80,14 @@ function Sugestoes({ texto, lista, onEscolher }: { texto: string; lista: Ingredi
   );
 }
 
-export function LinhaIngrediente({ it, estoque, sugestoes, onMudar }: {
-  it: IngredienteRascunho; estoque?: number; sugestoes: IngredienteGuardado[]; onMudar: (m: Partial<IngredienteRascunho>) => void;
+export function LinhaIngrediente({ it, rende, nomeProduto = "unidades", estoque, sugestoes, onMudar }: {
+  it: IngredienteRascunho; rende: number; nomeProduto?: string; estoque?: number; sugestoes: IngredienteGuardado[];
+  onMudar: (m: Partial<IngredienteRascunho>) => void;
 }) {
   const [editando, setEditando] = useState(false);
-  // 26/10 (Rick): item em "un" pensa em "R$ 1,19 cada"; o pacote (100 por R$ 119) é opcional
-  const [mostraPacote, setMostraPacote] = useState(false);
-  const p1 = precoDe1(it);
-  // 26/10 (Rick): "Você compra 1 kg por R$ 9,90" enquanto na leva vai 200 g — a conta fica em g
   const compra = compraNaTela(it.unidade, it.pacote);
-  const unidadesCompra = unidadesDeCompra(it.unidade);
+  const cada = custoPorDaPra(it);
+  const semDaPra = !it.aprender && !(it.daPra && it.daPra > 0);
   return (
     <div className="flex flex-col gap-2 rounded-[14px] px-3 py-2.5" style={{ background: it.usa ? "#121211" : "#0b0b0c", border: `1px solid ${it.usa ? "#26241f" : "#1a1917"}` }}>
       <div className="flex items-center gap-2">
@@ -92,46 +110,40 @@ export function LinhaIngrediente({ it, estoque, sugestoes, onMudar }: {
       {it.usa && (
         <>
           <div className="flex items-center gap-1.5 flex-wrap text-[12px] font-bold pl-[30px]" style={{ color: "#b9b3a6" }}>
-            <span>Numa leva vai</span>
-            {it.aprender
-              ? <span className="h-9 rounded-[10px] px-2.5 inline-flex items-center text-[12px] font-black" style={{ background: "#1a1305", color: "#F5B800" }}>? descubro na compra</span>
-              : <MiniNumero valor={it.qtd} onChange={(qtd) => onMudar({ qtd })} rotulo="Quantidade na leva" />}
-            <SeletorUnidade valor={it.unidade} onChange={(unidade) => onMudar({ unidade, pacote: pacoteAoTrocarUnidade(unidade, it.pacote, it.unidade) })} />
-          </div>
-          {/* 26/10 (Rick): fruta/polpa sem medida certa — a 1ª compra ensina ("5 kg pra 100 = 50 g cada") */}
-          <button type="button" onClick={() => onMudar({ aprender: !it.aprender })} aria-pressed={!!it.aprender}
-            className="self-start text-[11px] font-extrabold pl-[30px] py-0.5 underline underline-offset-2" style={{ color: it.aprender ? "#F5B800" : "#7b766e" }}>
-            {it.aprender ? "sei a quantidade, vou digitar" : "não sei quanto vai · descubro na compra"}
-          </button>
-          {it.unidade === "un" && (
-            <div className="flex items-center gap-1.5 flex-wrap text-[12px] font-bold pl-[30px]" style={{ color: "#b9b3a6" }}>
-              <span>Cada un custa</span>
-              <MiniDinheiro key={`cada-${it.pacote}-${mostraPacote}`} valor={Math.round(p1 * 100) / 100} rotulo="Preço de 1 un do ingrediente"
-                onChange={(v) => onMudar({ precoPacote: Math.round(v * (it.pacote > 0 ? it.pacote : 1) * 100) / 100 })} />
-              <button type="button" onClick={() => setMostraPacote((m) => !m)} className="underline underline-offset-2 text-[11px]" style={{ color: it.pacote > 1 ? "#F5B800" : "#7b766e" }}>
-                {it.pacote > 1 ? `pacote de ${fmt(it.pacote)} por ${reais(it.precoPacote)}` : "vem em pacote?"}
-              </button>
-            </div>
-          )}
-          {(it.unidade !== "un" || mostraPacote) && (
-          <div className="flex items-center gap-1.5 flex-wrap text-[12px] font-bold pl-[30px]" style={{ color: "#b9b3a6" }}>
-            <span>Você compra</span>
-            <MiniNumero key={`${it.unidade}-${compra.unidade}`} valor={compra.valor} rotulo="Quanto vem na compra"
+            <span>Compro</span>
+            <MiniNumero key={`q-${compra.unidade}`} valor={compra.valor} rotulo="Quanto compra"
               onChange={(v) => onMudar({ pacote: v > 0 ? pacoteDaCompra(v, compra.unidade, it.unidade) : 1 })} />
-            {unidadesCompra.length > 1 ? (
-              <select value={compra.unidade} aria-label="Unidade da compra"
-                onChange={(e) => onMudar({ pacote: pacoteDaCompra(compra.valor, e.target.value as Unidade, it.unidade) })}
-                className="h-9 rounded-[10px] bg-[#1a1a19] px-2 outline-none text-sm font-black text-[#F4F1EA]">
-                {unidadesCompra.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
-            ) : <span>{it.unidade}</span>}
+            <select value={compra.unidade} aria-label="Unidade da compra"
+              onChange={(e) => {
+                const c = COMPRA.find((x) => x.rotulo === e.target.value) ?? COMPRA[0]!;
+                onMudar({ unidade: c.leva, pacote: Math.max(1, compra.valor) * c.fator });
+              }}
+              className="h-9 rounded-[10px] bg-[#1a1a19] px-2 outline-none text-sm font-black text-[#F4F1EA]">
+              {COMPRA.map((u) => <option key={u.rotulo} value={u.rotulo}>{u.rotulo}</option>)}
+            </select>
             <span>por</span>
-            <MiniDinheiro key={`pac-${mostraPacote}`} valor={it.precoPacote} onChange={(precoPacote) => onMudar({ precoPacote })} />
+            <MiniDinheiro valor={it.precoPacote} onChange={(precoPacote) => onMudar({ precoPacote })} />
           </div>
-          )}
-          <span className="text-[10.5px] font-bold pl-[30px]" style={{ color: precoSuspeito(it) ? "#FF7A6B" : "#7b766e" }}>
-            {p1 > 0 ? `≈ ${reais(p1)} cada ${it.unidade} · ` : ""}
-            {precoSuspeito(it) ? `confere "Você compra": ${fmt(compra.valor)} ${compra.unidade} por ${reais(it.precoPacote)} tá caro demais · ` : ""}
+          <div className="flex items-center gap-1.5 flex-wrap text-[12px] font-bold pl-[30px]" style={{ color: "#b9b3a6" }}>
+            {it.aprender ? (
+              <span className="h-9 rounded-[10px] px-2.5 inline-flex items-center text-[12px] font-black" style={{ background: "#1a1305", color: "#F5B800" }}>? descubro na compra</span>
+            ) : (
+              <>
+                <span>e dá pra</span>
+                <MiniNumero valor={it.daPra ?? 0} rotulo={`Dá pra quantas ${nomeProduto}`} onChange={(daPra) => onMudar({ daPra: daPra > 0 ? daPra : undefined })} />
+                <span>{nomeProduto}</span>
+              </>
+            )}
+            {cada > 0 && !it.aprender && <span className="font-black" style={{ color: "#F5B800" }}>→ {reais(cada)} cada</span>}
+          </div>
+          {/* fruta/polpa sem medida certa: a 1ª compra ensina ("5 kg pra 100 = 50 g cada") */}
+          <button type="button" onClick={() => onMudar({ aprender: !it.aprender, ...(it.aprender ? {} : { daPra: undefined, qtd: 0 }) })} aria-pressed={!!it.aprender}
+            className="self-start text-[11px] font-extrabold pl-[30px] py-0.5 underline underline-offset-2" style={{ color: it.aprender ? "#F5B800" : "#7b766e" }}>
+            {it.aprender ? "sei pra quantas dá, vou digitar" : "não sei pra quantas dá · descubro na compra"}
+          </button>
+          <span className="text-[10.5px] font-bold pl-[30px]" style={{ color: semDaPra ? "#F5B800" : "#7b766e" }}>
+            {semDaPra ? `falta dizer pra quantas ${nomeProduto} dá · ` : ""}
+            {it.daPra && it.daPra > 0 && rende > 0 && !it.aprender ? `numa leva de ${rende} vai ${fmt(qtdPorDaPra(it, rende))} ${it.unidade} · ` : ""}
             {estoque !== undefined ? `tem ${fmt(estoque)} ${it.unidade} guardado · ` : ""}pode ser aproximado
           </span>
         </>
@@ -148,15 +160,6 @@ function MiniNumero({ valor, onChange, rotulo }: { valor: number; onChange: (n: 
       onFocus={(e) => e.currentTarget.select()}
       onChange={(e) => { const v = e.target.value.replace(/[^\d.,]/g, "").slice(0, 8); setT(v); onChange(reaisDeTexto(v)); }}
       className="w-[64px] h-9 rounded-[10px] text-center bg-[#1a1a19] outline-none text-sm font-black tabular-nums text-[#F4F1EA]" />
-  );
-}
-
-function SeletorUnidade({ valor, onChange }: { valor: Unidade; onChange: (u: Unidade) => void }) {
-  return (
-    <select value={valor} onChange={(e) => onChange(e.target.value as Unidade)} aria-label="Unidade"
-      className="h-9 rounded-[10px] bg-[#1a1a19] px-2 outline-none text-sm font-black text-[#F4F1EA]">
-      {UNIDADES.map((u) => <option key={u} value={u}>{u}</option>)}
-    </select>
   );
 }
 
