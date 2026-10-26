@@ -21,6 +21,7 @@ vi.mock("../api/use-receita-query", () => ({
 }));
 vi.mock("../api/use-mercado-query", () => ({ useMercadoQuery: () => ({ data: undefined }) }));
 vi.mock("../api/use-ingredientes-guardados-query", () => ({ useIngredientesGuardadosQuery: () => ({ data: [] }) }));
+vi.mock("../api/use-sabores", () => ({ useSaboresQuery: () => ({ data: [], isError: false }), salvarSabores: vi.fn() }));
 const salvar = vi.fn();
 vi.mock("../api/use-salvar-ficha-mutation", () => ({ useSalvarFichaMutation: () => ({ mutate: salvar, isPending: false }) }));
 vi.mock("../api/use-subir-foto-mutation", () => ({ useSubirFotoMutation: () => ({ mutate: vi.fn(), isPending: false }) }));

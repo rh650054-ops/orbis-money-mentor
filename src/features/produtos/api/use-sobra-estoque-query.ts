@@ -14,7 +14,7 @@ export function useSobraEstoqueQuery(produtos: string[], compraId: string) {
     queryKey: produtosKeys.list({ tela: "sobra-estoque", compraId, produtos }),
     enabled: produtos.length > 0,
     queryFn: async (): Promise<Record<string, ItemReceitaEstoque[]>> => {
-      const { data: rec, error } = await supabase.from("product_recipes").select("product_id, ingredient_id, quantity").in("product_id", produtos);
+      const { data: rec, error } = await supabase.from("product_recipes").select("product_id, ingredient_id, quantity").in("product_id", produtos).is("variant_id", null);
       if (error) throw error;
       const receitas = z.array(receitaSchema).parse(rec ?? []);
       const ids = [...new Set(receitas.map((r) => r.ingredient_id))];

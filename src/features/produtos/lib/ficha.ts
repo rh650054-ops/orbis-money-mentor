@@ -5,6 +5,8 @@ import type { IngredienteDaReceita } from "../api/use-receita-query";
 import type { ProdutoComFaixas } from "../types";
 import { custoPorUnidade } from "./conta";
 import { precoDe1, rascunhoDaReceita, receitaDoRascunho, totalDaReceita, type IngredienteRascunho } from "./receitas";
+import type { Sabor } from "../api/use-sabores";
+import type { SaborRascunho } from "./sabores";
 
 export interface Ficha {
   nome: string;
@@ -21,9 +23,11 @@ export interface Ficha {
   controlaEstoque: boolean;
   itens: IngredienteRascunho[];
   rende: number;
+  /** sabores (26/10): só o que muda em cada um; a base está em `itens` */
+  sabores: SaborRascunho[];
 }
 
-export function fichaDe(p: ProdutoComFaixas, receita: IngredienteDaReceita[]): Ficha {
+export function fichaDe(p: ProdutoComFaixas, receita: IngredienteDaReceita[], sabores: Sabor[] = []): Ficha {
   const faz = p.origem === "faz" || receita.length > 0;
   return {
     nome: p.name, emoji: p.emoji ?? "📦", foto: p.photo_url, origem: faz ? "faz" : "compra",
@@ -32,6 +36,7 @@ export function fichaDe(p: ProdutoComFaixas, receita: IngredienteDaReceita[]): F
     custo: p.cost, estoque: p.stock_quantity, estoqueMin: p.stock_min, controlaEstoque: p.controla_estoque !== false,
     itens: rascunhoDaReceita(receita),
     rende: p.batch_yield > 0 ? p.batch_yield : 20,
+    sabores: sabores.map((s) => ({ id: s.id, nome: s.nome, emoji: s.emoji, itens: rascunhoDaReceita(s.extras) })),
   };
 }
 

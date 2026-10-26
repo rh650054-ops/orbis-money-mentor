@@ -7,6 +7,7 @@ import { toast } from "@/shared/hooks/use-toast";
 import { mapSupabaseError } from "@/shared/api";
 import { useProdutosQuery } from "../api/use-produtos-query";
 import { useReceitaQuery } from "../api/use-receita-query";
+import { useSaboresQuery } from "../api/use-sabores";
 import { useApagarProdutoMutation } from "../api/use-produto-mutations";
 import { useSalvarFichaMutation } from "../api/use-salvar-ficha-mutation";
 import { useSubirFotoMutation } from "../api/use-subir-foto-mutation";
@@ -25,14 +26,15 @@ export default function FichaProdutoPage() {
   const { user } = useAuth();
   const lista = useProdutosQuery(user?.id, { sempreFresco: true });
   const receita = useReceitaQuery(id);
+  const sabores = useSaboresQuery(id);
   const produto = useMemo(() => lista.data?.find((p) => p.id === id), [id, lista.data]);
-  if (lista.isError || receita.isError) {
+  if (lista.isError || receita.isError || sabores.isError) {
     return <p className="text-center font-bold py-16 text-[#F4F1EA]">Não consegui abrir o produto. Volta e tenta de novo.</p>;
   }
-  if (!lista.isFetchedAfterMount || !receita.data) return <CarregandoProdutos />;
+  if (!lista.isFetchedAfterMount || !receita.data || !sabores.data) return <CarregandoProdutos />;
   if (!produto) return <Navigate to="/products" replace />;
-  const inicial = fichaDe(produto, receita.data);
-  const estoques = new Map(receita.data.map((i) => [i.nome.trim().toLowerCase(), i.estoque]));
+  const inicial = fichaDe(produto, receita.data, sabores.data);
+  const estoques = new Map([...receita.data, ...sabores.data.flatMap((s) => s.extras)].map((i) => [i.nome.trim().toLowerCase(), i.estoque]));
   return <Tela key={produto.id} id={produto.id} inicial={inicial} estoques={estoques} userId={user?.id} />;
 }
 

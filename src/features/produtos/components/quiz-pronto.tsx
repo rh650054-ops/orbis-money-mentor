@@ -51,9 +51,14 @@ export function QuizPronto({ r, onComecarDia, onOutro, onLista, onFicha }: {
       <button type="button" onClick={onComecarDia} className="w-full h-[54px] rounded-2xl text-[15px] font-black" style={{ background: OURO, color: "#1A1200" }}>
         COMEÇAR MEU DIA DE TRABALHO
       </button>
-      {onFicha && (
+      {onFicha && r.receita && (
         <button type="button" onClick={onFicha} className="w-full h-12 rounded-2xl text-[15px] font-black" style={{ background: "#121211", border: "1px solid rgba(245,184,0,.45)", color: "#F5B800" }}>
-          Ver ficha completa{r.receita ? " · receita e estoque" : ""}
+          🍓 Tem mais de um sabor? Adicionar sabores
+        </button>
+      )}
+      {onFicha && !r.receita && (
+        <button type="button" onClick={onFicha} className="w-full h-12 rounded-2xl text-[15px] font-black" style={{ background: "#121211", border: "1px solid rgba(245,184,0,.45)", color: "#F5B800" }}>
+          Ver ficha completa
         </button>
       )}
       <button type="button" onClick={onOutro} className="w-full h-12 rounded-2xl text-[15px] font-black" style={{ background: "#121211", border: "1px solid #26241f" }}>
