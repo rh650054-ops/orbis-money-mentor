@@ -26,7 +26,7 @@ export function EditorReceita({ itens, rende, onItens, onRende, estoques }: {
   return (
     <div className="flex flex-col gap-2.5">
       {itens.map((it, i) => (
-        <Linha key={i} it={it} estoque={estoques?.get(it.nome.trim().toLowerCase())} onMudar={(m) => mudar(i, m)}
+        <LinhaIngrediente key={i} it={it} estoque={estoques?.get(it.nome.trim().toLowerCase())} onMudar={(m) => mudar(i, m)}
           sugestoes={guardados.filter((g) => !itens.some((x, j) => j !== i && x.nome.trim().toLowerCase() === g.nome.trim().toLowerCase()))} />
       ))}
       <button type="button" onClick={() => onItens([...itens, novoIngrediente()])}
@@ -59,7 +59,7 @@ function Sugestoes({ texto, lista, onEscolher }: { texto: string; lista: Ingredi
   );
 }
 
-function Linha({ it, estoque, sugestoes, onMudar }: {
+export function LinhaIngrediente({ it, estoque, sugestoes, onMudar }: {
   it: IngredienteRascunho; estoque?: number; sugestoes: IngredienteGuardado[]; onMudar: (m: Partial<IngredienteRascunho>) => void;
 }) {
   const [editando, setEditando] = useState(false);

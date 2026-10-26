@@ -22,7 +22,8 @@ export function useReceitaQuery(produtoId: string | undefined) {
     enabled: !!produtoId,
     refetchOnMount: "always",
     queryFn: async (): Promise<IngredienteDaReceita[]> => {
-      const rec = await supabase.from("product_recipes").select("ingredient_id, quantity").eq("product_id", produtoId!);
+      // só a BASE (26/10): os extras de cada sabor vêm em useSaboresQuery
+      const rec = await supabase.from("product_recipes").select("ingredient_id, quantity").eq("product_id", produtoId!).is("variant_id", null);
       if (rec.error) throw rec.error;
       const linhas = z.array(linhaSchema).parse(rec.data ?? []);
       if (linhas.length === 0) return [];

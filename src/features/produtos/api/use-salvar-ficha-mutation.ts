@@ -3,6 +3,8 @@ import { supabase } from "@/shared/api";
 import { combosValidos, custoDaFicha, type Ficha } from "../lib/ficha";
 import { receitaDoRascunho } from "../lib/receitas";
 import { salvarReceita } from "./salvar-receita";
+import { salvarSabores } from "./use-sabores";
+import { saboresParaSalvar } from "../lib/sabores";
 import { produtosKeys } from "./use-produtos-query";
 
 /** Salva a ficha inteira. Estoque só é gravado se ele mexeu (o Foco e as compras
@@ -40,6 +42,9 @@ export function useSalvarFichaMutation(userId: string | undefined, produtoId: st
       // receita: grava quando tem; tira quando ele passou a comprar pronto ou esvaziou
       const tinha = inicial.origem === "faz" && receitaDoRascunho(inicial.itens).length > 0;
       if (receita.length > 0 || tinha) await salvarReceita(produtoId, receita, f.rende);
+      // sabores (26/10): grava quando tem; lista vazia apaga os que existiam
+      const sabores = f.origem === "faz" ? saboresParaSalvar(f.sabores) : [];
+      if (sabores.length > 0 || inicial.sabores.length > 0) await salvarSabores(produtoId, sabores);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: produtosKeys.all }),
   });

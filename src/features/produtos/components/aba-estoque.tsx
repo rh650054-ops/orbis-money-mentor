@@ -6,6 +6,7 @@ import type { ProdutoComFaixas } from "../types";
 import { useAProduzirQuery } from "../api/use-producao-mutations";
 import { ComprasRecentes } from "./compras-recentes";
 import { CompraDetalhe } from "./compra-detalhe";
+import { useSaboresDeVariosQuery } from "../api/use-sabores";
 import { Produzi } from "./produzi";
 import { IngredientesGuardados } from "./ingredientes-guardados";
 import { reais } from "./campos";
@@ -23,6 +24,8 @@ export function AbaEstoque({ produtos, userId, onRepor }: {
   const pendenteDe = (id: string) => aProduzir.find((a) => a.produto_id === id);
   const controlados = produtos.filter((p) => p.controla_estoque !== false || faz(p));
   const valor = controlados.reduce((s, p) => s + Math.max(0, p.stock_quantity) * Math.max(0, p.cost), 0);
+  // sabores (26/10): "🍓 40 · 🥭 38" embaixo do produto
+  const sabores = useSaboresDeVariosQuery(controlados.filter(faz).map((p) => p.id));
   const ordem = [...controlados].sort((a, b) => Number(estoqueBaixo(b)) - Number(estoqueBaixo(a)) || a.stock_quantity - b.stock_quantity);
   return (
     <div className="flex flex-col gap-2.5">
@@ -41,6 +44,12 @@ export function AbaEstoque({ produtos, userId, onRepor }: {
               <span className="text-xs font-bold" style={{ color: baixo ? "#ff9a4d" : "#7b766e" }}>
                 {p.stock_quantity} un{p.cost > 0 ? ` · ${reais(p.stock_quantity * p.cost)}` : ""}
               </span>
+              {sabores.data?.[p.id] && (
+                <span className="text-xs font-bold truncate" style={{ color: "#b9b3a6" }}>
+                  {sabores.data[p.id]!.map((s) => `${s.emoji} ${s.estoque}`).join(" · ")}
+                  {(() => { const semSabor = p.stock_quantity - sabores.data![p.id]!.reduce((t, s) => t + s.estoque, 0); return semSabor > 0 ? ` · ${semSabor} sem sabor` : ""; })()}
+                </span>
+              )}
             </span>
             {faz(p) ? (
               <button type="button" onClick={() => setProduzindo(p)} className="rounded-full px-3 py-1.5 text-xs font-black"
