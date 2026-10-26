@@ -49,7 +49,16 @@ export function useSalvarProdutoMutation(userId: string | undefined, inicial?: R
           .upsert({ user_id: userId, product_id: id, qty: r.combo.qty, price: r.combo.price }, { onConflict: "product_id,qty" });
         if (error) throw error;
       }
-      if (r.receita) await salvarReceita(id, r.receita, r.rende);
+      if (r.receita) {
+        try {
+          await salvarReceita(id, r.receita, r.rende);
+        } catch (e) {
+          // 26/10: produto novo cuja receita falhou não fica pela metade — cada "Salvar" de novo
+          // criava outra Batida sem receita (5 iguais no estoque). Apaga e devolve o erro.
+          if (!r.id) await supabase.from("products").delete().eq("id", id);
+          throw e;
+        }
+      }
       if (!r.id) {
         void marcarPasso("produto"); // jornada do teste: dia 0 "cadastrar seu produto"
         emitMissionEvent("product-added");
