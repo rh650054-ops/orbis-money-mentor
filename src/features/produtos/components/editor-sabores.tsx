@@ -3,16 +3,16 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { useIngredientesGuardadosQuery } from "../api/use-ingredientes-guardados-query";
-import { novoIngrediente, type IngredienteRascunho } from "../lib/receitas";
+import { novoIngrediente, qtdPorDaPra, type IngredienteRascunho } from "../lib/receitas";
 import { custoDoSabor, emojiDoSabor, novoSabor, type SaborRascunho } from "../lib/sabores";
 import { reais } from "./campos";
 import { LinhaIngrediente } from "./editor-receita";
 
 const OURO = "#F5B800";
 
-export function EditorSabores({ sabores, base, rende, preco, estoques, onMudar }: {
+export function EditorSabores({ sabores, base, rende, preco, estoques, onMudar, nomeProduto = "unidades" }: {
   sabores: SaborRascunho[]; base: IngredienteRascunho[]; rende: number; preco: number;
-  estoques?: Map<string, number>; onMudar: (s: SaborRascunho[]) => void;
+  estoques?: Map<string, number>; onMudar: (s: SaborRascunho[]) => void; nomeProduto?: string;
 }) {
   const [ativo, setAtivo] = useState(0);
   const guardados = useIngredientesGuardadosQuery().data ?? [];
@@ -53,10 +53,10 @@ export function EditorSabores({ sabores, base, rende, preco, estoques, onMudar }
               <X className="w-4 h-4" />
             </button>
           </div>
-          <p className="text-[11.5px] font-bold" style={{ color: "#7b766e" }}>O que entra só no {s.nome.trim() || "sabor"}, numa leva de {rende}:</p>
+          <p className="text-[11.5px] font-bold" style={{ color: "#7b766e" }}>O que entra só no {s.nome.trim() || "sabor"} ("compro 5 kg de maracujá e dá pra 100"):</p>
           {s.itens.map((it, i) => (
-            <LinhaIngrediente key={i} it={it} estoque={estoques?.get(it.nome.trim().toLowerCase())}
-              onMudar={(m) => mudarSabor(ativo, { itens: s.itens.map((x, j) => (j === i ? { ...x, ...m } : x)) })}
+            <LinhaIngrediente key={i} it={it} rende={rende} nomeProduto={nomeProduto} estoque={estoques?.get(it.nome.trim().toLowerCase())}
+              onMudar={(m) => mudarSabor(ativo, { itens: s.itens.map((x, j) => { if (j !== i) return x; const n = { ...x, ...m }; return n.daPra ? { ...n, qtd: qtdPorDaPra(n, rende) } : n; }) })}
               sugestoes={guardados.filter((g) => !s.itens.some((x, j) => j !== i && x.nome.trim().toLowerCase() === g.nome.trim().toLowerCase()))} />
           ))}
           <button type="button" onClick={() => mudarSabor(ativo, { itens: [...s.itens, novoIngrediente()] })}

@@ -6,6 +6,8 @@ import { ingredientesSugeridos, receitaDoRascunho, totalDaReceita, type Ingredie
 import type { ItemReceita } from "../types";
 import { CampoDinheiro, Contador, reais } from "./campos";
 import { EditorReceita } from "./editor-receita";
+
+const plural = (n: string) => { const s = n.trim().toLowerCase(); return s ? (s.endsWith("s") ? s : `${s}s`) : "unidades"; };
 import { BotaoOuro, QuizCasca, ResultadoOuro } from "./quiz-casca";
 
 const CARD = { background: "#0f0f10", border: "1px solid #26241f" };
@@ -74,7 +76,7 @@ export function PassoCustoFaz({ nome, custo, total, receitaInicial, rendeInicial
     <QuizCasca passo={3} total={total} onVoltar={voltar} titulo={`O que vai em ${nome}?`}
       sub="Quanto de cada coisa vai numa leva. Já marcamos o comum: ajusta do seu jeito."
       rodape={<BotaoOuro onClick={() => { aplicar(itens, rende); onContinuar(); }} disabled={!valida}>CONTINUAR</BotaoOuro>}>
-      <EditorReceita itens={itens} rende={rende} onItens={(n) => aplicar(n, rende)} onRende={(r) => aplicar(itens, r)} />
+      <EditorReceita itens={itens} rende={rende} nomeProduto={plural(nome)} onItens={(n) => aplicar(n, rende)} onRende={(r) => aplicar(itens, r)} />
     </QuizCasca>
   );
 }

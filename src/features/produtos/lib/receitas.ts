@@ -18,6 +18,28 @@ export interface IngredienteRascunho {
   usa: boolean;
   /** "não sei quanto vai, descubro na compra" (26/10) */
   aprender?: boolean;
+  /** 26/10 (Rick): "compro 1 kg por R$ 35,99 e dá pra 100 garrafinhas". qtd por leva = pacote × rende ÷ daPra */
+  daPra?: number;
+}
+
+/** Quanto vai numa leva, pelo "dá pra N": compro 1 kg (1000 g) que dá pra 100; leva de 100 → 1000 g. */
+export function qtdPorDaPra(i: Pick<IngredienteRascunho, "pacote" | "daPra">, rende: number): number {
+  if (!(i.daPra && i.daPra > 0) || !(rende > 0)) return 0;
+  return Math.round(((i.pacote > 0 ? i.pacote : 1) * rende / i.daPra) * 1000) / 1000;
+}
+/** Custo de 1 unidade do produto só por esse ingrediente: R$ 35,99 ÷ 100 = R$ 0,36. */
+export function custoPorDaPra(i: Pick<IngredienteRascunho, "precoPacote" | "daPra">): number {
+  return i.daPra && i.daPra > 0 && i.precoPacote > 0 ? i.precoPacote / i.daPra : 0;
+}
+/** Volta do banco: "dá pra" = pacote × rende ÷ qtd (1000 g numa leva de 100 com pacote 1000 → dá pra 100). */
+export function daPraDaQtd(i: Pick<IngredienteRascunho, "pacote" | "qtd">, rende: number): number | undefined {
+  if (!(i.qtd > 0) || !(rende > 0)) return undefined;
+  return Math.round(((i.pacote > 0 ? i.pacote : 1) * rende / i.qtd) * 100) / 100;
+}
+/** Leva = o maior "dá pra" (quem compra leite em pó pra 100 define a leva de 100). */
+export function rendePelosDaPra(itens: IngredienteRascunho[], atual: number): number {
+  const ns = itens.filter((i) => i.usa && i.daPra && i.daPra > 0).map((i) => i.daPra as number);
+  return ns.length ? Math.max(1, Math.round(Math.max(...ns))) : atual;
 }
 
 const BASE: [RegExp, string[]][] = [
@@ -31,12 +53,13 @@ const BASE: [RegExp, string[]][] = [
 export const ehEmbalagem = (nome: string) => /copo|canudo|embalage|forminha|saquinho|pote|tampa/i.test(nome);
 
 export const novoIngrediente = (nome = "", qtd = 1): IngredienteRascunho =>
-  ({ nome, qtd, unidade: "un", pacote: 1, precoPacote: 0, usa: true });
+  ({ nome, qtd, unidade: "un", pacote: 1, precoPacote: 0, usa: true, daPra: undefined });
 
 export function ingredientesSugeridos(nomeProduto: string, rende = 20): IngredienteRascunho[] {
   const achou = BASE.find(([re]) => re.test(nomeProduto));
   const nomes = achou ? achou[1] : ["Ingrediente principal", "Embalagem"];
-  return nomes.map((nome) => ({ ...novoIngrediente(nome, ehEmbalagem(nome) ? rende : 1), ...(ehEmbalagem(nome) ? { pacote: 100 } : {}) }));
+  // embalagem: "compro 100 por R$ X e dá pra 100"; o resto o vendedor diz pra quantas dá
+  return nomes.map((nome) => ({ ...novoIngrediente(nome, ehEmbalagem(nome) ? rende : 1), ...(ehEmbalagem(nome) ? { pacote: 100, daPra: 100 } : {}) }));
 }
 
 /** Tamanho de compra que faz sentido ao trocar a unidade (26/10, bug do R$ 404 por garrafinha:
@@ -97,12 +120,16 @@ export function receitaDoRascunho(itens: IngredienteRascunho[]): ItemReceita[] {
     }));
 }
 
-/** Volta da receita salva pro rascunho editável. */
-export function rascunhoDaReceita(r: ItemReceita[]): IngredienteRascunho[] {
-  return r.map((i) => ({
-    ...(i.id ? { id: i.id } : {}), nome: i.nome, qtd: i.qtd, unidade: i.unidade, pacote: i.pacote,
-    precoPacote: Math.round(i.preco * i.pacote * 100) / 100, usa: true, ...(i.aprender ? { aprender: true } : {}),
-  }));
+/** Volta da receita salva pro rascunho editável (com rende, calcula o "dá pra" de cada um). */
+export function rascunhoDaReceita(r: ItemReceita[], rende?: number): IngredienteRascunho[] {
+  return r.map((i) => {
+    const base = {
+      ...(i.id ? { id: i.id } : {}), nome: i.nome, qtd: i.qtd, unidade: i.unidade, pacote: i.pacote,
+      precoPacote: Math.round(i.preco * i.pacote * 100) / 100, usa: true, ...(i.aprender ? { aprender: true } : {}),
+    };
+    const daPra = rende ? daPraDaQtd(base, rende) : undefined;
+    return daPra ? { ...base, daPra } : base;
+  });
 }
 
 /** Quantas levas dá pra fazer com o estoque de ingredientes (a menor de todas). */
