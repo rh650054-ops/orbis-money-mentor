@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import type { ProdutoComFaixas } from "../types";
 import { useAProduzirQuery } from "../api/use-producao-mutations";
 import { ComprasRecentes } from "./compras-recentes";
+import { CompraDetalhe } from "./compra-detalhe";
 import { Produzi } from "./produzi";
 import { IngredientesGuardados } from "./ingredientes-guardados";
 import { reais } from "./campos";
@@ -15,6 +16,8 @@ export function AbaEstoque({ produtos, userId, onRepor }: {
 }) {
   const navigate = useNavigate();
   const [produzindo, setProduzindo] = useState<ProdutoComFaixas | null>(null);
+  // 26/10: tocar numa compra antiga abre o detalhe (antes ia direto pra editar)
+  const [compraAberta, setCompraAberta] = useState<string | null>(null);
   const { data: aProduzir = [] } = useAProduzirQuery(true);
   const faz = (p: ProdutoComFaixas) => p.origem === "faz" || p.recipe_mode === "batch";
   const pendenteDe = (id: string) => aProduzir.find((a) => a.produto_id === id);
@@ -57,7 +60,8 @@ export function AbaEstoque({ produtos, userId, onRepor }: {
         <p className="text-sm text-center py-6" style={{ color: "#7b766e" }}>Nenhum produto com controle de estoque.</p>
       )}
       <IngredientesGuardados userId={userId} />
-      <ComprasRecentes userId={userId} onAbrir={(id) => navigate(`/products/mercado?editar=${id}`)} />
+      <ComprasRecentes userId={userId} onAbrir={setCompraAberta} />
+      <CompraDetalhe id={compraAberta} onFechar={() => setCompraAberta(null)} onEditar={(id) => navigate(`/products/mercado?editar=${id}`)} />
       <Produzi key={produzindo?.id ?? "x"} produto={produzindo} pendente={produzindo ? pendenteDe(produzindo.id) : undefined} onFechar={() => setProduzindo(null)} />
     </div>
   );
