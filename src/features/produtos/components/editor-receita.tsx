@@ -6,7 +6,7 @@ import { Check, Plus } from "lucide-react";
 import { reaisDeTexto } from "@/shared/lib/dinheiro";
 import { useIngredientesGuardadosQuery, type IngredienteGuardado } from "../api/use-ingredientes-guardados-query";
 import { custoPorUnidade } from "../lib/conta";
-import { novoIngrediente, precoDe1, totalDaReceita, type IngredienteRascunho } from "../lib/receitas";
+import { compraNaTela, novoIngrediente, pacoteAoTrocarUnidade, pacoteDaCompra, precoDe1, precoSuspeito, totalDaReceita, unidadesDeCompra, type IngredienteRascunho } from "../lib/receitas";
 import { UNIDADES, type Unidade } from "../types";
 import { Contador, reais, useTextoDinheiro } from "./campos";
 import { ResultadoOuro } from "./quiz-casca";
@@ -65,6 +65,9 @@ export function LinhaIngrediente({ it, estoque, sugestoes, onMudar }: {
 }) {
   const [editando, setEditando] = useState(false);
   const p1 = precoDe1(it);
+  // 26/10 (Rick): "Você compra 1 kg por R$ 9,90" enquanto na leva vai 200 g — a conta fica em g
+  const compra = compraNaTela(it.unidade, it.pacote);
+  const unidadesCompra = unidadesDeCompra(it.unidade);
   return (
     <div className="flex flex-col gap-2 rounded-[14px] px-3 py-2.5" style={{ background: it.usa ? "#121211" : "#0b0b0c", border: `1px solid ${it.usa ? "#26241f" : "#1a1917"}` }}>
       <div className="flex items-center gap-2">
@@ -91,7 +94,7 @@ export function LinhaIngrediente({ it, estoque, sugestoes, onMudar }: {
             {it.aprender
               ? <span className="h-9 rounded-[10px] px-2.5 inline-flex items-center text-[12px] font-black" style={{ background: "#1a1305", color: "#F5B800" }}>? descubro na compra</span>
               : <MiniNumero valor={it.qtd} onChange={(qtd) => onMudar({ qtd })} rotulo="Quantidade na leva" />}
-            <SeletorUnidade valor={it.unidade} onChange={(unidade) => onMudar({ unidade })} />
+            <SeletorUnidade valor={it.unidade} onChange={(unidade) => onMudar({ unidade, pacote: pacoteAoTrocarUnidade(unidade, it.pacote, it.unidade) })} />
           </div>
           {/* 26/10 (Rick): fruta/polpa sem medida certa — a 1ª compra ensina ("5 kg pra 100 = 50 g cada") */}
           <button type="button" onClick={() => onMudar({ aprender: !it.aprender })} aria-pressed={!!it.aprender}
@@ -100,12 +103,21 @@ export function LinhaIngrediente({ it, estoque, sugestoes, onMudar }: {
           </button>
           <div className="flex items-center gap-1.5 flex-wrap text-[12px] font-bold pl-[30px]" style={{ color: "#b9b3a6" }}>
             <span>Você compra</span>
-            <MiniNumero valor={it.pacote} onChange={(pacote) => onMudar({ pacote: pacote > 0 ? pacote : 1 })} rotulo="Quanto vem na compra" />
-            <span>{it.unidade} por</span>
+            <MiniNumero key={`${it.unidade}-${compra.unidade}`} valor={compra.valor} rotulo="Quanto vem na compra"
+              onChange={(v) => onMudar({ pacote: v > 0 ? pacoteDaCompra(v, compra.unidade, it.unidade) : 1 })} />
+            {unidadesCompra.length > 1 ? (
+              <select value={compra.unidade} aria-label="Unidade da compra"
+                onChange={(e) => onMudar({ pacote: pacoteDaCompra(compra.valor, e.target.value as Unidade, it.unidade) })}
+                className="h-9 rounded-[10px] bg-[#1a1a19] px-2 outline-none text-sm font-black text-[#F4F1EA]">
+                {unidadesCompra.map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
+            ) : <span>{it.unidade}</span>}
+            <span>por</span>
             <MiniDinheiro valor={it.precoPacote} onChange={(precoPacote) => onMudar({ precoPacote })} />
           </div>
-          <span className="text-[10.5px] font-bold pl-[30px]" style={{ color: "#7b766e" }}>
-            {p1 > 0 && it.pacote > 1 ? `≈ ${reais(p1)} cada ${it.unidade} · ` : ""}
+          <span className="text-[10.5px] font-bold pl-[30px]" style={{ color: precoSuspeito(it) ? "#FF7A6B" : "#7b766e" }}>
+            {p1 > 0 ? `≈ ${reais(p1)} cada ${it.unidade} · ` : ""}
+            {precoSuspeito(it) ? `confere "Você compra": ${fmt(compra.valor)} ${compra.unidade} por ${reais(it.precoPacote)} tá caro demais · ` : ""}
             {estoque !== undefined ? `tem ${fmt(estoque)} ${it.unidade} guardado · ` : ""}pode ser aproximado
           </span>
         </>

@@ -70,3 +70,39 @@ describe("descubro na compra (26/10)", () => {
     expect(receitaDoRascunho([{ nome: "X", qtd: 0, unidade: "un", pacote: 1, precoPacote: 0, usa: true }])).toHaveLength(0);
   });
 });
+
+describe("trocar a unidade acerta o tamanho da compra (26/10)", () => {
+  it("un → g vira 1000 g; g → kg vira 1; g → g mantém", async () => {
+    const { pacoteAoTrocarUnidade, precoSuspeito } = await import("./receitas");
+    expect(pacoteAoTrocarUnidade("g", 1, "un")).toBe(1000);
+    expect(pacoteAoTrocarUnidade("ml", 1, "un")).toBe(1000);
+    expect(pacoteAoTrocarUnidade("kg", 1000, "g")).toBe(1);
+    expect(pacoteAoTrocarUnidade("g", 500, "g")).toBe(500);
+    expect(pacoteAoTrocarUnidade("g", 500, "ml")).toBe(500);
+    // o caso do Rick: 200 g numa leva, "1 g por R$ 9,90" → R$ 9,90 o grama
+    expect(precoSuspeito({ unidade: "g", pacote: 1, precoPacote: 9.9 })).toBe(true);
+    expect(precoSuspeito({ unidade: "g", pacote: 1000, precoPacote: 9.9 })).toBe(false);
+    expect(precoSuspeito({ unidade: "un", pacote: 1, precoPacote: 9.9 })).toBe(false);
+  });
+});
+
+describe("fruta em gramas: compra em kg, leva em g (26/10)", () => {
+  it("troca de unidade acerta o tamanho da compra e a tela mostra 1 kg", async () => {
+    const { pacoteAoTrocarUnidade, precoSuspeito, compraNaTela, pacoteDaCompra, unidadesDeCompra, precoDe1 } = await import("./receitas");
+    expect(pacoteAoTrocarUnidade("g", 1, "un")).toBe(1000);
+    expect(pacoteAoTrocarUnidade("kg", 1000, "g")).toBe(1);
+    expect(pacoteAoTrocarUnidade("g", 500, "g")).toBe(500);
+    expect(compraNaTela("g", 1000)).toEqual({ valor: 1, unidade: "kg" });
+    expect(compraNaTela("ml", 1500)).toEqual({ valor: 1.5, unidade: "l" });
+    expect(compraNaTela("g", 650)).toEqual({ valor: 650, unidade: "g" });
+    expect(pacoteDaCompra(1, "kg", "g")).toBe(1000);
+    expect(pacoteDaCompra(650, "g", "g")).toBe(650);
+    expect(unidadesDeCompra("g")).toEqual(["kg", "g"]);
+    expect(unidadesDeCompra("un")).toEqual(["un"]);
+    // o caso do Rick: 200 g na leva, compra 1 kg por R$ 9,90 → R$ 0,0099 o grama → R$ 1,98 por leva
+    const polpa = { unidade: "g" as const, pacote: 1000, precoPacote: 9.9 };
+    expect(Math.round(200 * precoDe1(polpa) * 100) / 100).toBe(1.98);
+    expect(precoSuspeito(polpa)).toBe(false);
+    expect(precoSuspeito({ unidade: "g", pacote: 1, precoPacote: 9.9 })).toBe(true);
+  });
+});
