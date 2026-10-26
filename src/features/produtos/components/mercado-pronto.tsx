@@ -8,6 +8,8 @@ import { reais } from "./campos";
 import { BotaoOuro } from "./quiz-casca";
 import { MercadoBanco } from "./mercado-banco";
 import { MercadoRendimento } from "./mercado-rendimento";
+import { MercadoSobra } from "./mercado-sobra";
+import { useSobraEstoqueQuery } from "../api/use-sobra-estoque-query";
 import type { ProdutoMercado } from "../lib/mercado";
 
 const un = (n: number) => n.toLocaleString("pt-BR");
@@ -35,6 +37,8 @@ export function MercadoPronto({ resultado, prontos, resumo, faz = [], onProdutos
   const subiram = resumo.precos.filter((p) => p.diferenca >= 0.01);
   const cairam = resumo.precos.filter((p) => p.diferenca <= -0.01);
   const aMais = subiram.reduce((s, p) => s + p.diferenca, 0);
+  // 26/10: o que sobrou de cada ingrediente da receita e quantas levas a mais dá
+  const sobra = useSobraEstoqueQuery(feitos.map((p) => p.id), resultado.compra_id);
 
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto bg-black text-[#F4F1EA]">
@@ -73,6 +77,12 @@ export function MercadoPronto({ resultado, prontos, resumo, faz = [], onProdutos
                     <span className="text-[15px] font-black">{p.nome}</span>
                     <span className="text-[26px] leading-none font-black tabular-nums" style={{ color: OURO }}>+{un(p.unidades)}</span>
                   </div>
+                  {p.custo_depois > 0 && (
+                    <div className="flex items-baseline justify-between gap-2 rounded-[12px] px-3 py-2" style={{ background: "rgba(245,184,0,.08)", border: "1px solid rgba(245,184,0,.3)" }}>
+                      <span className="text-[12.5px] font-extrabold" style={{ color: "#b9b3a6" }}>Custo de cada {p.nome.toLowerCase()}</span>
+                      <span className="text-[20px] leading-none font-black tabular-nums" style={{ color: OURO }}>{reais(p.custo_depois)}</span>
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-1.5">
                     {p.custo_depois > 0 && (
                       <span className="rounded-full px-2.5 py-1 text-[12px] font-extrabold" style={{ background: "#151513", border: "1px solid #2b2924" }}>
@@ -90,6 +100,9 @@ export function MercadoPronto({ resultado, prontos, resumo, faz = [], onProdutos
                     {un(p.receitas)} {p.receitas === 1 ? "leva" : "levas"} da receita
                     {resumo.receitaNova && resumo.receitaNova.nome === p.nome ? " · receita guardada pra próxima compra" : ""}
                   </span>
+                  {sobra.data?.[p.id] && p.receitas > 0 && (
+                    <MercadoSobra nome={p.nome} itens={sobra.data[p.id] ?? []} porLeva={Math.round(p.unidades / p.receitas)} custo={p.custo_depois} />
+                  )}
                 </div>
               );
             })}
