@@ -35,7 +35,8 @@ export function EditorReceita({ itens, rende, onItens, onRende, estoques }: {
       </button>
       <Contador rotulo="Uma leva rende quantas unidades?" valor={rende} min={1} onChange={onRende} />
       {custo > 0
-        ? <ResultadoOuro rotulo="Cada uma te custa" valor={reais(custo)} detalhe={`leva de ${reais(total)} ÷ ${rende}`} />
+        ? <ResultadoOuro rotulo="Cada uma te custa" valor={reais(custo)}
+            detalhe={`leva de ${reais(total)} ÷ ${rende}${itens.some((i) => i.usa && i.aprender && i.nome.trim()) ? ` · + ${itens.filter((i) => i.usa && i.aprender && i.nome.trim()).map((i) => i.nome.trim()).join(", ")} entra depois da compra` : ""}`} />
         : <p className="text-[11.5px] font-bold px-1" style={{ color: "#7b766e" }}>Sem preço? Tudo bem: o custo aparece quando você anotar a compra no "Tô no mercado".</p>}
     </div>
   );
@@ -85,11 +86,18 @@ export function LinhaIngrediente({ it, estoque, sugestoes, onMudar }: {
       )}
       {it.usa && (
         <>
-          <div className="flex items-center gap-1.5 text-[12px] font-bold pl-[30px]" style={{ color: "#b9b3a6" }}>
+          <div className="flex items-center gap-1.5 flex-wrap text-[12px] font-bold pl-[30px]" style={{ color: "#b9b3a6" }}>
             <span>Numa leva vai</span>
-            <MiniNumero valor={it.qtd} onChange={(qtd) => onMudar({ qtd })} rotulo="Quantidade na leva" />
+            {it.aprender
+              ? <span className="h-9 rounded-[10px] px-2.5 inline-flex items-center text-[12px] font-black" style={{ background: "#1a1305", color: "#F5B800" }}>? descubro na compra</span>
+              : <MiniNumero valor={it.qtd} onChange={(qtd) => onMudar({ qtd })} rotulo="Quantidade na leva" />}
             <SeletorUnidade valor={it.unidade} onChange={(unidade) => onMudar({ unidade })} />
           </div>
+          {/* 26/10 (Rick): fruta/polpa sem medida certa — a 1ª compra ensina ("5 kg pra 100 = 50 g cada") */}
+          <button type="button" onClick={() => onMudar({ aprender: !it.aprender })} aria-pressed={!!it.aprender}
+            className="self-start text-[11px] font-extrabold pl-[30px] py-0.5 underline underline-offset-2" style={{ color: it.aprender ? "#F5B800" : "#7b766e" }}>
+            {it.aprender ? "sei a quantidade, vou digitar" : "não sei quanto vai · descubro na compra"}
+          </button>
           <div className="flex items-center gap-1.5 flex-wrap text-[12px] font-bold pl-[30px]" style={{ color: "#b9b3a6" }}>
             <span>Você compra</span>
             <MiniNumero valor={it.pacote} onChange={(pacote) => onMudar({ pacote: pacote > 0 ? pacote : 1 })} rotulo="Quanto vem na compra" />

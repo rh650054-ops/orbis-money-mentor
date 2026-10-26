@@ -8,7 +8,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "u1" } }) }));
 vi.mock("@/shared/hooks/use-toast", () => ({ toast: vi.fn() }));
 vi.mock("../api/use-sobra-estoque-query", () => ({ useSobraEstoqueQuery: () => ({ data: undefined }) }));
-vi.mock("../api/use-sabores", () => ({ useSaboresQuery: () => ({ data: [] }), useDistribuirSaboresMutation: () => ({ mutate: vi.fn(), isPending: false }) }));
+vi.mock("../api/use-sabores", () => ({ useSaboresQuery: () => ({ data: [] }), useDistribuirSaboresMutation: () => ({ mutate: vi.fn(), isPending: false }), useAprenderMutation: () => ({ mutate: vi.fn(), data: undefined }) }));
 
 const base: BaseMercado = {
   ingredientes: [

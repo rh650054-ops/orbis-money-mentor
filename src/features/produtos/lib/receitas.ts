@@ -16,6 +16,8 @@ export interface IngredienteRascunho {
   /** quanto paga nessa compra (0 = não sabe ainda) */
   precoPacote: number;
   usa: boolean;
+  /** "não sei quanto vai, descubro na compra" (26/10) */
+  aprender?: boolean;
 }
 
 const BASE: [RegExp, string[]][] = [
@@ -51,10 +53,11 @@ export function totalDaReceita(itens: Pick<IngredienteRascunho, "qtd" | "pacote"
 /** O que vai pro banco: só o marcado, com nome, quantidade e como compra. */
 export function receitaDoRascunho(itens: IngredienteRascunho[]): ItemReceita[] {
   return itens
-    .filter((i) => i.usa && i.nome.trim() !== "" && i.qtd > 0)
+    .filter((i) => i.usa && i.nome.trim() !== "" && (i.qtd > 0 || i.aprender))
     .map((i) => ({
-      ...(i.id ? { id: i.id } : {}), nome: i.nome.trim(), qtd: i.qtd,
+      ...(i.id ? { id: i.id } : {}), nome: i.nome.trim(), qtd: i.aprender ? 0 : i.qtd,
       preco: Math.round(precoDe1(i) * 10000) / 10000, unidade: i.unidade, pacote: i.pacote > 0 ? i.pacote : 1,
+      ...(i.aprender ? { aprender: true } : {}),
     }));
 }
 
@@ -62,7 +65,7 @@ export function receitaDoRascunho(itens: IngredienteRascunho[]): ItemReceita[] {
 export function rascunhoDaReceita(r: ItemReceita[]): IngredienteRascunho[] {
   return r.map((i) => ({
     ...(i.id ? { id: i.id } : {}), nome: i.nome, qtd: i.qtd, unidade: i.unidade, pacote: i.pacote,
-    precoPacote: Math.round(i.preco * i.pacote * 100) / 100, usa: true,
+    precoPacote: Math.round(i.preco * i.pacote * 100) / 100, usa: true, ...(i.aprender ? { aprender: true } : {}),
   }));
 }
 

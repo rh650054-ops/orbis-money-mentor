@@ -10,10 +10,10 @@ const num = z.coerce.number().catch(0);
 type Rpc = (fn: string, args?: Record<string, unknown>) => PromiseLike<{ data: unknown; error: Error | null }>;
 const rpc: Rpc = (fn, args) => (supabase as unknown as { rpc: Rpc }).rpc(fn, args);
 
-const extraSchema = z.object({ id: z.string(), nome: z.string(), qtd: num, preco: num, unidade: z.string().nullable().catch("un"), pacote: num, estoque: num });
+const extraSchema = z.object({ id: z.string(), nome: z.string(), qtd: num, preco: num, unidade: z.string().nullable().catch("un"), pacote: num, estoque: num, aprender: z.boolean().catch(false) });
 const saborSchema = z.object({ id: z.string(), nome: z.string(), emoji: z.string().catch("🥤"), estoque: num, custo: num, extras: z.array(extraSchema).catch([]) });
 
-export interface ExtraDoSabor { id: string; nome: string; qtd: number; preco: number; unidade: Unidade; pacote: number; estoque: number }
+export interface ExtraDoSabor { id: string; nome: string; qtd: number; preco: number; unidade: Unidade; pacote: number; estoque: number; aprender?: boolean }
 export interface Sabor { id: string; nome: string; emoji: string; estoque: number; custo: number; extras: ExtraDoSabor[] }
 
 export const saboresKey = (produtoId: string) => produtosKeys.detail(`${produtoId}:sabores`);
@@ -51,10 +51,10 @@ export function useSaboresDeVariosQuery(produtoIds: string[]) {
   });
 }
 
-export async function salvarSabores(produtoId: string, sabores: { id?: string; nome: string; emoji: string; itens: { id?: string; nome: string; qtd: number; preco: number; unidade: Unidade; pacote: number }[] }[]) {
+export async function salvarSabores(produtoId: string, sabores: { id?: string; nome: string; emoji: string; itens: { id?: string; nome: string; qtd: number; preco: number; unidade: Unidade; pacote: number; aprender?: boolean }[] }[]) {
   const { error } = await rpc("produto_sabores_salvar", {
     p_produto: produtoId,
-    p_sabores: sabores.map((s) => ({ ...(s.id ? { id: s.id } : {}), nome: s.nome, emoji: s.emoji, itens: s.itens.map((i) => ({ ...(i.id ? { id: i.id } : {}), nome: i.nome, qtd: i.qtd, preco: i.preco })) })),
+    p_sabores: sabores.map((s) => ({ ...(s.id ? { id: s.id } : {}), nome: s.nome, emoji: s.emoji, itens: s.itens.map((i) => ({ ...(i.id ? { id: i.id } : {}), nome: i.nome, qtd: i.qtd, preco: i.preco, ...(i.aprender ? { aprender: true } : {}) })) })),
   });
   if (error) throw error;
   // como cada extra é comprado (unidade e tamanho do pacote)
@@ -63,6 +63,20 @@ export async function salvarSabores(produtoId: string, sabores: { id?: string; n
     const r = await rpc("ingredientes_definir_compra", { p_itens: itens });
     if (r.error) throw r.error;
   }
+}
+
+/** A compra ensina a quantidade dos ingredientes marcados "descubro na compra". */
+export interface Aprendido { nome: string; unidade: string; por_leva: number; por_unidade: number; custo_unidade: number }
+export function useAprenderMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { compra: string; produto: string; unidades: number }) => {
+      const { data, error } = await rpc("mercado_aprender", { p_compra: v.compra, p_produto: v.produto, p_unidades: v.unidades });
+      if (error) throw error;
+      return z.object({ aprendeu: z.array(z.object({ nome: z.string(), unidade: z.string().catch("un"), por_leva: num, por_unidade: num, custo_unidade: num })).catch([]), custo: num }).parse(data);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: produtosKeys.all }),
+  });
 }
 
 export function useProduzirSaboresMutation() {

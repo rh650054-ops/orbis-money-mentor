@@ -56,6 +56,8 @@ export interface ItemReceita {
   preco: number;
   unidade: Unidade;
   pacote: number;
+  /** não sabe quanto vai: a 1ª compra descobre (qtd fica 0 até lá) */
+  aprender?: boolean;
 }
 
 export const UNIDADES = ["un", "g", "kg", "ml", "l"] as const;

@@ -58,3 +58,15 @@ describe("receita de quem faz", () => {
     expect(levasPossiveis([])).toBe(0);
   });
 });
+
+describe("descubro na compra (26/10)", () => {
+  it("ingrediente marcado vai pro banco com qtd 0 e aprender, e volta marcado", async () => {
+    const { receitaDoRascunho, rascunhoDaReceita } = await import("./receitas");
+    const r = receitaDoRascunho([{ nome: "Maracujá", qtd: 0, unidade: "g", pacote: 1000, precoPacote: 63.78, usa: true, aprender: true }]);
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ nome: "Maracujá", qtd: 0, aprender: true, unidade: "g", pacote: 1000 });
+    expect(rascunhoDaReceita(r)[0]).toMatchObject({ aprender: true, qtd: 0 });
+    // sem a marca, qtd 0 continua fora
+    expect(receitaDoRascunho([{ nome: "X", qtd: 0, unidade: "un", pacote: 1, precoPacote: 0, usa: true }])).toHaveLength(0);
+  });
+});
