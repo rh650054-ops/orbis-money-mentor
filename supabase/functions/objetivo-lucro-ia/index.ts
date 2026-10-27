@@ -45,6 +45,9 @@ function montarPrompt(b: Record<string, unknown>, alvo: number, dias: number, di
     `VENDAS NO APP (últimos ${b.janela_dias} dias): ${b.unidades} ${un} em ${b.dias_vendidos} dias de venda; ` +
     `média ${b.unid_dia} ${un}/dia; recorde ${b.recorde_dia} num dia (${b.recorde_data}); preço médio ${brl(n("ticket"))}; ` +
     `faturou ${brl(n("vendas"))}. Frequência: trabalhou ${Math.round(n("frequencia") * 100)}% dos dias.\n` +
+    `Combos: ${(b.combos as Record<string, number> | undefined)?.um ?? 100}% das vendas são de 1 ${un.slice(0, -1)}, ${(b.combos as Record<string, number> | undefined)?.dois ?? 0}% combo de 2, ${(b.combos as Record<string, number> | undefined)?.tres ?? 0}% de 3+; ` +
+    `${(b.combos as Record<string, number> | undefined)?.unid_por_venda ?? 1} ${un} por venda, ${n("vendas_dia")} vendas (atendimentos) por dia. Preço de tabela ${brl(n("preco_tabela"))}; o preço médio por ${un.slice(0, -1)} já considera os combos. ` +
+    `Ao falar de meta diária diga ${un} E quantas vendas isso dá.\n` +
     `Por dia da semana: ${semana || "sem dados"}.\n` +
     `Tendência: ${quinz.ultimos15 ?? 0} ${un} nos últimos 15 dias vs ${quinz.anteriores15 ?? 0} nos 15 anteriores.\n\n` +
     `BANCO (Open Finance, ${b.banco ? "conectado" : "NÃO conectado"}): saídas do corre ${brl(n("gastos_corre"))} por categoria: ${cats || "nenhuma"}. ` +

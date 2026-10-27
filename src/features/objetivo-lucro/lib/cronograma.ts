@@ -19,6 +19,9 @@ export interface DiaPlano {
   lucro: number;
   acumulado: number;    // profit so far at the end of this day
   acumuladoMedia: number; // what his average pace would have reached
+  atendimentos: number; // sales (people served) ≈ units ÷ units per sale (combos)
+  calote: number;       // reserve for calote that day
+  estoqueFim: number;   // ready stock left after the day (negative = had to produce)
 }
 
 export interface Cronograma {
@@ -30,6 +33,10 @@ export interface Cronograma {
   lucroTotal: number;
   maiorDia: number;
   menorDia: number;
+  /** last day the current stock covers fully (null = covers the whole mission) */
+  estoqueAte: string | null;
+  /** first work day that needs new production */
+  produzirAte: string | null;
 }
 
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -51,25 +58,32 @@ export function cronograma(b: BaseLucro, alvo: number, dias: number, diasTrabalh
   const somaPeso = cal.filter((c) => escolhidos.has(c.data)).reduce((s, c) => s + c.peso, 0) || 1;
   const flat = totalUnid / trabalho;
 
-  let acumulado = 0; let acumuladoMedia = 0; let distribuido = 0; let i = 0;
+  let acumulado = 0; let acumuladoMedia = 0; let distribuido = 0; let i = 0; let estoque = b.estoque;
+  const porVenda = b.combos.unid_por_venda > 0 ? b.combos.unid_por_venda : 1;
   const lucroMediaDia = media * lucroUnid;
   const dias_: DiaPlano[] = cal.map((c) => {
     const trabalha = escolhidos.has(c.data);
     let unid = 0;
     if (trabalha) {
       i += 1;
-      unid = i === trabalho ? Math.max(0, totalUnid - distribuido) : Math.round(0.6 * (totalUnid * c.peso / somaPeso) + 0.4 * flat);
+      // Balanced: half by how strong the weekday is, half flat; never above his record.
+      const alvoDia = 0.5 * (totalUnid * c.peso / somaPeso) + 0.5 * flat;
+      unid = i === trabalho ? Math.max(0, totalUnid - distribuido) : Math.round(b.recorde_dia > 0 ? Math.min(b.recorde_dia, alvoDia) : alvoDia);
       distribuido += unid;
       acumuladoMedia += lucroMediaDia;
     }
     const lucro = unid * lucroUnid;
     acumulado += lucro;
+    estoque -= unid;
     return {
       data: c.data, dow: c.dow, trabalha, forte: c.peso >= media, unid,
       faturamento: unid * b.ticket, mercadoria: unid * b.custo_receita, lucro, acumulado, acumuladoMedia,
+      atendimentos: Math.ceil(unid / porVenda), calote: unid * b.calote_unid, estoqueFim: estoque,
     };
   });
   const uTrab = dias_.filter((d) => d.trabalha).map((d) => d.unid);
+  const falta = dias_.find((d) => d.trabalha && d.estoqueFim < 0);
+  const coberto = [...dias_].reverse().find((d) => d.trabalha && d.estoqueFim >= 0 && (!falta || d.data < falta.data));
   return {
     dias: dias_,
     totalUnid,
@@ -79,5 +93,7 @@ export function cronograma(b: BaseLucro, alvo: number, dias: number, diasTrabalh
     lucroTotal: totalUnid * lucroUnid,
     maiorDia: uTrab.length ? Math.max(...uTrab) : 0,
     menorDia: uTrab.length ? Math.min(...uTrab) : 0,
+    estoqueAte: falta ? coberto?.data ?? null : null,
+    produzirAte: falta?.data ?? null,
   };
 }
