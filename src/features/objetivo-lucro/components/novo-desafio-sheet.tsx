@@ -1,39 +1,54 @@
 /* ============================================================
    NOVO DESAFIO DE LUCRO (Rick, 27/10/2026)
-   "Quero R$ 5.000 de lucro em 15 dias" → the Vant reads the last 60 days
-   (DEFCON + Open Finance) and answers how many units per day that takes,
-   whether it fits the average, and how much to produce.
+   "Quero R$ 5.000 de lucro em 15 dias" → the Vant AI reads the last 60 days
+   (bank, app sales, calotes, cost per product) and answers with a verdict,
+   units per day and a plan. Changing the work days recalculates the number
+   locally; "Reanalisar" asks the AI again.
    ============================================================ */
 import { useMemo, useState } from "react";
-import { ChevronLeft, Loader2 } from "lucide-react";
+import { ChevronLeft, Loader2, RefreshCw } from "lucide-react";
 import { Gaveta } from "@/shared/components/gaveta";
-import { Skeleton } from "@/shared/ui/skeleton";
 import { toast } from "@/shared/hooks/use-toast";
-import { useAnaliseLucroQuery, useCriarDesafioMutation } from "../api/use-objetivo-lucro";
+import { useAnalisarComIaMutation, useCriarDesafioMutation, type AnaliseIa } from "../api/use-objetivo-lucro";
 import { diasSugeridos, planoLucro } from "../lib/plano";
-import { PassoMeta } from "./passo-meta";
-import { PlanoCard } from "./plano-card";
-import { RitmoCard } from "./ritmo-card";
-import { COR } from "./ui";
 import { brl0 } from "../lib/formato";
+import { FontesLidas } from "./fontes-lidas";
+import { LendoCorre } from "./lendo-corre";
+import { PassoMeta } from "./passo-meta";
+import { PlanoIaCard } from "./plano-ia";
+import { VereditoHero } from "./veredito-hero";
+import { COR } from "./ui";
 
 export function NovoDesafioSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const [passo, setPasso] = useState<1 | 2>(1);
   const [alvo, setAlvo] = useState(5000);
   const [dias, setDias] = useState(15);
   const [diasTrabalho, setDiasTrabalho] = useState<number | null>(null);
-  const analise = useAnaliseLucroQuery(open);
+  const [resultado, setResultado] = useState<AnaliseIa | null>(null);
+  const analisar = useAnalisarComIaMutation();
   const criar = useCriarDesafioMutation();
-  const b = analise.data ?? null;
-  const trabalho = Math.min(dias, diasTrabalho ?? (b ? diasSugeridos(b, dias) : dias));
-  const plano = useMemo(() => (b ? planoLucro(b, alvo, trabalho) : null), [b, alvo, trabalho]);
 
+  const b = resultado?.base ?? null;
+  const ia = resultado?.ia ?? null;
+  const trabalho = Math.min(dias, diasTrabalho ?? ia?.dias_trabalho ?? (b ? diasSugeridos(b, dias) : dias));
+  const plano = useMemo(() => (b ? planoLucro(b, alvo, trabalho) : null), [b, alvo, trabalho]);
+  // The AI's number stands while the work days are the ones it analysed; otherwise recalc.
+  const unidDia = ia?.unid_dia && diasTrabalho === null ? ia.unid_dia : plano?.unidDia ?? null;
+
+  const rodar = (dt?: number) => {
+    const d = dt ?? (b ? diasSugeridos(b, dias) : dias);
+    setPasso(2);
+    analisar.mutate({ alvo, dias, diasTrabalho: Math.min(dias, d) }, {
+      onSuccess: (r) => { setResultado(r); setDiasTrabalho(null); if (r.limite) toast({ title: "Limite de análises por hoje", description: "Mostrei o plano pela sua média." }); },
+      onError: () => { toast({ title: "Não consegui ler seus dados", description: "Tenta de novo em instantes.", variant: "destructive" }); setPasso(1); },
+    });
+  };
   const fechar = (o: boolean) => {
     onOpenChange(o);
-    if (!o) { setPasso(1); setDiasTrabalho(null); }
+    if (!o) { setPasso(1); setDiasTrabalho(null); setResultado(null); }
   };
   const salvar = () => {
-    criar.mutate({ alvo, dias, diasTrabalho: trabalho }, {
+    criar.mutate({ alvo, dias, diasTrabalho: trabalho, ia }, {
       onSuccess: () => { toast({ title: "Desafio criado", description: `${brl0(alvo)} de lucro em ${dias} dias. Bora!` }); fechar(false); },
       onError: () => toast({ title: "Não deu pra criar o desafio", description: "Tenta de novo em instantes.", variant: "destructive" }),
     });
@@ -52,27 +67,31 @@ export function NovoDesafioSheet({ open, onOpenChange }: { open: boolean; onOpen
               {passo === 1 ? "Bater um lucro" : `${brl0(alvo)} em ${dias} dias`}
             </h3>
             <p className="text-[12.5px] mt-1" style={{ color: COR.mute }}>
-              {passo === 1 ? "A Vant analisa seu corre e monta o plano" : "O plano pelo seu ritmo de verdade"}
+              {passo === 1 ? "A Vant lê seu banco e suas vendas e monta o plano" : "Plano feito pela IA com seus últimos 60 dias"}
             </p>
           </div>
         </div>
 
         {passo === 1 ? (
-          <PassoMeta alvo={alvo} dias={dias} onAlvo={setAlvo} onDias={(d) => { setDias(d); setDiasTrabalho(null); }} onAnalisar={() => setPasso(2)} />
-        ) : analise.isLoading ? (
-          <div className="mt-4 flex flex-col gap-3"><Skeleton className="h-48 w-full rounded-[18px]" /><Skeleton className="h-32 w-full rounded-[18px]" /></div>
-        ) : !b || !plano ? (
-          <p className="text-[13px] mt-5" style={{ color: COR.sub }}>Não consegui ler seus dados agora. Tenta de novo em instantes.</p>
+          <PassoMeta alvo={alvo} dias={dias} onAlvo={setAlvo} onDias={(d) => { setDias(d); setDiasTrabalho(null); }} onAnalisar={() => rodar()} />
+        ) : analisar.isPending || !b || !plano ? (
+          <LendoCorre pronto={false} />
         ) : (
           <>
-            <RitmoCard b={b} />
-            <PlanoCard b={b} p={plano} alvo={alvo} dias={dias} diasTrabalho={trabalho} onDiasTrabalho={setDiasTrabalho} />
-            <button type="button" disabled={criar.isPending || plano.unidDia === null} onClick={salvar}
+            <VereditoHero b={b} p={plano} ia={ia} unidDia={unidDia} diasTrabalho={trabalho} />
+            <FontesLidas b={b} />
+            <PlanoIaCard b={b} p={plano} ia={ia} dias={dias} diasTrabalho={trabalho} onDiasTrabalho={setDiasTrabalho} />
+            {diasTrabalho !== null && ia && (
+              <button type="button" onClick={() => rodar(trabalho)} className="w-full h-10 mt-2 text-[12.5px] font-bold inline-flex items-center justify-center gap-1.5" style={{ color: COR.ouro }}>
+                <RefreshCw className="w-3.5 h-3.5" /> Reanalisar com {trabalho} dias
+              </button>
+            )}
+            <button type="button" disabled={criar.isPending || unidDia === null} onClick={salvar}
               className="orbis-cta w-full mt-4 disabled:opacity-40 flex items-center justify-center gap-2" style={{ height: 56 }}>
               {criar.isPending && <Loader2 className="w-5 h-5 animate-spin" />}
               CRIAR DESAFIO
             </button>
-            {plano.unidDia === null && (
+            {unidDia === null && (
               <p className="text-[12px] mt-2 text-center" style={{ color: COR.mute }}>Cadastre o preço e o custo do produto pra Vant calcular o lucro.</p>
             )}
           </>

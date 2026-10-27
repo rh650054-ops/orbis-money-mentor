@@ -7,6 +7,9 @@ const rick: BaseLucro = {
   janela_dias: 60, dias_vendidos: 38, unidades: 807, unid_dia: 21.2, recorde_dia: 76, ticket: 22.92,
   custo_unid: 8.98, custo_receita: 5.68, custo_extrato: 8.98, gastos_corre: 7246.78,
   fonte_custo: "extrato", banco: true, estoque: 125, produto_nome: "Batida", frequencia: 0.633,
+  recorde_data: "2026-09-26", entradas_corre: 15911, gastos_pessoais: 13784, categorias: [], semana: [],
+  quinzenas: { ultimos15: 196, anteriores15: 176 }, calote: { valor: 788, unidades: 0, dias: 6, recuperado: 250, perdido: 538, pct: 4.1 },
+  transporte: 325, alimentacao: 68,
 };
 
 describe("planoLucro", () => {
