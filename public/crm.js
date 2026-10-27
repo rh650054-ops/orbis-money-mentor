@@ -57,6 +57,30 @@ function visivelPraMim(x){
   if(x.resp && x.resp!==EU) return false;   // ficha com responsável só aparece pra ele (Rick, 23/10) — antes valia só no Upgrade
   return true;
 }
+/* DONO DA FICHA À VISTA (Rick, 27/10/2026 — "como admin preciso ver quem é lead do Yan, do Paulo,
+   da Rayane, em qualquer fila"). Antes o nome ia no fim da linha miúda. Agora cada ficha tem uma
+   etiqueta colorida com o dono, e no topo das esteiras dá pra filtrar por pessoa (fica lembrado
+   no aparelho). Só pra quem vê tudo (admin); quem tem esteiras próprias continua vendo só as dele. */
+const CORES_DONO=["#7FD3FF","#B48CFF","#FF8FB1","#3DD68C","#FFB45E","#F5D76E"];
+const corDono=p=>{const i=EQUIPE.findIndex(q=>q.user_id===p?.user_id);return i<0?"#8a8378":CORES_DONO[i%CORES_DONO.length];};
+let FILTRO_DONO=(()=>{try{return localStorage.getItem("crm_filtro_dono")||"todos";}catch(_){return "todos";}})();
+const passaDono=x=>minhaVisao()||FILTRO_DONO==="todos"||(FILTRO_DONO==="sem"?!donoDe(x):x.resp===FILTRO_DONO);
+function etiquetaDono(x){
+  if(minhaVisao()) return "";
+  const d=donoDe(x);
+  if(!d) return `<span class="dono sem">sem dono</span>`;
+  const c=corDono(d);
+  return `<span class="dono" style="color:color-mix(in srgb,${c} 72%,var(--ink));border-color:${c}88;background:${c}24">${esc(d.nome.split(" ")[0])}</span>`;
+}
+function filtroDonos(){
+  if(minhaVisao()||!EQUIPE.length) return "";
+  const vis=FICHAS.filter(x=>esteiraVisivel(x.e)&&!escondida(x));
+  const n=fn=>vis.filter(fn).length;
+  const ops=[["todos","Todos",vis.length,"var(--ink)"],
+    ...EQUIPE.filter(p=>n(x=>x.resp===p.user_id)>0||p.closer||(p.esteiras||[]).length).map(p=>[p.user_id,p.nome.split(" ")[0],n(x=>x.resp===p.user_id),corDono(p)]),
+    ["sem","Sem dono",n(x=>!donoDe(x)),"#8a8378"]];
+  return `<div class="filtro-dono"><span class="lbl">Fichas de</span>${ops.map(([id,nome,q,c])=>`<button class="fd${FILTRO_DONO===id?" on":""}" data-filtro-dono="${esc(id)}" style="--c:${c}"><i style="background:${c}"></i>${esc(nome)} <b class="num">${q}</b></button>`).join("")}</div>`;
+}
 const esteiraVisivel=k=>!minhaVisao()||MEU.esteiras.includes(k)||FICHAS.some(x=>x.e===k);
 async function carregarEquipe(){
   const r=await chamar("crm_equipe_lista");
@@ -705,7 +729,7 @@ function renderHoje(){
    <div class="box pad"><h4 class="mini-h">Depois desse</h4>
     ${q.slice(S.pos+1,S.pos+7).map((x,i)=>`<button class="prox" data-painel="${x.id}">
       <span class="n num">${i+2}</span><span class="dot" style="background:var(--${E[x.e].cor})"></span>
-      <span class="nm">${esc(x.n)}</span><span class="n num" style="color:var(--faint);width:auto">${x.score}</span></button>`).join("")
+      <span class="nm">${esc(x.n)}</span>${etiquetaDono(x)}<span class="n num" style="color:var(--faint);width:auto">${x.score}</span></button>`).join("")
       ||`<div style="font-size:12.5px;color:var(--faint)">É o último da fila.</div>`}</div>
    <div class="box pad"><h4 class="mini-h">Como a fila é montada</h4>
     <p style="font-size:12px;color:var(--dim);margin:0;line-height:1.5">Nota de <b>0 a 100</b> somando o <b>prazo</b>,
@@ -917,7 +941,7 @@ function renderAlertas(){
   <div class="box pad">${A.length?A.slice(0,40).map((a,i)=>`
     <div class="alerta-l" style="cursor:default">
       <span class="al-ic" style="background:var(--${a.cor==="dim"?"panel2":a.cor+"-s"});">${a.ic}</span>
-      <span class="tx"><span class="tt">${esc(a.tt)}</span><span class="ds">${a.ds}</span>
+      <span class="tx"><span class="tt">${esc(a.tt)} ${etiquetaDono(a.f)}</span><span class="ds">${a.ds}</span>
        <span style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">
         <button class="btn go" data-al="${i}" style="padding:7px 11px;font-size:12px">Abrir conversa</button>
         ${a.f.tel?`<button class="btn ghost" data-al-zap="${i}" style="padding:7px 11px;font-size:12px;color:var(--c2);border-color:var(--c2)">WhatsApp ↗</button>`:""}
@@ -957,7 +981,7 @@ function renderAlertas(){
 function renderEsteiras(){
  let h=`<p class="nota" style="margin:0 0 12px">Clique em qualquer ficha para abrir o <b>painel completo da pessoa</b>.
  Para mudar de lugar, <b>pegue a ficha e solte em qualquer coluna</b>, até de outra esteira (no celular: segure a ficha meio segundo e arraste).
- No celular, arraste as colunas para o lado.</p>`;
+ No celular, arraste as colunas para o lado.</p>${filtroDonos()}`;
  // a campanha de Upgrade Pro vem primeiro (é o foco do comercial agora)
  for(const [k,def] of Object.entries(E).filter(([k])=>esteiraVisivel(k)).sort(([a],[b])=>(b==="upgrade")-(a==="upgrade"))){
   const total=def.cols.reduce((s,[c])=>s+(QTD[k+"/"+c]||0),0);
@@ -968,7 +992,7 @@ function renderEsteiras(){
    <div class="cols" style="--n:${def.cols.length}">
    ${def.cols.map(([c,titulo])=>{
      const qtd=QTD[k+"/"+c]||0,morto=(c==="acabou");
-     const am=FICHAS.filter(x=>x.e===k&&etapaDe(x)===c&&!escondida(x));
+     const am=FICHAS.filter(x=>x.e===k&&etapaDe(x)===c&&!escondida(x)&&passaDono(x));
      // o número da coluna é o que está À MOSTRA; quem já foi atendido hoje (volta amanhã / em 2 dias) ou
      // foi resolvido/perdido fica fora da conta e aparece como "em espera" (Rick, 23/10)
      const espera=Math.max(0,qtd-am.length);
@@ -976,9 +1000,9 @@ function renderEsteiras(){
       <div class="col-lista">${am.map(x=>{
         const semMotivo=etapaDe(x)==="acabou"&&!notaDe(x,0).trim();
         return `<button class="chip${morto?" morto":""}" style="border-left-color:var(--${morto?"bad":def.cor})" data-painel="${x.id}" data-arrasta="${x.id}">
-         <div class="nm">${esc(x.n)}</div>
+         <div class="nm-l"><span class="nm">${esc(x.n)}</span>${etiquetaDono(x)}</div>
          <div class="sb${travaDe(x)||semMotivo||(k==="upgrade"&&x.d>=1&&!["renovou","nao_renovou"].includes(c))?" bad":""}">${semMotivo?"sem motivo · conta como sem contato"
-           :travaDe(x)?`travado ${travaDe(x)}d`:`${Math.round(x.d)}d nessa coluna`}${k==="upgrade"?upgradeInfo(x):""}${!minhaVisao()&&donoDe(x)?` · ${esc(donoDe(x).nome)}`:""}</div>${descDe(x)?`<div class="ds">${esc(descDe(x))}</div>`:""}</button>`;}).join("")}
+           :travaDe(x)?`travado ${travaDe(x)}d`:`${Math.round(x.d)}d nessa coluna`}${k==="upgrade"?upgradeInfo(x):""}</div>${descDe(x)?`<div class="ds">${esc(descDe(x))}</div>`:""}</button>`;}).join("")}
       </div>
       ${am.length===0?`<div class="mais">${espera?`${espera} em espera · já falou, volta sozinha`:"vazia"}</div>`:""}</div>`;}).join("")}
    </div></div>`;}
@@ -993,6 +1017,9 @@ function renderEsteiras(){
       <button class="btn ghost" data-painel="${x.id}" style="padding:6px 10px;font-size:11.5px">Painel</button></div>`).join("")
     :`<div class="mais">nenhuma — bom sinal</div>`}</div></div>`;
  document.getElementById("p-esteiras").innerHTML=h;
+ document.querySelectorAll("#p-esteiras [data-filtro-dono]").forEach(b=>b.onclick=()=>{
+   FILTRO_DONO=b.dataset.filtroDono; try{localStorage.setItem("crm_filtro_dono",FILTRO_DONO);}catch(_){}
+   renderEsteiras(); });
  document.querySelectorAll("#p-esteiras [data-zap-fix]").forEach(b=>b.onclick=()=>corrigirZap(byId(+b.dataset.zapFix)));
  document.querySelectorAll("#p-esteiras [data-painel]").forEach(b=>b.onclick=()=>{ if(ARRASTO.acabou) return; abrir(+b.dataset.painel); });
  document.querySelectorAll("#p-esteiras [data-arrasta]").forEach(ligarArrasto);
