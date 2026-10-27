@@ -10,6 +10,7 @@ import { ChevronLeft, Loader2, RefreshCw } from "lucide-react";
 import { Gaveta } from "@/shared/components/gaveta";
 import { toast } from "@/shared/hooks/use-toast";
 import { useAnalisarComIaMutation, useCriarDesafioMutation, type AnaliseIa } from "../api/use-objetivo-lucro";
+import { useClimaPlano } from "../api/use-clima-plano";
 import { diasSugeridos, planoLucro } from "../lib/plano";
 import { cronograma } from "../lib/cronograma";
 import { brl0 } from "../lib/formato";
@@ -31,13 +32,14 @@ export function NovoDesafioSheet({ open, onOpenChange }: { open: boolean; onOpen
   const [resultado, setResultado] = useState<AnaliseIa | null>(null);
   const analisar = useAnalisarComIaMutation();
   const criar = useCriarDesafioMutation();
+  const clima = useClimaPlano(open);
 
   const b = resultado?.base ?? null;
   const ia = resultado?.ia ?? null;
   // Work days: what the person chose → what the AI analysed with → his usual rhythm.
   const trabalho = Math.min(dias, diasTrabalho ?? resultado?.diasTrabalho ?? (b ? diasSugeridos(b, dias) : dias));
   const plano = useMemo(() => (b ? planoLucro(b, alvo, trabalho) : null), [b, alvo, trabalho]);
-  const crono = useMemo(() => (b ? cronograma(b, alvo, dias, trabalho, new Date()) : null), [b, alvo, dias, trabalho]);
+  const crono = useMemo(() => (b ? cronograma(b, alvo, dias, trabalho, new Date(), clima.plano) : null), [b, alvo, dias, trabalho, clima.plano]);
   // The AI's number stands while the work days are the ones it analysed; otherwise recalc.
   const unidDia = ia?.unid_dia && diasTrabalho === null ? ia.unid_dia : plano?.unidDia ?? null;
 
@@ -86,7 +88,7 @@ export function NovoDesafioSheet({ open, onOpenChange }: { open: boolean; onOpen
           <>
             <VereditoHero b={b} p={plano} ia={ia} alvo={alvo} dias={dias} unidDia={unidDia} diasTrabalho={trabalho} />
             <FontesLidas b={b} />
-            <CronogramaDias b={b} c={crono} dias={dias} diasTrabalho={trabalho} sugestaoIa={ia?.dias_trabalho ?? null} onDiasTrabalho={setDiasTrabalho} />
+            <CronogramaDias b={b} c={crono} impacto={clima.impacto} dias={dias} diasTrabalho={trabalho} sugestaoIa={ia?.dias_trabalho ?? null} onDiasTrabalho={setDiasTrabalho} />
             <CurvaMissao c={crono} alvo={alvo} />
             <PainelMissao b={b} c={crono} diasTrabalho={trabalho} />
             <PlanoIaCard ia={ia} />

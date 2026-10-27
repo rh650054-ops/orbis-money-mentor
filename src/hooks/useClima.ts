@@ -10,6 +10,7 @@ import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { getUltimaPosicao, setUltimaPosicao } from "@/shared/lib/gps-last";
 import type { Estado } from "@/components/clima/ClimaTipos";
+import { ajustarTempo } from "@/components/clima/dia-venda";
 
 export type Confianca = "alta" | "media" | "baixa";
 export interface HoraClima {
@@ -20,6 +21,8 @@ export interface HoraClima {
 }
 export interface DiaClima {
   data: string; codigo: number | null; max: number | null; min: number | null; prob: number | null; mm: number | null; conf: Confianca;
+  /** 27/10: preenchidos pelo resumo de venda (dia-venda.ts) — pingos fracos, mm das 7h às 21h */
+  garoa?: boolean; mmVenda?: number;
   horas: { hora: number; codigo: number | null; temp: number | null; chance: number | null; mm: number }[];
 }
 export interface AlertaOficial { tipo: string; severidade: string; nivel: "amarelo" | "laranja" | "vermelho"; inicio: string; fim: string; riscos: string; instrucoes: string[] }
@@ -115,7 +118,7 @@ async function pegarPosicao(comToque = false): Promise<{ lat: number; lon: numbe
 
 export function useClima(opts: { contexto?: ContextoClima; comOpiniao?: boolean; auto?: boolean } = {}) {
   const { contexto, comOpiniao = true, auto = true } = opts;
-  const [tempo, setTempo] = useState<Tempo | null>(() => { const c = lerCache<{ tempo: Tempo }>(K_TEMPO); return c ? c.tempo : null; });
+  const [tempo, setTempo] = useState<Tempo | null>(() => { const c = lerCache<{ tempo: Tempo }>(K_TEMPO); return c ? ajustarTempo(c.tempo) : null; });
   const [extras, setExtras] = useState<Extras>(() => {
     const c = lerCache<{ extras?: Extras }>(K_TEMPO);
     return c?.extras ?? { atualizadoEm: null, cell: null, rede: null, modelos: [] };
@@ -153,7 +156,7 @@ export function useClima(opts: { contexto?: ContextoClima; comOpiniao?: boolean;
       const opiniaoDoDia = cOp && cOp.dia === getBrazilDate() && cOp.periodo === periodoBR() && (!tempoFresco || cOp.estado === tempoFresco.estado) ? cOp.opiniao : null;
       // tudo em cache e ninguém forçou? não gasta nada.
       if (tempoFresco && (!comOpiniao || opiniaoDoDia) && !forcarOpiniao) {
-        setTempo(tempoFresco); if (cTempo?.extras) setExtras(cTempo.extras); if (opiniaoDoDia) { setOpiniao(opiniaoDoDia); setFonteOpiniao("cache"); }
+        setTempo(ajustarTempo(tempoFresco)); if (cTempo?.extras) setExtras(cTempo.extras); if (opiniaoDoDia) { setOpiniao(opiniaoDoDia); setFonteOpiniao("cache"); }
         return;
       }
       const precisaOpiniao = comOpiniao && (forcarOpiniao || !opiniaoDoDia);
@@ -163,7 +166,7 @@ export function useClima(opts: { contexto?: ContextoClima; comOpiniao?: boolean;
       if (error || !data || (data as { error?: string }).error) throw new Error((data as { error?: string })?.error || String(error));
       const r = data as Resposta;
       const ex: Extras = { atualizadoEm: r.atualizadoEm ?? null, cell: r.cell ?? null, rede: r.rede ?? null, modelos: r.modelos ?? [] };
-      setTempo(r.tempo); setExtras(ex); gravarCache(K_TEMPO, { tempo: r.tempo, extras: ex, ts: Date.now() });
+      setTempo(ajustarTempo(r.tempo)); setExtras(ex); gravarCache(K_TEMPO, { tempo: r.tempo, extras: ex, ts: Date.now() });
       if (r.opiniao) {
         setOpiniao(r.opiniao); setFonteOpiniao(r.fonteOpiniao);
         gravarCache(K_OPINIAO, { opiniao: r.opiniao, dia: getBrazilDate(), periodo: periodoBR(), estado: r.tempo.estado, ts: Date.now() });
@@ -188,7 +191,7 @@ export function useClima(opts: { contexto?: ContextoClima; comOpiniao?: boolean;
       if (error || !data) throw new Error(String(error));
       const r = data as Resposta;
       const ex: Extras = { atualizadoEm: r.atualizadoEm ?? null, cell: r.cell ?? null, rede: r.rede ?? null, modelos: r.modelos ?? [] };
-      setTempo(r.tempo); setExtras(ex); gravarCache(K_TEMPO, { tempo: r.tempo, extras: ex, ts: Date.now() });
+      setTempo(ajustarTempo(r.tempo)); setExtras(ex); gravarCache(K_TEMPO, { tempo: r.tempo, extras: ex, ts: Date.now() });
       return r.feedbackOk !== false;
     } catch (e) { avisar.erro("clima: feedback", e); return false; }
   }, []);

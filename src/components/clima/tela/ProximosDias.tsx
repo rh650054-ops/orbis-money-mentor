@@ -34,7 +34,7 @@ export function ProximosDias({ dias }: { dias: DiaClima[] }) {
                 <span className="text-[12px] font-black uppercase tracking-[.1em]" style={{ color: i === 0 ? COR.ouro : "#c9c3b8" }}>{nomeDiaPelaData(x.data, hoje)}</span>
                 <IconeTempo codigo={x.codigo} tamanho={28} />
                 <span className="text-[15px] font-extrabold tabular-nums" style={{ color: COR.texto }}>{r(x.max)}<span style={{ color: COR.mute }}> / {r(x.min)}</span></span>
-                <span className="text-[14px] font-bold tabular-nums" style={{ color: (x.prob ?? 0) >= 30 ? CLIMA.chuvaLeve : COR.mute }}>{x.prob ?? 0}%</span>
+                <span className="text-[14px] font-bold tabular-nums" style={{ color: x.garoa || (x.prob ?? 0) >= 30 ? CLIMA.chuvaLeve : COR.mute }}>{x.garoa ? "garoa" : `${x.prob ?? 0}%`}</span>
                 <span className="text-[12px] font-bold text-center leading-tight" style={{ color: corV }}>{venda}</span>
               </button>
             );
@@ -43,7 +43,7 @@ export function ProximosDias({ dias }: { dias: DiaClima[] }) {
       </div>
 
       <Folha open={!!d} onOpenChange={(o) => { if (!o) setAberto(null); }} titulo={d ? nomeDiaPelaData(d.data, hoje) : ""}
-        subtitulo={d ? `${r(d.max)} / ${r(d.min)} · ${d.prob ?? 0}% chuva · ${resumoDia(d)}` : undefined} alta>
+        subtitulo={d ? `${r(d.max)} / ${r(d.min)} · ${d.garoa ? `garoa fraca (${d.mmVenda ?? 0} mm)` : `${d.prob ?? 0}% chuva`} · ${resumoDia(d)}` : undefined} alta>
         {d && (
           <>
             <div className="flex items-center justify-between gap-3 rounded-[14px] px-4 py-3" style={{ background: "#0e0e10", border: "1px solid rgba(255,255,255,.07)" }}>
