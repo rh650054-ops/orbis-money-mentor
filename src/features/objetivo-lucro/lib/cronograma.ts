@@ -8,6 +8,11 @@
    ============================================================ */
 import type { BaseLucro } from "../types";
 
+/** Forecast for one day of the mission (from the weather screen's 7-day forecast). */
+export interface ClimaDia { tipo: "seco" | "garoa" | "chuva"; prob: number; codigo: number | null; max: number | null }
+/** How the weather enters the plan: forecast by date + how much a rainy day costs him. */
+export interface ClimaPlano { previsao: Map<string, ClimaDia>; fator: number }
+
 export interface DiaPlano {
   data: string;         // yyyy-mm-dd
   dow: number;
@@ -22,6 +27,7 @@ export interface DiaPlano {
   atendimentos: number; // sales (people served) ≈ units ÷ units per sale (combos)
   calote: number;       // reserve for calote that day
   estoqueFim: number;   // ready stock left after the day (negative = had to produce)
+  clima: ClimaDia | null; // forecast for the day, when it is within the 7-day window
 }
 
 export interface Cronograma {
@@ -37,11 +43,15 @@ export interface Cronograma {
   estoqueAte: string | null;
   /** first work day that needs new production */
   produzirAte: string | null;
+  /** work days with real rain in the forecast (units already moved to dry days) */
+  diasChuva: string[];
+  /** forecast rainy days the plan left as days off */
+  chuvaEvitada: string[];
 }
 
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-export function cronograma(b: BaseLucro, alvo: number, dias: number, diasTrabalho: number, inicio: Date): Cronograma {
+export function cronograma(b: BaseLucro, alvo: number, dias: number, diasTrabalho: number, inicio: Date, clima?: ClimaPlano): Cronograma {
   const n = Math.max(1, Math.min(90, Math.round(dias)));
   const trabalho = Math.max(1, Math.min(n, Math.round(diasTrabalho)));
   const lucroUnid = Math.max(0, b.ticket - b.custo_unid);
@@ -50,7 +60,11 @@ export function cronograma(b: BaseLucro, alvo: number, dias: number, diasTrabalh
 
   const cal = Array.from({ length: n }, (_, i) => {
     const d = new Date(inicio); d.setDate(d.getDate() + i);
-    return { data: ymd(d), dow: d.getDay(), peso: forca.get(d.getDay()) ?? media * 0.6 };
+    const data = ymd(d);
+    const prev = clima?.previsao.get(data) ?? null;
+    // Rain cuts the day by his own factor (rain days sell ~66% of a dry day for Rick); drizzle a little.
+    const efeito = !prev ? 1 : prev.tipo === "chuva" ? (clima?.fator ?? 0.7) : prev.tipo === "garoa" ? (1 + (clima?.fator ?? 0.7)) / 2 : 1;
+    return { data, dow: d.getDay(), peso: (forca.get(d.getDay()) ?? media * 0.6) * efeito, base: forca.get(d.getDay()) ?? media * 0.6, prev };
   });
   // Pick the work days: the strongest weekdays first, ties to the earliest date.
   const escolhidos = new Set([...cal].sort((a, z) => z.peso - a.peso || a.data.localeCompare(z.data)).slice(0, trabalho).map((c) => c.data));
@@ -76,7 +90,7 @@ export function cronograma(b: BaseLucro, alvo: number, dias: number, diasTrabalh
     acumulado += lucro;
     estoque -= unid;
     return {
-      data: c.data, dow: c.dow, trabalha, forte: c.peso >= media, unid,
+      data: c.data, dow: c.dow, trabalha, forte: c.base >= media, unid, clima: c.prev,
       faturamento: unid * b.ticket, mercadoria: unid * b.custo_receita, lucro, acumulado, acumuladoMedia,
       atendimentos: Math.ceil(unid / porVenda), calote: unid * b.calote_unid, estoqueFim: estoque,
     };
@@ -95,5 +109,7 @@ export function cronograma(b: BaseLucro, alvo: number, dias: number, diasTrabalh
     menorDia: uTrab.length ? Math.min(...uTrab) : 0,
     estoqueAte: falta ? coberto?.data ?? null : null,
     produzirAte: falta?.data ?? null,
+    diasChuva: dias_.filter((d) => d.trabalha && d.clima?.tipo === "chuva").map((d) => d.data),
+    chuvaEvitada: dias_.filter((d) => !d.trabalha && d.clima?.tipo === "chuva").map((d) => d.data),
   };
 }

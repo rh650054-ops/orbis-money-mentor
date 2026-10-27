@@ -45,6 +45,18 @@ describe("cronograma", () => {
     for (const d of trab) expect(d.unid).toBeLessThanOrEqual(76 + c.totalUnid); // last day takes the remainder
   });
 
+  it("moves units away from a rainy day and prefers dry days off", () => {
+    const seco = cronograma(rick, 5000, 15, 15, new Date("2026-10-27T12:00:00"));
+    const previsao = new Map([["2026-10-31", { tipo: "chuva" as const, prob: 92, codigo: 95, max: 24 }]]);
+    const comChuva = cronograma(rick, 5000, 15, 15, new Date("2026-10-27T12:00:00"), { previsao, fator: 0.66 });
+    const sab = (x: typeof seco) => x.dias.find((d) => d.data === "2026-10-31")!.unid;
+    expect(sab(comChuva)).toBeLessThan(sab(seco));
+    expect(comChuva.totalUnid).toBe(seco.totalUnid);
+    expect(comChuva.diasChuva).toEqual(["2026-10-31"]);
+    const folga = cronograma(rick, 5000, 15, 9, new Date("2026-10-27T12:00:00"), { previsao, fator: 0.2 });
+    expect(folga.chuvaEvitada).toEqual(["2026-10-31"]);
+  });
+
   it("the cumulative curve ends at the target and the average pace ends below it", () => {
     const fim = c.dias[c.dias.length - 1]!;
     expect(Math.round(fim.acumulado)).toBeGreaterThanOrEqual(5000);
