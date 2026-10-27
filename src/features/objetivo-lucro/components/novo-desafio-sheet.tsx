@@ -86,7 +86,7 @@ export function NovoDesafioSheet({ open, onOpenChange }: { open: boolean; onOpen
           <>
             <VereditoHero b={b} p={plano} ia={ia} alvo={alvo} dias={dias} unidDia={unidDia} diasTrabalho={trabalho} />
             <FontesLidas b={b} />
-            <CronogramaDias c={crono} produto={b.produto_nome} dias={dias} diasTrabalho={trabalho} sugestaoIa={ia?.dias_trabalho ?? null} onDiasTrabalho={setDiasTrabalho} />
+            <CronogramaDias b={b} c={crono} dias={dias} diasTrabalho={trabalho} sugestaoIa={ia?.dias_trabalho ?? null} onDiasTrabalho={setDiasTrabalho} />
             <CurvaMissao c={crono} alvo={alvo} />
             <PainelMissao b={b} c={crono} diasTrabalho={trabalho} />
             <PlanoIaCard ia={ia} />

@@ -35,6 +35,11 @@ export const baseSchema = z.object({
   }).catch({ valor: 0, unidades: 0, dias: 0, recuperado: 0, perdido: 0, pct: 0, estimado_banco: null, app_pix: 0, usado: 0, fonte: "app", por_dia: 0, pct_pix: 0 }),
   transporte: num,
   alimentacao: num,
+  /** combo mix: % of sales with 1 / 2 / 3+ units, and units per sale */
+  combos: z.object({ um: num, dois: num, tres: num, preco_um: num, preco_dois: num, unid_por_venda: num, ticket_venda: num })
+    .catch({ um: 100, dois: 0, tres: 0, preco_um: 0, preco_dois: 0, unid_por_venda: 1, ticket_venda: 0 }),
+  vendas_dia: num,
+  preco_tabela: num,
 });
 export type BaseLucro = z.infer<typeof baseSchema>;
 

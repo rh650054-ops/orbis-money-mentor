@@ -12,6 +12,7 @@ const rick: BaseLucro = {
   quinzenas: { ultimos15: 196, anteriores15: 176 },
   calote: { valor: 788, unidades: 0, dias: 6, recuperado: 250, perdido: 538, pct: 4.1, estimado_banco: 1677.47, app_pix: 17588.5, usado: 1677.47, fonte: "banco", por_dia: 44.14, pct_pix: 9.5 },
   transporte: 325, alimentacao: 68,
+  combos: { um: 67, dois: 29, tres: 4, preco_um: 18.43, preco_dois: 33.94, unid_por_venda: 1.41, ticket_venda: 25.06 }, vendas_dia: 19.4, preco_tabela: 20,
 };
 
 describe("cronograma", () => {
@@ -34,6 +35,14 @@ describe("cronograma", () => {
   it("is balanced: strong days carry more, but no day carries it all", () => {
     expect(c.maiorDia).toBeGreaterThan(c.menorDia);
     expect(c.maiorDia).toBeLessThan(c.totalUnid / 2);
+  });
+
+  it("tracks stock and sales per day", () => {
+    const trab = c.dias.filter((d) => d.trabalha);
+    expect(trab[0]!.atendimentos).toBe(Math.ceil(trab[0]!.unid / 1.41));
+    expect(c.produzirAte).not.toBeNull();
+    expect(c.dias[c.dias.length - 1]!.estoqueFim).toBe(125 - c.totalUnid);
+    for (const d of trab) expect(d.unid).toBeLessThanOrEqual(76 + c.totalUnid); // last day takes the remainder
   });
 
   it("the cumulative curve ends at the target and the average pace ends below it", () => {
