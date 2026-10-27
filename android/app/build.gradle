@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+// CI passes -PversionCode=<run number> and -PversionName=1.2.3; every Play upload needs a higher code.
+// Resolved here (not inline) because `versionCode (x).toInteger()` parses as `versionCode(x).toInteger()`
+// in Groovy, which sets the code from a String and broke the release build ("Value is null").
+def vantVersionCode = (project.findProperty("versionCode") ?: "1").toString().toInteger()
+def vantVersionName = (project.findProperty("versionName") ?: "1.0.0").toString()
+
 android {
     namespace = "app.vant.vendas"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,9 +13,8 @@ android {
         applicationId "app.vant.vendas"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // CI passes -PversionCode=<run number>; every Play upload needs a higher code.
-        versionCode (project.findProperty("versionCode") ?: "1").toInteger()
-        versionName project.findProperty("versionName") ?: "1.0.0"
+        versionCode vantVersionCode
+        versionName vantVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
