@@ -19,8 +19,9 @@ const brl = (n: number) => `R$ ${Number(n || 0).toFixed(2).replace(".", ",")}`;
 
 const SYSTEM =
   `Você é a Vant, mentora financeira de vendedores de rua no Brasil (quem vende no sinal, na praia, no metrô). ` +
-  `Fala direto, de parceiro, sem corporativês e sem fofura. Usa SOMENTE os números recebidos — nunca invente dados. ` +
-  `Responda apenas o JSON pedido.`;
+  `Fala direto, de parceiro, com energia de missão: o vendedor está aceitando um desafio e você é a estrategista dele. ` +
+  `Sem corporativês, sem fofura, sem motivação vazia — cada frase tem número. Chame o vendedor pelo nome quando tiver. ` +
+  `Usa SOMENTE os números recebidos — nunca invente dados. Responda apenas o JSON pedido.`;
 
 function montarPrompt(b: Record<string, unknown>, alvo: number, dias: number, diasTrabalho: number): string {
   const n = (k: string) => Number((b as Record<string, number>)[k] ?? 0);
@@ -39,7 +40,8 @@ function montarPrompt(b: Record<string, unknown>, alvo: number, dias: number, di
   const unidDia = lucroUnid > 0 ? Math.ceil(precisaDia / lucroUnid) : null;
 
   return (
-    `OBJETIVO: ${brl(alvo)} de LUCRO em ${dias} dias corridos, trabalhando ${diasTrabalho} desses dias. Hoje é ${b.hoje}.\n\n` +
+    `VENDEDOR: ${b.apelido ? String(b.apelido) : "sem nome"}. Produto: ${b.produto_nome ?? "vários"}.\n` +
+    `OBJETIVO: ${brl(alvo)} de LUCRO em ${dias} dias corridos, trabalhando ${diasTrabalho} desses dias (${diasTrabalho} = o ritmo habitual dele; sugira outro número só com motivo). Hoje é ${b.hoje}.\n\n` +
     `VENDAS NO APP (últimos ${b.janela_dias} dias): ${b.unidades} ${un} em ${b.dias_vendidos} dias de venda; ` +
     `média ${b.unid_dia} ${un}/dia; recorde ${b.recorde_dia} num dia (${b.recorde_data}); preço médio ${brl(n("ticket"))}; ` +
     `faturou ${brl(n("vendas"))}. Frequência: trabalhou ${Math.round(n("frequencia") * 100)}% dos dias.\n` +
@@ -47,8 +49,8 @@ function montarPrompt(b: Record<string, unknown>, alvo: number, dias: number, di
     `Tendência: ${quinz.ultimos15 ?? 0} ${un} nos últimos 15 dias vs ${quinz.anteriores15 ?? 0} nos 15 anteriores.\n\n` +
     `BANCO (Open Finance, ${b.banco ? "conectado" : "NÃO conectado"}): saídas do corre ${brl(n("gastos_corre"))} por categoria: ${cats || "nenhuma"}. ` +
     `Entradas do corre ${brl(n("entradas_corre"))}. Gastos pessoais ${brl(n("gastos_pessoais"))}.\n` +
-    `Custo por ${un.slice(0, -1)} usado: ${brl(n("custo_unid"))} (fonte: ${b.fonte_custo === "extrato" ? "extrato do banco ÷ unidades vendidas" : "receita do produto"}); ` +
-    `pela receita seria ${brl(n("custo_receita"))}${b.custo_extrato ? `, pelo extrato ${brl(n("custo_extrato"))}` : ""}. ` +
+    `CUSTO POR ${un.slice(0, -1).toUpperCase()}: ${brl(n("custo_unid"))} = receita ${brl(n("custo_receita"))} (ingredientes + produção) + ${brl(n("calote_unid"))} de calote médio por unidade. ` +
+    `${b.custo_extrato ? `O banco mostra ${brl(n("custo_extrato"))} por unidade em saídas de mercadoria, mas isso inclui estoque comprado e ainda não vendido — não use como custo.` : ""} ` +
     `Transporte lançado no app ${brl(n("transporte"))}, alimentação ${brl(n("alimentacao"))}.\n\n` +
     `CALOTES: ${brl(calote.valor ?? 0)} vendido e não pago em ${calote.dias ?? 0} dias (${calote.pct ?? 0}% do que vendeu); ` +
     `recuperou ${brl(calote.recuperado ?? 0)}; perdido ${brl(calote.perdido ?? 0)}.\n\n` +
@@ -57,7 +59,7 @@ function montarPrompt(b: Record<string, unknown>, alvo: number, dias: number, di
     `em ${diasTrabalho} dias na média dá ${brl(lucroDiaMedio * diasTrabalho)}; pra bater precisa ${brl(precisaDia)}/dia = ${unidDia ?? "?"} ${un}/dia.\n\n` +
     `Responda em JSON com EXATAMENTE estas chaves:\n` +
     `{"veredito":"tranquilo"|"puxado"|"acima" (tranquilo = até ~10% acima da média; puxado = acima da média mas até o recorde; acima = além do recorde),\n` +
-    ` "titulo": frase curta de até 7 palavras com o veredito na voz da Vant,\n` +
+    ` "titulo": frase curta de até 7 palavras com o veredito, no tom de missão (ex.: "Rick, é no talo mas dá"),\n` +
     ` "resumo": 2 a 3 frases explicando se dá ou não e por quê, citando números do banco, das vendas e dos calotes,\n` +
     ` "unid_dia": número inteiro de ${un} por dia de trabalho pra bater (use a conta base, ajuste só se tiver motivo e diga qual),\n` +
     ` "dias_trabalho": quantos dos ${dias} dias você recomenda trabalhar (inteiro),\n` +
@@ -144,8 +146,8 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const alvo = Number(body?.alvo ?? 0);
     const dias = Math.round(Number(body?.dias ?? 0));
-    const diasTrabalho = Math.round(Number(body?.diasTrabalho ?? dias));
-    if (!(alvo > 0) || !(dias >= 1 && dias <= 366) || !(diasTrabalho >= 1 && diasTrabalho <= dias)) return json({ error: "dados inválidos" }, 400);
+    const pedido = body?.diasTrabalho === undefined || body?.diasTrabalho === null ? null : Math.round(Number(body.diasTrabalho));
+    if (!(alvo > 0) || !(dias >= 1 && dias <= 366) || (pedido !== null && !(pedido >= 1 && pedido <= dias))) return json({ error: "dados inválidos" }, 400);
 
     // 20 analyses per day per seller — each one is a full read of his 60 days.
     const { data: uso, error: usoErr } = await supa.rpc("bump_ai_usage", { p_feature: "objetivo_lucro", p_limit: 20 });
@@ -154,13 +156,16 @@ Deno.serve(async (req) => {
     const { data: base, error: baseErr } = await supa.rpc("objetivo_lucro_analise");
     if (baseErr || !base) return json({ error: "sem dados" }, 500);
 
+    // No work days sent: use his usual frequency (e.g. 63% of 15 days → 9).
+    const freq = Number((base as { frequencia?: number }).frequencia ?? 0);
+    const diasTrabalho = pedido ?? (freq > 0 ? Math.min(dias, Math.max(1, Math.round(dias * freq))) : dias);
     const prompt = montarPrompt(base as Record<string, unknown>, alvo, dias, diasTrabalho);
     let raw: string | null = null; let fonte = "cerebras";
     try { raw = await cerebras(prompt); } catch (_e) { raw = null; }
     if (!raw) { fonte = "gemini"; try { raw = await gemini(prompt); } catch (_e) { raw = null; } }
     const ia = raw ? limpar(raw) : null;
-    if (!ia) return json({ error: "ia indisponível", base }, 502);
-    return json({ ia: { ...ia, fonte }, base });
+    if (!ia) return json({ error: "ia indisponível", base, dias_trabalho: diasTrabalho }, 502);
+    return json({ ia: { ...ia, fonte }, base, dias_trabalho: diasTrabalho });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e).slice(0, 200) }, 500);
   }

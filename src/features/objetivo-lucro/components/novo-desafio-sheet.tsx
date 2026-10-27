@@ -30,15 +30,16 @@ export function NovoDesafioSheet({ open, onOpenChange }: { open: boolean; onOpen
 
   const b = resultado?.base ?? null;
   const ia = resultado?.ia ?? null;
-  const trabalho = Math.min(dias, diasTrabalho ?? ia?.dias_trabalho ?? (b ? diasSugeridos(b, dias) : dias));
+  // Work days: what the person chose → what the AI analysed with → his usual rhythm.
+  const trabalho = Math.min(dias, diasTrabalho ?? resultado?.diasTrabalho ?? (b ? diasSugeridos(b, dias) : dias));
   const plano = useMemo(() => (b ? planoLucro(b, alvo, trabalho) : null), [b, alvo, trabalho]);
   // The AI's number stands while the work days are the ones it analysed; otherwise recalc.
   const unidDia = ia?.unid_dia && diasTrabalho === null ? ia.unid_dia : plano?.unidDia ?? null;
 
   const rodar = (dt?: number) => {
-    const d = dt ?? (b ? diasSugeridos(b, dias) : dias);
     setPasso(2);
-    analisar.mutate({ alvo, dias, diasTrabalho: Math.min(dias, d) }, {
+    // First run sends no work days: the function uses his frequency (e.g. 9 of 15).
+    analisar.mutate(dt ? { alvo, dias, diasTrabalho: Math.min(dias, dt) } : { alvo, dias }, {
       onSuccess: (r) => { setResultado(r); setDiasTrabalho(null); if (r.limite) toast({ title: "Limite de análises por hoje", description: "Mostrei o plano pela sua média." }); },
       onError: () => { toast({ title: "Não consegui ler seus dados", description: "Tenta de novo em instantes.", variant: "destructive" }); setPasso(1); },
     });
@@ -64,10 +65,10 @@ export function NovoDesafioSheet({ open, onOpenChange }: { open: boolean; onOpen
           </button>
           <div className="min-w-0">
             <h3 className="text-[22px] font-black tracking-tight leading-none text-foreground">
-              {passo === 1 ? "Bater um lucro" : `${brl0(alvo)} em ${dias} dias`}
+              {passo === 1 ? "Bater um lucro" : "Briefing da missão"}
             </h3>
             <p className="text-[12.5px] mt-1" style={{ color: COR.mute }}>
-              {passo === 1 ? "A Vant lê seu banco e suas vendas e monta o plano" : "Plano feito pela IA com seus últimos 60 dias"}
+              {passo === 1 ? "A Vant lê seu banco, suas vendas e seus calotes" : "Feito pela IA com seus últimos 60 dias"}
             </p>
           </div>
         </div>
@@ -75,10 +76,10 @@ export function NovoDesafioSheet({ open, onOpenChange }: { open: boolean; onOpen
         {passo === 1 ? (
           <PassoMeta alvo={alvo} dias={dias} onAlvo={setAlvo} onDias={(d) => { setDias(d); setDiasTrabalho(null); }} onAnalisar={() => rodar()} />
         ) : analisar.isPending || !b || !plano ? (
-          <LendoCorre pronto={false} />
+          <LendoCorre pronto={false} nome={b?.apelido ?? null} />
         ) : (
           <>
-            <VereditoHero b={b} p={plano} ia={ia} unidDia={unidDia} diasTrabalho={trabalho} />
+            <VereditoHero b={b} p={plano} ia={ia} alvo={alvo} dias={dias} unidDia={unidDia} diasTrabalho={trabalho} />
             <FontesLidas b={b} />
             <PlanoIaCard b={b} p={plano} ia={ia} dias={dias} diasTrabalho={trabalho} onDiasTrabalho={setDiasTrabalho} />
             {diasTrabalho !== null && ia && (
@@ -89,7 +90,7 @@ export function NovoDesafioSheet({ open, onOpenChange }: { open: boolean; onOpen
             <button type="button" disabled={criar.isPending || unidDia === null} onClick={salvar}
               className="orbis-cta w-full mt-4 disabled:opacity-40 flex items-center justify-center gap-2" style={{ height: 56 }}>
               {criar.isPending && <Loader2 className="w-5 h-5 animate-spin" />}
-              CRIAR DESAFIO
+              ACEITAR A MISSÃO
             </button>
             {unidDia === null && (
               <p className="text-[12px] mt-2 text-center" style={{ color: COR.mute }}>Cadastre o preço e o custo do produto pra Vant calcular o lucro.</p>

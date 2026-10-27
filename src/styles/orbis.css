@@ -221,3 +221,48 @@ html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; overscro
 .orbis-um-aviso > div:empty { display: none; }
 .orbis-um-aviso > div:not(:empty) ~ div { display: none; }
 .orbis-um-aviso:not(:has(> div:not(:empty))) { display: none; }
+
+/* ============================================================
+   MISSÃO DE LUCRO (Rick, 27/10/2026) — "tom futurista, tenho que bater essa meta".
+   HUD escuro com grade fina, cantos marcados, linha de varredura e números em
+   Bebas Neue. Usado só em src/features/objetivo-lucro.
+   ============================================================ */
+.vant-missao-num { font-family: 'Bebas Neue', 'SF Pro Display', system-ui, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.vant-hud {
+  position: relative; isolation: isolate;
+  background:
+    linear-gradient(rgba(245,184,0,.045) 1px, transparent 1px) 0 0 / 100% 22px,
+    linear-gradient(90deg, rgba(245,184,0,.045) 1px, transparent 1px) 0 0 / 22px 100%,
+    radial-gradient(120% 80% at 50% -10%, rgba(245,184,0,.22), rgba(14,14,16,0) 60%),
+    #0b0b0d;
+}
+.vant-hud::before, .vant-hud::after,
+.vant-hud > .vant-canto::before, .vant-hud > .vant-canto::after {
+  content: ""; position: absolute; width: 14px; height: 14px; pointer-events: none;
+  border-color: var(--orbis-gold, #F5B800); border-style: solid; opacity: .9;
+}
+.vant-hud::before { top: 8px; left: 8px; border-width: 2px 0 0 2px; }
+.vant-hud::after { top: 8px; right: 8px; border-width: 2px 2px 0 0; }
+.vant-hud > .vant-canto::before { bottom: 8px; left: 8px; border-width: 0 0 2px 2px; }
+.vant-hud > .vant-canto::after { bottom: 8px; right: 8px; border-width: 0 2px 2px 0; }
+.vant-hud.vant-verde { background:
+    linear-gradient(rgba(61,214,140,.05) 1px, transparent 1px) 0 0 / 100% 22px,
+    linear-gradient(90deg, rgba(61,214,140,.05) 1px, transparent 1px) 0 0 / 22px 100%,
+    radial-gradient(120% 80% at 50% -10%, rgba(61,214,140,.22), rgba(14,14,16,0) 60%), #0b0b0d; }
+.vant-hud.vant-verde::before, .vant-hud.vant-verde::after, .vant-hud.vant-verde > .vant-canto::before, .vant-hud.vant-verde > .vant-canto::after { border-color: #3DD68C; }
+.vant-hud.vant-vermelho::before, .vant-hud.vant-vermelho::after, .vant-hud.vant-vermelho > .vant-canto::before, .vant-hud.vant-vermelho > .vant-canto::after { border-color: #e5737f; }
+@keyframes vantScan { 0% { top: -10%; opacity: 0; } 15% { opacity: .9; } 85% { opacity: .9; } 100% { top: 110%; opacity: 0; } }
+.vant-scan { position: absolute; left: 0; right: 0; height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(245,184,0,.9), transparent);
+  box-shadow: 0 0 18px rgba(245,184,0,.6); animation: vantScan 2.2s linear infinite; }
+@keyframes vantBlink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.vant-blink { animation: vantBlink 1.1s ease-in-out infinite; }
+@keyframes vantGlow { 0%, 100% { text-shadow: 0 0 10px rgba(245,184,0,.35); } 50% { text-shadow: 0 0 26px rgba(245,184,0,.75); } }
+.vant-glow { animation: vantGlow 2.4s ease-in-out infinite; }
+@keyframes vantSobe { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.vant-sobe { animation: vantSobe .5s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes vantTick { from { width: 0; } }
+.vant-tick { animation: vantTick 1.2s cubic-bezier(.2,.8,.2,1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .vant-scan, .vant-blink, .vant-glow, .vant-sobe, .vant-tick { animation: none !important; }
+}

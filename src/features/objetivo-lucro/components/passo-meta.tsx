@@ -40,7 +40,7 @@ export function PassoMeta({ alvo, dias, onAlvo, onDias, onAnalisar }: Props) {
 
       <button type="button" disabled={alvo <= 0} onClick={onAnalisar}
         className="orbis-cta w-full mt-5 disabled:opacity-40" style={{ height: 56 }}>
-        ANALISAR MEU CORRE
+        VANT, ANALISA MEU CORRE
       </button>
     </>
   );

@@ -1,8 +1,9 @@
-/* What the Vant read: four tiles with the number that came out of each source.
-   Tapping "ver os números" opens the full breakdown (RitmoCard). */
+/* "Inteligência coletada": the four sources with the number each one gave.
+   The cost tile shows the composition (recipe + calote). "ver todos os números" opens RitmoCard. */
 import { useState } from "react";
 import { ChevronDown, Landmark, Package, Smartphone, TriangleAlert, type LucideIcon } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
+import { brl0 } from "../lib/formato";
 import type { BaseLucro } from "../types";
 import { nomeUnidade } from "../lib/plano";
 import { RitmoCard } from "./ritmo-card";
@@ -11,31 +12,35 @@ import { COR } from "./ui";
 export function FontesLidas({ b }: { b: BaseLucro }) {
   const [aberto, setAberto] = useState(false);
   const un = nomeUnidade(b.produto_nome);
-  const tiles: Array<{ icon: LucideIcon; k: string; v: string; sub: string; cor?: string }> = [
-    { icon: Landmark, k: "Banco", v: b.banco ? formatCurrency(b.gastos_corre) : "—", sub: b.banco ? "saídas do corre" : "não conectado" },
-    { icon: Smartphone, k: "Vendas no app", v: `${b.unidades.toLocaleString("pt-BR")} ${un}`, sub: `${b.dias_vendidos} dias de venda` },
-    { icon: TriangleAlert, k: "Calotes", v: formatCurrency(b.calote.valor), sub: b.calote.perdido > 0 ? `${formatCurrency(b.calote.perdido)} perdidos` : "tudo recuperado", cor: b.calote.perdido > 0 ? COR.vermelho : undefined },
-    { icon: Package, k: `Custo por ${nomeUnidade(b.produto_nome, 1)}`, v: formatCurrency(b.custo_unid), sub: b.fonte_custo === "extrato" ? "pelo banco" : "pela receita" },
+  const un1 = nomeUnidade(b.produto_nome, 1);
+  const tiles: Array<{ icon: LucideIcon; k: string; v: string; sub: string; cor?: string; atraso: number }> = [
+    { icon: Landmark, k: "Banco", v: b.banco ? brl0(b.gastos_corre) : "—", sub: b.banco ? "saídas do corre · 60 dias" : "não conectado", atraso: 0 },
+    { icon: Smartphone, k: "Vendas no app", v: `${b.unidades.toLocaleString("pt-BR")} ${un}`, sub: `${b.dias_vendidos} dias · média ${b.unid_dia.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}/dia`, atraso: 80 },
+    { icon: TriangleAlert, k: "Calotes", v: brl0(b.calote.valor), sub: b.calote.perdido > 0 ? `${brl0(b.calote.perdido)} não voltaram` : "tudo recuperado", cor: b.calote.perdido > 0 ? COR.vermelho : COR.verde, atraso: 160 },
+    { icon: Package, k: `Custo por ${un1}`, v: formatCurrency(b.custo_unid), sub: b.fonte_custo === "receita" ? `${formatCurrency(b.custo_receita)} receita + ${formatCurrency(b.calote_unid)} calote` : b.fonte_custo === "extrato" ? "pelo banco + calote" : "só calote · sem receita", atraso: 240 },
   ];
   return (
-    <div className="mt-3">
-      <p className="orbis-section px-0.5 mb-2" style={{ color: COR.mute }}>O que a Vant leu · últimos {b.janela_dias} dias</p>
+    <div className="mt-4">
+      <p className="orbis-section px-0.5 mb-2 inline-flex items-center gap-2" style={{ color: COR.ouro }}>
+        <span className="w-4 h-px" style={{ background: COR.ouro }} /> Inteligência coletada
+      </p>
       <div className="grid grid-cols-2 gap-2">
         {tiles.map((t) => {
           const Icon = t.icon;
           return (
-            <div key={t.k} className="rounded-[16px] px-3.5 py-3 min-w-0" style={{ background: COR.caixa, border: `1px solid ${COR.linha}` }}>
-              <p className="text-[10.5px] font-bold uppercase tracking-[.06em] inline-flex items-center gap-1.5" style={{ color: COR.mute }}>
+            <div key={t.k} className="vant-sobe rounded-[16px] px-3.5 py-3 min-w-0 relative overflow-hidden" style={{ background: "#0b0b0d", border: `1px solid ${COR.linha}`, animationDelay: `${t.atraso}ms` }}>
+              <span className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full" style={{ background: t.cor ?? COR.ouro, opacity: .8 }} />
+              <p className="text-[10.5px] font-bold uppercase tracking-[.08em] inline-flex items-center gap-1.5" style={{ color: COR.mute }}>
                 <Icon className="w-3.5 h-3.5" strokeWidth={2.2} /> {t.k}
               </p>
-              <p className="orbis-num text-[17px] font-black mt-1 truncate" style={{ color: t.cor ?? COR.texto }}>{t.v}</p>
-              <p className="text-[11.5px] truncate" style={{ color: COR.sub }}>{t.sub}</p>
+              <p className="vant-missao-num text-[24px] leading-none mt-1.5 truncate" style={{ color: t.cor ?? COR.texto }}>{t.v}</p>
+              <p className="text-[11px] mt-1 truncate" style={{ color: COR.sub }}>{t.sub}</p>
             </div>
           );
         })}
       </div>
       <button type="button" onClick={() => setAberto((a) => !a)}
-        className="w-full h-10 mt-1 text-[12.5px] font-bold inline-flex items-center justify-center gap-1" style={{ color: COR.sub }}>
+        className="w-full h-10 mt-1 text-[12px] font-bold inline-flex items-center justify-center gap-1" style={{ color: COR.sub }}>
         {aberto ? "esconder os números" : "ver todos os números"} <ChevronDown className={`w-4 h-4 transition-transform ${aberto ? "rotate-180" : ""}`} />
       </button>
       {aberto && <RitmoCard b={b} />}

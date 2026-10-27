@@ -8,21 +8,22 @@ export const objetivoLucroKeys = createQueryKeys("objetivo-lucro");
 type Rpc = (fn: string, args?: Record<string, unknown>) => PromiseLike<{ data: unknown; error: Error | null }>;
 const rpc: Rpc = (fn, args) => (supabase as unknown as { rpc: Rpc }).rpc(fn, args);
 
-export interface AnaliseIa { base: BaseLucro; ia: PlanoIa | null; limite: boolean }
+export interface AnaliseIa { base: BaseLucro; ia: PlanoIa | null; limite: boolean; diasTrabalho: number | null }
 
-/** Calls the AI with the seller's 60 days. If the AI is down we still get `base` to plan locally. */
+/** Calls the AI with the seller's 60 days. `diasTrabalho` omitted = his usual rhythm.
+    If the AI is down we still get `base` to plan locally. */
 export function useAnalisarComIaMutation() {
   return useMutation({
-    mutationFn: async (v: { alvo: number; dias: number; diasTrabalho: number }): Promise<AnaliseIa> => {
+    mutationFn: async (v: { alvo: number; dias: number; diasTrabalho?: number }): Promise<AnaliseIa> => {
       const { data, error } = await supabase.functions.invoke("objetivo-lucro-ia", { body: v });
-      const corpo = (data ?? {}) as { ia?: unknown; base?: unknown; limite?: boolean };
+      const corpo = (data ?? {}) as { ia?: unknown; base?: unknown; limite?: boolean; dias_trabalho?: number };
       if (corpo.base) {
-        return { base: baseSchema.parse(corpo.base), ia: corpo.ia ? iaSchema.parse(corpo.ia) : null, limite: false };
+        return { base: baseSchema.parse(corpo.base), ia: corpo.ia ? iaSchema.parse(corpo.ia) : null, limite: false, diasTrabalho: corpo.dias_trabalho ?? null };
       }
       // Function failed before reading the data (limit, auth, outage): read the base straight from the DB.
       const { data: b, error: e2 } = await rpc("objetivo_lucro_analise");
       if (e2 || !b) throw error ?? e2 ?? new Error("sem dados");
-      return { base: baseSchema.parse(b), ia: null, limite: Boolean(corpo.limite) };
+      return { base: baseSchema.parse(b), ia: null, limite: Boolean(corpo.limite), diasTrabalho: null };
     },
   });
 }

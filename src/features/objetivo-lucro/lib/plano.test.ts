@@ -9,7 +9,7 @@ const rick: BaseLucro = {
   fonte_custo: "extrato", banco: true, estoque: 125, produto_nome: "Batida", frequencia: 0.633,
   recorde_data: "2026-09-26", entradas_corre: 15911, gastos_pessoais: 13784, categorias: [], semana: [],
   quinzenas: { ultimos15: 196, anteriores15: 176 }, calote: { valor: 788, unidades: 0, dias: 6, recuperado: 250, perdido: 538, pct: 4.1 },
-  transporte: 325, alimentacao: 68,
+  transporte: 325, alimentacao: 68, apelido: "Rick", calote_unid: 0.67, vendas: 18493.5,
 };
 
 describe("planoLucro", () => {
