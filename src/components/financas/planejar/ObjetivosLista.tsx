@@ -1,10 +1,12 @@
 /* OBJETIVOS (antes "Caixinhas") — compacto: ícone, valor, %, barra fina e o ritmo por dia. */
+import type { ReactNode } from "react";
 import { Plus, Target, Trophy } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { Barra, COR, Cartao, Rotulo, haptic } from "./ui";
 import type { ObjetivoVM } from "./tipos";
 
-export function ObjetivosLista({ objetivos, onAbrir, onCriar }: { objetivos: ObjetivoVM[]; onAbrir: (id: string) => void; onCriar: () => void }) {
+/** `topo` (27/10): o desafio de lucro ativo, mostrado entre o título e os objetivos de juntar. */
+export function ObjetivosLista({ objetivos, onAbrir, onCriar, topo }: { objetivos: ObjetivoVM[]; onAbrir: (id: string) => void; onCriar: () => void; topo?: ReactNode }) {
   const ativos = objetivos.filter((o) => !o.concluido).length;
   const criar = (
     <button type="button" onClick={() => { haptic(); onCriar(); }}
@@ -19,6 +21,8 @@ export function ObjetivosLista({ objetivos, onAbrir, onCriar }: { objetivos: Obj
         <Rotulo cor={COR.texto}>Objetivos</Rotulo>
         {objetivos.length > 0 && <p className="text-[13px] mt-0.5" style={{ color: COR.mute }}>{ativos} {ativos === 1 ? "ativo" : "ativos"}</p>}
       </div>
+      {topo}
+      {topo && objetivos.length > 0 && <p className="px-1 mt-1 text-[12px] font-bold uppercase tracking-[.05em]" style={{ color: COR.mute }}>Juntando pra</p>}
       <Cartao className="py-1">
         {objetivos.map((o) => (
           <button key={o.id} type="button" onClick={() => onAbrir(o.id)}

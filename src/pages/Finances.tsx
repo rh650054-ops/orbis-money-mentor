@@ -65,6 +65,7 @@ import { GuardarHojeCard } from "@/components/financas/planejar/GuardarHojeCard"
 import { VencidasCard } from "@/components/financas/planejar/VencidasCard";
 import { ContasDoMes } from "@/components/financas/planejar/ContasDoMes";
 import { ObjetivosLista } from "@/components/financas/planejar/ObjetivosLista";
+import { DesafioCard, NovoDesafioSheet, TipoObjetivoSheet } from "@/features/objetivo-lucro";
 import { BancosTravado, ContasDoBancoPro, LimitePlano, LIMITE_CONTAS_ESSENCIAL, LIMITE_OBJETIVOS_ESSENCIAL, MesFechaPro } from "@/components/financas/pro-financas";
 import { travaPro, useAcessoQuery } from "@/shared/api/acesso";
 import type { DiaAlvo } from "@/components/financas/planejar/RegistrarValorFolha";
@@ -208,6 +209,9 @@ export default function Finances() {
   // Último "Guardei tudo" pra poder DESFAZER (reverte contas, metas e o guardado de hoje).
   const ultimoGuardei = guardar.ultimoGuardei;
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
+  // 27/10 (Rick): "Criar objetivo" pergunta o tipo — juntar pra algo (caixinha) ou bater um lucro (desafio)
+  const [tipoObjetivoOpen, setTipoObjetivoOpen] = useState(false);
+  const [desafioOpen, setDesafioOpen] = useState(false);
 
   // Dias de trabalho do perfil — usados pra dividir "guardar por dia" só nos dias úteis
   const [workingDays, setWorkingDays] = useState<string[]>([]);
@@ -2684,7 +2688,8 @@ export default function Finances() {
                 <ObjetivosLista
                   objetivos={objetivosVM}
                   onAbrir={(id) => { setPorta("objetivos"); setMetaAberta(id); window.setTimeout(() => document.getElementById(`meta-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); }}
-                  onCriar={() => (objetivosNoLimite ? navigate("/pro") : setIsAddGoalOpen(true))}
+                  onCriar={() => setTipoObjetivoOpen(true)}
+                  topo={<DesafioCard />}
                 />
                 {objetivosNoLimite && <div className="mt-2"><LimitePlano titulo="Criar objetivo" usados={objetivosAtivosN} limite={LIMITE_OBJETIVOS_ESSENCIAL} onPro={() => navigate("/pro")} /></div>}
               </div>
@@ -2699,7 +2704,7 @@ export default function Finances() {
         <section className="space-y-3">
             <div className="flex items-center justify-between px-0.5 pt-1">
               <h2 className="text-[15px] font-black text-foreground tracking-tight">Objetivos</h2>
-              <button onClick={() => setIsAddGoalOpen(true)} className="text-xs font-extrabold flex items-center gap-0.5" style={{ color: "#F5B800" }}>
+              <button onClick={() => setTipoObjetivoOpen(true)} className="text-xs font-extrabold flex items-center gap-0.5" style={{ color: "#F5B800" }}>
                 <Plus className="w-3.5 h-3.5" strokeWidth={3} /> novo
               </button>
           </div>
@@ -3144,6 +3149,17 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
           />
         );
       })()}
+      <TipoObjetivoSheet
+        open={tipoObjetivoOpen}
+        onOpenChange={setTipoObjetivoOpen}
+        onLucro={() => setDesafioOpen(true)}
+        onJuntar={() => {
+          const ativos = goals.filter((g) => g.status !== "completed" && g.status !== "concluida").length;
+          if (essencialTravado && ativos >= LIMITE_OBJETIVOS_ESSENCIAL) navigate("/pro");
+          else setIsAddGoalOpen(true);
+        }}
+      />
+      <NovoDesafioSheet open={desafioOpen} onOpenChange={setDesafioOpen} />
       <NovaCaixinhaSheet
         open={isAddGoalOpen}
         onOpenChange={setIsAddGoalOpen}
