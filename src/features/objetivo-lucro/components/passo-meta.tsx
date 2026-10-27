@@ -1,5 +1,6 @@
-/* Step 1 of the challenge: how much profit, in how many days. */
-import { Minus, Plus } from "lucide-react";
+/* Step 1 of the mission: how much profit, in how many days — HUD style, with the
+   live "per day" read so the number already means something before the analysis. */
+import { Minus, Plus, Crosshair } from "lucide-react";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { Chip, COR, PRESS } from "./ui";
 import { brl0 } from "../lib/formato";
@@ -16,32 +17,52 @@ interface Props {
 }
 
 export function PassoMeta({ alvo, dias, onAlvo, onDias, onAnalisar }: Props) {
+  const fim = new Date(); fim.setDate(fim.getDate() + dias - 1);
   return (
     <>
-      <p className="orbis-section mt-5 mb-2.5 px-0.5">1 · Quanto de lucro?</p>
-      <div className="flex items-center h-16 px-4 rounded-[14px]" style={{ background: "#0a0a0d", border: "1px solid rgba(245,184,0,.4)" }}>
-        <MoneyInput value={alvo} onChange={onAlvo} decimals={0} placeholder="R$ 0"
-          className="border-0 bg-transparent px-0 h-12 text-[24px] font-black tracking-tight focus-visible:ring-0" />
-      </div>
-      <div className="flex flex-wrap gap-2 mt-2.5">
-        {VALORES.map((v) => <Chip key={v} on={alvo === v} onClick={() => onAlvo(v)}>{brl0(v)}</Chip>)}
-      </div>
+      <section className="vant-hud mt-4 rounded-[24px] px-5 pt-5 pb-5 overflow-hidden" style={{ border: "1px solid rgba(245,184,0,.35)" }}>
+        <span className="vant-canto" />
+        <p className="orbis-section inline-flex items-center gap-1.5" style={{ color: COR.ouro }}><Crosshair className="w-3.5 h-3.5" /> Definir a missão</p>
 
-      <p className="orbis-section mt-5 mb-2.5 px-0.5">2 · Em quantos dias?</p>
-      <div className="flex items-center gap-2 flex-wrap">
-        {PRAZOS.map((d) => <Chip key={d} on={dias === d} onClick={() => onDias(d)}>{d} dias</Chip>)}
-        <span className="inline-flex items-center gap-1 ml-auto">
-          <Passo onClick={() => onDias(Math.max(1, dias - 1))} label="Menos um dia"><Minus className="w-4 h-4" /></Passo>
-          <span className="orbis-num w-10 text-center text-[17px] font-black">{dias}</span>
-          <Passo onClick={() => onDias(Math.min(90, dias + 1))} label="Mais um dia"><Plus className="w-4 h-4" /></Passo>
-        </span>
-      </div>
-      <p className="text-[12px] mt-2" style={{ color: COR.mute }}>Conta a partir de hoje. Lucro = o que você vende menos o custo de cada unidade.</p>
+        <p className="orbis-section mt-5" style={{ color: COR.mute }}>01 · Quanto de lucro?</p>
+        <div className="mt-2 flex items-baseline gap-2 pb-2" style={{ borderBottom: "1.5px solid rgba(245,184,0,.5)" }}>
+          <span className="vant-missao-num text-[34px] leading-none" style={{ color: COR.ouro }}>R$</span>
+          <MoneyInput value={alvo} onChange={onAlvo} decimals={0} placeholder="0"
+            className="vant-missao-num border-0 bg-transparent px-0 h-14 text-[52px] leading-none tracking-tight focus-visible:ring-0" />
+        </div>
+        <div className="flex flex-wrap gap-2 mt-3">
+          {VALORES.map((v) => <Chip key={v} on={alvo === v} onClick={() => onAlvo(v)}>{brl0(v)}</Chip>)}
+        </div>
+
+        <p className="orbis-section mt-6" style={{ color: COR.mute }}>02 · Em quantos dias?</p>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <span className="inline-flex items-center gap-1">
+            <Passo onClick={() => onDias(Math.max(1, dias - 1))} label="Menos um dia"><Minus className="w-4 h-4" /></Passo>
+            <span className="vant-missao-num w-14 text-center text-[40px] leading-none" style={{ color: COR.texto }}>{dias}</span>
+            <Passo onClick={() => onDias(Math.min(90, dias + 1))} label="Mais um dia"><Plus className="w-4 h-4" /></Passo>
+          </span>
+          <span className="text-right">
+            <span className="block text-[12px] font-bold" style={{ color: COR.sub }}>de hoje até</span>
+            <span className="vant-missao-num block text-[22px] leading-none mt-0.5" style={{ color: COR.ouro }}>{fim.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</span>
+          </span>
+        </div>
+        <div className="flex gap-2 mt-3">
+          {PRAZOS.map((d) => <Chip key={d} on={dias === d} onClick={() => onDias(d)}>{d} dias</Chip>)}
+        </div>
+
+        {alvo > 0 && (
+          <div className="mt-5 rounded-[14px] px-4 py-3 flex items-center justify-between gap-3" style={{ background: "rgba(0,0,0,.45)", border: `1px solid ${COR.linha}` }}>
+            <span className="text-[12px] font-bold leading-snug" style={{ color: COR.sub }}>Lucro por dia corrido<br /><span style={{ color: COR.mute }}>a Vant ajusta pelos seus dias de trabalho</span></span>
+            <span className="vant-missao-num text-[30px] leading-none shrink-0" style={{ color: COR.texto }}>{brl0(alvo / dias)}</span>
+          </div>
+        )}
+      </section>
 
       <button type="button" disabled={alvo <= 0} onClick={onAnalisar}
-        className="orbis-cta w-full mt-5 disabled:opacity-40" style={{ height: 56 }}>
+        className="orbis-cta w-full mt-4 disabled:opacity-40" style={{ height: 56 }}>
         VANT, ANALISA MEU CORRE
       </button>
+      <p className="text-[11.5px] mt-2 text-center" style={{ color: COR.mute }}>Banco (Open Finance) · vendas no app · calotes · custo por produto · últimos 60 dias</p>
     </>
   );
 }
@@ -50,7 +71,7 @@ export function Passo({ onClick, label, children }: { onClick: () => void; label
   return (
     <button type="button" onClick={onClick} aria-label={label}
       className={`w-10 h-10 rounded-full flex items-center justify-center ${PRESS}`}
-      style={{ background: COR.caixa, border: "1px solid rgba(255,255,255,.12)", color: COR.texto }}>
+      style={{ background: COR.caixa, border: "1px solid rgba(255,255,255,.14)", color: COR.texto }}>
       {children}
     </button>
   );
