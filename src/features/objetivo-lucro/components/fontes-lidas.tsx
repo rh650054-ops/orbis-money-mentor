@@ -16,8 +16,8 @@ export function FontesLidas({ b }: { b: BaseLucro }) {
   const tiles: Array<{ icon: LucideIcon; k: string; v: string; sub: string; cor?: string; atraso: number }> = [
     { icon: Landmark, k: "Banco", v: b.banco ? brl0(b.gastos_corre) : "—", sub: b.banco ? "saídas do corre · 60 dias" : "não conectado", atraso: 0 },
     { icon: Smartphone, k: "Vendas no app", v: `${b.unidades.toLocaleString("pt-BR")} ${un}`, sub: `${b.dias_vendidos} dias · média ${b.unid_dia.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}/dia`, atraso: 80 },
-    { icon: TriangleAlert, k: "Calotes", v: brl0(b.calote.valor), sub: b.calote.perdido > 0 ? `${brl0(b.calote.perdido)} não voltaram` : "tudo recuperado", cor: b.calote.perdido > 0 ? COR.vermelho : COR.verde, atraso: 160 },
-    { icon: Package, k: `Custo por ${un1}`, v: formatCurrency(b.custo_unid), sub: b.fonte_custo === "receita" ? `${formatCurrency(b.custo_receita)} receita + ${formatCurrency(b.calote_unid)} calote` : b.fonte_custo === "extrato" ? "pelo banco + calote" : "só calote · sem receita", atraso: 240 },
+    { icon: TriangleAlert, k: "Calotes ≈", v: brl0(b.calote.usado), sub: b.calote.usado > 0 ? `${brl0(b.calote.por_dia)}/dia · ${b.calote.fonte === "banco" ? "pelo banco" : "no app"}` : "nenhum", cor: b.calote.usado > 0 ? COR.vermelho : COR.verde, atraso: 160 },
+    { icon: Package, k: `Custo por ${un1}`, v: formatCurrency(b.custo_unid), sub: b.fonte_custo === "receita" ? `${formatCurrency(b.custo_receita)} + ${formatCurrency(b.calote_unid)} calote` : b.fonte_custo === "extrato" ? "pelo banco + calote" : "só calote · sem receita", atraso: 240 },
   ];
   return (
     <div className="mt-4">

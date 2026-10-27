@@ -24,9 +24,12 @@ export function RitmoCard({ b }: { b: BaseLucro }) {
         <Linha k="Lucro por dia de venda" v={formatCurrency(lucroUnid * b.unid_dia)} cor={COR.verde} />
       </div>
       <div className="pt-2 mt-0.5 flex flex-col gap-2" style={{ borderTop: "1px solid rgba(255,255,255,.07)" }}>
-        <Linha k="Calote (vendido fiado)" v={formatCurrency(b.calote.valor)} />
+        {b.calote.estimado_banco !== null && <Linha k="Pix/cartão lançados no app" v={formatCurrency(b.calote.app_pix)} />}
+        {b.calote.estimado_banco !== null && <Linha k="Caiu na conta do corre" v={formatCurrency(b.entradas_corre)} />}
+        {b.calote.estimado_banco !== null && <Linha k="Calote estimado pelo banco" v={formatCurrency(b.calote.estimado_banco)} cor={COR.vermelho} />}
+        <Linha k="Calote registrado no app" v={formatCurrency(b.calote.valor)} />
         <Linha k="Recuperado" v={formatCurrency(b.calote.recuperado)} cor={COR.verde} />
-        <Linha k="Perdido" v={formatCurrency(b.calote.perdido)} cor={COR.vermelho} />
+        <Linha k="Calote usado na conta" v={`${formatCurrency(b.calote.usado)} · ${formatCurrency(b.calote.por_dia)}/dia`} cor={COR.vermelho} />
       </div>
       {b.banco && (
         <div className="pt-2 mt-0.5 flex flex-col gap-2" style={{ borderTop: "1px solid rgba(255,255,255,.07)" }}>

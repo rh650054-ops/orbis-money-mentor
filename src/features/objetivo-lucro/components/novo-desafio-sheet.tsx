@@ -11,11 +11,15 @@ import { Gaveta } from "@/shared/components/gaveta";
 import { toast } from "@/shared/hooks/use-toast";
 import { useAnalisarComIaMutation, useCriarDesafioMutation, type AnaliseIa } from "../api/use-objetivo-lucro";
 import { diasSugeridos, planoLucro } from "../lib/plano";
+import { cronograma } from "../lib/cronograma";
 import { brl0 } from "../lib/formato";
 import { FontesLidas } from "./fontes-lidas";
 import { LendoCorre } from "./lendo-corre";
 import { PassoMeta } from "./passo-meta";
 import { PlanoIaCard } from "./plano-ia";
+import { CurvaMissao } from "./curva-missao";
+import { CronogramaDias } from "./cronograma-dias";
+import { PainelMissao } from "./painel-missao";
 import { VereditoHero } from "./veredito-hero";
 import { COR } from "./ui";
 
@@ -33,6 +37,7 @@ export function NovoDesafioSheet({ open, onOpenChange }: { open: boolean; onOpen
   // Work days: what the person chose → what the AI analysed with → his usual rhythm.
   const trabalho = Math.min(dias, diasTrabalho ?? resultado?.diasTrabalho ?? (b ? diasSugeridos(b, dias) : dias));
   const plano = useMemo(() => (b ? planoLucro(b, alvo, trabalho) : null), [b, alvo, trabalho]);
+  const crono = useMemo(() => (b ? cronograma(b, alvo, dias, trabalho, new Date()) : null), [b, alvo, dias, trabalho]);
   // The AI's number stands while the work days are the ones it analysed; otherwise recalc.
   const unidDia = ia?.unid_dia && diasTrabalho === null ? ia.unid_dia : plano?.unidDia ?? null;
 
@@ -75,13 +80,16 @@ export function NovoDesafioSheet({ open, onOpenChange }: { open: boolean; onOpen
 
         {passo === 1 ? (
           <PassoMeta alvo={alvo} dias={dias} onAlvo={setAlvo} onDias={(d) => { setDias(d); setDiasTrabalho(null); }} onAnalisar={() => rodar()} />
-        ) : analisar.isPending || !b || !plano ? (
+        ) : analisar.isPending || !b || !plano || !crono ? (
           <LendoCorre pronto={false} nome={b?.apelido ?? null} />
         ) : (
           <>
             <VereditoHero b={b} p={plano} ia={ia} alvo={alvo} dias={dias} unidDia={unidDia} diasTrabalho={trabalho} />
             <FontesLidas b={b} />
-            <PlanoIaCard b={b} p={plano} ia={ia} dias={dias} diasTrabalho={trabalho} onDiasTrabalho={setDiasTrabalho} />
+            <CronogramaDias c={crono} produto={b.produto_nome} dias={dias} diasTrabalho={trabalho} sugestaoIa={ia?.dias_trabalho ?? null} onDiasTrabalho={setDiasTrabalho} />
+            <CurvaMissao c={crono} alvo={alvo} />
+            <PainelMissao b={b} c={crono} diasTrabalho={trabalho} />
+            <PlanoIaCard ia={ia} />
             {diasTrabalho !== null && ia && (
               <button type="button" onClick={() => rodar(trabalho)} className="w-full h-10 mt-2 text-[12.5px] font-bold inline-flex items-center justify-center gap-1.5" style={{ color: COR.ouro }}>
                 <RefreshCw className="w-3.5 h-3.5" /> Reanalisar com {trabalho} dias

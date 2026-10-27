@@ -15,7 +15,7 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 const DOW = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
-const brl = (n: number) => `R$ ${Number(n || 0).toFixed(2).replace(".", ",")}`;
+const brl = (n: number | string | undefined) => `R$ ${Number(n || 0).toFixed(2).replace(".", ",")}`;
 
 const SYSTEM =
   `Você é a Vant, mentora financeira de vendedores de rua no Brasil (quem vende no sinal, na praia, no metrô). ` +
@@ -25,7 +25,7 @@ const SYSTEM =
 
 function montarPrompt(b: Record<string, unknown>, alvo: number, dias: number, diasTrabalho: number): string {
   const n = (k: string) => Number((b as Record<string, number>)[k] ?? 0);
-  const calote = (b.calote ?? {}) as Record<string, number>;
+  const calote = (b.calote ?? {}) as Record<string, number | string | undefined>;
   const quinz = (b.quinzenas ?? {}) as Record<string, number>;
   const un = (b.produto_nome as string | null) ? `${String(b.produto_nome).toLowerCase()}s` : "unidades";
   const semana = ((b.semana ?? []) as Array<{ dow: number; unid_dia: number; dias: number }>)
@@ -52,8 +52,8 @@ function montarPrompt(b: Record<string, unknown>, alvo: number, dias: number, di
     `CUSTO POR ${un.slice(0, -1).toUpperCase()}: ${brl(n("custo_unid"))} = receita ${brl(n("custo_receita"))} (ingredientes + produção) + ${brl(n("calote_unid"))} de calote médio por unidade. ` +
     `${b.custo_extrato ? `O banco mostra ${brl(n("custo_extrato"))} por unidade em saídas de mercadoria, mas isso inclui estoque comprado e ainda não vendido — não use como custo.` : ""} ` +
     `Transporte lançado no app ${brl(n("transporte"))}, alimentação ${brl(n("alimentacao"))}.\n\n` +
-    `CALOTES: ${brl(calote.valor ?? 0)} vendido e não pago em ${calote.dias ?? 0} dias (${calote.pct ?? 0}% do que vendeu); ` +
-    `recuperou ${brl(calote.recuperado ?? 0)}; perdido ${brl(calote.perdido ?? 0)}.\n\n` +
+    `CALOTES (aproximado): ${brl(calote.usado ?? 0)} em ${b.dias_vendidos} dias de venda = ${brl(calote.por_dia ?? 0)} por dia de venda, ${calote.pct_pix ?? 0}% do pix/cartão. ` +
+    `${calote.fonte === "banco" ? `Estimado pelo banco: ${brl(calote.app_pix ?? 0)} de pix/cartão lançados no app menos ${brl(n("entradas_corre"))} que caíram na conta do corre (ele conectou o banco tarde, então o que registrou no app — ${brl(calote.valor ?? 0)}, recuperou ${brl(calote.recuperado ?? 0)} — está subestimado).` : `Registrado no app: ${brl(calote.valor ?? 0)} fiado em ${calote.dias ?? 0} dias, recuperou ${brl(calote.recuperado ?? 0)}.`}\n\n` +
     `PRODUTOS: ${produtos || "nenhum cadastrado"}. Estoque pronto: ${b.estoque} ${un}.\n\n` +
     `CONTA BASE (já feita, use como referência): lucro por ${un.slice(0, -1)} ${brl(lucroUnid)}; lucro médio por dia de venda ${brl(lucroDiaMedio)}; ` +
     `em ${diasTrabalho} dias na média dá ${brl(lucroDiaMedio * diasTrabalho)}; pra bater precisa ${brl(precisaDia)}/dia = ${unidDia ?? "?"} ${un}/dia.\n\n` +
@@ -64,7 +64,7 @@ function montarPrompt(b: Record<string, unknown>, alvo: number, dias: number, di
     ` "unid_dia": número inteiro de ${un} por dia de trabalho pra bater (use a conta base, ajuste só se tiver motivo e diga qual),\n` +
     ` "dias_trabalho": quantos dos ${dias} dias você recomenda trabalhar (inteiro),\n` +
     ` "melhores_dias": lista com os 2 ou 3 dias da semana mais fortes dele (nomes em minúsculo),\n` +
-    ` "passos": lista de 3 a 5 ações concretas, cada uma {"titulo": até 5 palavras, "texto": 1 ou 2 frases com número}. Inclua: dias/ritmo, produção (quanto fazer além do estoque), custo (o que pesa no banco e dá pra cortar), calote (o que fazer com o que não foi pago), e um alerta de gastos pessoais se eles comerem o lucro,\n` +
+    ` "passos": lista de 3 a 5 ações concretas, cada uma {"titulo": até 5 palavras, "texto": 1 ou 2 frases com número}. Inclua: faturamento por dia (unidades × preço médio), produção (quanto fazer além do estoque e quanto custa em mercadoria), calote (quanto por dia ele perde e como reduzir: pix na hora, não fiar), e gastos pessoais se eles comerem o lucro,\n` +
     ` "alerta": frase curta com o maior risco, ou null}`
   );
 }

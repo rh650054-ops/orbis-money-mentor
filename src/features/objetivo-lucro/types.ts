@@ -28,8 +28,11 @@ export const baseSchema = z.object({
   frequencia: num,
   semana: z.array(z.object({ dow: num, unid_dia: num, dias: num })).catch([]),
   quinzenas: z.object({ ultimos15: num, anteriores15: num }).catch({ ultimos15: 0, anteriores15: 0 }),
-  calote: z.object({ valor: num, unidades: num, dias: num, recuperado: num, perdido: num, pct: num })
-    .catch({ valor: 0, unidades: 0, dias: 0, recuperado: 0, perdido: 0, pct: 0 }),
+  calote: z.object({
+    valor: num, unidades: num, dias: num, recuperado: num, perdido: num, pct: num,
+    estimado_banco: z.coerce.number().nullable().catch(null), app_pix: num, usado: num,
+    fonte: z.enum(["banco", "app"]).catch("app"), por_dia: num, pct_pix: num,
+  }).catch({ valor: 0, unidades: 0, dias: 0, recuperado: 0, perdido: 0, pct: 0, estimado_banco: null, app_pix: 0, usado: 0, fonte: "app", por_dia: 0, pct_pix: 0 }),
   transporte: num,
   alimentacao: num,
 });
