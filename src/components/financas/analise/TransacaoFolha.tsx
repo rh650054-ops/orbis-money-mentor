@@ -98,7 +98,7 @@ export function TransacaoFolha({ l, onFechar }: { l: Lancamento | null; onFechar
             </button>
           ) : (
             <BotaoPrimario disabled={!nova} estado={acao.isPending ? "carregando" : "normal"}
-              onClick={() => nova && rodar({ tipo: "mover", id: l.id, categoria: nova, todos }, todos ? `Movidos pra ${rotulo(nova)}` : `Movido pra ${rotulo(nova)}`)}>
+              onClick={() => nova && rodar({ tipo: "mover", id: l.id, categoria: nova, todos }, todos ? `Movidos pra ${rotulo(nova)} · Vant aprendeu essa correção` : `Categoria atualizada: ${rotulo(nova)}`)}>
               Salvar categoria
             </BotaoPrimario>
           )}

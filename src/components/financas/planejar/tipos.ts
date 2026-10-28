@@ -23,6 +23,8 @@ export interface ContaVM {
   porDia: number;         // parte dela no guardar de hoje
   diasUteis: number;      // dias de trabalho até vencer
   plano: PlanoQuitacao | null;
+  /** paga sozinha: a Vant viu o pagamento no extrato do banco */
+  pagoBanco?: { banco: string | null; data: string | null } | null;
 }
 
 export interface DiaVM {

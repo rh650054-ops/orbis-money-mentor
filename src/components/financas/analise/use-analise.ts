@@ -64,6 +64,7 @@ export function useAcaoLancamento() {
       a.tipo === "mover" ? chamar(a.todos ? "extrato_mover" : "extrato_mover_um", { p_id: a.id, p_categoria: a.categoria })
         : a.tipo === "renomear" ? chamar("extrato_renomear", { p_id: a.id, p_nome: a.nome })
         : chamar("extrato_fora_analise", { p_id: a.id, p_fora: a.fora }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: analiseKeys.all }),
+    // the Raio-X tab reads the same transactions
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: analiseKeys.all }), qc.invalidateQueries({ queryKey: ["raiox"] })]),
   });
 }

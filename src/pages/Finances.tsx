@@ -58,7 +58,7 @@ import { useFinancasHome } from "@/components/financas/FinancasHome";
 import { FinancasPainel } from "@/components/financas/FinancasPainel";
 import { ReservaCaixinha } from "@/components/financas/ReservaCaixinha";
 import { AbasNav, abaValida, SeuDinheiro, ParaResolver, Movimento, BancosLista, ConviteBanco, type AbaFinancas } from "@/components/financas/FinancasAbas";
-import { AnaliseAba } from "@/components/financas/analise/AnaliseAba";
+import { RaioXAba } from "@/features/raiox";
 import { ToastAction } from "@/shared/ui/toast";
 import { MesBlindadoCard } from "@/components/financas/planejar/MesBlindadoCard";
 import { GuardarHojeCard } from "@/components/financas/planejar/GuardarHojeCard";
@@ -123,6 +123,8 @@ interface PlannedBill {
   installments?: number | null;
   risco?: string; // 'baixo' | 'medio' | 'alto' — o quão perigoso é atrasar
   paid_cycle?: string | null; // 'YYYY-MM' do ciclo em que foi paga (recorrente reseta no próximo)
+  /** a Vant viu o pagamento no banco (27/10): { ciclo, valor, data, banco } */
+  pago_pelo_banco?: { ciclo?: string; valor?: number; data?: string | null; banco?: string | null } | null;
   duration_months?: number | null; // null = fixa (todo mês); N = dura N meses e acaba
   cycles_paid?: number; // quantos ciclos já foram pagos (pra saber quando a duração acaba)
   plano_quitacao_dias?: number | null; // vencida com plano: quitar em N dias úteis (05/10)
@@ -356,7 +358,11 @@ export default function Finances() {
         .order("due_date", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true });
       // plano de quitação (05/10): se a coluna ainda não existe no banco, lê sem ela
-      let { data: billsData, error: billsError } = await lerContas(`${colunasConta}, plano_quitacao_dias, plano_quitacao_ate`);
+      // pago_pelo_banco (27/10): conta marcada paga pelo Open Finance; sem a coluna, lê sem ela
+      let { data: billsData, error: billsError } = await lerContas(`${colunasConta}, plano_quitacao_dias, plano_quitacao_ate, pago_pelo_banco`);
+      if (billsError && /pago_pelo_banco/.test(String(billsError.message))) {
+        ({ data: billsData, error: billsError } = await lerContas(`${colunasConta}, plano_quitacao_dias, plano_quitacao_ate`));
+      }
       if (billsError && /plano_quitacao/.test(String(billsError.message))) {
         ({ data: billsData, error: billsError } = await lerContas(colunasConta));
       }
@@ -2439,7 +2445,7 @@ export default function Finances() {
               onVerContas={() => irAba("planejar")}
             />
           )}
-          {comBanco && casa && <Movimento h={casa} onVer={() => navigate("/financas/extrato")} />}
+          {comBanco && casa && <Movimento h={casa} onVer={() => irAba("raiox")} />}
           {renderGuardarHoje(true)}
         </>
       )}
@@ -2590,6 +2596,8 @@ export default function Finances() {
               risco: (b.risco === "alto" || b.risco === "baixo" ? b.risco : "medio"),
               cartao: Boolean(b.is_credit_card), faturaAberta: Boolean(b.is_credit_card) && amount <= 0,
               porDia: perDay(b), diasUteis: workingDaysUntil(nd ? toYMD(nd) : null), plano,
+              pagoBanco: b.pago_pelo_banco && (b.pago_pelo_banco.ciclo === cicloAtual || b.pago_pelo_banco.ciclo === "unico")
+                ? { banco: b.pago_pelo_banco.banco ?? null, data: b.pago_pelo_banco.data ?? null } : null,
             };
           };
           const contasVM = billsOrdenadas.filter((b) => !b.paid).map(paraVM);
@@ -3080,8 +3088,8 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
         )}
 
         {/* ANÁLISE (05/10, redesenho): gastos do mês → Vant percebeu → categorias → revisar → Raio-X → ferramentas */}
-        {aba === "analise" && (
-          <AnaliseAba userId={user?.id} temBanco={comBanco} onImportar={() => setImportOpen(true)} />
+        {aba === "raiox" && (
+          <RaioXAba userId={user?.id} temBanco={comBanco} onImportar={() => setImportOpen(true)} />
         )}
         <ImportPdfDialog open={importOpen} onOpenChange={setImportOpen} userId={user.id} onImported={loadFinancialData} />
 
