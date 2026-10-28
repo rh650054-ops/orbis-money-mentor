@@ -103,7 +103,7 @@ export default function Profile() {
   return (
     <div className="space-y-6 pb-4 md:pb-8 max-w-2xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold text-foreground tracking-tight">Perfil</h1>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Perfil</h1>
         <p className="text-muted-foreground mt-1">Acesse e gerencie sua conta</p>
       </div>
 

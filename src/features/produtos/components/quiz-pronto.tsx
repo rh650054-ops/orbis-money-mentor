@@ -25,7 +25,7 @@ export function QuizPronto({ r, onComecarDia, onOutro, onLista, onFicha }: {
         <span className="text-[11px] font-black tracking-[.16em]" style={{ color: "#3DD68C" }}>PRODUTO CADASTRADO</span>
         {comLucro ? (
           <>
-            <h1 className="text-[26px] font-black tracking-tight leading-[1.12]">
+            <h1 className="text-[20px] font-extrabold tracking-tight leading-[1.12]">
               Cada {r.nome} te dá<br /><span style={{ color: l.sobra > 0 ? "#3DD68C" : "#ff7a6b" }}>{reais(l.sobra)}</span> de lucro
             </h1>
             {r.controlaEstoque && r.estoque > 0 && l.sobra > 0 && (
@@ -35,7 +35,7 @@ export function QuizPronto({ r, onComecarDia, onOutro, onLista, onFicha }: {
             )}
           </>
         ) : (
-          <h1 className="text-[26px] font-black tracking-tight leading-[1.12]">{r.nome} já aparece no seu Foco</h1>
+          <h1 className="text-[20px] font-extrabold tracking-tight leading-[1.12]">{r.nome} já aparece no seu Foco</h1>
         )}
       </div>
       <div className="relative rounded-[18px] p-3.5 flex items-center gap-3 mt-3" style={{ background: "#0f0f10", border: "1px solid #26241f" }}>

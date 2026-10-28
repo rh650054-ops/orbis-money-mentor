@@ -10,7 +10,7 @@ function Opcao({ emoji, titulo, sub, exemplos, destaque, onClick }: {
     : { background: "#0f0f10", border: "1px solid #26241f" };
   return (
     <button type="button" onClick={onClick} className="rounded-[20px] px-4 py-[18px] flex gap-3.5 items-center text-left" style={estilo}>
-      <span className="w-[54px] h-[54px] rounded-2xl shrink-0 flex items-center justify-center text-[26px]" style={{ background: "#1a1a19" }}>{emoji}</span>
+      <span className="w-[54px] h-[54px] rounded-2xl shrink-0 flex items-center justify-center text-[22px]" style={{ background: "#1a1a19" }}>{emoji}</span>
       <span className="flex-1 flex flex-col gap-1">
         <span className="text-[17px] font-black">{titulo}</span>
         <span className="text-[12.5px]" style={{ color: "#b9b3a6" }}>{sub}</span>

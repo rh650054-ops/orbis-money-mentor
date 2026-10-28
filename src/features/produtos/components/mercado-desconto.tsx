@@ -17,7 +17,7 @@ export function MercadoDesconto({ total, inicial, salvando, onConcluir, onFechar
         style={{ background: "#0b0b0c", borderTop: "1px solid rgba(245,184,0,.35)", paddingBottom: "calc(env(safe-area-inset-bottom) + 18px)" }}
         onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Teve algum desconto?">
         <span className="text-[13px] font-bold text-center" style={{ color: "#b9b3a6" }}>Total da compra {reais(total)}</span>
-        <h2 className="text-[24px] font-black text-center">Teve algum desconto?</h2>
+        <h2 className="text-[20px] font-extrabold text-center">Teve algum desconto?</h2>
         {!teve ? (
           <div className="grid grid-cols-2 gap-2">
             <button type="button" disabled={salvando} onClick={() => onConcluir(0)} className="h-14 rounded-2xl font-black text-[16px]"

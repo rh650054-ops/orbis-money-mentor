@@ -16,3 +16,18 @@ export function iconeDo(codigo: number | null | undefined, dia = true): { Icone:
 }
 
 export const ehDiaHora = (h: number) => h >= 6 && h < 18;
+
+/** 27/10 (Rick: "garoa com 0%"): the % shown is the forecast's chance of rain, like the
+ *  iPhone (precipitation probability); falls back to the model vote when missing. */
+export function probDaHora(h: { prob?: number | null; chance?: number | null }): number {
+  return Math.round(h.prob ?? h.chance ?? 0);
+}
+
+/** A rain/drizzle icon only when the number agrees: below 20% and under 0.2 mm the
+ *  icon falls back to the sky (cloud / sun), so the screen never shows "garoa · 0%". */
+export function codigoCoerente(codigo: number | null | undefined, prob: number | null | undefined, mm?: number | null): number | null {
+  if (codigo == null) return null;
+  const chuvoso = codigo >= 51 && codigo <= 99 && codigo !== 45 && codigo !== 48;
+  if (chuvoso && (prob ?? 0) < 20 && (mm ?? 0) < 0.2) return 3;
+  return codigo;
+}

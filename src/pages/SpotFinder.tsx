@@ -381,7 +381,7 @@ function SpotFinderTela() {
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: OK }} /> {naRua} na rua agora
           </span>
         )}
-        <h1 className="text-[34px] font-black tracking-tight leading-none text-foreground mt-3">Caça-Sinal</h1>
+        <h1 className="text-[24px] font-extrabold tracking-tight leading-none text-foreground mt-3">Caça-Sinal</h1>
         <p className="text-[13.5px] leading-snug mt-2 max-w-[270px]" style={{ color: "#b3ab9c" }}>Os semáforos onde os vendedores da Vant mais vendem — com tempo do sinal e melhores horas.</p>
 
         <div className="mt-3.5 rounded-2xl p-1.5" style={{ background: "#0a0a0d", border: "1px solid #2a2823" }}>

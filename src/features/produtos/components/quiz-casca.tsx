@@ -41,7 +41,7 @@ export function QuizCasca({ passo, total, titulo, sub, onVoltar, children, rodap
         <span className="text-[11px] font-extrabold" style={{ color: "#7b766e" }}>{passo} de {total}</span>
       </div>
       <div className="flex flex-col gap-1.5 pt-2.5">
-        <h1 className="text-[25px] font-black tracking-tight leading-[1.1]">{titulo}</h1>
+        <h1 className="text-[20px] font-extrabold tracking-tight leading-[1.1]">{titulo}</h1>
         {sub && <p className="text-[13px]" style={{ color: "#b9b3a6" }}>{sub}</p>}
       </div>
       {children}
@@ -61,7 +61,7 @@ export function ResultadoOuro({ rotulo, valor, detalhe }: { rotulo: string; valo
         <span className="text-[13px] font-extrabold" style={{ color: "#b9b3a6" }}>{rotulo}</span>
         {detalhe && <span className="text-[10.5px] font-bold" style={{ color: "#7b766e" }}>{detalhe}</span>}
       </div>
-      <span className="text-[26px] font-black" style={{ color: "#F5B800" }}>{valor}</span>
+      <span className="text-[22px] font-extrabold" style={{ color: "#F5B800" }}>{valor}</span>
     </div>
   );
 }

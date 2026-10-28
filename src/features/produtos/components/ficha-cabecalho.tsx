@@ -16,7 +16,7 @@ export function FichaCabecalho({ nome, foto, emoji, enviandoFoto, onNome, onFoto
       </div>
       <div className="flex gap-3 items-center">
         <button type="button" onClick={() => arquivo.current?.click()} aria-label="Trocar foto"
-          className="w-[74px] h-[74px] rounded-[18px] shrink-0 flex items-center justify-center overflow-hidden text-[30px]"
+          className="w-[74px] h-[74px] rounded-[18px] shrink-0 flex items-center justify-center overflow-hidden text-[26px]"
           style={{ border: "1.5px dashed #3a3833", background: "#0f0f10" }}>
           {enviandoFoto ? <Loader2 className="w-5 h-5 animate-spin" style={{ color: "#7b766e" }} />
             : foto ? <img src={foto} alt="" className="w-full h-full object-cover" /> : emoji}

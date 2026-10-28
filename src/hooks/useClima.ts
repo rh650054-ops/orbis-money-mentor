@@ -23,6 +23,8 @@ export interface DiaClima {
   data: string; codigo: number | null; max: number | null; min: number | null; prob: number | null; mm: number | null; conf: Confianca;
   /** 27/10: preenchidos pelo resumo de venda (dia-venda.ts) — pingos fracos, mm das 7h às 21h */
   garoa?: boolean; mmVenda?: number;
+  /** 27/10: chance de chuva do dia inteiro (como no iPhone), antes do resumo de venda trocar `prob`. */
+  probDia?: number | null;
   horas: { hora: number; codigo: number | null; temp: number | null; chance: number | null; mm: number }[];
 }
 export interface AlertaOficial { tipo: string; severidade: string; nivel: "amarelo" | "laranja" | "vermelho"; inicio: string; fim: string; riscos: string; instrucoes: string[] }
@@ -44,7 +46,11 @@ export interface Extras { atualizadoEm: string | null; cell: string | null; rede
 
 const K_TEMPO = "orbis_clima_tempo_v2"; // v2: dias, alertas oficiais, chance ponderada
 const K_OPINIAO = "orbis_clima_opiniao_v2";
-const TTL_TEMPO = 30 * 60 * 1000;
+const TTL_TEMPO = 15 * 60 * 1000; // 27/10: 30 → 15 min (same as the server cell cache)
+/** A saved reading older than this is not shown while the new one loads. */
+const VELHO_DEMAIS = 3 * 3600 * 1000;
+/** Same ~1 km cell the server uses: a cached reading from another cell is not "here". */
+export const celulaDe = (lat: number, lon: number) => `${(Math.round(lat / 0.01) * 0.01).toFixed(2)},${(Math.round(lon / 0.01) * 0.01).toFixed(2)}`;
 
 /* Faixa do dia no fuso de Brasília. A opinião vale por FAIXA, não pelo dia
    inteiro: a que a Vant deu de madrugada ("vai dormir") não pode continuar
@@ -118,7 +124,7 @@ async function pegarPosicao(comToque = false): Promise<{ lat: number; lon: numbe
 
 export function useClima(opts: { contexto?: ContextoClima; comOpiniao?: boolean; auto?: boolean } = {}) {
   const { contexto, comOpiniao = true, auto = true } = opts;
-  const [tempo, setTempo] = useState<Tempo | null>(() => { const c = lerCache<{ tempo: Tempo }>(K_TEMPO); return c ? ajustarTempo(c.tempo) : null; });
+  const [tempo, setTempo] = useState<Tempo | null>(() => { const c = lerCache<{ tempo: Tempo }>(K_TEMPO); return c && Date.now() - c.ts < VELHO_DEMAIS ? ajustarTempo(c.tempo) : null; });
   const [extras, setExtras] = useState<Extras>(() => {
     const c = lerCache<{ extras?: Extras }>(K_TEMPO);
     return c?.extras ?? { atualizadoEm: null, cell: null, rede: null, modelos: [] };
@@ -152,7 +158,8 @@ export function useClima(opts: { contexto?: ContextoClima; comOpiniao?: boolean;
       if (!pos) { setErro("sem_posicao"); setPermissao(await estadoPermissao()); return; }
       const cTempo = lerCache<{ tempo: Tempo; extras?: Extras }>(K_TEMPO);
       const cOp = lerCache<{ opiniao: Opiniao; dia: string; periodo: string; estado: string }>(K_OPINIAO);
-      const tempoFresco = cTempo && Date.now() - cTempo.ts < TTL_TEMPO ? cTempo.tempo : null;
+      const mesmaCelula = !cTempo?.extras?.cell || cTempo.extras.cell === celulaDe(pos.lat, pos.lon);
+      const tempoFresco = cTempo && mesmaCelula && Date.now() - cTempo.ts < TTL_TEMPO ? cTempo.tempo : null;
       const opiniaoDoDia = cOp && cOp.dia === getBrazilDate() && cOp.periodo === periodoBR() && (!tempoFresco || cOp.estado === tempoFresco.estado) ? cOp.opiniao : null;
       // tudo em cache e ninguém forçou? não gasta nada.
       if (tempoFresco && (!comOpiniao || opiniaoDoDia) && !forcarOpiniao) {
@@ -161,7 +168,8 @@ export function useClima(opts: { contexto?: ContextoClima; comOpiniao?: boolean;
       }
       const precisaOpiniao = comOpiniao && (forcarOpiniao || !opiniaoDoDia);
       const { data, error } = await supabase.functions.invoke("clima-vendedor", {
-        body: { lat: pos.lat, lon: pos.lon, contexto: contexto ?? {}, semIA: !precisaOpiniao },
+        // forcar: a tap on "atualizar" skips the server's 15-min cell cache too (27/10).
+        body: { lat: pos.lat, lon: pos.lon, contexto: contexto ?? {}, semIA: !precisaOpiniao, forcar: forcarOpiniao },
       });
       if (error || !data || (data as { error?: string }).error) throw new Error((data as { error?: string })?.error || String(error));
       const r = data as Resposta;

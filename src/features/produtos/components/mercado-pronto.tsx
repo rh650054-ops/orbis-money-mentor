@@ -52,7 +52,7 @@ export function MercadoPronto({ resultado, prontos, resumo, faz = [], onProdutos
             <Check className="w-7 h-7" strokeWidth={3.5} />
           </span>
           <Rotulo>COMPRA ANOTADA</Rotulo>
-          <span className="text-[44px] leading-none font-black tabular-nums tracking-tight mt-1">{resultado.total > 0 ? reais(resultado.total) : "Sem valor"}</span>
+          <span className="text-[30px] leading-none font-extrabold tabular-nums tracking-tight mt-1">{resultado.total > 0 ? reais(resultado.total) : "Sem valor"}</span>
           <span className="text-[13px] font-bold" style={{ color: "#b9b3a6" }}>
             {resumo.itens} {resumo.itens === 1 ? "item" : "itens"} · hoje às {hora}
           </span>
@@ -77,7 +77,7 @@ export function MercadoPronto({ resultado, prontos, resumo, faz = [], onProdutos
                 <div key={p.id} className="flex flex-col gap-1.5">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="text-[15px] font-black">{p.nome}</span>
-                    <span className="text-[26px] leading-none font-black tabular-nums" style={{ color: OURO }}>+{un(p.unidades)}</span>
+                    <span className="text-[20px] leading-none font-extrabold tabular-nums" style={{ color: OURO }}>+{un(p.unidades)}</span>
                   </div>
                   {p.custo_depois > 0 && (
                     <div className="flex items-baseline justify-between gap-2 rounded-[12px] px-3 py-2" style={{ background: "rgba(245,184,0,.08)", border: "1px solid rgba(245,184,0,.3)" }}>

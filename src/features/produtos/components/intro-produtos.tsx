@@ -16,7 +16,7 @@ export function IntroProdutos({ onComecar, onVoltar }: { onComecar: () => void; 
       <div className="absolute -left-16 -right-16 top-10 h-[300px] pointer-events-none" style={{ background: "radial-gradient(55% 55% at 50% 40%, rgba(245,184,0,.14), rgba(0,0,0,0) 70%)" }} />
       <div className="relative pt-4 flex flex-col gap-2">
         <span className="text-[10.5px] font-black tracking-[.16em]" style={{ color: "#F5B800" }}>PRODUTOS &amp; ESTOQUE</span>
-        <h1 className="text-[27px] font-black tracking-tight leading-[1.08]">Descubra quanto sobra em cada venda</h1>
+        <h1 className="text-[22px] font-extrabold tracking-tight leading-[1.08]">Descubra quanto sobra em cada venda</h1>
         <p className="text-[13.5px] leading-snug" style={{ color: "#b9b3a6" }}>Cadastre o que você vende uma vez. A VANT calcula seu lucro e desconta do estoque a cada venda no Foco.</p>
       </div>
       <div className="relative rounded-[20px] p-4 flex flex-col gap-3 mt-1.5" style={{ background: "#0f0f10", border: "1px solid #26241f" }}>
