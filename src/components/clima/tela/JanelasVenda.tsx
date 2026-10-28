@@ -17,24 +17,24 @@ export function JanelasVenda({ janelas, aprendendo, pausadoPor }: { janelas: Jan
   return (
     <section aria-label="Melhor janela de venda">
       <Titulo>Melhor janela</Titulo>
-      <div className="relative overflow-hidden rounded-[16px] border p-3.5"
+      <div className="relative overflow-hidden rounded-[20px] border p-[18px]"
         style={{ borderColor: `${cor}${pausadoPor ? "33" : "55"}`, background: `radial-gradient(120% 120% at 0% 0%, ${cor}1f, transparent 55%), #0e0e10` }}>
         {pausadoPor ? (
           <>
-            <p className="text-[17px] font-bold" style={{ color: CLIMA.risco }}>Janelas pausadas</p>
+            <p className="text-[20px] font-extrabold" style={{ color: CLIMA.risco }}>Janelas pausadas</p>
             <p className="text-[14px] mt-1 leading-snug" style={{ color: COR.sub }}>{pausadoPor}: nenhuma hora é segura pra vender enquanto o alerta valer.</p>
           </>
         ) : !melhor ? (
           <>
-            <p className="text-[17px] font-bold" style={{ color: COR.texto }}>Sem janela boa por agora</p>
+            <p className="text-[20px] font-extrabold" style={{ color: COR.texto }}>Sem janela boa por agora</p>
             <p className="text-[14px] mt-1 leading-snug" style={{ color: COR.sub }}>Chuva ou rua vazia nas próximas horas.</p>
           </>
         ) : (
           <>
-            <p className="text-[26px] leading-none font-extrabold tabular-nums tracking-tight" style={{ color: cor }}>
-              {melhor.rotulo}{melhor.amanha && <span className="text-[13px] font-bold ml-2" style={{ color: COR.sub }}>amanhã</span>}
+            <p className="text-[32px] leading-none font-black tabular-nums tracking-tight" style={{ color: cor }}>
+              {melhor.rotulo}{melhor.amanha && <span className="text-[16px] font-bold ml-2" style={{ color: COR.sub }}>amanhã</span>}
             </p>
-            <p className="inline-flex items-center gap-2 mt-2 text-[14px] font-bold" style={{ color: COR.texto }}>
+            <p className="inline-flex items-center gap-2 mt-2.5 text-[15px] font-bold" style={{ color: COR.texto }}>
               <i className="w-2.5 h-2.5 rounded-full" style={{ background: cor, boxShadow: `0 0 0 4px ${cor}26` }} />
               {melhor.boa ? "Boa oportunidade" : "Janela curta · o clima aperta"}
             </p>

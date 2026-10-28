@@ -7,7 +7,7 @@ import type { Confianca } from "@/hooks/useClima";
 export function Titulo({ children, direita }: { children: React.ReactNode; direita?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-2 mb-2 px-0.5">
-      <h2 className="text-[11px] font-bold uppercase tracking-[.08em]" style={{ color: COR.mute }}>{children}</h2>
+      <h2 className="text-[16px] font-black uppercase tracking-[.08em]" style={{ color: COR.texto }}>{children}</h2>
       {direita}
     </div>
   );

@@ -46,12 +46,12 @@ export function AlertasSeguranca({ t, cidade }: { t: Tempo; cidade: string }) {
       <Cartao className={grave ? "alerta-pulso" : undefined} style={{ borderColor: `${cor}88`, background: `linear-gradient(160deg, ${cor}26, #0e0e10 65%)` }}>
         {grave && <style>{"@keyframes alerta-pulso { 0%,100% { box-shadow: 0 0 0 0 rgba(255,107,94,0) } 50% { box-shadow: 0 0 0 5px rgba(255,107,94,.14) } } .alerta-pulso { animation: alerta-pulso 2.4s ease-in-out infinite } @media (prefers-reduced-motion: reduce) { .alerta-pulso { animation: none } }"}</style>}
         <div className="flex gap-3">
-          <span className="w-8 h-8 rounded-[10px] shrink-0 flex items-center justify-center" style={{ background: `${cor}26` }}>
-            {grave ? <ShieldAlert className="w-5 h-5" style={{ color: cor }} strokeWidth={2.2} /> : <AlertTriangle className="w-5 h-5" style={{ color: cor }} strokeWidth={2.2} />}
+          <span className="w-10 h-10 rounded-[12px] shrink-0 flex items-center justify-center" style={{ background: `${cor}26` }}>
+            {grave ? <ShieldAlert className="w-6 h-6" style={{ color: cor }} strokeWidth={2.2} /> : <AlertTriangle className="w-6 h-6" style={{ color: cor }} strokeWidth={2.2} />}
           </span>
           <div className="min-w-0">
             <Rotulo cor={cor}>{grave ? "Alerta importante" : "Atenção"}</Rotulo>
-            <p className="text-[16px] font-bold leading-snug mt-1" style={{ color: COR.texto }}>{titulo}</p>
+            <p className="text-[17px] font-bold leading-snug mt-1" style={{ color: COR.texto }}>{titulo}</p>
             <p className="text-[13px] mt-1" style={{ color: COR.sub }}>
               {oficial ? `${oficial.severidade} · ${hora(oficial.inicio)} até ${hora(oficial.fim)}` : modelo!.texto}
             </p>
@@ -60,7 +60,7 @@ export function AlertasSeguranca({ t, cidade }: { t: Tempo; cidade: string }) {
         {grave && (
           <ul className="mt-3 flex flex-col gap-1">
             {["Procura abrigo", "Pausa a venda", "Evita deslocamento agora"].map((x) => (
-              <li key={x} className="text-[14px] font-bold flex items-center gap-2" style={{ color: COR.texto }}><i className="w-1.5 h-1.5 rounded-full" style={{ background: cor }} />{x}</li>
+              <li key={x} className="text-[15px] font-bold flex items-center gap-2" style={{ color: COR.texto }}><i className="w-1.5 h-1.5 rounded-full" style={{ background: cor }} />{x}</li>
             ))}
           </ul>
         )}

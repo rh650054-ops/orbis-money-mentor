@@ -20,7 +20,7 @@ function Mapa({ m }: { m: Movimento }) {
   const op = m.tipo === "longe" ? 0.12 : 0.55;
   const blobs = [[0, 0, 42, 26], [-26, 14, 26, 18], [24, -12, 30, 18], [10, 22, 18, 12]] as const;
   return (
-    <svg viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" className="w-full h-[150px] block rounded-[14px]" role="img" aria-label={m.frase}>
+    <svg viewBox="0 0 320 200" className="w-full h-auto block rounded-[16px]" role="img" aria-label={m.frase}>
       <defs>
         <radialGradient id={`fundo-${id}`} cx="50%" cy="50%" r="70%"><stop offset="0" stopColor="#13202b" /><stop offset="1" stopColor="#090c10" /></radialGradient>
         <filter id={`blur-${id}`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9" /></filter>
@@ -73,8 +73,8 @@ export function RadarCard({ horas, cell, modelos }: { horas: HoraClima[]; cell: 
   return (
     <section aria-label="Radar de chuva">
       <Titulo>Radar de chuva</Titulo>
-      <div className="rounded-[16px] border p-3.5" style={{ background: "#0b0d10", borderColor: "rgba(91,155,255,.18)" }}>
-        <p className="text-[15px] font-bold px-1" style={{ color: COR.texto }}>{m.frase}</p>
+      <div className="rounded-[20px] border p-3.5" style={{ background: "#0b0d10", borderColor: "rgba(91,155,255,.18)" }}>
+        <p className="text-[17px] font-extrabold px-1" style={{ color: COR.texto }}>{m.frase}</p>
         <div className="mt-3"><Mapa m={m} /></div>
         {/* linha do tempo: pontos, não barras */}
         <div className="mt-3 px-1 flex items-start justify-between">
@@ -102,7 +102,7 @@ export function RadarCard({ horas, cell, modelos }: { horas: HoraClima[]; cell: 
           {modelos.map((x) => <LinhaValor key={x.nome} rotulo={x.nome} valor={x.total > 0 ? `acertou ${x.acertos} de ${x.total}` : "sem nota ainda"} />)}
         </div>
         <p className="text-[13px] leading-snug" style={{ color: COR.mute }}>
-          Cada "Tá chovendo aí?" dá nota pros modelos da sua região: quem acerta mais pesa mais na chance de chuva. A previsão usa a sua posição arredondada pra cerca de 1 km; as respostas dos vendedores somam num raio de uns 5 km.
+          Cada "Tá chovendo aí?" dá nota pros modelos da sua região: quem acerta mais pesa mais na chance de chuva. Sua posição vai arredondada pra uns 5 km.
         </p>
       </Folha>
     </section>
