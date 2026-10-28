@@ -7,12 +7,11 @@
    resumo, enviar, categoria, não identificados, perguntas, entre contas, lançar na mão.
    ============================================================ */
 import { useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRaioXExtrato, useRaioXMeses } from "@/hooks/useRaioXExtrato";
-import { useRaioXPerguntas, marcarContaUso } from "@/hooks/useRaioXInteligencia";
-import RaioXResumo from "@/components/financas/raiox/RaioXResumo";
+import { useRaioXPerguntas } from "@/hooks/useRaioXInteligencia";
 import RaioXEnviar from "@/components/financas/raiox/RaioXEnviar";
 import RaioXLancamentos from "@/components/financas/raiox/RaioXLancamentos";
 import RaioXPerguntas from "@/components/financas/raiox/RaioXPerguntas";
@@ -59,8 +58,8 @@ export default function RaioXExtrato() {
   // na tela de envio de PDF; o "vazio" do resumo leva pra ligar o banco.
 
   const voltar = () => {
-    if (view) ir("");
-    else navigate("/finances?aba=analise");
+    // 27/10: o resumo do Raio-X virou a aba Raio-X do Financeiro
+    navigate("/finances?aba=raiox");
   };
 
   const catSlug = view.startsWith("cat:") ? view.slice(4) : null;
@@ -99,17 +98,7 @@ export default function RaioXExtrato() {
       ) : catSlug ? (
         <RaioXLancamentos mes={mes} categoria={catSlug} info={info} categorias={categorias} lista={lista} mover={moverEAtualizar} />
       ) : (
-        <RaioXResumo
-          mes={mes} meses={meses} resumo={resumo} loading={loading || carregandoMeses}
-          onMes={(m) => { const p = new URLSearchParams(); p.set("mes", m); setParams(p); }}
-          onCategoria={(slug) => ir(`cat:${slug}`)}
-          onNaoIdentificados={() => ir("nid")}
-          onEnviar={() => navigate("/verificar")}
-          onPerguntas={() => ir("perguntas")}
-          onEntreContas={() => ir("entre")}
-          onManual={() => ir("manual")}
-          onContaUso={async (banco, uso) => { if (await marcarContaUso(banco, uso)) await reload(); }}
-        />
+        <Navigate to={`/finances?aba=raiox`} replace />
       )}
     </div>
   );

@@ -1,21 +1,22 @@
-/* End of the page: sign out, and — set apart — delete the account (never one tap). */
+/* End of the page: redo the welcome tour, sign out, and — set apart — delete the account (never one tap). */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut } from "lucide-react";
+import { LogOut, RotateCcw } from "lucide-react";
 import { supabase } from "@/shared/api";
 import { toast } from "@/shared/hooks/use-toast";
 import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
+import { refazerTour } from "@/shared/lib/refazer-tour";
 import { Botao, COR, Folha, INPUT } from "@/shared/components/vant-ui";
 
 export function AcoesConta() {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const [excluir, setExcluir] = useState(false);
   const [texto, setTexto] = useState("");
   const [apagando, setApagando] = useState(false);
 
-  const sair = async () => { await signOut(); navigate("/auth"); };
+  const sair = async () => { await signOut(); toast({ title: "Você saiu da conta", description: "Até logo!" }); navigate("/auth"); };
 
   const apagar = async () => {
     if (texto.trim().toUpperCase() !== "EXCLUIR") return;
@@ -36,6 +37,11 @@ export function AcoesConta() {
 
   return (
     <div className="flex flex-col gap-6 pt-2">
+      <button type="button" onClick={() => void refazerTour(user?.id)}
+        className="h-12 rounded-2xl flex items-center justify-center gap-2 text-[14px] font-extrabold transition-transform duration-100 active:scale-[0.97]"
+        style={{ background: COR.card, border: `1px solid ${COR.borda}`, color: COR.suave }}>
+        <RotateCcw className="w-4 h-4" /> Refazer tour de boas-vindas
+      </button>
       <button type="button" onClick={sair} className="h-12 rounded-2xl flex items-center justify-center gap-2 text-[14px] font-extrabold transition-transform duration-100 active:scale-[0.97]"
         style={{ background: COR.card, border: `1px solid ${COR.borda}` }}>
         <LogOut className="w-4 h-4" /> Sair da conta

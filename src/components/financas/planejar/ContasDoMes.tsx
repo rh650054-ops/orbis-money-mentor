@@ -12,6 +12,10 @@ import type { ContaVM } from "./tipos";
 const PROXIMAS = 3;
 
 const status = (c: ContaVM) => {
+  if (c.pagaCiclo && c.pagoBanco) {
+    const d = c.pagoBanco.data ? ` ${c.pagoBanco.data.slice(8, 10)}/${c.pagoBanco.data.slice(5, 7)}` : "";
+    return `paga pelo banco${c.pagoBanco.banco ? ` · ${c.pagoBanco.banco}` : ""}${d}`;
+  }
   if (c.pagaCiclo) return "paga este mês";
   if (c.faturaAberta) return "fatura aberta · lance a compra";
   if (c.vencida) { const n = Math.abs(c.venceEm ?? 0); return n === 0 ? "Venceu hoje" : `Venceu há ${n} ${n === 1 ? "dia" : "dias"}`; }

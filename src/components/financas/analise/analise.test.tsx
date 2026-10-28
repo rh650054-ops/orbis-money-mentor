@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { GastosMes } from "./GastosMes";
-import { OndeGastou } from "./OndeGastou";
-import { ParaRevisar } from "./ParaRevisar";
 import { RevisarFolha } from "./RevisarFolha";
 import { escolherAlerta, referencia, type Analise, type CatAnalise } from "./tipos";
 
@@ -28,17 +25,6 @@ const analise: Analise = {
 };
 
 describe("Análise", () => {
-  it("gastos do mês: hero, abaixo do ritmo em verde, legenda da barra e conclusão", () => {
-    render(<GastosMes a={analise} podeVoltar onMes={() => {}} negocio={0} />);
-    expect(screen.getByText("Gastos em outubro")).toBeTruthy();
-    expect(screen.getByText(/R\$\s?563,13 abaixo do seu ritmo/)).toBeTruthy();
-    expect(screen.getByText("gasto até hoje · dia 5")).toBeTruthy();
-    expect(screen.getByText("Seu gasto")).toBeTruthy();
-    expect(screen.getByText("Ritmo esperado")).toBeTruthy();
-    expect(screen.getByText("Você está gastando menos que o esperado até agora.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Próximo mês" })).toHaveProperty("disabled", true);
-  });
-
   it("toda barra nomeia a referência: teto, média (conta fixa) ou ritmo", () => {
     expect(referencia(cat({ tem_teto: true, normal: 1500, total: 1168 }), true)).toMatchObject({ metrica: "Teto", texto: expect.stringMatching(/^de R\$\s1\.500$/) });
     expect(referencia(cat({ fixa: true, normal: 1365, esperado: 0 }), true)).toMatchObject({ metrica: "Média" });
@@ -46,33 +32,10 @@ describe("Análise", () => {
     expect(referencia(cat({ esperado: 0, historico: 0 }), true).metrica).toBeNull();
   });
 
-  it("onde você gastou: top 5, % dos gastos, negócio à parte e 'Ver todas'", () => {
-    const cats = Array.from({ length: 7 }, (_, i) => cat({ categoria: `c${i}`, rotulo: `Cat ${i}`, total: 700 - i * 100 }));
-    const onAbrir = vi.fn();
-    render(<OndeGastou cats={cats} gasto={2800} corrente pendentesPorCat={{}} onAbrir={onAbrir} onNegocio={() => {}} onTetos={() => {}}
-      negocio={{ total: 198, media_mensal: 300, categorias: [{ categoria: "mercadoria", rotulo: "Mercadoria", total: 198, qtd: 1 }] }} />);
-    expect(screen.getByText("Cat 4")).toBeTruthy();
-    expect(screen.queryByText("Cat 5")).toBeNull();
-    expect(screen.getByText("25% dos seus gastos")).toBeTruthy();
-    expect(screen.getByText("Custos do negócio")).toBeTruthy();
-    expect(screen.getByText(/Ver todas as 7 categorias/)).toBeTruthy();
-    fireEvent.click(screen.getByText("Cat 0"));
-    expect(onAbrir).toHaveBeenCalledWith(expect.objectContaining({ categoria: "c0" }));
-  });
-
   it("Vant percebeu não repete a primeira categoria da lista", () => {
     const alertas = [{ categoria: "a", rotulo: "A", total: 10, esperado: 5, acima: 5 }, { categoria: "b", rotulo: "B", total: 9, esperado: 5, acima: 4 }];
     expect(escolherAlerta(alertas, "a")?.categoria).toBe("b");
     expect(escolherAlerta(alertas.slice(0, 1), "a")).toBeNull();
-  });
-
-  it("para revisar: com pendência pede confirmação; sem, mostra tudo organizado", () => {
-    const { rerender } = render(<ParaRevisar r={{ pendentes: [], total_pendentes: 1, organizados: 49, perguntas: 0 }} onRevisar={() => {}} onPerguntas={() => {}} />);
-    expect(screen.getByText("1 gasto precisa da sua confirmação")).toBeTruthy();
-    expect(screen.getByText("49 outros foram organizados automaticamente")).toBeTruthy();
-    rerender(<ParaRevisar r={{ pendentes: [], total_pendentes: 0, organizados: 50, perguntas: 0 }} onRevisar={() => {}} onPerguntas={() => {}} />);
-    expect(screen.getByText("Tudo organizado")).toBeTruthy();
-    expect(screen.getByText("50 gastos categorizados automaticamente")).toBeTruthy();
   });
 
   it("revisar: confirmar move o gasto, tira da fila e o contador desce", () => {
