@@ -9,6 +9,7 @@ import PulsoOrbis from "@/components/PulsoOrbis";
 import PaywallGate from "@/components/PaywallGate";
 import FeatureErrorBoundary from "@/shared/components/feature-error-boundary";
 import { AvisoNovoDominio } from "@/features/novo-dominio";
+import { BoasVindasGate } from "@/features/boas-vindas";
 import OfflineGate from "@/components/OfflineGate";
 
 // Recarrega a página UMA vez se um chunk antigo sumiu após um deploy novo.
@@ -118,6 +119,8 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <PaywallGate />
+      {/* App da loja: tour de boas-vindas no 1º acesso de cada instalação, com ou sem conta (28/10) */}
+      <BoasVindasGate />
       {/* "A Vant mudou de endereço": só em app.orbis.inf.br e só depois que o Rick liga
           (app_settings.aviso_novo_dominio = 'on') */}
       <AvisoNovoDominio />
