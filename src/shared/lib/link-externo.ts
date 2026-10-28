@@ -15,3 +15,10 @@ export async function abrirLinkExterno(url: string): Promise<void> {
   catch (e) { avisar.silencioso("link externo: window.open", e); }
   if (!janela) window.location.href = url;
 }
+
+/** The CRM (public/crm.html) is a separate page: inside the store app opening "/crm.html"
+ *  would navigate the WebView away from the SPA, so there it opens the site's copy. */
+export async function abrirCrm(): Promise<void> {
+  if (Capacitor.isNativePlatform()) return abrirLinkExterno("https://app.vantapp.com.br/crm.html");
+  window.open("/crm.html", "_blank", "noopener");
+}

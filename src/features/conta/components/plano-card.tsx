@@ -2,6 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import type { Plano } from "../lib/plano";
 import { Botao, COR, Secao } from "@/shared/components/vant-ui";
+import { abrirLinkExterno } from "@/shared/lib/link-externo";
 
 const STATUS: Record<Plano["status"], { txt: string; cor: string }> = {
   ativo: { txt: "Ativo", cor: COR.ok },
@@ -29,7 +30,7 @@ export function PlanoCard({ plano }: { plano: Plano }) {
       </div>
       <div className="mt-3.5 flex gap-2">
         {plano.assinante ? (
-          <Botao className="flex-1" onClick={() => window.open(HOTMART_ASSINATURAS, "_blank", "noopener")}>Gerenciar assinatura</Botao>
+          <Botao className="flex-1" onClick={() => void abrirLinkExterno(HOTMART_ASSINATURAS)}>Gerenciar assinatura</Botao>
         ) : plano.status !== "cortesia" ? (
           <Botao tipo="ouro" className="flex-1" onClick={() => navigate("/planos")}>{plano.status === "teste" ? "Ver planos" : "Assinar"}</Botao>
         ) : null}

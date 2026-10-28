@@ -4,6 +4,7 @@ import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { buildRecapCanvas, type RecapStats, type RecapTemplate } from "./recapCanvas";
+import { compartilharArquivo, baixarArquivo } from "@/shared/lib/compartilhar";
 
 // Ordem do carrossel: feed/WhatsApp primeiro, story depois
 const ORDER: RecapTemplate[] = ["post", "story"];
@@ -64,36 +65,16 @@ export function RelatorioShareCard({ stats }: { stats: RecapStats }) {
     return blob;
   };
 
-  const baixar = (blob: Blob) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "orbis-recap.png";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  const baixar = (blob: Blob) => baixarArquivo(blob, "orbis-recap.png", "Meu resultado na Vant");
+
 
   const handleShare = async () => {
     try {
       setBusy(true);
       const blob = await gerarBlob();
       const file = new File([blob], "orbis-recap.png", { type: "image/png" });
-      const nav = navigator as Navigator & {
-        canShare?: (d: { files: File[] }) => boolean;
-        share?: (d: { files: File[]; title?: string; text?: string }) => Promise<void>;
-      };
-      if (nav.canShare && nav.canShare({ files: [file] }) && nav.share) {
-        await nav.share({
-          files: [file],
-          title: "Meu resultado na Vant",
-          text: `${stats.titulo} • ${formatCurrency(stats.faturamento)} de faturamento`,
-        });
-      } else {
-        baixar(blob);
-        toast({ title: "Imagem baixada", description: "Abra o Instagram e poste no story ou no feed." });
-      }
+      const r = await compartilharArquivo(file, file.name, { titulo: "Meu resultado na Vant", texto: `${stats.titulo} • ${formatCurrency(stats.faturamento)} de faturamento` });
+      if (r === "baixado") toast({ title: "Imagem baixada", description: "Abra o Instagram e poste no story ou no feed." });
     } catch (err) {
       const e = err as Error;
       if (e.name !== "AbortError") toast({ title: "Erro ao compartilhar", description: e.message || "Tente de novo.", variant: "destructive" });
@@ -105,8 +86,7 @@ export function RelatorioShareCard({ stats }: { stats: RecapStats }) {
   const handleSave = async () => {
     try {
       setBusy(true);
-      baixar(await gerarBlob());
-      toast({ title: "Imagem salva", description: "Confira nas suas fotos / downloads." });
+      if ((await baixar(await gerarBlob())) === "baixado") toast({ title: "Imagem salva", description: "Confira nas suas fotos / downloads." });
     } catch {
       toast({ title: "Erro ao salvar", description: "Tente de novo.", variant: "destructive" });
     } finally {

@@ -10,6 +10,7 @@ import { CommentsSheet } from "@/components/community/CommentsSheet";
 import { generatePostShareImage } from "@/components/community/postShareImage";
 import PublicProfileModal from "@/components/PublicProfileModal";
 import { MenuDenuncia, useBloqueadosQuery } from "@/features/moderacao";
+import { compartilharArquivo } from "@/shared/lib/compartilhar";
 
 export default function Chat() {
   const { user } = useAuth();
@@ -48,18 +49,8 @@ export default function Chat() {
       const blob = await generatePostShareImage(post);
       if (!blob) throw new Error("Falha ao gerar imagem");
       const file = new File([blob], "orbis-comunidade.png", { type: "image/png" });
-      const nav = navigator as any;
-      if (nav.canShare && nav.canShare({ files: [file] })) {
-        await nav.share({ files: [file], title: "Comunidade Vant" });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "orbis-comunidade.png";
-        a.click();
-        URL.revokeObjectURL(url);
-        toast({ title: "Imagem baixada", description: "Agora é só postar no Instagram!" });
-      }
+      const r = await compartilharArquivo(file, file.name, { titulo: "Comunidade Vant" });
+      if (r === "baixado") toast({ title: "Imagem baixada", description: "Agora é só postar no Instagram!" });
     } catch (e: any) {
       if (e?.name === "AbortError") return;
       toast({ title: "Erro ao gerar imagem", description: e?.message, variant: "destructive" });

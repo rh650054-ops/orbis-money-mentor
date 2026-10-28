@@ -16,6 +16,9 @@ const STORAGE_KEYS = {
   notifications: "orbis_notifications_enabled",
 };
 
+/** 28/10: `Notification` não existe no WebView do app da loja — sem o guard a tela caía inteira. */
+const permissaoNotif = (): NotificationPermission | "unsupported" => (typeof Notification === "undefined" ? "unsupported" : Notification.permission);
+
 export default function Settings() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -32,7 +35,7 @@ export default function Settings() {
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
     const stored = localStorage.getItem(STORAGE_KEYS.notifications);
-    return stored === "true" && Notification.permission === "granted";
+    return stored === "true" && permissaoNotif() === "granted";
   });
 
   useEffect(() => {
@@ -95,7 +98,7 @@ export default function Settings() {
             <div className="flex-1">
               <p className="font-semibold">Notificações</p>
               <p className="text-xs text-muted-foreground">
-                {Notification.permission === "denied"
+                {permissaoNotif() === "denied"
                   ? "Bloqueado pelo navegador — altere nas configurações"
                   : "Lembretes e alertas do app"}
               </p>
@@ -103,7 +106,7 @@ export default function Settings() {
             <Switch
               checked={notificationsEnabled}
               onCheckedChange={handleNotificationsToggle}
-              disabled={Notification.permission === "denied"}
+              disabled={permissaoNotif() === "denied"}
             />
           </CardContent>
         </Card>

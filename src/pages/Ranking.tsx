@@ -29,6 +29,7 @@ import { ConviteRanking } from "@/components/ranking/ConviteRanking";
 import { ConviteProduto } from "@/features/produtos";
 import { OcultarResultado, useRankingOculto } from "@/components/ranking/OcultarResultado";
 import { blobDeDataUrl } from "@/shared/lib/blob-de-data-url";
+import { compartilharArquivo } from "@/shared/lib/compartilhar";
 
 const motivationalPhrases = [
   "Dominando o jogo com excelência!",
@@ -246,19 +247,8 @@ export default function Ranking() {
       const blob = blobDeDataUrl(dataUrl);
       const file = new File([blob], `orbis-ranking-${activeTab}.png`, { type: "image/png" });
 
-      const nav = navigator as Navigator & { canShare?: (data: { files: File[] }) => boolean };
-      if (nav.canShare && nav.canShare({ files: [file] }) && navigator.share) {
-        await navigator.share({
-          files: [file],
-          title: "Meu ranking na Vant",
-          text: "Veja minha posição no ranking da Vant 🏆",
-        });
-      } else {
-        // Fallback: download
-        const link = document.createElement("a");
-        link.download = `orbis-ranking-${activeTab}.png`;
-        link.href = dataUrl;
-        link.click();
+      const r = await compartilharArquivo(file, file.name, { titulo: "Meu ranking na Vant", texto: "Veja minha posição no ranking da Vant 🏆" });
+      if (r === "baixado") {
         toast({
           title: "Imagem baixada!",
           description: "Compartilhe agora no seu Instagram 📲",

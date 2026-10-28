@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { ChevronRight, ChevronUp, Swords } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { abrirCrm } from "@/shared/lib/link-externo";
 
 interface Props {
   ranking: LeaderboardEntry[];
@@ -84,7 +85,7 @@ function Row({ entry, position, isMe, subtitle, suspect, formatCurrency, onOpenP
         {suspect && (
           <span
             role="button"
-            onClick={(e) => { e.stopPropagation(); window.open("/crm.html", "_blank", "noopener"); }}
+            onClick={(e) => { e.stopPropagation(); void abrirCrm(); }}
             title={`⚠️ Suspeito: ${suspect} — revise no CRM (Admin › Anti-trapaça)`}
             className="shrink-0 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center animate-pulse shadow-[0_0_8px_rgba(239,68,68,.7)]"
             aria-label="Suspeito de fraude — abrir o CRM"
