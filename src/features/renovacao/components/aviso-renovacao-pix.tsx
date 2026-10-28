@@ -4,15 +4,21 @@ import { useRenovacaoPixQuery, useRenovacaoVencidaQuery } from "../api/use-renov
 import { PixVencido } from "./gerar-novo-pix";
 import { BotaoCopiarPix } from "./renovar-pix";
 import { reais, venceTexto } from "../lib/pix";
+import { ehAppDaLoja } from "@/shared/lib/platform";
+import { assinaPeloSite } from "@/shared/lib/cobranca-loja";
 
 const GOLD = "#F5B800";
 
 export function AvisoRenovacaoPix({ className = "" }: { className?: string }) {
   const { user } = useAuth();
-  const q = useRenovacaoPixQuery(user?.id);
+  // 28/10: app da loja segue o modelo Néctar — sem preço nem pagamento dentro do app
+  // (política do Google Play pra assinatura digital). Lá o card não aparece; a renovação é pelo site.
+  const loja = assinaPeloSite() || ehAppDaLoja();
+  const q = useRenovacaoPixQuery(loja ? undefined : user?.id);
   const pix = q.data;
   // sem Pix aberto: o Pix venceu e a Hotmart ainda não mandou outro → "Gerar novo Pix"
-  const vencida = useRenovacaoVencidaQuery(user?.id, q.isSuccess && !pix).data;
+  const vencida = useRenovacaoVencidaQuery(loja ? undefined : user?.id, q.isSuccess && !pix).data;
+  if (loja) return null;
   if (!pix) return vencida ? <div className={className}><PixVencido vencida={vencida} compacto /></div> : null;
   const cor = pix.atrasada ? "#ff7d6b" : GOLD;
   return (
