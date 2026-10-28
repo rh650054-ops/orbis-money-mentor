@@ -4,6 +4,7 @@ import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { VANT_LOGO, VANT_WORDMARK } from "@/assets/vantLogoData";
+import { compartilharArquivo, baixarArquivo } from "@/shared/lib/compartilhar";
 
 // Dados que entram nas artes compartilháveis
 export interface ShareStats {
@@ -328,27 +329,8 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
       const blob = await canvasToBlob(canvas);
       if (!blob) throw new Error("Falha ao gerar imagem");
       const file = new File([blob], "orbis-resultado.png", { type: "image/png" });
-      const nav = navigator as Navigator & {
-        canShare?: (data: { files: File[] }) => boolean;
-        share?: (data: { files: File[]; title?: string; text?: string }) => Promise<void>;
-      };
-      if (nav.canShare && nav.canShare({ files: [file] }) && nav.share) {
-        await nav.share({
-          files: [file],
-          title: "Meu resultado na Vant",
-          text: `${stats.periodo ? `${stats.periodo} • ` : ""}${formatCurrency(stats.faturamento)} • ${stats.conversao.toFixed(0)}% de conversão`,
-        });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "orbis-resultado.png";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast({ title: "Imagem baixada", description: "Abra o Instagram e poste no story ou no feed." });
-      }
+      const r = await compartilharArquivo(file, file.name, { titulo: "Meu resultado na Vant", texto: `${stats.periodo ? `${stats.periodo} • ` : ""}${formatCurrency(stats.faturamento)} • ${stats.conversao.toFixed(0)}% de conversão` });
+      if (r === "baixado") toast({ title: "Imagem baixada", description: "Abra o Instagram e poste no story ou no feed." });
     } catch (err) {
       const e = err as Error;
       if (e.name !== "AbortError") {
@@ -367,15 +349,8 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
       const canvas = await buildCanvas(template, stats);
       const blob = canvas ? await canvasToBlob(canvas) : null;
       if (!blob) throw new Error("Falha ao gerar imagem");
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "orbis-resultado.png";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast({ title: "Imagem salva", description: "Confira nas suas fotos / downloads." });
+      const r = await baixarArquivo(blob, "orbis-resultado.png", "Meu resultado na Vant");
+      if (r === "baixado") toast({ title: "Imagem salva", description: "Confira nas suas fotos / downloads." });
     } catch {
       toast({ title: "Erro ao salvar", description: "Tente de novo.", variant: "destructive" });
     } finally {

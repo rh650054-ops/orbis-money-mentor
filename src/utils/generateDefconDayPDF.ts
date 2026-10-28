@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
+import { baixarArquivo } from "@/shared/lib/compartilhar";
 
 function sanitizePhone(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -204,5 +205,5 @@ export async function generateDefconDayPDF(userId: string, date?: string) {
   doc.setTextColor(150);
   doc.text("Gerado pela Vant · DEFCON 4", margin, y);
 
-  doc.save(`orbis-defcon4-${day}.pdf`);
+  await baixarArquivo(doc.output("blob"), `orbis-defcon4-${day}.pdf`, "DEFCON 4 do dia");
 }

@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { vendidoDoDia } from "@/shared/lib/vendido";
 import { supabase } from "@/integrations/supabase/client";
 import { formatBrazilDate } from "@/shared/lib/date-utils";
+import { baixarArquivo } from "@/shared/lib/compartilhar";
 
 /**
  * Geração e download do "Relatório financeiro" da Vant nos formatos
@@ -252,17 +253,9 @@ function fileBaseName(startISO: string, endISO: string): string {
   return `orbis-relatorio-${startISO}_a_${endISO}`;
 }
 
-/** Dispara o download de um Blob via <a> temporário. */
+/** Entrega o arquivo: download no navegador; no app da loja, a folha de compartilhar. */
 function triggerDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  // Libera a URL no próximo tick (Safari precisa do atraso).
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  void baixarArquivo(blob, filename, "Relatório da Vant");
 }
 
 /** Célula de uma linha (dia) na ordem das COLUMNS. */
@@ -645,7 +638,7 @@ function exportPDF(
   doc.setTextColor(160, 160, 160);
   doc.text("Gerado pela Vant", margin, H - 28);
 
-  doc.save(`${base}.pdf`);
+  triggerDownload(doc.output("blob"), `${base}.pdf`);
 }
 
 /* ------------------------------------------------------------------ */

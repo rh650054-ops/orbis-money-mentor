@@ -20,6 +20,8 @@ import { useDefconLoadout } from "@/hooks/useDefconLoadout";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { vendasPara } from "@/shared/lib/meta-viavel";
 import { BRAND_COLORS } from "@/shared/lib/theme-colors";
+import { ehAppDaLoja } from "@/shared/lib/platform";
+import { abrirLinkExterno } from "@/shared/lib/link-externo";
 
 /* Travas de lançamento — ver comentário no estado do componente. */
 const CONFIRMA_ACIMA = 300;   // acima disso: pergunta antes
@@ -429,8 +431,9 @@ export function DefconRunning({
        Agora o WhatsApp abre PRIMEIRO, ainda dentro do toque; o resto vem depois.
        Se mesmo assim o navegador segurar, cai pra navegar direto pro link. */
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
-    const janela = window.open(url, "_blank");
-    if (!janela) window.location.href = url;
+    // 28/10: no app da loja o WebView devolve null e abriria duas vezes — lá vai pelo sistema
+    if (ehAppDaLoja()) void abrirLinkExterno(url);
+    else { const janela = window.open(url, "_blank"); if (!janela) window.location.href = url; }
 
     // o modelo só muda quando ELE edita a mensagem (Rick, 13/10): a mensagem pronta
     // não é regravada a cada venda, então nada de automático gruda no modelo

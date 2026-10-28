@@ -10,6 +10,8 @@
    ============================================================ */
 
 import { blobDeDataUrl } from "@/shared/lib/blob-de-data-url";
+import { Capacitor } from "@capacitor/core";
+import { compartilharArquivo } from "@/shared/lib/compartilhar";
 
 /** Erro com o PASSO onde quebrou — aparece no aviso, pra um print já dizer a causa. */
 export class FalhaExport extends Error {
@@ -112,6 +114,7 @@ export function arquivoPng(dataUrl: string, nome: string): Promise<File> {
  * desenhando, ele recusa calado. Sem folha (computador), baixa normal.
  */
 export async function entregarArquivo(arquivo: File): Promise<"compartilhado" | "baixado" | "cancelado"> {
+  if (Capacitor.isNativePlatform()) return compartilharArquivo(arquivo, arquivo.name, { titulo: arquivo.name });
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
   const celular = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   if (celular && nav.share && nav.canShare?.({ files: [arquivo] })) {

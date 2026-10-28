@@ -108,6 +108,8 @@ function rotuloVencimento(iso: string | null): string {
 import { ObjetivoConquistado } from "@/components/financas/ObjetivoConquistado";
 import { avisar } from "@/shared/lib/avisar";
 import { reduzirImagem } from "@/shared/lib/imagem";
+import { ehAppDaLoja } from "@/shared/lib/platform";
+import { abrirLinkExterno } from "@/shared/lib/link-externo";
 
 interface PlannedBill {
   id: string;
@@ -973,8 +975,10 @@ export default function Finances() {
   // Abre/baixa o boleto da conta via URL assinada temporária (válida ~60s).
   const handleViewBillFile = async (bill: PlannedBill) => {
     if (!bill.file_path) return;
-    // Abre a aba JÁ no clique (senão o navegador bloqueia o popup depois do await)
-    const win = window.open("", "_blank");
+    // Abre a aba JÁ no clique (senão o navegador bloqueia o popup depois do await).
+    // 28/10: no app da loja não há popup — `window.open("")` virava uma tela branca; lá abre
+    // o link no navegador do sistema depois do await.
+    const win = ehAppDaLoja() ? null : window.open("", "_blank");
     try {
       const { data, error } = await supabase.storage
         .from("bill-files")
@@ -982,6 +986,8 @@ export default function Finances() {
       if (error || !data?.signedUrl) throw error || new Error("Sem URL");
       if (win) {
         win.location.href = data.signedUrl;
+      } else if (ehAppDaLoja()) {
+        await abrirLinkExterno(data.signedUrl);
       } else {
         // popup bloqueado: clica num link (sem sair do app)
         const a = document.createElement("a");

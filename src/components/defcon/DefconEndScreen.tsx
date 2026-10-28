@@ -19,6 +19,7 @@ import { CaixinhaMeta } from "@/components/defcon/CaixinhaMeta";
 import { usePixDoBanco, puxarBancoAgora, horaDaLeitura } from "@/components/conectar/banco-pix";
 import { CaiuNoBolso } from "@/components/relatorio/CaiuNoBolso";
 import { usePixDestravado, BotaoDestravar, marcarDiaManual } from "./destravar-pix";
+import { compartilharArquivo, baixarArquivo } from "@/shared/lib/compartilhar";
 
 // Revisitar cada HORA (bloco) do dia: helpers de horário/duração do bloco.
 function fmtHora(s: string): string {
@@ -443,7 +444,7 @@ export function DefconEndScreen({
       doc.setTextColor(20, 20, 20);
       doc.text(formatCurrency(total), pageWidth - margin, y, { align: "right" });
 
-      doc.save(`orbis-clientes-${today}.pdf`);
+      await baixarArquivo(doc.output("blob"), `orbis-clientes-${today}.pdf`, "Clientes de hoje");
       toast({ title: "PDF gerado", description: `${data.length} cliente(s) exportado(s).` });
     } catch (err) {
       console.error(err);
@@ -543,7 +544,7 @@ export function DefconEndScreen({
       doc.setTextColor(20, 20, 20);
       doc.text(formatCurrency(totalDin + totalPix + totalCard), pageWidth - margin, y, { align: "right" });
 
-      doc.save(`orbis-transacoes-${today}.pdf`);
+      await baixarArquivo(doc.output("blob"), `orbis-transacoes-${today}.pdf`, "Transações de hoje");
       toast({ title: "PDF gerado", description: `${daySales.length} transação(ões).` });
     } catch (err) {
       console.error(err);
@@ -933,25 +934,8 @@ export function DefconEndScreen({
       const blob = await canvasToBlob(canvas);
       if (!blob) throw new Error("Falha ao gerar imagem");
       const file = new File([blob], `orbis-resultado.png`, { type: "image/png" });
-      const nav = navigator as Navigator & {
-        canShare?: (data: { files: File[] }) => boolean;
-        share?: (data: { files: File[]; title?: string; text?: string }) => Promise<void>;
-      };
-      if (nav.canShare && nav.canShare({ files: [file] }) && nav.share) {
-        await nav.share({
-          files: [file],
-          title: "Meu resultado na Vant",
-          text: `${formatCurrency(totalSold)} • ${percentage.toFixed(0)}% da meta`,
-        });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `orbis-resultado.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+      const r = await compartilharArquivo(file, file.name, { titulo: "Meu resultado na Vant", texto: `${formatCurrency(totalSold)} • ${percentage.toFixed(0)}% da meta` });
+      if (r === "baixado") {
         toast({
           title: "Imagem baixada",
           description: "Abra o Instagram Stories e poste como adesivo transparente.",

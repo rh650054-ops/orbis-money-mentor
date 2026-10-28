@@ -8,6 +8,7 @@
 import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/shared/lib/utils";
+import { baixarArquivo } from "@/shared/lib/compartilhar";
 
 export interface MesRenda { mes: string; parcial: boolean; entradas_banco: number; pix_banco: number; vendas_lancadas: number; dias_trabalhados: number }
 export interface Comprovante { codigo: string; gerado_em: string; nome: string | null; cpf_mascarado: string | null; bancos: string[]; verificado: boolean; meses: MesRenda[] }
@@ -35,7 +36,7 @@ export async function gerarComprovante(meses = 3): Promise<Comprovante> {
   return { ...c, bancos: c.bancos ?? [], meses: (c.meses ?? []).map((m) => ({ ...m, entradas_banco: Number(m.entradas_banco) || 0, pix_banco: Number(m.pix_banco) || 0, vendas_lancadas: Number(m.vendas_lancadas) || 0, dias_trabalhados: Number(m.dias_trabalhados) || 0 })) };
 }
 
-export function baixarComprovantePDF(c: Comprovante) {
+export async function baixarComprovantePDF(c: Comprovante) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = 210;
   const brl = (v: number) => formatCurrency(v);
@@ -89,5 +90,5 @@ export function baixarComprovantePDF(c: Comprovante) {
     "A Vant nunca vê a senha do banco: só lê o que entrou e saiu. Este documento não substitui declaração de imposto de renda.",
   ];
   notas.forEach((t, i) => doc.text(t, 16, y + i * 4.5));
-  doc.save(`vant-comprovante-renda-${c.codigo}.pdf`);
+  await baixarArquivo(doc.output("blob"), `vant-comprovante-renda-${c.codigo}.pdf`, "Comprovante de renda");
 }

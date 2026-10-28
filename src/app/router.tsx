@@ -52,6 +52,7 @@ const Profile = lazyWithReload(() => import("@/pages/Profile"));
 const ContaPage = lazyWithReload(() => import("@/features/conta/routes/conta-page"));
 const Settings = lazyWithReload(() => import("@/pages/Settings"));
 import { SoProProdutos } from "@/features/produtos";
+import { abrirCrm } from "@/shared/lib/link-externo";
 const Products = lazyWithReload(() => import("@/pages/Products"));
 const ProdutosPage = lazyWithReload(() => import("@/features/produtos/routes/produtos-page"));
 const QuizProdutoPage = lazyWithReload(() => import("@/features/produtos/routes/quiz-produto-page"));
@@ -69,7 +70,7 @@ const Payment = lazyWithReload(() => import("@/pages/Payment"));
 const Benefits = lazyWithReload(() => import("@/pages/Benefits"));
 /** /admin moved to the CRM site; keep old links/bookmarks working. */
 function IrParaCrm() {
-  if (typeof window !== "undefined") window.location.replace("/crm.html");
+  if (typeof window !== "undefined") void abrirCrm();
   return null;
 }
 const MeuExtrato = lazyWithReload(() => import("@/pages/MeuExtrato"));

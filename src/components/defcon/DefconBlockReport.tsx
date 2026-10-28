@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import orbisLogo from "@/assets/vant-logo-share.png";
 import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
+import { compartilharArquivo } from "@/shared/lib/compartilhar";
 
 interface DefconBlockReportProps {
   blockIndex: number;
@@ -188,28 +189,8 @@ export function DefconBlockReport({
         type: "image/png",
       });
 
-      // Try native share (works on mobile, opens Instagram as option)
-      const nav = navigator as Navigator & {
-        canShare?: (data: { files: File[] }) => boolean;
-        share?: (data: { files: File[]; title?: string; text?: string }) => Promise<void>;
-      };
-
-      if (nav.canShare && nav.canShare({ files: [file] }) && nav.share) {
-        await nav.share({
-          files: [file],
-          title: "Meu bloco na Vant",
-          text: `Bloco #${blockIndex + 1} • ${formatCurrency(soldAmount)} • ${conversionRate.toFixed(0)}% conversão`,
-        });
-      } else {
-        // Fallback: download the image
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `orbis-bloco-${blockIndex + 1}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+      const r = await compartilharArquivo(file, file.name, { titulo: "Meu bloco na Vant", texto: `Bloco #${blockIndex + 1} • ${formatCurrency(soldAmount)} • ${conversionRate.toFixed(0)}% conversão` });
+      if (r === "baixado") {
         toast({
           title: "Imagem baixada",
           description: "Abra o Instagram Stories e poste como adesivo transparente.",

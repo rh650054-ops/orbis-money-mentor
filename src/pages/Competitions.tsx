@@ -12,6 +12,7 @@ import { GoldenTicket } from "@/components/competitions/GoldenTicket";
 import { X1Andamento } from "@/components/competitions/X1Andamento";
 import { X1HomeBanner } from "@/components/competitions/X1HomeBanner";
 import { ArrowLeft, ChevronRight, Calendar, Lock, CheckCircle2, Swords, Plus } from "lucide-react";
+import { abrirCrm } from "@/shared/lib/link-externo";
 
 interface Comp {
   id: string;
@@ -142,7 +143,7 @@ export default function Competitions() {
         <h1 className="text-xl sm:text-2xl font-bold text-foreground flex-1 min-w-0 truncate">Competições</h1>
         {isAdmin && (
           <button
-            onClick={() => window.open("/crm.html", "_blank", "noopener")}
+            onClick={() => void abrirCrm()}
             className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-primary/15 border border-primary/40 text-primary text-sm font-bold whitespace-nowrap active:scale-[0.97] transition-transform"
           >
             <Plus className="w-4 h-4" /> Criar
