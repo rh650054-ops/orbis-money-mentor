@@ -10,7 +10,7 @@
 import { Check, FileDown, FileText, Loader2, Pencil, Play, Zap } from "lucide-react";
 import { FaixasDaMeta } from "@/components/metas/FaixasDaMeta";
 import { DIAS_PT, vendasPara, type MetaDoDia } from "@/shared/lib/meta-viavel";
-import { AnelProgresso, Trio } from "./foco-hero-partes";
+import { AnelProgresso, FaixaMissao, Trio } from "./foco-hero-partes";
 import { brl0, PRESS, type EstadoFoco } from "./foco-tipos";
 
 export interface HeroNumeros {
@@ -54,6 +54,7 @@ export function FocoHero(p: Props) {
   const bateu = n.dailyGoal > 0 && n.totalVendido >= n.dailyGoal;
   const falta = Math.max(0, n.dailyGoal - n.totalVendido);
   const diaNome = meta ? DIAS_PT[meta.diaSemana] ?? "hoje" : "hoje";
+  const missao /* 28/10: missão ativa e o plano de hoje já segue ela */ = meta?.missao && Math.abs(meta.meta - n.dailyGoal) < 1 ? meta.missao : null;
   const pctMeta = n.dailyGoal > 0 ? Math.round((n.totalVendido / n.dailyGoal) * 100) : 0;
   // 25/10: cada hora diz quanto vender em R$ e em quantidade (ticket médio dele)
   const porHora = n.dailyGoal / Math.max(1, n.workHours);
@@ -85,12 +86,14 @@ export function FocoHero(p: Props) {
         </div>
       ) : (
         <>
-          <p className="orbis-mini mt-3.5">{estado === "encerrado" ? "Vendido hoje" : `Meta de ${diaNome}`}</p>
+          <p className="orbis-mini mt-3.5">{estado === "encerrado" ? "Vendido hoje" : missao ? `Meta da missão · ${diaNome}` : `Meta de ${diaNome}`}</p>
           <p className="orbis-num text-[34px] font-extrabold leading-none mt-1.5 tracking-[-1px]" style={estado === "encerrado" ? { color: "var(--orbis-ok)" } : undefined}>
             {v(estado === "antes" ? n.dailyGoal : n.totalVendido)}
           </p>
         </>
       )}
+
+      {missao && estado !== "encerrado" && <FaixaMissao m={missao} />}
 
       {/* régua: Mínimo · Meta · Turbo — acende conforme o vendido passa (não é escolha) */}
       {temFaixas && meta ? (
