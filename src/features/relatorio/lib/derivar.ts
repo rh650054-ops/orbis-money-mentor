@@ -59,7 +59,8 @@ export interface Resumo {
 
 const NOMES_PAUSA: Record<string, string> = { conversar: "conversa", almoco: "almoço", banheiro: "banheiro", outro: "outro" };
 const NOMES_METODO: Record<string, string> = { pix: "Pix", dinheiro: "Dinheiro", cartao: "Cartão" };
-const CEDO = { nome: "Cedo", faixa: "até 8h", de: 0, ate: 8 };
+// Hours 0–3 belong to the night (sessions that cross midnight), 4–7 to "Cedo" (27/10).
+const CEDO = { nome: "Cedo", faixa: "4–8h", de: 4, ate: 8 };
 const PERIODOS: { nome: string; faixa: string; de: number; ate: number }[] = [
   { nome: "Manhã", faixa: "8–11h", de: 8, ate: 11 },
   { nome: "Almoço", faixa: "11–14h", de: 11, ate: 14 },
@@ -123,10 +124,13 @@ export function derivar(rel: Relatorio, banco: DiaBanco[], periodo: Periodo, rot
 
   const horasMap = new Map(a.horas.map((h) => [h.h, h]));
   // Sales before 8h used to vanish from this block (27/10): "Cedo" shows up when it has sales.
-  const temCedo = a.horas.some((h) => h.h < 8 && h.vendas > 0);
-  const periodos: PeriodoDia[] = (temCedo ? [CEDO, ...PERIODOS] : PERIODOS).map((p) => {
+  const temCedo = a.horas.some((h) => h.h >= 4 && h.h < 8 && h.vendas > 0);
+  const temMadrugada = a.horas.some((h) => h.h < 4 && h.vendas > 0);
+  const lista0 = (temCedo ? [CEDO, ...PERIODOS] : PERIODOS).map((p) => (p.nome === "Noite" && temMadrugada ? { ...p, faixa: "18–4h", ate: 28 } : p));
+  const periodos: PeriodoDia[] = lista0.map((p) => {
     let valor = 0, vds = 0, ab = 0, vdsC = 0, abC = 0;
-    for (let h = p.de; h < p.ate; h++) {
+    for (let hh = p.de; hh < p.ate; hh++) {
+      const h = hh % 24;
       const x = horasMap.get(h);
       if (x) { valor += x.valor; vds += x.vendas; ab += x.abordagens; vdsC += x.vendas_conv ?? x.vendas; abC += x.abordagens_conv ?? x.abordagens; }
     }
@@ -134,8 +138,9 @@ export function derivar(rel: Relatorio, banco: DiaBanco[], periodo: Periodo, rot
   });
   const totalPeriodos = periodos.reduce((s, p) => s + p.valor, 0);
   const melhorPeriodo = totalPeriodos > 0 ? periodos.reduce((m, p) => (p.valor > m.valor ? p : m)) : null;
-  const primeiraHora = Math.min(8, ...a.horas.filter((h) => h.vendas > 0).map((h) => h.h));
-  const barras = Array.from({ length: 24 - primeiraHora }, (_, i) => ({ h: primeiraHora + i, valor: horasMap.get(primeiraHora + i)?.valor ?? 0 }));
+  const primeiraHora = Math.min(8, ...a.horas.filter((h) => h.vendas > 0 && h.h >= 4).map((h) => h.h));
+  const ultimaHora = Math.max(23, ...a.horas.filter((h) => h.vendas > 0 && h.h < 4).map((h) => h.h + 24));
+  const barras = Array.from({ length: ultimaHora - primeiraHora + 1 }, (_, i) => { const h = (primeiraHora + i) % 24; return { h, valor: horasMap.get(h)?.valor ?? 0 }; });
   const comVendaHora = a.horas.filter((h) => h.vendas > 0);
   const melhorHora = comVendaHora.length ? comVendaHora.reduce((m, h) => (h.valor > m.valor ? h : m)) : null;
   const piorHora = comVendaHora.length > 1 ? comVendaHora.reduce((m, h) => (h.valor < m.valor ? h : m)) : null;
@@ -170,6 +175,8 @@ export function derivar(rel: Relatorio, banco: DiaBanco[], periodo: Periodo, rot
   const calPct = vendeu > 0 ? (calTotal / vendeu) * 100 : 0;
   const perdidoPct = vendeu > 0 ? (calPerdido / vendeu) * 100 : 0;
   const normalPct = nor.dinheiro.vendeu > 0 ? (nor.dinheiro.faltou / nor.dinheiro.vendeu) * 100 : 0;
+  // like with like: the normal block has no bank adjustment, so compare the raw numbers
+  const perdidoPctBruto = a.dinheiro.vendeu > 0 ? (a.dinheiro.faltou / a.dinheiro.vendeu) * 100 : 0;
 
   const resumo: Resumo = {
     periodo, umDia, semDados: vendeu <= 0 && vendas <= 0 && worked <= 0, diasNaRua: a.dias_na_rua,
@@ -185,7 +192,8 @@ export function derivar(rel: Relatorio, banco: DiaBanco[], periodo: Periodo, rot
       abordPorVenda: a.vendas.abordagens_por_venda, abordPorVendaNormal: nor.vendas.abordagens_por_venda,
       abordDia: a.vendas.abordagens / diasNaRua, vendasDia: vendas / diasNaRua,
       ticket, ticketNormal: nor.vendas.ticket,
-      abordagemCadaMin: abordConv > 0 && a.vendas.abordagens > 0 && ativo > 0 ? ativo / a.vendas.abordagens : null,
+      // only when every day had approaches tapped (ativo covers all days)
+      abordagemCadaMin: abordConv > 0 && abordConv === a.vendas.abordagens && ativo > 0 ? ativo / a.vendas.abordagens : null,
       ritmoMin: vendas > 0 && ativo > 0 ? ativo / vendas : null,
       melhorRitmo: a.tempo.melhor_ritmo,
     },
@@ -207,7 +215,7 @@ export function derivar(rel: Relatorio, banco: DiaBanco[], periodo: Periodo, rot
       total: calTotal, recuperado: calRecuperado, perdido: calPerdido,
       taxa: calTotal > 0 ? Math.round((calRecuperado / calTotal) * 100) : null,
       porDia: calPerdido / diasNaRua, umACada: calUnid > 0 && vendas > 0 ? Math.round(vendas / calUnid) : null,
-      pctVendeu: calPct, pctPerdido: perdidoPct, normalPct, vezesNormal: normalPct > 0 && perdidoPct > 0 ? Math.round((perdidoPct / normalPct) * 10) / 10 : null, unidades: calUnid,
+      pctVendeu: calPct, pctPerdido: perdidoPct, normalPct, vezesNormal: normalPct > 0 && perdidoPctBruto > 0 ? Math.round((perdidoPctBruto / normalPct) * 10) / 10 : null, unidades: calUnid,
     },
     insights: [],
   };
@@ -257,11 +265,15 @@ export const letraSemana = (iso: string) => semanaCurta(iso)[0]!.toUpperCase();
 export const ehFimDeSemana = (iso: string) => [0, 6].includes(diaDaSemana(iso));
 
 /** One bank day: cash + what the bank saw, never money that is not a sale.
- *  Past days: the bank value that counts in the ranking (ranking_valor_dias — same caps and
- *  the "it was a sale" confirmations). Today: at most what was sold minus cash. */
+ *  Past days: the bank value that counts in the ranking (ranking_valor_dias), but without
+ *  the ranking's +R$ 500 tolerance — only a day the seller confirmed as sales
+ *  (banco_excesso_ok, which the ranking leaves uncapped, so it shows above teto + 500)
+ *  may go above what was sold. Today: at most what was sold minus cash. */
 export function diaComBanco(b: DiaBanco, vendidoDia: number, hoje: string): { caiu: number; faltou: number } {
   const teto = Math.max(0, vendidoDia - b.dinheiro);
-  const peloBanco = b.dia < hoje ? Math.max(0, b.conta_ranking) : Math.min(Math.max(0, b.caiu), teto);
+  const ranking = Math.max(0, b.conta_ranking);
+  const confirmado = ranking > teto + 500.005;
+  const peloBanco = b.dia < hoje ? (confirmado ? ranking : Math.min(ranking, teto)) : Math.min(Math.max(0, b.caiu), teto);
   const caiu = Math.round((b.dinheiro + peloBanco) * 100) / 100;
   const vendido = Math.max(vendidoDia, caiu);
   return { caiu, faltou: Math.round((vendido - caiu) * 100) / 100 };

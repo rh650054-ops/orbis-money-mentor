@@ -4,7 +4,7 @@
 --     while paused) in most sessions, and the old function subtracted the pauses again, so
 --     "vendendo" was cut twice (one seller showed 76% paused). Now, per session:
 --       street = max(worked, min(wall clock, worked + pauses))   -- real time on the street
---       pausa  = min(pauses, street);  parado = idle gaps (>20 min) minus pauses, within street
+--       pausa  = min(pauses, street);  parado = per gap, (gap - pauses inside it) beyond 20 min
 --       ativo  = street - pausa - parado
 --     The idle timeline ends at started_at + street (or the last sale), so a Foco left open
 --     overnight no longer turns the whole night into "parado".
@@ -104,13 +104,22 @@ pts as (
   union all select session_id, t from fim_rua
 ),
 gaps as (
-  select session_id, extract(epoch from (lead(t) over (partition by session_id order by t) - t)) / 60 as g from pts
+  select session_id, t as ini, lead(t) over (partition by session_id order by t) as fim from pts
+),
+-- idle per gap = gap minus the pauses inside it; only what goes beyond 20 min counts
+gaps_idle as (
+  select g.session_id,
+         extract(epoch from (g.fim - g.ini)) / 60
+           - coalesce((select sum(extract(epoch from (least(m.fim, g.fim) - greatest(m.ini, g.ini)))) / 60
+                         from pz_merged m
+                        where m.session_id = g.session_id and m.fim > g.ini and m.ini < g.fim), 0) as livre
+  from gaps g where g.fim is not null
 ),
 idle_sess as (
-  select session_id, sum(g - 20) as gmin from gaps where g >= 20 group by session_id
+  select session_id, sum(livre - 20) as gmin from gaps_idle where livre >= 20 group by session_id
 ),
 sess_f as (
-  select s.*, least(greatest(0, s.street - s.pmin), greatest(0, coalesce(i.gmin, 0) - s.pmin))::numeric as parado
+  select s.*, least(greatest(0, s.street - s.pmin), coalesce(i.gmin, 0))::numeric as parado
   from sess_p s left join idle_sess i on i.session_id = s.id
 ),
 blk as (

@@ -29,6 +29,21 @@ describe("derivar — o que cada card mostra", () => {
       .toEqual({ caiu: 100, faltou: 0 });
     expect(diaComBanco({ dia: "2099-01-01", lancou: 100, pix_cartao: 80, dinheiro: 20, caiu: 50, maquininha: 0, conta_ranking: 100, faltou: 30 }, 100, "2099-01-01"))
       .toEqual({ caiu: 70, faltou: 30 });
+    // passado com a folga de R$ 500 do ranking: no relatório não passa do vendido
+    expect(diaComBanco({ dia: "2026-10-01", lancou: 500, pix_cartao: 400, dinheiro: 100, caiu: 750, maquininha: 0, conta_ranking: 750, faltou: 0 }, 500, "2026-10-27"))
+      .toEqual({ caiu: 500, faltou: 0 });
+    // dia que o vendedor confirmou como venda (ranking sem teto): entra inteiro
+    expect(diaComBanco({ dia: "2026-10-16", lancou: 2400, pix_cartao: 1032, dinheiro: 1368, caiu: 6455, maquininha: 0, conta_ranking: 6455, faltou: 0 }, 2400, "2026-10-27"))
+      .toEqual({ caiu: 7823, faltou: 0 });
+  });
+
+  it("vendas depois da meia-noite são da noite, não de 'cedo' (27/10)", () => {
+    const b = bloco({ horas: [{ h: 1, vendas: 3, valor: 90, abordagens: 5 }, { h: 20, vendas: 2, valor: 60, abordagens: 4 }] });
+    const x = derivar({ ...rel(), atual: b }, [], periodo, "x");
+    expect(x.horas.periodos.some((p) => p.nome === "Cedo")).toBe(false);
+    expect(x.horas.periodos.find((p) => p.nome === "Noite")).toMatchObject({ valor: 150, faixa: "18–4h" });
+    expect(x.horas.barras[0]?.h).toBe(8);
+    expect(x.horas.barras.at(-1)?.h).toBe(1);
   });
 
   it("vendas: conversão sobre os totais, ritmo sobre o tempo vendendo", () => {
