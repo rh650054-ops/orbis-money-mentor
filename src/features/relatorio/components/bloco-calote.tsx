@@ -46,8 +46,8 @@ export function BlocoCalote({ r }: { r: Resumo }) {
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2">
           <Mini valor={brl(c.porDia)} rotulo={r.umDia ? "perdido no dia" : "perdido por dia na rua"} />
-          <Mini valor={c.umACada ? `1 a cada ${c.umACada}` : "—"} rotulo="vendas não pagou" />
-          <Mini valor={`${Math.round(c.pctVendeu * 10) / 10}%`.replace(".", ",")} rotulo={<>do que vendeu · <em className="not-italic text-foreground">normal {Math.round(c.normalPct * 10) / 10}%</em></>} />
+          <Mini valor={c.umACada ? `1 a cada ${c.umACada}` : "—"} rotulo={c.umACada ? "vendas não pagou" : "marque quem não pagou no Foco"} />
+          <Mini valor={`${Math.round(c.pctPerdido * 10) / 10}%`.replace(".", ",")} rotulo={<>perdido do que vendeu · <em className="not-italic text-foreground">normal {`${Math.round(c.normalPct * 10) / 10}`.replace(".", ",")}%</em></>} />
         </div>
         {c.peloBanco ? (
           <Fato>Lido do seu banco: o Pix que cai depois de fechar o Foco entra aqui sozinho e sai do perdido.</Fato>

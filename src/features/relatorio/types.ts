@@ -20,6 +20,9 @@ export const blocoSchema = z.object({
   }),
   vendas: z.object({
     abordagens: num, vendas: num, valor: num,
+    /** 27/10: only days where approaches were really tapped (sales < 90% of approaches).
+     *  Missing (older server) → falls back to the totals. */
+    abordagens_conv: numOrNull, vendas_conv: numOrNull,
     conversao: numOrNull, abordagens_por_venda: numOrNull, ticket: numOrNull,
     metodos: z.record(z.object({ n: num, valor: num })).catch({}),
     gorjeta: z.object({ n: num, total: num, maior: num }),
@@ -35,10 +38,10 @@ export const blocoSchema = z.object({
     pct_vendeu: num, taxa_recuperacao: numOrNull,
   }),
   dias: z.array(z.object({
-    dia: z.string(), abordagens: num, vendas: num, caiu: num, faltou: num,
+    dia: z.string(), abordagens: num, vendas: num, conv_ok: z.boolean().catch(true), caiu: num, faltou: num,
     worked_min: num, pausa_min: num, parado_min: num,
   })).catch([]),
-  horas: z.array(z.object({ h: num, vendas: num, valor: num, abordagens: num })).catch([]),
+  horas: z.array(z.object({ h: num, vendas: num, valor: num, abordagens: num, vendas_conv: numOrNull, abordagens_conv: numOrNull })).catch([]),
 });
 
 export const relatorioSchema = z.object({
