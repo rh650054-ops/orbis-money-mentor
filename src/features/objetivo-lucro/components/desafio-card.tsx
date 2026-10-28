@@ -22,6 +22,10 @@ export function DesafioCard() {
   const acabou = d.status === "encerrado";
   const ativo = !bateu && !acabou;
   const hojeOk = d.hoje.unid_meta !== null && d.hoje.unid >= d.hoje.unid_meta;
+  const folga = !d.hoje.trabalha;  // 28/10: the plan says today is a day off
+  const ritmo = d.hoje.ritmo === "adiantado" ? { txt: `adiantado ${brl0(Math.abs(d.hoje.atraso ?? 0))} no plano`, cor: COR.verde }
+    : d.hoje.ritmo === "atrasado" ? { txt: `${brl0(Math.abs(d.hoje.atraso ?? 0))} atrás do plano — a meta dos próximos dias subiu`, cor: COR.vermelho }
+    : d.hoje.ritmo === "no_plano" ? { txt: "no ritmo do plano", cor: COR.sub } : null;
   const cor = bateu ? COR.verde : COR.ouro;
   const faltam = Math.max(0, d.dias_periodo - d.dia_atual + 1);
   const ia = d.analise.ia;
@@ -59,17 +63,18 @@ export function DesafioCard() {
       ) : acabou ? (
         <p className="text-[13px] mt-3" style={{ color: COR.sub }}>O prazo acabou. Faltaram {formatCurrency(Math.max(0, d.alvo - d.lucro))} — bora pra próxima missão.</p>
       ) : (
-        <div className="mt-3 rounded-[16px] px-3.5 py-3 flex items-center gap-3" style={{ background: "rgba(0,0,0,.45)", border: `1px solid ${hojeOk ? "rgba(61,214,140,.45)" : "rgba(245,184,0,.35)"}` }}>
+        <div className="mt-3 rounded-[16px] px-3.5 py-3 flex items-center gap-3" style={{ background: "rgba(0,0,0,.45)", border: `1px solid ${hojeOk ? "rgba(61,214,140,.45)" : folga ? COR.linha : "rgba(245,184,0,.35)"}` }}>
           <div className="min-w-0 flex-1">
-            <p className="orbis-section" style={{ color: hojeOk ? COR.verde : COR.ouro }}>Alvo de hoje</p>
+            <p className="orbis-section" style={{ color: hojeOk ? COR.verde : folga ? COR.mute : COR.ouro }}>{folga ? "Hoje é folga na missão" : "Alvo de hoje"}</p>
             <p className="text-[16px] font-black mt-0.5 leading-tight" style={{ color: hojeOk ? COR.verde : COR.texto }}>
-              {hojeOk ? "Batido ✓" : `Vender ${d.hoje.unid_meta ?? "—"} ${un}`}
+              {hojeOk ? "Batido ✓" : folga ? `Se for pra rua: ${d.hoje.unid_meta ?? "—"} ${un} adiantam` : `Vender ${d.hoje.unid_meta ?? "—"} ${un}`}
             </p>
-            <p className="orbis-num text-[11.5px] mt-0.5" style={{ color: COR.sub }}>{formatCurrency(d.hoje.lucro)} de lucro já · precisa {formatCurrency(d.hoje.precisa)}</p>
+            <p className="orbis-num text-[11.5px] mt-0.5" style={{ color: COR.sub }}>{formatCurrency(d.hoje.lucro)} de lucro já{folga ? "" : ` · precisa ${formatCurrency(d.hoje.precisa)}`}</p>
           </div>
-          <span className="vant-missao-num text-[36px] leading-none shrink-0" style={{ color: hojeOk ? COR.verde : COR.ouro }}>{d.hoje.unid}<span className="text-[18px]" style={{ color: COR.mute }}>/{d.hoje.unid_meta ?? "—"}</span></span>
+          <span className="vant-missao-num text-[36px] leading-none shrink-0" style={{ color: hojeOk ? COR.verde : folga ? COR.sub : COR.ouro }}>{d.hoje.unid}<span className="text-[18px]" style={{ color: COR.mute }}>/{d.hoje.unid_meta ?? "—"}</span></span>
         </div>
       )}
+      {ativo && ritmo && <p className="orbis-num text-[11.5px] mt-2 px-0.5" style={{ color: ritmo.cor }}>• {ritmo.txt}</p>}
 
       {ia?.titulo && ativo && (
         <p className="mt-3 text-[12.5px] leading-snug flex gap-1.5" style={{ color: COR.sub }}>

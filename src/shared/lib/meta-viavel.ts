@@ -76,16 +76,25 @@ export interface MissaoHoje {
   unidMeta: number;
   faturar: number;
   produto: string | null;
+  /** 28/10: from the plan he accepted — work day or day off, day N of M, ahead/behind */
+  trabalha: boolean;
+  dia: number;
+  diasPeriodo: number;
+  ritmo: "adiantado" | "no_plano" | "atrasado" | null;
+  atraso: number | null;
 }
 
 function lerMissao(v: unknown): MissaoHoje | null {
   if (!v || typeof v !== "object") return null;
   const m = v as Record<string, unknown>;
   if (!(Number(m.unid_meta) > 0)) return null;
+  const ritmo = m.ritmo === "adiantado" || m.ritmo === "no_plano" || m.ritmo === "atrasado" ? m.ritmo : null;
   return {
     alvo: n(m.alvo), fim: String(m.fim ?? ""), precisaLucro: n(m.precisa_lucro),
     unidMeta: Number(m.unid_meta), faturar: n(m.faturar),
     produto: typeof m.produto === "string" && m.produto.trim() ? m.produto.trim() : null,
+    trabalha: m.trabalha !== false, dia: Number(m.dia) || 0, diasPeriodo: Number(m.dias_periodo) || 0,
+    ritmo, atraso: m.atraso == null ? null : n(m.atraso),
   };
 }
 

@@ -39,11 +39,17 @@ export function FaixaMissao({ m }: { m: MissaoHoje }) {
   const p = (m.produto ?? "").toLowerCase();
   const un = !p ? "unidades" : p.endsWith("s") ? p : `${p}s`;
   const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  const ritmo = m.ritmo === "adiantado" ? { txt: `adiantado ${brl(Math.abs(m.atraso ?? 0))}`, cor: "var(--orbis-ok)" }
+    : m.ritmo === "atrasado" ? { txt: `${brl(Math.abs(m.atraso ?? 0))} atrás do plano`, cor: "#F2465A" } : null;
   return (
-    <div className="mt-3 rounded-[14px] px-3 py-2.5 flex items-center gap-2.5" style={{ background: "rgba(245,184,0,.08)", border: "1px solid rgba(245,184,0,.35)" }}>
-      <Crosshair className="w-4 h-4 shrink-0" style={{ color: "var(--orbis-gold)" }} />
+    <div className="mt-3 rounded-[14px] px-3 py-2.5 flex items-center gap-2.5" style={{ background: m.trabalha ? "rgba(245,184,0,.08)" : "rgba(255,255,255,.04)", border: `1px solid ${m.trabalha ? "rgba(245,184,0,.35)" : "rgba(255,255,255,.12)"}` }}>
+      <Crosshair className="w-4 h-4 shrink-0" style={{ color: m.trabalha ? "var(--orbis-gold)" : "var(--orbis-fg-3)" }} />
       <p className="text-[12px] leading-snug min-w-0" style={{ color: "var(--orbis-fg-2)" }}>
-        <b style={{ color: "var(--orbis-gold)" }}>Missão {brl(m.alvo)}</b> · hoje <b className="text-foreground">{m.unidMeta} {un}</b> = <b style={{ color: "var(--orbis-ok)" }}>+{brl(m.precisaLucro)}</b> de lucro
+        <b style={{ color: "var(--orbis-gold)" }}>Missão {brl(m.alvo)}</b>{m.diasPeriodo > 0 ? <> · dia {m.dia}/{m.diasPeriodo}</> : null}
+        {m.trabalha
+          ? <> · hoje <b className="text-foreground">{m.unidMeta} {un}</b> = <b style={{ color: "var(--orbis-ok)" }}>+{brl(m.precisaLucro)}</b> de lucro</>
+          : <> · <b className="text-foreground">folga no plano</b> — se for pra rua, {m.unidMeta} {un} adiantam</>}
+        {ritmo ? <> · <b style={{ color: ritmo.cor }}>{ritmo.txt}</b></> : null}
       </p>
     </div>
   );

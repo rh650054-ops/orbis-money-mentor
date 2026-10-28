@@ -86,7 +86,7 @@ export function FocoHero(p: Props) {
         </div>
       ) : (
         <>
-          <p className="orbis-mini mt-3.5">{estado === "encerrado" ? "Vendido hoje" : missao ? `Meta da missão · ${diaNome}` : `Meta de ${diaNome}`}</p>
+          <p className="orbis-mini mt-3.5">{estado === "encerrado" ? "Vendido hoje" : missao ? (missao.trabalha ? `Meta da missão · ${diaNome}` : `Folga na missão · ${diaNome}`) : `Meta de ${diaNome}`}</p>
           <p className="orbis-num text-[34px] font-extrabold leading-none mt-1.5 tracking-[-1px]" style={estado === "encerrado" ? { color: "var(--orbis-ok)" } : undefined}>
             {v(estado === "antes" ? n.dailyGoal : n.totalVendido)}
           </p>

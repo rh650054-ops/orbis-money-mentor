@@ -12,7 +12,9 @@ import { toast } from "@/shared/hooks/use-toast";
 import { useAnalisarComIaMutation, useCriarDesafioMutation, type AnaliseIa } from "../api/use-objetivo-lucro";
 import { useClimaPlano } from "../api/use-clima-plano";
 import { diasSugeridos, planoLucro } from "../lib/plano";
-import { cronograma } from "../lib/cronograma";
+import { cronograma, type DiasFixos } from "../lib/cronograma";
+import { baseComCalote } from "../lib/calote";
+import type { FonteCalote } from "../types";
 import { brl0 } from "../lib/formato";
 import { FontesLidas } from "./fontes-lidas";
 import { LendoCorre } from "./lendo-corre";
@@ -30,33 +32,46 @@ export function NovoDesafioSheet({ open, onOpenChange }: { open: boolean; onOpen
   const [dias, setDias] = useState(15);
   const [diasTrabalho, setDiasTrabalho] = useState<number | null>(null);
   const [resultado, setResultado] = useState<AnaliseIa | null>(null);
+  // 28/10: days he fixed by tapping in the schedule, and which calote estimate the mission uses
+  const [fixos, setFixos] = useState<Map<string, boolean>>(new Map());
+  const [fonteCalote, setFonteCalote] = useState<FonteCalote | null>(null);
   const analisar = useAnalisarComIaMutation();
   const criar = useCriarDesafioMutation();
   const clima = useClimaPlano(open);
 
-  const b = resultado?.base ?? null;
+  const fonte: FonteCalote = fonteCalote ?? resultado?.base.calote.fonte ?? "app";
+  const b = useMemo(() => (resultado ? baseComCalote(resultado.base, fonte) : null), [resultado, fonte]);
   const ia = resultado?.ia ?? null;
   // Work days: what the person chose → what the AI analysed with → his usual rhythm.
-  const trabalho = Math.min(dias, diasTrabalho ?? resultado?.diasTrabalho ?? (b ? diasSugeridos(b, dias) : dias));
+  const pedido = Math.min(dias, diasTrabalho ?? resultado?.diasTrabalho ?? (b ? diasSugeridos(b, dias) : dias));
+  const crono = useMemo(() => (b ? cronograma(b, alvo, dias, pedido, new Date(), clima.plano, fixos) : null), [b, alvo, dias, pedido, clima.plano, fixos]);
+  const trabalho = crono?.diasTrabalho ?? pedido;
   const plano = useMemo(() => (b ? planoLucro(b, alvo, trabalho) : null), [b, alvo, trabalho]);
-  const crono = useMemo(() => (b ? cronograma(b, alvo, dias, trabalho, new Date(), clima.plano) : null), [b, alvo, dias, trabalho, clima.plano]);
-  // The AI's number stands while the work days are the ones it analysed; otherwise recalc.
-  const unidDia = ia?.unid_dia && diasTrabalho === null ? ia.unid_dia : plano?.unidDia ?? null;
+  // The AI's number stands while the work days and the cost are the ones it analysed; otherwise recalc.
+  const unidDia = ia?.unid_dia && diasTrabalho === null && fixos.size === 0 && fonteCalote === null ? ia.unid_dia : plano?.unidDia ?? null;
 
   const rodar = (dt?: number) => {
     setPasso(2);
     // First run sends no work days: the function uses his frequency (e.g. 9 of 15).
-    analisar.mutate(dt ? { alvo, dias, diasTrabalho: Math.min(dias, dt) } : { alvo, dias }, {
+    analisar.mutate({ alvo, dias, ...(dt ? { diasTrabalho: Math.min(dias, dt) } : {}), ...(fonteCalote ? { caloteFonte: fonteCalote } : {}) }, {
       onSuccess: (r) => { setResultado(r); setDiasTrabalho(null); if (r.limite) toast({ title: "Limite de análises por hoje", description: "Mostrei o plano pela sua média." }); },
       onError: () => { toast({ title: "Não consegui ler seus dados", description: "Tenta de novo em instantes.", variant: "destructive" }); setPasso(1); },
     });
   };
+  const alternarDia = (data: string) => {
+    const atual = crono?.dias.find((d) => d.data === data);
+    if (!atual) return;
+    setFixos((f) => { const n = new Map(f); n.set(data, !atual.trabalha); return n; });
+    setDiasTrabalho(null);
+  };
   const fechar = (o: boolean) => {
     onOpenChange(o);
-    if (!o) { setPasso(1); setDiasTrabalho(null); setResultado(null); }
+    if (!o) { setPasso(1); setDiasTrabalho(null); setResultado(null); setFixos(new Map()); setFonteCalote(null); }
   };
   const salvar = () => {
-    criar.mutate({ alvo, dias, diasTrabalho: trabalho, ia }, {
+    if (!crono) return;
+    const planoDias = crono.dias.map((d) => ({ d: d.data, t: d.trabalha, u: d.unid }));
+    criar.mutate({ alvo, dias, diasTrabalho: trabalho, ia, plano: planoDias, caloteFonte: fonte }, {
       onSuccess: () => { toast({ title: "Desafio criado", description: `${brl0(alvo)} de lucro em ${dias} dias. Bora!` }); fechar(false); },
       onError: () => toast({ title: "Não deu pra criar o desafio", description: "Tenta de novo em instantes.", variant: "destructive" }),
     });
@@ -81,20 +96,21 @@ export function NovoDesafioSheet({ open, onOpenChange }: { open: boolean; onOpen
         </div>
 
         {passo === 1 ? (
-          <PassoMeta alvo={alvo} dias={dias} onAlvo={setAlvo} onDias={(d) => { setDias(d); setDiasTrabalho(null); }} onAnalisar={() => rodar()} />
+          <PassoMeta alvo={alvo} dias={dias} onAlvo={setAlvo} onDias={(d) => { setDias(d); setDiasTrabalho(null); setFixos(new Map()); }} onAnalisar={() => rodar()} />
         ) : analisar.isPending || !b || !plano || !crono ? (
           <LendoCorre pronto={false} nome={b?.apelido ?? null} />
         ) : (
           <>
             <VereditoHero b={b} p={plano} ia={ia} alvo={alvo} dias={dias} unidDia={unidDia} diasTrabalho={trabalho} />
-            <FontesLidas b={b} />
-            <CronogramaDias b={b} c={crono} impacto={clima.impacto} dias={dias} diasTrabalho={trabalho} sugestaoIa={ia?.dias_trabalho ?? null} onDiasTrabalho={setDiasTrabalho} />
+            <FontesLidas b={b} fonteCalote={fonte} onFonteCalote={setFonteCalote} />
+            <CronogramaDias b={b} c={crono} impacto={clima.impacto} dias={dias} diasTrabalho={trabalho} sugestaoIa={ia?.dias_trabalho ?? null}
+              onDiasTrabalho={(n) => { setDiasTrabalho(n); setFixos(new Map()); }} fixos={fixos as DiasFixos} onAlternarDia={alternarDia} />
             <CurvaMissao c={crono} alvo={alvo} />
             <PainelMissao b={b} c={crono} diasTrabalho={trabalho} />
             <PlanoIaCard ia={ia} />
-            {diasTrabalho !== null && ia && (
+            {(diasTrabalho !== null || fixos.size > 0 || fonteCalote !== null) && ia && (
               <button type="button" onClick={() => rodar(trabalho)} className="w-full h-10 mt-2 text-[12.5px] font-bold inline-flex items-center justify-center gap-1.5" style={{ color: COR.ouro }}>
-                <RefreshCw className="w-3.5 h-3.5" /> Reanalisar com {trabalho} dias
+                <RefreshCw className="w-3.5 h-3.5" /> Reanalisar com {trabalho} dias{fonteCalote ? ` · calote ${fonteCalote === "banco" ? "pelo banco" : "do app"}` : ""}
               </button>
             )}
             <button type="button" disabled={criar.isPending || unidDia === null} onClick={salvar}

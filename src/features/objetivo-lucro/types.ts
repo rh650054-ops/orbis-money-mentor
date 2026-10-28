@@ -32,7 +32,13 @@ export const baseSchema = z.object({
     valor: num, unidades: num, dias: num, recuperado: num, perdido: num, pct: num,
     estimado_banco: z.coerce.number().nullable().catch(null), app_pix: num, usado: num,
     fonte: z.enum(["banco", "app"]).catch("app"), por_dia: num, pct_pix: num,
-  }).catch({ valor: 0, unidades: 0, dias: 0, recuperado: 0, perdido: 0, pct: 0, estimado_banco: null, app_pix: 0, usado: 0, fonte: "app", por_dia: 0, pct_pix: 0 }),
+    /** 28/10: bank coverage (from the day the bank was connected) + both estimates */
+    desde: z.string().nullable().catch(null), dias_banco: num, app_pix_banco: num, banco_recebido: num, teto: num,
+    banco_unid: z.coerce.number().nullable().catch(null), banco_por_dia: z.coerce.number().nullable().catch(null),
+    app_unid: num, app_por_dia: num,
+    tabela: z.array(z.object({ dia: z.string(), app: num, banco: num, dif: num })).catch([]),
+  }).catch({ valor: 0, unidades: 0, dias: 0, recuperado: 0, perdido: 0, pct: 0, estimado_banco: null, app_pix: 0, usado: 0, fonte: "app", por_dia: 0, pct_pix: 0,
+    desde: null, dias_banco: 0, app_pix_banco: 0, banco_recebido: 0, teto: 0, banco_unid: null, banco_por_dia: null, app_unid: 0, app_por_dia: 0, tabela: [] }),
   transporte: num,
   alimentacao: num,
   /** combo mix: % of sales with 1 / 2 / 3+ units, and units per sale */
@@ -72,8 +78,18 @@ export const desafioSchema = z.object({
   lucro: num,
   vendas: num,
   unidades: num,
-  hoje: z.object({ precisa: num, unid_meta: z.coerce.number().nullable().catch(null), unid: num, lucro: num }),
+  hoje: z.object({
+    precisa: num, unid_meta: z.coerce.number().nullable().catch(null), unid: num, lucro: num,
+    /** 28/10: from the stored plan — is today a work day, and is he ahead/behind it */
+    trabalha: z.boolean().catch(true),
+    ritmo: z.enum(["adiantado", "no_plano", "atrasado"]).nullable().catch(null),
+    atraso: z.coerce.number().nullable().catch(null),
+  }),
   dias: z.array(z.object({ dia: z.string(), unid: num, lucro: num })).catch([]),
+  /** 28/10: the day-by-day plan he accepted (empty for missions created before) */
+  plano: z.array(z.object({ d: z.string(), t: z.boolean().catch(false), u: num })).catch([]),
+  calote_fonte: z.enum(["banco", "app"]).nullable().catch(null),
   analise: baseSchema.partial().extend({ ia: iaSchema.optional() }).catch({}),
 });
 export type Desafio = z.infer<typeof desafioSchema>;
+export type FonteCalote = "banco" | "app";
