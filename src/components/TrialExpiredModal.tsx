@@ -14,7 +14,7 @@ import { useVoltaDoCheckout } from "@/hooks/useVoltaDoCheckout";
 import { verificarAcessoPago } from "@/shared/lib/verificar-acesso";
 import { assinaPeloSite } from "@/shared/lib/cobranca-loja";
 import { TelaAssinarPeloSite } from "@/shared/components/assinatura-loja";
-import { BotaoCopiarPix, BotaoGerarNovoPix, PixVencido, RenovarPix, useRenovacaoPixQuery, useRenovacaoVencidaQuery } from "@/features/renovacao";
+import { PixVencido, RenovarPix, useRenovacaoPixQuery, useRenovacaoVencidaQuery } from "@/features/renovacao";
 
 interface TrialExpiredModalProps {
   isOpen: boolean;
@@ -91,7 +91,7 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
                 ? <>Sua assinatura não está ativa ou expirou.<br />Para continuar na VANT você precisa de uma assinatura ativa.</>
                 : <>Seus 3 dias de teste terminaram.<br />Pra continuar vendendo com a VANT, assine pelo site.</>}
               onTentar={handleCheckAccess} tentando={isChecking} onSair={handleLogout}
-              renovacao={renovacao ? <BotaoCopiarPix pix={renovacao} /> : vencida ? <BotaoGerarNovoPix /> : undefined} />
+              /* 28/10: modelo Néctar completo — no app da loja, sem Pix; "Assinar" abre o site */ />
           ) : (<>
           {/* Fim do teste (06/10): os 3 planos — VANT Pro Anual (selecionado), Pro Mensal e Essencial */}
           <p className="text-center font-mono text-[10px] font-bold tracking-[.18em] mb-3" style={{ color: "#F5B800" }}>{exAssinante ? "SEU PLANO ENCERROU" : "SEU TESTE ACABOU"}</p>
