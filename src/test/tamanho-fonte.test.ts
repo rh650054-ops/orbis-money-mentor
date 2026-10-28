@@ -14,7 +14,7 @@ const MAX_PX = 32;
  *  citou Clima, Produtos, Perfil e Caça-Sinal). Cada uma fica aqui com o motivo até o Rick
  *  decidir se encolhe. Arquivo novo NÃO entra aqui sem conversa. Caminho relativo a src/. */
 const EXCECOES = new Map<string, string>([
-  ["components/clima/tela/HeroClima.tsx", "temperatura 64 px fina, como o Clima do iPhone (aprovado 27/10)"],
+  ["components/clima/tela/HeroClima.tsx", "temperatura 60 px na cena do Clima (visual antigo de volta, 28/10)"],
   ["components/RankingShareCard.tsx", "arte de compartilhar desenhada em 1080 px"],
   ["components/defcon/DefconRunning.tsx", "cronômetro do Foco: leitura de longe, na rua"],
   ["components/defcon/DefconBreak.tsx", "pausa do Foco: contagem grande"],

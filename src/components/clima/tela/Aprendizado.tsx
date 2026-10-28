@@ -31,7 +31,7 @@ function FeedbackChuva({ onResponder }: { onResponder: (chovendo: boolean) => Pr
         </p>
       ) : (
         <div className="flex items-center gap-2">
-          <p className="flex-1 text-[14px] font-bold" style={{ color: COR.texto }}>Tá chovendo aí agora?</p>
+          <p className="flex-1 text-[15px] font-bold" style={{ color: COR.texto }}>Tá chovendo aí agora?</p>
           {[true, false].map((v) => (
             <button key={String(v)} type="button" disabled={estado === "enviando"} onClick={() => void enviar(v)}
               className="h-10 min-w-[64px] px-3 rounded-[12px] border text-[14px] font-bold transition-[transform,background-color] duration-100 active:scale-[0.97]"
@@ -48,8 +48,8 @@ function FeedbackChuva({ onResponder }: { onResponder: (chovendo: boolean) => Pr
 export function Aprendizado({ insights, dias, onResponder }: { insights: Insight[]; dias: number; onResponder: (chovendo: boolean) => Promise<boolean> }) {
   return (
     <section aria-label="O que a VANT aprendeu sobre você">
-      <div className="relative overflow-hidden rounded-[16px] border p-3.5" style={{ borderColor: "rgba(245,184,0,.18)", background: "radial-gradient(120% 90% at 100% 0%, rgba(155,123,255,.10), transparent 50%), #0e0e10" }}>
-        <p className="text-[11px] font-bold uppercase tracking-[.08em]" style={{ color: COR.ouro }}>A VANT aprendeu</p>
+      <div className="relative overflow-hidden rounded-[20px] border p-[18px]" style={{ borderColor: "rgba(245,184,0,.18)", background: "radial-gradient(120% 90% at 100% 0%, rgba(155,123,255,.10), transparent 50%), #0e0e10" }}>
+        <p className="text-[12px] font-black uppercase tracking-[.16em]" style={{ color: COR.ouro }}>A VANT aprendeu</p>
         {insights.length === 0 ? (
           <p className="text-[15px] font-semibold leading-snug mt-2" style={{ color: COR.texto }}>
             Tô cruzando o tempo de cada dia com o que você vende. Em poucos dias eu te digo em que tempo você rende mais.
@@ -60,7 +60,7 @@ export function Aprendizado({ insights, dias, onResponder }: { insights: Insight
               <li key={titulo} className="flex gap-3">
                 <Icone className="w-[22px] h-[22px] shrink-0 mt-px" strokeWidth={2.1} style={{ color: cor }} aria-hidden />
                 <span className="min-w-0">
-                  <span className="block text-[14.5px] font-bold leading-snug" style={{ color: COR.texto }}>{titulo}</span>
+                  <span className="block text-[16px] font-extrabold leading-snug" style={{ color: COR.texto }}>{titulo}</span>
                   <span className="block text-[13px] mt-0.5" style={{ color: COR.mute }}>{apoio}</span>
                 </span>
               </li>
