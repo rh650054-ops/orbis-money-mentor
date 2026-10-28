@@ -32,6 +32,8 @@ export interface DiaPlano {
 
 export interface Cronograma {
   dias: DiaPlano[];
+  /** work days actually in the plan (fixed days can push it above the number asked) */
+  diasTrabalho: number;
   totalUnid: number;
   faturamentoTotal: number;
   mercadoriaTotal: number;
@@ -51,7 +53,11 @@ export interface Cronograma {
 
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-export function cronograma(b: BaseLucro, alvo: number, dias: number, diasTrabalho: number, inicio: Date, clima?: ClimaPlano): Cronograma {
+/** Days the seller fixed by hand (28/10): true = works that day, false = day off. The rest is
+ *  filled by strength up to `diasTrabalho`. */
+export type DiasFixos = ReadonlyMap<string, boolean>;
+
+export function cronograma(b: BaseLucro, alvo: number, dias: number, diasTrabalho: number, inicio: Date, clima?: ClimaPlano, fixos?: DiasFixos): Cronograma {
   const n = Math.max(1, Math.min(90, Math.round(dias)));
   const trabalho = Math.max(1, Math.min(n, Math.round(diasTrabalho)));
   const lucroUnid = Math.max(0, b.ticket - b.custo_unid);
@@ -66,11 +72,14 @@ export function cronograma(b: BaseLucro, alvo: number, dias: number, diasTrabalh
     const efeito = !prev ? 1 : prev.tipo === "chuva" ? (clima?.fator ?? 0.7) : prev.tipo === "garoa" ? (1 + (clima?.fator ?? 0.7)) / 2 : 1;
     return { data, dow: d.getDay(), peso: (forca.get(d.getDay()) ?? media * 0.6) * efeito, base: forca.get(d.getDay()) ?? media * 0.6, prev };
   });
-  // Pick the work days: the strongest weekdays first, ties to the earliest date.
-  const escolhidos = new Set([...cal].sort((a, z) => z.peso - a.peso || a.data.localeCompare(z.data)).slice(0, trabalho).map((c) => c.data));
+  // Pick the work days: the ones he fixed, then the strongest weekdays, ties to the earliest date.
+  const ligados = cal.filter((c) => fixos?.get(c.data) === true).map((c) => c.data);
+  const livres = [...cal].filter((c) => fixos?.get(c.data) === undefined).sort((a, z) => z.peso - a.peso || a.data.localeCompare(z.data));
+  const escolhidos = new Set([...ligados, ...livres.slice(0, Math.max(0, trabalho - ligados.length)).map((c) => c.data)]);
+  const trabalhoReal = escolhidos.size;
   const totalUnid = lucroUnid > 0 ? Math.ceil(alvo / lucroUnid) : 0;
   const somaPeso = cal.filter((c) => escolhidos.has(c.data)).reduce((s, c) => s + c.peso, 0) || 1;
-  const flat = totalUnid / trabalho;
+  const flat = totalUnid / Math.max(1, trabalhoReal);
 
   let acumulado = 0; let acumuladoMedia = 0; let distribuido = 0; let i = 0; let estoque = b.estoque;
   const porVenda = b.combos.unid_por_venda > 0 ? b.combos.unid_por_venda : 1;
@@ -82,7 +91,7 @@ export function cronograma(b: BaseLucro, alvo: number, dias: number, diasTrabalh
       i += 1;
       // Balanced: half by how strong the weekday is, half flat; never above his record.
       const alvoDia = 0.5 * (totalUnid * c.peso / somaPeso) + 0.5 * flat;
-      unid = i === trabalho ? Math.max(0, totalUnid - distribuido) : Math.round(b.recorde_dia > 0 ? Math.min(b.recorde_dia, alvoDia) : alvoDia);
+      unid = i === trabalhoReal ? Math.max(0, totalUnid - distribuido) : Math.round(b.recorde_dia > 0 ? Math.min(b.recorde_dia, alvoDia) : alvoDia);
       distribuido += unid;
       acumuladoMedia += lucroMediaDia;
     }
@@ -100,6 +109,7 @@ export function cronograma(b: BaseLucro, alvo: number, dias: number, diasTrabalh
   const coberto = [...dias_].reverse().find((d) => d.trabalha && d.estoqueFim >= 0 && (!falta || d.data < falta.data));
   return {
     dias: dias_,
+    diasTrabalho: trabalhoReal,
     totalUnid,
     faturamentoTotal: totalUnid * b.ticket,
     mercadoriaTotal: totalUnid * b.custo_receita,

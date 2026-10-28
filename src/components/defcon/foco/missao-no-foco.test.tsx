@@ -10,7 +10,8 @@ const LINHA = {
   dia: "2026-10-28", ritmo: 600, amostra_dia: 3, precisa_dia: 400, dias_restantes: 10, vendido_mes: 7000,
   meta_mensal: 12000, falta_mes: 5000, meta: 950, minimo: 760, turbo: 1140, status: "folga", mes_viavel: 12000,
   ticket: 25, plano_maximo: null, curva: [], modo: "padrao", meta_adaptativa: 600, dias_vendidos: 30,
-  missao: { id: "x", alvo: 5000, fim: "2026-11-10", lucro_feito: 0, precisa_lucro: 555.56, unid_meta: 53, faturar: 943.4, produto: "Batida" },
+  missao: { id: "x", alvo: 5000, fim: "2026-11-10", lucro_feito: 0, precisa_lucro: 555.56, unid_meta: 53, faturar: 943.4, produto: "Batida",
+    trabalha: true, dia: 2, dias_periodo: 15, ritmo: "atrasado", atraso: -120.5 },
 };
 
 const N: HeroNumeros = {
@@ -27,14 +28,26 @@ const hero = (dailyGoal: number) => (
 describe("missão de lucro no Foco", () => {
   it("lê a missão da meta do dia", () => {
     const m = lerMetaDoDia(LINHA);
-    expect(m?.missao).toEqual({ alvo: 5000, fim: "2026-11-10", precisaLucro: 555.56, unidMeta: 53, faturar: 943.4, produto: "Batida" });
+    expect(m?.missao).toEqual({ alvo: 5000, fim: "2026-11-10", precisaLucro: 555.56, unidMeta: 53, faturar: 943.4, produto: "Batida",
+      trabalha: true, dia: 2, diasPeriodo: 15, ritmo: "atrasado", atraso: -120.5 });
     expect(lerMetaDoDia({ ...LINHA, missao: null })?.missao).toBeNull();
   });
 
-  it("o card do Foco diz que a meta é da missão e quanto ela pede hoje", () => {
+  it("o card do Foco diz que a meta é da missão, quanto ela pede hoje e se ele está atrás do plano", () => {
     render(hero(950));
     expect(screen.getByText(/Meta da missão/)).toBeTruthy();
     expect(screen.getByText(/53 batidas/)).toBeTruthy();
+    expect(screen.getByText(/dia 2\/15/)).toBeTruthy();
+    expect(screen.getByText(/atrás do plano/)).toBeTruthy();
+  });
+
+  it("dia de folga no plano: a meta vira 'se for pra rua'", () => {
+    const m = lerMetaDoDia({ ...LINHA, missao: { ...LINHA.missao, trabalha: false, ritmo: "no_plano", atraso: 0 } });
+    render(<FocoHero estado="antes" meta={m} temFaixas={false} overnightOpen={false} exporting={false}
+      onEditar={vi.fn()} onIrDefcon={vi.fn()} onPDF={vi.fn()} n={{ ...N, dailyGoal: 950 }} />);
+    expect(screen.getByText(/Folga na missão/)).toBeTruthy();
+    expect(screen.getByText(/folga no plano/)).toBeTruthy();
+    expect(screen.queryByText(/atrás do plano/)).toBeNull();
   });
 
   it("DEFCON começado antes da missão (plano com outra meta): fica como estava", () => {

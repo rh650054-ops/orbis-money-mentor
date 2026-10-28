@@ -55,8 +55,8 @@ function montarPrompt(b: Record<string, unknown>, alvo: number, dias: number, di
     `CUSTO POR ${un.slice(0, -1).toUpperCase()}: ${brl(n("custo_unid"))} = receita ${brl(n("custo_receita"))} (ingredientes + produção) + ${brl(n("calote_unid"))} de calote médio por unidade. ` +
     `${b.custo_extrato ? `O banco mostra ${brl(n("custo_extrato"))} por unidade em saídas de mercadoria, mas isso inclui estoque comprado e ainda não vendido — não use como custo.` : ""} ` +
     `Transporte lançado no app ${brl(n("transporte"))}, alimentação ${brl(n("alimentacao"))}.\n\n` +
-    `CALOTES (aproximado): ${brl(calote.usado ?? 0)} em ${b.dias_vendidos} dias de venda = ${brl(calote.por_dia ?? 0)} por dia de venda, ${calote.pct_pix ?? 0}% do pix/cartão. ` +
-    `${calote.fonte === "banco" ? `Estimado pelo banco: ${brl(calote.app_pix ?? 0)} de pix/cartão lançados no app menos ${brl(n("entradas_corre"))} que caíram na conta do corre (ele conectou o banco tarde, então o que registrou no app — ${brl(calote.valor ?? 0)}, recuperou ${brl(calote.recuperado ?? 0)} — está subestimado).` : `Registrado no app: ${brl(calote.valor ?? 0)} fiado em ${calote.dias ?? 0} dias, recuperou ${brl(calote.recuperado ?? 0)}.`}\n\n` +
+    `CALOTES (aproximado): ${brl(calote.usado ?? 0)} em ${calote.fonte === "banco" ? calote.dias_banco ?? 0 : b.dias_vendidos} dias de venda = ${brl(calote.por_dia ?? 0)} por dia de venda, ${calote.pct_pix ?? 0}% do pix/cartão. ` +
+    `${calote.fonte === "banco" ? `Medido pelo banco desde ${calote.desde ?? "a conexão"} (${calote.dias_banco ?? 0} dias de venda com o banco ligado): ${brl(calote.app_pix_banco ?? 0)} de pix/cartão lançados no app contra ${brl(calote.banco_recebido ?? 0)} que caíram na conta. No app ele registrou ${brl(calote.valor ?? 0)} de fiado e recuperou ${brl(calote.recuperado ?? 0)}.` : `Registrado no app: ${brl(calote.valor ?? 0)} fiado em ${calote.dias ?? 0} dias, recuperou ${brl(calote.recuperado ?? 0)}${calote.estimado_banco != null ? ` (pelo banco daria ${brl(calote.estimado_banco)}, mas ele escolheu usar o do app)` : ""}.`}\n\n` +
     `PRODUTOS: ${produtos || "nenhum cadastrado"}. Estoque pronto: ${b.estoque} ${un}.\n\n` +
     `CONTA BASE (já feita, use como referência): lucro por ${un.slice(0, -1)} ${brl(lucroUnid)}; lucro médio por dia de venda ${brl(lucroDiaMedio)}; ` +
     `em ${diasTrabalho} dias na média dá ${brl(lucroDiaMedio * diasTrabalho)}; pra bater precisa ${brl(precisaDia)}/dia = ${unidDia ?? "?"} ${un}/dia.\n\n` +
@@ -156,7 +156,9 @@ Deno.serve(async (req) => {
     const { data: uso, error: usoErr } = await supa.rpc("bump_ai_usage", { p_feature: "objetivo_lucro", p_limit: 20 });
     if (usoErr || (uso as { over?: boolean } | null)?.over) return json({ error: "limite", limite: true }, 429);
 
-    const { data: base, error: baseErr } = await supa.rpc("objetivo_lucro_analise");
+    // 28/10: the seller may have picked which calote estimate the mission uses (bank coverage / app)
+    const caloteFonte = body?.caloteFonte === "banco" || body?.caloteFonte === "app" ? body.caloteFonte : null;
+    const { data: base, error: baseErr } = await supa.rpc("objetivo_lucro_analise", { p_calote_fonte: caloteFonte });
     if (baseErr || !base) return json({ error: "sem dados" }, 500);
 
     // No work days sent: use his usual frequency (e.g. 63% of 15 days → 9).

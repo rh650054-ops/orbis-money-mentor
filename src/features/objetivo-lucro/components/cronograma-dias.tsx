@@ -5,7 +5,7 @@ import { Minus, Plus, Package, CloudRain } from "lucide-react";
 import { IconeTempo } from "@/components/clima/tela/IconeTempo";
 import type { ImpactoChuva } from "../api/use-clima-plano";
 import type { BaseLucro } from "../types";
-import type { Cronograma } from "../lib/cronograma";
+import type { Cronograma, DiasFixos } from "../lib/cronograma";
 import { nomeUnidade } from "../lib/plano";
 import { brl0 } from "../lib/formato";
 import { Passo } from "./passo-meta";
@@ -22,9 +22,12 @@ interface Props {
   diasTrabalho: number;
   sugestaoIa: number | null;
   onDiasTrabalho: (n: number) => void;
+  /** 28/10: days he fixed by tapping (work / off) */
+  fixos: DiasFixos;
+  onAlternarDia: (data: string) => void;
 }
 
-export function CronogramaDias({ b, c, impacto, dias, diasTrabalho, sugestaoIa, onDiasTrabalho }: Props) {
+export function CronogramaDias({ b, c, impacto, dias, diasTrabalho, sugestaoIa, onDiasTrabalho, fixos, onAlternarDia }: Props) {
   const un = nomeUnidade(b.produto_nome);
   const cols = c.dias.length <= 4 ? c.dias.length : 3;
   const produzir = Math.max(0, c.totalUnid - b.estoque);
@@ -35,7 +38,7 @@ export function CronogramaDias({ b, c, impacto, dias, diasTrabalho, sugestaoIa, 
         <span className="min-w-0">
           <p className="orbis-section inline-flex items-center gap-2" style={{ color: COR.ouro }}><span className="w-4 h-px" style={{ background: COR.ouro }} /> Cronograma</p>
           <p className="text-[11.5px] mt-1" style={{ color: COR.sub }}>
-            dias de trabalho{sugestaoIa && sugestaoIa !== diasTrabalho ? ` · Vant sugere ${sugestaoIa}` : ""}
+            dias de trabalho{sugestaoIa && sugestaoIa !== diasTrabalho ? ` · Vant sugere ${sugestaoIa}` : ""} · toque num dia pra trocar
           </p>
         </span>
         <span className="inline-flex items-center gap-1 shrink-0">
@@ -67,10 +70,13 @@ export function CronogramaDias({ b, c, impacto, dias, diasTrabalho, sugestaoIa, 
       <div className="mt-3 grid gap-1.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
         {c.dias.map((d, i) => {
           const semEstoque = d.trabalha && d.estoqueFim < 0;
+          const fixo = fixos.get(d.data) !== undefined;
           return (
-            <div key={d.data} className="vant-sobe rounded-[14px] px-2.5 pt-2 pb-2 relative overflow-hidden" style={{ animationDelay: `${i * 30}ms`,
+            <button type="button" key={d.data} onClick={() => onAlternarDia(d.data)} aria-pressed={d.trabalha}
+              aria-label={`${DOW[d.dow]} ${dm(d.data)}: ${d.trabalha ? "dia de trabalho" : "folga"} — toque pra trocar`}
+              className="vant-sobe rounded-[14px] px-2.5 pt-2 pb-2 relative overflow-hidden text-left active:scale-[0.97] transition-transform" style={{ animationDelay: `${i * 30}ms`,
               background: d.trabalha ? "rgba(245,184,0,.08)" : "rgba(255,255,255,.025)",
-              border: `1px solid ${d.trabalha ? "rgba(245,184,0,.4)" : "rgba(255,255,255,.07)"}` }}>
+              border: `1px solid ${fixo ? (d.trabalha ? COR.ouro : "rgba(255,255,255,.35)") : d.trabalha ? "rgba(245,184,0,.4)" : "rgba(255,255,255,.07)"}` }}>
               <p className="flex items-center justify-between text-[10px] font-black uppercase tracking-[.06em]" style={{ color: d.trabalha ? COR.sub : COR.mute }}>
                 <span>{DOW[d.dow]} {d.data.slice(8, 10)}</span>
                 <span className="inline-flex items-center gap-1">
@@ -95,12 +101,12 @@ export function CronogramaDias({ b, c, impacto, dias, diasTrabalho, sugestaoIa, 
               ) : (
                 <p className="text-[11px] font-bold mt-4 mb-4 text-center" style={{ color: d.clima?.tipo === "chuva" ? "#6FA8FF" : COR.mute }}>{d.clima?.tipo === "chuva" ? "folga · chuva" : "folga"}</p>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
       <p className="text-[11px] mt-3 leading-snug" style={{ color: COR.mute }}>
-        Vendas ≈ {un} ÷ {b.combos.unid_por_venda.toLocaleString("pt-BR")} (você vende {b.combos.um}% de 1, {b.combos.dois}% combo de 2{b.combos.tres > 0 ? `, ${b.combos.tres}% de 3+` : ""}). Lucro já tira mercadoria e calote. Faixa embaixo: verde = estoque pronto, vermelha = precisa produzir. Ícone = previsão dos próximos 7 dias.
+        Toque num dia pra virar folga ou trabalho: a Vant redistribui as {un} nos outros dias. Vendas ≈ {un} ÷ {b.combos.unid_por_venda.toLocaleString("pt-BR")} (você vende {b.combos.um}% de 1, {b.combos.dois}% combo de 2{b.combos.tres > 0 ? `, ${b.combos.tres}% de 3+` : ""}). Lucro já tira mercadoria e calote. Faixa embaixo: verde = estoque pronto, vermelha = precisa produzir. Ícone = previsão dos próximos 7 dias.
       </p>
     </section>
   );

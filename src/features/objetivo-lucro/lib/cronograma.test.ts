@@ -10,7 +10,8 @@ const rick: BaseLucro = {
   semana: [{ dow: 0, unid_dia: 20.8, dias: 6 }, { dow: 1, unid_dia: 6.5, dias: 2 }, { dow: 2, unid_dia: 5.8, dias: 5 }, { dow: 3, unid_dia: 30, dias: 4 },
     { dow: 4, unid_dia: 13.2, dias: 5 }, { dow: 5, unid_dia: 23.4, dias: 7 }, { dow: 6, unid_dia: 32.2, dias: 9 }],
   quinzenas: { ultimos15: 196, anteriores15: 176 },
-  calote: { valor: 788, unidades: 0, dias: 6, recuperado: 250, perdido: 538, pct: 4.1, estimado_banco: 1677.47, app_pix: 17588.5, usado: 1677.47, fonte: "banco", por_dia: 44.14, pct_pix: 9.5 },
+  calote: { valor: 788, unidades: 0, dias: 6, recuperado: 250, perdido: 538, pct: 4.1, estimado_banco: 1677.47, app_pix: 17588.5, usado: 1677.47, fonte: "banco", por_dia: 44.14, pct_pix: 9.5,
+    desde: "2026-09-09", dias_banco: 27, app_pix_banco: 12798.5, banco_recebido: 11121, teto: 400, banco_unid: 2.08, banco_por_dia: 62.1, app_unid: 0.67, app_por_dia: 14.2, tabela: [] },
   transporte: 325, alimentacao: 68,
   combos: { um: 67, dois: 29, tres: 4, preco_um: 18.43, preco_dois: 33.94, unid_por_venda: 1.41, ticket_venda: 25.06 }, vendas_dia: 19.4, preco_tabela: 20,
 };
@@ -62,5 +63,19 @@ describe("cronograma", () => {
     expect(Math.round(fim.acumulado)).toBeGreaterThanOrEqual(5000);
     expect(fim.acumuladoMedia).toBeLessThan(fim.acumulado);
     expect(Math.round(c.mercadoriaTotal)).toBe(Math.round(c.totalUnid * 5.68));
+  });
+
+  it("days fixed by hand win over the strongest-weekday pick", () => {
+    // Monday 02/11 is his weakest day; fix it as a work day and fix Saturday 31/10 as a day off.
+    const fixos = new Map([["2026-11-02", true], ["2026-10-31", false]]);
+    const f = cronograma(rick, 5000, 15, 9, new Date("2026-10-27T12:00:00"), undefined, fixos);
+    expect(f.dias.find((d) => d.data === "2026-11-02")!.trabalha).toBe(true);
+    expect(f.dias.find((d) => d.data === "2026-10-31")!.trabalha).toBe(false);
+    expect(f.dias.filter((d) => d.trabalha)).toHaveLength(9);
+    expect(f.diasTrabalho).toBe(9);
+    expect(f.dias.reduce((s, d) => s + d.unid, 0)).toBe(f.totalUnid);
+    // more fixed days than asked: the plan grows to fit them
+    const muitos = new Map(c.dias.map((d) => [d.data, true] as const));
+    expect(cronograma(rick, 5000, 15, 3, new Date("2026-10-27T12:00:00"), undefined, muitos).diasTrabalho).toBe(15);
   });
 });
