@@ -22,6 +22,7 @@ import { Share, PlusSquare, Check } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
+import { ehAppDaLoja } from "@/shared/lib/platform";
 import { useCountUp, useReducedMotion } from "@/shared/motion";
 import { calcularPlano, salvarPlano, marcarPlanoRevelado, type PlanoDoCorre } from "@/shared/onboarding/plano";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
@@ -99,7 +100,8 @@ export default function OnboardingNovo() {
   const jaInstalado = useMemo(
     () =>
       typeof window !== "undefined" &&
-      (window.matchMedia?.("(display-mode: standalone)").matches || (navigator as any).standalone === true),
+      // 28/10: the Play/App Store app is already installed — "fixe na tela inicial" makes no sense there
+      (ehAppDaLoja() || window.matchMedia?.("(display-mode: standalone)").matches || (navigator as any).standalone === true),
     [],
   );
 
