@@ -14,6 +14,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { x1SoPontos, apostaVisivel } from "@/shared/lib/x1-loja";
 import { erroBonito } from "./x1-lib";
+import { urlPublica } from "@/shared/lib/platform";
 
 export const SALA_VAGAS = [2, 3, 4, 5, 6, 8];
 export const SALA_APOSTAS = [0, 10, 20, 50];
@@ -108,4 +109,4 @@ export function ordenarPlacar(lutadores: SalaLutador[]): (SalaLutador & { pos: n
   return dentro.map((l, i) => { if (l.total !== ultimo) { pos = i + 1; ultimo = l.total; } return { ...l, pos: l.posicao ?? pos }; });
 }
 
-export const linkSala = (id: string) => `${typeof window !== "undefined" ? window.location.origin : "https://app.vantapp.com.br"}/x1/sala/${id}`;
+export const linkSala = (id: string) => urlPublica(`/x1/sala/${id}`);

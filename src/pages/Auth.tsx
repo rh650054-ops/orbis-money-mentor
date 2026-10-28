@@ -16,6 +16,7 @@ import { TERMOS_VERSAO } from "@/components/AceiteTermosModal";
 import { useBrazilCities } from "@/shared/hooks/use-brazil-cities";
 import { telefoneNormalizado, telefoneValido } from "@/shared/lib/telefone";
 import { zerarSeContaTeste } from "@/components/jornada/conta-teste";
+import { urlPublica } from "@/shared/lib/platform";
 
 type LoginMethod = "cpf" | "email";
 
@@ -173,7 +174,7 @@ export default function Auth() {
             email: internalEmail,
             password,
             options: {
-              emailRedirectTo: `${window.location.origin}/`,
+              emailRedirectTo: urlPublica("/"),
               data: { nickname: name, cpf: cleanedCpf, ref: getReferralCode() ?? undefined },
             },
           });

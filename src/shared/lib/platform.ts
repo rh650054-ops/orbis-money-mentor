@@ -30,3 +30,12 @@ export function ehAppDaLoja(): boolean {
 export function podeUsarCheckoutWeb(): boolean {
   return plataforma() === "web";
 }
+
+/** Public web address of the app. Inside the store app `window.location.origin` is
+ *  `https://localhost`, so links built from it (share, e-mail redirects) would be dead. */
+export const URL_APP = "https://app.vantapp.com.br";
+export function urlPublica(caminho = "/"): string {
+  const origem = typeof window !== "undefined" && !ehAppDaLoja() && /^https?:/.test(window.location.origin)
+    ? window.location.origin : URL_APP;
+  return `${origem}${caminho.startsWith("/") ? caminho : `/${caminho}`}`;
+}
