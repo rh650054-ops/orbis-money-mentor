@@ -1,7 +1,8 @@
 /* ============================================================
    CLIMA DO VENDEDOR — centro de decisão (redesenho 08/10/2026).
-   v2 (revisão visual, 08/10): agora+decisão → próximas horas → melhor janela →
-   opinião → plano → próximos dias → alertas → aprendizado → radar.
+   v3 (27/10, Rick: "tudo muito grande", referência iPhone/Android): cabeçalho compacto +
+   decisão → próximas horas → melhor janela → plano → próximos dias → detalhes de agora →
+   alertas → opinião → aprendizado (rede VANT) → radar → fontes. Tamanhos em px fixo.
    Toda recomendação sai de decisao.ts (um lugar só, sem contradição);
    a IA fica com a "Opinião da Vant". Clima vem sozinho do GPS.
    Com alerta (oficial ou dos modelos), o card sobe pra logo depois do hero.
@@ -25,7 +26,7 @@ import { montarInsights } from "@/components/clima/tela/insights";
 import { RadarCard } from "@/components/clima/tela/RadarCard";
 import { VantPersonagem } from "@/components/clima/tela/VantPersonagem";
 import { useContextoClima } from "@/components/clima/tela/use-contexto-clima";
-import "@/styles/clima.css";
+import { DetalhesAgora } from "@/components/clima/tela/DetalhesAgora";
 
 const ehNoturno = (h?: number | null) => h != null && (h >= 19 || h <= 4);
 
@@ -55,15 +56,15 @@ export default function Clima() {
       <div className="px-4 pt-2 pb-10 max-w-2xl mx-auto">
         {semPosicao ? (
           <section className="relative overflow-hidden rounded-[22px] border p-5 flex flex-col gap-2.5" style={{ borderColor: "rgba(245,184,0,.4)", background: "#0e0e10" }}>
-            <VantPersonagem altura={150} className="absolute right-2 bottom-20 pointer-events-none" />
+            <VantPersonagem altura={110} className="absolute right-3 bottom-20 pointer-events-none" />
             <span className="inline-flex items-center gap-1.5 text-[12px] font-black tracking-[.14em] uppercase" style={{ color: "#F5B800" }}><MapPin className="w-4 h-4" strokeWidth={2.4} /> Onde você vende</span>
-            <p className="text-[20px] font-extrabold leading-tight pr-[96px]">Me diz onde você tá que eu leio o céu por você.</p>
-            <p className="text-[14px] leading-snug pr-[96px]" style={{ color: "#b3ada3" }}>
-              {permissao === "negada" ? "A localização está bloqueada pra VANT. Libera nos ajustes do navegador ou do app." : "Vejo a chuva hora a hora e te digo a melhor janela de venda. Não guardo sua rua: arredondo pra uns 5 km."}
+            <p className="text-[17px] font-bold leading-tight pr-[72px]">Me diz onde você tá que eu leio o céu por você.</p>
+            <p className="text-[14px] leading-snug pr-[72px]" style={{ color: "#b3ada3" }}>
+              {permissao === "negada" ? "A localização está bloqueada pra VANT. Libera nos ajustes do navegador ou do app." : "Vejo a chuva hora a hora e te digo a melhor janela de venda. Não guardo sua rua: arredondo pra cerca de 1 km."}
             </p>
             {permissao !== "negada" && (
               <button type="button" onClick={() => void pedirPermissao()} disabled={carregando}
-                className="mt-1 h-[52px] rounded-[14px] flex items-center justify-center gap-2 text-[15px] font-black transition-transform duration-100 active:scale-[0.97]" style={{ background: "#F5B800", color: "#141005" }}>
+                className="mt-1 h-12 rounded-[14px] flex items-center justify-center gap-2 text-[15px] font-bold transition-transform duration-100 active:scale-[0.97]" style={{ background: "#F5B800", color: "#141005" }}>
                 {carregando ? <Loader2 className="w-5 h-5 animate-spin" /> : <MapPin className="w-5 h-5" strokeWidth={2.4} />}
                 {carregando ? "Procurando você…" : "Liberar localização"}
               </button>
@@ -79,7 +80,7 @@ export default function Clima() {
             </button>
           </section>
         ) : (
-          <div className="flex flex-col gap-4">{[260, 150, 180].map((h) => <div key={h} className="rounded-[22px] animate-pulse" style={{ height: h, background: "#131211" }} />)}</div>
+          <div className="flex flex-col gap-4">{[180, 150, 220].map((h) => <div key={h} className="rounded-[16px] animate-pulse" style={{ height: h, background: "#131211" }} />)}</div>
         )}
       </div>
     );
@@ -92,7 +93,7 @@ export default function Clima() {
   const alertas = <AlertasSeguranca t={tempo} cidade={cidade} />;
 
   return (
-    <div className="px-4 pt-2 pb-12 max-w-2xl mx-auto flex flex-col gap-7">
+    <div className="px-4 pt-2 pb-12 max-w-2xl mx-auto flex flex-col gap-3.5">
       {(erro === "falhou" || visto?.velha) && !carregando && (
         <section role="status" className="rounded-[16px] border px-4 py-3 flex items-center gap-3" style={{ background: "#1a1408", borderColor: "rgba(245,184,0,.35)" }}>
           <p className="flex-1 text-[13.5px] leading-snug" style={{ color: "#e9dfc9" }}>
@@ -106,14 +107,19 @@ export default function Clima() {
       <HeroClima t={tempo} cidade={cidade} decisao={decisao!} janela={sev ? null : janelas.find((j) => j.boa) ?? janelas[0] ?? null}
         rede={extras.rede} atualizadoEm={extras.atualizadoEm} carregando={carregando} onAtualizar={() => void recarregar()} />
       {temAlerta && alertas}
-      <HoraAHora horas={tempo.horas} />
+      <HoraAHora horas={tempo.horas} tempAgora={tempo.temp} />
       <JanelasVenda janelas={janelas} aprendendo={perfilHoras.length === 0} pausadoPor={sev?.titulo ?? null} />
-      <OpiniaoVant falas={opiniao?.falas ?? []} fontes={tempo.fontesTotal} pensando={carregando} falhou={erro === "falhou"} />
       <PlanoAcao passos={plano} />
-      <ProximosDias dias={tempo.dias ?? []} />
+      <ProximosDias dias={tempo.dias ?? []} tempAgora={tempo.temp} />
+      <DetalhesAgora t={tempo} />
       {!temAlerta && alertas}
+      <OpiniaoVant falas={opiniao?.falas ?? []} fontes={tempo.fontesTotal} pensando={carregando} falhou={erro === "falhou"} />
       <Aprendizado insights={insights} dias={aprendizado?.dias ?? 0} onResponder={responder} />
       <RadarCard horas={tempo.horas} cell={extras.cell} modelos={extras.modelos} />
+      <p className="px-2 pt-1 text-center text-[11.5px] leading-relaxed" style={{ color: "#7e7869" }}>
+        Previsão: Open-Meteo (melhor modelo pra sua região) · confiança: {tempo.fontesTotal || 6} modelos · alertas: INMET.<br />
+        Atualiza sozinho a cada 15 min ou quando você toca em atualizar.
+      </p>
     </div>
   );
 }

@@ -24,7 +24,10 @@ function moda(codigos: number[]): number {
 
 export function diaDeVenda(d: DiaClima): DiaClima & { garoa: boolean; mmVenda: number } {
   const hs = d.horas.filter((h) => h.hora >= INI && h.hora <= FIM);
-  if (hs.length === 0) return { ...d, garoa: false, mmVenda: d.mm ?? 0 };
+  // 27/10 (Rick): the screen shows the whole-day chance like the iPhone (probDia); `prob`
+  // stays the selling-hours chance used by the decision engine and Objetivo de Lucro.
+  const probDia = d.probDia ?? d.prob;
+  if (hs.length === 0) return { ...d, probDia, garoa: false, mmVenda: d.mm ?? 0 };
   const mmVenda = hs.reduce((s, h) => s + (h.mm || 0), 0);
   const chovendo = hs.filter((h) => (h.mm || 0) >= 0.2);
   const forte = hs.filter((h) => (h.mm || 0) >= 0.5);
@@ -43,7 +46,7 @@ export function diaDeVenda(d: DiaClima): DiaClima & { garoa: boolean; mmVenda: n
     const meio = hs.filter((h) => h.hora >= 10 && h.hora <= 17).map((h) => Math.min(3, h.codigo ?? 2));
     codigo = moda(meio.length ? meio : hs.map((h) => Math.min(3, h.codigo ?? 2)));
   }
-  return { ...d, codigo, prob, garoa: forte.length === 0 && mmVenda >= 0.3, mmVenda: Math.round(mmVenda * 10) / 10 };
+  return { ...d, codigo, prob, probDia, garoa: forte.length === 0 && mmVenda >= 0.3, mmVenda: Math.round(mmVenda * 10) / 10 };
 }
 
 /** Aplica o resumo de venda a todos os dias da resposta (inclusive o que vem do cache). */

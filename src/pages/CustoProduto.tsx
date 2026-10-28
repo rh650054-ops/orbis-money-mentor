@@ -278,7 +278,7 @@ export default function CustoProduto() {
       {etapa === "resultado" && (
         <section className="rounded-2xl p-4 space-y-2" style={{ background: "linear-gradient(170deg,#1a1305,#0e0e10 70%)", border: "1px solid rgba(245,184,0,.42)" }}>
           <p className="text-[10px] font-black tracking-[.16em]" style={{ color: GOLD }}>CUSTO DE CADA {nomeProduto.toUpperCase()}</p>
-          <p className="text-[38px] font-black tabular-nums leading-none">{formatCurrency(res.unidade)}</p>
+          <p className="text-[28px] font-extrabold tabular-nums leading-none">{formatCurrency(res.unidade)}</p>
           <p className="text-[12.5px]" style={{ color: "#b9b3a6" }}>
             {formatCurrency(res.total)} de mercadoria em {notas.length} {notas.length === 1 ? "nota" : "notas"} ÷ {rend} unidades
           </p>

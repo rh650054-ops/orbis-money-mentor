@@ -35,7 +35,7 @@ export function CampoDinheiro({ valor, onChange, rotulo, grande, autoFocus }: {
         <span className="mr-2 font-bold" style={{ color: "#7b766e", fontSize: grande ? 17 : 15 }}>R$</span>
         <input
           type="text" inputMode="decimal" placeholder="0" autoFocus={autoFocus} {...campo}
-          className={`bg-transparent outline-none font-black tabular-nums ${grande ? "text-[30px] w-40 text-center" : "text-xl w-full"}`}
+          className={`bg-transparent outline-none font-black tabular-nums ${grande ? "text-[26px] w-40 text-center" : "text-xl w-full"}`}
           aria-label={rotulo ?? "Valor"}
         />
       </span>
@@ -69,7 +69,7 @@ export function Contador({ valor, onChange, min = 0, grande, unidade, rotulo }: 
               if (t !== "" && parseInt(t, 10) >= min) onChange(parseInt(t, 10));
             }}
             onBlur={() => { const n = Math.max(min, parseInt(texto, 10) || 0); setTexto(n ? String(n) : ""); onChange(n); }}
-            className={`w-full bg-transparent text-center font-black outline-none tabular-nums ${grande ? "text-[40px] leading-none" : "text-[22px]"}`}
+            className={`w-full bg-transparent text-center font-black outline-none tabular-nums ${grande ? "text-[30px] leading-none" : "text-[22px]"}`}
             aria-label={rotulo ?? "Quantidade"} />
           {unidade && <span className="text-[11px] font-extrabold" style={{ color: "#7b766e" }}>{unidade}</span>}
         </div>

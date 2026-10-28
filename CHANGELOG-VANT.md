@@ -2,6 +2,27 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 27/10/2026 — Clima v3 (estilo Clima do iPhone/Android) + varredura de tamanho de fonte
+
+**O que mudou pro vendedor**
+- **Clima, topo:** cidade, temperatura grande e fina, condição, máx/mín/sensação, mascote pequeno ao lado. Embaixo, três pílulas: "atualizado há X" (toca pra atualizar de verdade), "chuva agora X%" e "X% dos 6 modelos concordam". Depois o card da decisão ("Dá pra vender agora").
+- **Próximas horas:** frase de resumo no topo, como no iPhone ("Garoa fraca possível por volta das 9h (até 30%). Chega a 21° às 13h.") e faixa de horas com ícone e temperatura; o % só aparece quando é 20% ou mais.
+- **Próximos 7 dias:** lista com ícone, % de chuva **do dia inteiro** (igual iPhone), mínima, barra da semana com o ponto de "agora" e máxima. A chance nas horas de venda (7h–21h) aparece quando toca no dia.
+- **Quadrinhos novos:** Sensação, Vento (com aviso de rajada pro guarda-sol), Umidade e Chuva hoje.
+- **Dados mais confiáveis:** temperatura hora a hora vem do melhor modelo pra região (não mais da média dos 6), ícone de chuva só aparece se o % concorda, previsão por área de ~1 km (antes ~5 km), atualiza a cada 15 min (antes 30–60) e o botão de atualizar busca de novo no servidor.
+- **Tamanhos:** Clima, Produtos e estoque, Custo do produto, Perfil e Caça-Sinal na escala do Relatório/Financeiro (número principal até 28–32 px, nada que cresce com a largura da tela).
+
+**O que saiu / mudou de comportamento**
+- Saiu a cena animada grande do topo do Clima (o mascote fica, pequeno). Arquivos apagados: `CenaVant.tsx`, `CenaFundo.tsx`, `CenaFx.tsx`, `use-movimento-mascote.ts`, `src/styles/clima.css`.
+- O % de cada dia na lista agora é do dia inteiro; o % das horas de venda continua sendo o que o motor de decisão e o Objetivo de Lucro usam.
+- A temperatura hora a hora deixou de ser a média dos 6 modelos (eles continuam na "concordância" e na chance de chuva).
+- A Rede VANT ("tá chovendo aí?") continua agrupando por ~5 km, pra não zerar as respostas que já existem.
+
+**Por dentro**
+- `clima-vendedor`: célula 0,01°, cache do servidor 15 min, `forcar` pula o cache, `cellRede` separado (0,05°).
+- Teste novo `src/test/tamanho-fonte.test.ts` trava fonte > 32 px e fonte em vw; telas com número grande de propósito ficam numa lista de exceções com o motivo (DEFCON, X1, Objetivo de Lucro, onboarding e algumas "próxima rodada").
+- 5 testes novos do Clima (`resumo-horas.test.ts`). Preflight: 0 erros de lint, typecheck limpo, 378 testes passando.
+
 ## 18/10/2026 — Relatório: redesign completo ("quanto" fica na Dashboard, "como" fica aqui)
 
 **O que mudou pro vendedor**

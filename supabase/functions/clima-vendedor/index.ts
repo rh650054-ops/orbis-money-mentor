@@ -112,7 +112,10 @@ interface Tempo {
   dias?: Dia[]; oficiais?: AlertaOficial[]; padrao?: Padrao | null; modelosIds?: string[];
 }
 
-const celula = (lat: number, lon: number) => `${(Math.round(lat / 0.05) * 0.05).toFixed(2)},${(Math.round(lon / 0.05) * 0.05).toFixed(2)}`;
+// 27/10 (Rick: "não chega perto do iPhone"): cell went from 0.05° (~5.5 km) to 0.01° (~1.1 km).
+// Open-Meteo is asked for the cell centre, so a coarse cell moved the point up to 2.7 km
+// (1–3 °C in hilly Cotia/SP). Rain votes are still pooled per ~50 km region elsewhere.
+const celula = (lat: number, lon: number) => `${(Math.round(lat / 0.01) * 0.01).toFixed(2)},${(Math.round(lon / 0.01) * 0.01).toFixed(2)}`;
 
 function descreveCodigo(c: number, dia: boolean): string {
   if (c === 0) return dia ? "Ensolarado" : "Céu limpo";
@@ -319,7 +322,9 @@ async function buscarTempo(lat: number, lon: number, pesos: Pesos = {}): Promise
     horas.push({
       hora: Number(iso.slice(11, 13)), iso, fontes: chove, total,
       mm: total > 0 ? mmSoma / total : Number(rv("precipitation", iso) ?? 0),
-      temp: tN > 0 ? tSoma / tN : rv("temperature_2m", iso),
+      // 27/10: the hour's temperature comes from the SAME source as the big "now" number
+      // (best_match). The 6-model average (incl. 0.5° JMA) made "Agora 14°" sit under a 15° hero.
+      temp: rv("temperature_2m", iso) ?? (tN > 0 ? tSoma / tN : null),
       prob, codigo: rv("weather_code", iso),
       chance, conf: confDe(chance),
       umid: rv("relative_humidity_2m", iso), vento: rv("wind_speed_10m", iso), rajada: rv("wind_gusts_10m", iso), sens: rv("apparent_temperature", iso),
@@ -598,8 +603,10 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const lat = Number(body?.lat), lon = Number(body?.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return json({ error: "lat_lon_invalidos" }, 400);
-    // arredonda pra célula de ~5 km: ninguém precisa da esquina exata pra saber se chove
+    // forecast cell ~1 km (27/10); the crowd network ("rede VANT") keeps the old ~5 km
+    // cell so nearby vendors still pool their "tá chovendo?" answers together.
     const cell = celula(lat, lon);
+    const cellRede = `${(Math.round(lat / 0.05) * 0.05).toFixed(2)},${(Math.round(lon / 0.05) * 0.05).toFixed(2)}`;
     const [cLat, cLon] = cell.split(",").map(Number) as [number, number];
 
     // pesos dos modelos nesta região (quem mais acertou aqui pesa mais)
@@ -607,12 +614,12 @@ serve(async (req) => {
     const { data: notas } = await admin.from("clima_modelo_acerto").select("modelo, acertos, total").eq("regiao", regiao);
     const pesos: Pesos = Object.fromEntries((notas ?? []).map((n: { modelo: string; acertos: number; total: number }) => [n.modelo, { acertos: n.acertos, total: n.total }]));
 
-    // cache do tempo por célula: 30 min (era 3 h — o "agora" muda mais rápido que isso).
+    // cache do tempo por célula: 15 min desde 27/10 (era 30; antes 3 h — o "agora" muda mais rápido que isso).
     // Payload sem "dias" é da versão antiga: busca de novo.
     let tempo: Tempo | null = null;
     let atualizadoEm = new Date().toISOString();
     const { data: cached } = await admin.from("clima_celula").select("payload, atualizado_em").eq("cell", cell).maybeSingle();
-    if (cached && Date.now() - new Date(cached.atualizado_em).getTime() < 30 * 60 * 1000 && !body?.forcar && (cached.payload as Tempo)?.dias) {
+    if (cached && Date.now() - new Date(cached.atualizado_em).getTime() < 15 * 60 * 1000 && !body?.forcar && (cached.payload as Tempo)?.dias) {
       tempo = cached.payload as Tempo; atualizadoEm = cached.atualizado_em;
     } else {
       try {
@@ -638,7 +645,7 @@ serve(async (req) => {
       if (ultimo && Date.now() - new Date(ultimo.criado_em).getTime() < 30 * 60 * 1000) feedbackOk = false;
       else {
         const h0 = tempo.horas[0];
-        const { error: eF } = await admin.from("clima_feedback").insert({ user_id: user.id, cell, hora_iso: h0?.iso ?? "", chovendo, modelos: h0?.modelos ?? {} });
+        const { error: eF } = await admin.from("clima_feedback").insert({ user_id: user.id, cell: cellRede, hora_iso: h0?.iso ?? "", chovendo, modelos: h0?.modelos ?? {} });
         if (eF) console.error("FEEDBACK_FALHOU:", eF.message);
         for (const [m, mm] of Object.entries(h0?.modelos ?? {})) {
           await admin.rpc("clima_modelo_registrar", { p_regiao: regiao, p_modelo: m, p_acerto: (Number(mm) >= 0.2) === chovendo });
@@ -651,7 +658,7 @@ serve(async (req) => {
     let rede: Rede | null = null;
     {
       const desde = new Date(Date.now() - 45 * 60 * 1000).toISOString();
-      const { data: resp } = await admin.from("clima_feedback").select("chovendo, criado_em").eq("cell", cell).gte("criado_em", desde).order("criado_em", { ascending: false }).limit(50);
+      const { data: resp } = await admin.from("clima_feedback").select("chovendo, criado_em").eq("cell", cellRede).gte("criado_em", desde).order("criado_em", { ascending: false }).limit(50);
       if (resp && resp.length > 0) {
         const sim = resp.filter((r: { chovendo: boolean }) => r.chovendo).length;
         rede = { sim, nao: resp.length - sim, minutos: Math.max(0, Math.round((Date.now() - new Date(resp[0].criado_em).getTime()) / 60000)) };

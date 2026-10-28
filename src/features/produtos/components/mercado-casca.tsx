@@ -32,7 +32,7 @@ export function MercadoCasca({ titulo, sub, onVoltar, children, rodape }: {
             <ChevronLeft className="w-6 h-6" />
           </button>
           <div className="flex flex-col gap-1">
-            <h1 className="text-[25px] font-black tracking-tight leading-[1.1]">{titulo}</h1>
+            <h1 className="text-[20px] font-extrabold tracking-tight leading-[1.1]">{titulo}</h1>
             {sub && <p className="text-[13px]" style={{ color: "#b9b3a6" }}>{sub}</p>}
           </div>
         </div>

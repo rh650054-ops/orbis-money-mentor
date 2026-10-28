@@ -11,7 +11,7 @@ export function MercadoTotal({ total, itens, porItem }: { total: number; itens: 
           {itens} {itens === 1 ? "item" : "itens"}{porItem && total === 0 && itens > 0 ? " · põe o preço pra somar" : ""}
         </span>
       </div>
-      <span className="text-[30px] leading-none font-black tabular-nums tracking-tight" style={{ color: total > 0 ? "#F5B800" : "#4a463f" }}>
+      <span className="text-[24px] leading-none font-extrabold tabular-nums tracking-tight" style={{ color: total > 0 ? "#F5B800" : "#4a463f" }}>
         {reais(total)}
       </span>
     </div>

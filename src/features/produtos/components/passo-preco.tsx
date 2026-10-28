@@ -13,7 +13,7 @@ export function CardLucro({ preco, custo }: { preco: number; custo: number }) {
       style={{ background: ruim ? "rgba(255,122,107,.08)" : "rgba(61,214,140,.08)", border: `1px solid ${ruim ? "rgba(255,122,107,.4)" : "rgba(61,214,140,.35)"}` }}>
       <div className="flex justify-between items-baseline">
         <span className="text-[13px] font-extrabold" style={{ color: "#b9b3a6" }}>{ruim ? "Assim você perde em cada venda" : "Sobra pra você em cada uma"}</span>
-        <span className="text-[26px] font-black" style={{ color: ruim ? "#ff7a6b" : "#3DD68C" }}>{reais(l.sobra)}</span>
+        <span className="text-[22px] font-extrabold" style={{ color: ruim ? "#ff7a6b" : "#3DD68C" }}>{reais(l.sobra)}</span>
       </div>
       {custo > 0 && (
         <>

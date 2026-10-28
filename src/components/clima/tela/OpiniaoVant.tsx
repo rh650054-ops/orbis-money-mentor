@@ -25,7 +25,7 @@ export function OpiniaoVant({ falas, fontes, pensando, falhou = false }: { falas
     <section aria-label="Opinião da VANT" className="flex gap-2.5 items-start">
       <Avatar />
       <button type="button" disabled={n < 2} onClick={() => { haptic(); setI((x) => x + 1); }}
-        className="relative flex-1 min-w-0 text-left rounded-[20px] rounded-tl-[6px] px-4 pt-3.5 pb-3.5 transition-transform duration-[120ms] enabled:active:scale-[0.99]"
+        className="relative flex-1 min-w-0 text-left rounded-[16px] rounded-tl-[6px] px-3.5 pt-3 pb-3 transition-transform duration-[120ms] enabled:active:scale-[0.99]"
         style={{ background: "linear-gradient(170deg, #FBF8F1 0%, #F1EDE3 100%)", boxShadow: "0 18px 40px -24px rgba(0,0,0,.9)" }}>
         <span className="absolute -left-[7px] top-3 w-0 h-0" style={{ borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderRight: "8px solid #FBF8F1" }} aria-hidden />
         <span className="flex items-baseline justify-between gap-2">
@@ -34,7 +34,7 @@ export function OpiniaoVant({ falas, fontes, pensando, falhou = false }: { falas
         </span>
         <span key={i} className="mt-2 flex flex-col gap-0.5 animate-in fade-in duration-200">
           {fala ? linhas.map((l, k) => (
-            <span key={k} className="block text-[18px] leading-snug" style={{ color: TINTA, fontWeight: k === 0 ? 800 : 600 }}>{l}</span>
+            <span key={k} className="block text-[15px] leading-snug" style={{ color: TINTA, fontWeight: k === 0 ? 800 : 600 }}>{l}</span>
           )) : <span className="block text-[15px]" style={{ color: CINZA }}>{pensando ? "Lendo os modelos e as suas contas…" : falhou ? "Os modelos de clima não responderam agora. Toca em atualizar daqui a 1 minuto." : "Toca em atualizar pra eu dar minha opinião."}</span>}
         </span>
         {n > 1 && <span className="block mt-2 text-[12px] font-semibold" style={{ color: CINZA }}>toque para ver outras leituras</span>}

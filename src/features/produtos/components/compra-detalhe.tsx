@@ -29,7 +29,7 @@ export function CompraDetalhe({ id, onFechar, onEditar }: { id: string | null; o
         {c && (
           <>
             <section className="rounded-[22px] px-5 py-4 flex flex-col items-center text-center gap-1" style={{ background: "radial-gradient(120% 90% at 50% 0%, rgba(245,184,0,.22), #0b0b0c 75%)", border: "1px solid rgba(245,184,0,.35)" }}>
-              <span className="text-[38px] leading-none font-black tabular-nums">{reais(c.total)}</span>
+              <span className="text-[28px] leading-none font-extrabold tabular-nums">{reais(c.total)}</span>
               <span className="text-[12.5px] font-bold" style={{ color: "#b9b3a6" }}>{quando(c.criadaEm)} · {c.itens.length} {c.itens.length === 1 ? "item" : "itens"}</span>
             </section>
 
@@ -40,7 +40,7 @@ export function CompraDetalhe({ id, onFechar, onEditar }: { id: string | null; o
                   <div key={f.id} className="flex flex-col gap-1.5">
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="text-[15px] font-black">{f.nome}</span>
-                      <span className="text-[24px] leading-none font-black tabular-nums" style={{ color: OURO }}>+{f.unidades.toLocaleString("pt-BR")}</span>
+                      <span className="text-[20px] leading-none font-extrabold tabular-nums" style={{ color: OURO }}>+{f.unidades.toLocaleString("pt-BR")}</span>
                     </div>
                     {f.custo > 0 && (
                       <div className="flex items-baseline justify-between gap-2 rounded-[12px] px-3 py-2" style={{ background: "rgba(245,184,0,.08)", border: "1px solid rgba(245,184,0,.3)" }}>
