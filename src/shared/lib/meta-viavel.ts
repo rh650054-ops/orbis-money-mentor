@@ -64,6 +64,29 @@ export interface MetaDoDia {
   metaAdaptativa: number;
   /** dias com venda nas últimas 8 semanas */
   diasVendidos: number;
+  /** 28/10: active profit mission — the day's goal above is what it needs today */
+  missao: MissaoHoje | null;
+}
+
+/** What the active profit mission asks for today (metas_dia.missao). */
+export interface MissaoHoje {
+  alvo: number;
+  fim: string;
+  precisaLucro: number;
+  unidMeta: number;
+  faturar: number;
+  produto: string | null;
+}
+
+function lerMissao(v: unknown): MissaoHoje | null {
+  if (!v || typeof v !== "object") return null;
+  const m = v as Record<string, unknown>;
+  if (!(Number(m.unid_meta) > 0)) return null;
+  return {
+    alvo: n(m.alvo), fim: String(m.fim ?? ""), precisaLucro: n(m.precisa_lucro),
+    unidMeta: Number(m.unid_meta), faturar: n(m.faturar),
+    produto: typeof m.produto === "string" && m.produto.trim() ? m.produto.trim() : null,
+  };
 }
 
 export const NOMES_DIA = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
@@ -104,6 +127,7 @@ export function lerMetaDoDia(row: unknown): MetaDoDia | null {
     modo: r.modo === "adaptativo" ? "adaptativo" : "padrao",
     metaAdaptativa: r.meta_adaptativa == null ? n(r.meta) : n(r.meta_adaptativa),
     diasVendidos: Number(r.dias_vendidos) || 0,
+    missao: lerMissao(r.missao),
   };
 }
 

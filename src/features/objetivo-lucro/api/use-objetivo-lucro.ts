@@ -46,7 +46,8 @@ export function useCriarDesafioMutation() {
       const { error } = await rpc("objetivo_lucro_criar", { p_alvo: v.alvo, p_dias: v.dias, p_dias_trabalho: v.diasTrabalho, p_ia: v.ia });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: objetivoLucroKeys.all }),
+    // 28/10: the mission sets the Foco's daily goal (server) — refresh it too
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: objetivoLucroKeys.all }), qc.invalidateQueries({ queryKey: ["meta-do-dia"] })]),
   });
 }
 
@@ -57,6 +58,7 @@ export function useExcluirDesafioMutation() {
       const { error } = await rpc("objetivo_lucro_excluir", { p_id: id });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: objetivoLucroKeys.all }),
+    // 28/10: the mission sets the Foco's daily goal (server) — refresh it too
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: objetivoLucroKeys.all }), qc.invalidateQueries({ queryKey: ["meta-do-dia"] })]),
   });
 }

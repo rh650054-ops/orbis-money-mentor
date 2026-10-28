@@ -8,7 +8,7 @@ import { ReplanejarMes } from "./components/metas/ReplanejarMes";
 import { DefconStartScreen } from "./components/defcon/DefconStartScreen";
 import { MetaAdaptativaCard } from "./components/defcon/foco/meta-adaptativa-card";
 import type { MetaDoDia } from "./shared/lib/meta-viavel";
-const meta: MetaDoDia = { hoje: "2026-10-18", diaSemana: 0, ritmo: 980, amostraDia: 4, precisaDia: 1295, diasRestantes: 12, vendidoMes: 14467, metaMensal: 30000, faltaMes: 15533, meta: 1270, minimo: 1020, turbo: 1520, status: "apertado", mesViavel: 26000, ticket: 25, curva: [], modo: "adaptativo", metaAdaptativa: 1270, diasVendidos: 20,
+const meta: MetaDoDia = { hoje: "2026-10-18", diaSemana: 0, ritmo: 980, amostraDia: 4, precisaDia: 1295, diasRestantes: 12, vendidoMes: 14467, metaMensal: 30000, faltaMes: 15533, meta: 1270, minimo: 1020, turbo: 1520, status: "apertado", mesViavel: 26000, ticket: 25, curva: [], modo: "adaptativo", metaAdaptativa: 1270, diasVendidos: 20, missao: null,
   maximo: { diasExtra: ["saturday"], blocos: 8, metaDia: 1400, diasRestantes: 14, projecao: 30000, pct: 100, chega: true, vendasDia: 56, vendasHora: 7, vendasDiaRealista: 47 } };
 const q = new URLSearchParams(location.search).get("v");
 // 25/10: ?v=padrao (meta do planejamento) · ?v=adapt (3 faixas) · ?v=replan

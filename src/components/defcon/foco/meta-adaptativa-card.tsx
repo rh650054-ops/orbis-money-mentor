@@ -34,7 +34,7 @@ export function MetaAdaptativaCard({ m, estado, salvando, onTrocar, travado = fa
         <div className="min-w-0 flex-1">
           <p className="text-[12.5px] font-extrabold">Meta adaptativa ligada</p>
           <p className="text-[11.5px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>
-            pelo seu ritmo{valeAmanha ? " · a troca vale no próximo DEFCON" : ""}
+            pelo seu ritmo{m.missao ? " · durante a missão de lucro, a meta segue a missão" : valeAmanha ? " · a troca vale no próximo DEFCON" : ""}
           </p>
         </div>
         <button type="button" disabled={salvando} onClick={() => onTrocar(false)}
@@ -77,7 +77,7 @@ export function MetaAdaptativaCard({ m, estado, salvando, onTrocar, travado = fa
       </button>
       )}
       <p className="text-[11px] mt-2 text-center" style={{ color: "var(--orbis-fg-3)" }}>
-        {travado ? "A Vant define sua diária pelo seu ritmo. Recurso do VANT Pro." : <>{valeAmanha ? "Vale a partir do próximo DEFCON. " : ""}Dá pra voltar pra sua meta quando quiser.</>}
+        {travado ? "A Vant define sua diária pelo seu ritmo. Recurso do VANT Pro." : m.missao ? "Durante a missão de lucro, a meta do dia segue a missão. Vale quando ela acabar." : <>{valeAmanha ? "Vale a partir do próximo DEFCON. " : ""}Dá pra voltar pra sua meta quando quiser.</>}
       </p>
     </section>
   );

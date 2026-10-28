@@ -1,5 +1,7 @@
-/* Peças puras do card principal do Foco: trio de números e anel de progresso. */
+/* Peças puras do card principal do Foco: trio de números, anel de progresso e a faixa da missão. */
 import type { ReactNode } from "react";
+import { Crosshair } from "lucide-react";
+import type { MissaoHoje } from "@/shared/lib/meta-viavel";
 
 export function Trio({ itens }: { itens: [string, ReactNode][] }) {
   return (
@@ -29,5 +31,20 @@ export function AnelProgresso({ pct, valor, cor }: { pct: number; valor: string;
         <span className="text-[11px] font-bold mt-1" style={{ color: "var(--orbis-fg-3)" }}>{Math.round(p)}% da meta</span>
       </span>
     </span>
+  );
+}
+
+/** 28/10: com missão de lucro ativa, a meta do dia é a da missão — esta faixa diz de onde vem o número. */
+export function FaixaMissao({ m }: { m: MissaoHoje }) {
+  const p = (m.produto ?? "").toLowerCase();
+  const un = !p ? "unidades" : p.endsWith("s") ? p : `${p}s`;
+  const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  return (
+    <div className="mt-3 rounded-[14px] px-3 py-2.5 flex items-center gap-2.5" style={{ background: "rgba(245,184,0,.08)", border: "1px solid rgba(245,184,0,.35)" }}>
+      <Crosshair className="w-4 h-4 shrink-0" style={{ color: "var(--orbis-gold)" }} />
+      <p className="text-[12px] leading-snug min-w-0" style={{ color: "var(--orbis-fg-2)" }}>
+        <b style={{ color: "var(--orbis-gold)" }}>Missão {brl(m.alvo)}</b> · hoje <b className="text-foreground">{m.unidMeta} {un}</b> = <b style={{ color: "var(--orbis-ok)" }}>+{brl(m.precisaLucro)}</b> de lucro
+      </p>
+    </div>
   );
 }
