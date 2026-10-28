@@ -14,17 +14,19 @@ export function BlocoHoraAHora({ r }: { r: Resumo }) {
   if (!melhorPeriodo) return null;
   const sel = hora != null ? barras.find((b) => b.h === hora) ?? null : null;
   const max = Math.max(1, ...barras.map((b) => b.valor));
-  const nomeHora = melhorPeriodo.nome === "Almoço" ? "na hora do almoço" : melhorPeriodo.nome === "Manhã" ? "de manhã" : melhorPeriodo.nome === "Tarde" ? "à tarde" : "à noite";
+  const nomeHora = melhorPeriodo.nome === "Almoço" ? "na hora do almoço" : melhorPeriodo.nome === "Manhã" ? "de manhã" : melhorPeriodo.nome === "Tarde" ? "à tarde" : melhorPeriodo.nome === "Cedo" ? "cedo, antes das 8h" : "à noite";
+  // 27/10: "quase metade" was shown for anything from 45% to 100%
+  const parte = shareMelhor >= 45 && shareMelhor <= 55 ? `quase metade (${shareMelhor}%)` : `${shareMelhor}%`;
   return (
     <Secao kicker="Hora a hora">
       <Cartao className="orbis-num">
-        <Frase>Você vende mais <b>{nomeHora}</b>: {melhorPeriodo.faixa} deram {shareMelhor >= 45 ? "quase metade" : `${shareMelhor}%`} do que vendeu.</Frase>
+        <Frase>Você vende mais <b>{nomeHora}</b>: {melhorPeriodo.faixa} deram {parte} do que você vendeu no Foco.</Frase>
 
         <div className="grid grid-cols-2 gap-2">
-          {periodos.map((p) => {
+          {periodos.map((p, i) => {
             const best = p === melhorPeriodo;
             return (
-              <div key={p.nome} className={cn("min-h-[92px] rounded-2xl border p-3", best ? "border-[rgba(245,184,0,.45)] bg-[var(--orbis-gold-soft)]" : "border-transparent bg-secondary")}>
+              <div key={p.nome} className={cn("min-h-[92px] rounded-2xl border p-3", periodos.length % 2 === 1 && i === 0 && "col-span-2", best ? "border-[rgba(245,184,0,.45)] bg-[var(--orbis-gold-soft)]" : "border-transparent bg-secondary")}>
                 <div className={cn("flex justify-between text-[12px] font-bold uppercase tracking-[.06em]", best ? "text-primary" : "text-muted-foreground")}>
                   <span>{p.nome}</span><span>{p.faixa}</span>
                 </div>
@@ -37,7 +39,7 @@ export function BlocoHoraAHora({ r }: { r: Resumo }) {
           })}
         </div>
 
-        <div className="mt-3 grid h-[140px] items-end gap-[3px]" style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}>
+        <div className="mt-3 grid h-[140px] items-end gap-[3px]" style={{ gridTemplateColumns: `repeat(${barras.length}, minmax(0, 1fr))` }}>
           {barras.map((b) => {
             const aceso = (hora ?? melhorHora?.h) === b.h;
             return (
@@ -48,8 +50,8 @@ export function BlocoHoraAHora({ r }: { r: Resumo }) {
             );
           })}
         </div>
-        <div className="mt-1 grid gap-[3px] text-center text-[10px] text-muted-foreground/70" style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }} aria-hidden>
-          {barras.map((b) => <span key={b.h}>{b.h % 2 === 0 ? `${b.h}h` : ""}</span>)}
+        <div className="mt-1 grid gap-[3px] text-center text-[10px] text-muted-foreground/70" style={{ gridTemplateColumns: `repeat(${barras.length}, minmax(0, 1fr))` }} aria-hidden>
+          {barras.map((b) => <span key={b.h}>{b.h % (barras.length > 16 ? 4 : 2) === 0 ? `${b.h}h` : ""}</span>)}
         </div>
 
         {sel && (

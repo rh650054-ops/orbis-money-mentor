@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { derivar } from "./derivar";
+import { derivar, diaComBanco } from "./derivar";
 import { blocoExemplo as bloco, periodoExemplo as periodo, relatorioExemplo as rel } from "./exemplo";
 
 describe("derivar — o que cada card mostra", () => {
@@ -17,7 +17,18 @@ describe("derivar — o que cada card mostra", () => {
     const comBanco = derivar(rel(), [{ dia: "2026-10-13", lancou: 537, pix_cartao: 500, dinheiro: 37, caiu: 437, maquininha: 0, conta_ranking: 437, faltou: 63 }], periodo, "semana anterior");
     expect(comBanco.dinheiro.caiu).toBe(3892 - 63);
     expect(comBanco.dinheiro.faltou).toBe(614 + 63);
-    expect(comBanco.calote.total).toBe(677);
+    expect(comBanco.calote.total).toBe(677 + 150); // faltou + o que caiu depois (manual)
+    expect(comBanco.dias.lista[1]).toMatchObject({ caiu: 474, faltou: 163, vendido: 637 }); // gráfico = card
+  });
+
+  it("banco nunca vira venda que não houve (27/10)", () => {
+    // passado: vale o que conta no ranking; hoje: no máximo o vendido menos o dinheiro
+    const passado = derivar(rel(), [{ dia: "2026-10-13", lancou: 537, pix_cartao: 500, dinheiro: 37, caiu: 5900, maquininha: 0, conta_ranking: 600, faltou: 0 }], periodo, "x");
+    expect(passado.dinheiro.caiu).toBe(3892 - 537 + 637); // 37 + 600 > 637 vendido → vira o novo vendido, não 5.937
+    expect(diaComBanco({ dia: "2099-01-01", lancou: 100, pix_cartao: 80, dinheiro: 20, caiu: 900, maquininha: 0, conta_ranking: 100, faltou: 0 }, 100, "2099-01-01"))
+      .toEqual({ caiu: 100, faltou: 0 });
+    expect(diaComBanco({ dia: "2099-01-01", lancou: 100, pix_cartao: 80, dinheiro: 20, caiu: 50, maquininha: 0, conta_ranking: 100, faltou: 30 }, 100, "2099-01-01"))
+      .toEqual({ caiu: 70, faltou: 30 });
   });
 
   it("vendas: conversão sobre os totais, ritmo sobre o tempo vendendo", () => {
@@ -26,7 +37,7 @@ describe("derivar — o que cada card mostra", () => {
     expect(r.vendas.ritmoMin).toBeCloseTo(940 / 106, 3);
     expect(r.vendas.abordagemCadaMin).toBeCloseTo(940 / 162, 3);
     expect(r.vendas.abordDia).toBe(27);
-    expect(r.vendas.ticket).toBeCloseTo(4506 / 106, 2); // ticket sobre o VENDIDO (PR #126)
+    expect(r.vendas.ticket).toBe(42.51); // valor das vendas do Foco (4506) ÷ nº dessas vendas (106), 27/10
   });
 
   it("dias: melhor por R$, mais eficiente por conversão (≥ 5 vendas), e a lista de dias", () => {
@@ -60,12 +71,30 @@ describe("derivar — o que cada card mostra", () => {
   });
 
   it("calote: total, recuperado, perdido, taxa e comparação com o normal", () => {
-    expect(r.calote.total).toBe(614);
+    // total_debt já é o que AINDA falta: total = faltou + recuperado, perdido = faltou (27/10)
+    expect(r.calote.total).toBe(764);
     expect(r.calote.recuperado).toBe(150);
-    expect(r.calote.perdido).toBe(464);
-    expect(r.calote.taxa).toBe(24);
-    expect(r.calote.umACada).toBe(27);
-    expect(r.calote.vezesNormal).toBeCloseTo(3.4, 1);
+    expect(r.calote.perdido).toBe(614);
+    expect(r.calote.taxa).toBe(20);
+    expect(r.calote.umACada).toBe(27); // 4 unidades marcadas
+    expect(r.calote.vezesNormal).toBeCloseTo(3.4, 1); // perdido × perdido normal
+  });
+
+  it("calote sem unidades marcadas não inventa '1 a cada X' (27/10)", () => {
+    const b = bloco({ calote: { valor: 614, unidades: 0, recuperado: 0, recuperado_n: 0, perdido: 614, pct_vendeu: 13.6, taxa_recuperacao: 0 } });
+    expect(derivar({ ...rel(), atual: b }, [], periodo, "x").calote.umACada).toBeNull();
+  });
+
+  it("conversão de dia sem abordagem marcada não aparece; vendas antes das 8h entram (27/10)", () => {
+    const b = bloco({
+      dias: [{ dia: "2026-10-12", abordagens: 30, vendas: 30, conv_ok: false, caiu: 900, faltou: 0, worked_min: 200, pausa_min: 0, parado_min: 0 }],
+      horas: [{ h: 6, vendas: 10, valor: 300, abordagens: 10 }, { h: 12, vendas: 5, valor: 100, abordagens: 9 }],
+    });
+    const x = derivar({ ...rel(), atual: b }, [], periodo, "x");
+    expect(x.dias.lista[0]?.conv).toBeNull();
+    expect(x.horas.periodos[0]).toMatchObject({ nome: "Cedo", valor: 300 });
+    expect(x.horas.melhorPeriodo?.nome).toBe("Cedo");
+    expect(x.horas.barras[0]?.h).toBe(6);
   });
 
   it("insights: no máximo 3 frases, nascidas dos números", () => {

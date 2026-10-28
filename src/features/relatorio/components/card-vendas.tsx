@@ -20,7 +20,7 @@ export function CardVendas({ r }: { r: Resumo }) {
         <Ring pct={conv ?? 0} size={60} stroke={8} label={<span className="text-[16px] font-bold leading-none">{conv ?? "—"}<small className="text-[11px] font-semibold text-primary">%</small></span>} />
         <div className="min-w-0">
           <p className="text-[14px] font-semibold leading-snug [text-wrap:balance]">
-            {conv == null ? "Sem abordagens registradas" : <>Vendeu pra <b className="text-primary">{conv} de cada 100</b> que abordou</>}
+            {conv == null ? "Marque as abordagens no Foco pra ver sua conversão" : <>Vendeu pra <b className="text-primary">{conv} de cada 100</b> que abordou</>}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-muted-foreground">
             {v.abordPorVenda != null && <span>1 venda a cada {v.abordPorVenda.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} abordagens</span>}

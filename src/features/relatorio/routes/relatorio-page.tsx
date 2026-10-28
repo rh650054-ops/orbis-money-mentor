@@ -9,7 +9,7 @@ import { usePixDoBanco } from "@/components/conectar/banco-pix";
 import { FechamentoDoDia } from "@/components/relatorio/FechamentoDoDia";
 import { useCaloteBancoQuery, useGastosBancoQuery, useRelatorioQuery, relatorioKeys } from "../api/use-relatorio-query";
 import { comGastosBanco } from "../lib/gastos-banco";
-import { derivar } from "../lib/derivar";
+import { derivar, diaComBanco } from "../lib/derivar";
 import { hojeBR, periodoDoPreset, rotuloAnterior } from "../lib/periodo";
 import type { Periodo } from "../types";
 import { Acoes } from "../components/acoes";
@@ -54,6 +54,14 @@ function RelatorioConteudo() {
 
   const hoje = hojeBR();
   const bancoDoDia = resumo?.umDia ? banco.find((d) => d.dia === periodo.de) ?? null : null;
+  // same rule as the cards (27/10): the bank never adds money that is not a sale
+  const bancoFechamento = (() => {
+    if (!bancoDoDia || !rel.data) return null;
+    const vendidoDia = rel.data.atual.dinheiro.caiu + rel.data.atual.dinheiro.faltou;
+    const usado = Math.max(0, diaComBanco(bancoDoDia, vendidoDia, hoje).caiu - bancoDoDia.dinheiro);
+    const cartao = Math.min(bancoDoDia.maquininha, usado);
+    return { pix: Math.round((usado - cartao) * 100) / 100, cartao, hoje: periodo.de === hoje };
+  })();
 
   return (
     <div className="orbis-stagger space-y-4 pb-4 text-foreground md:pb-8">
@@ -79,7 +87,7 @@ function RelatorioConteudo() {
               date={periodo.de}
               dia={resumo.semDados ? null : { total_profit: rel.data!.atual.dinheiro.caiu, total_debt: rel.data!.atual.dinheiro.faltou, cash_sales: rel.data!.atual.dinheiro.dinheiro, pix_sales: rel.data!.atual.dinheiro.pix, card_sales: rel.data!.atual.dinheiro.cartao, unpaid_units: rel.data!.atual.calote.unidades }}
               travado={pixBanco.temBanco}
-              banco={bancoDoDia ? { pix: bancoDoDia.caiu - bancoDoDia.maquininha, cartao: bancoDoDia.maquininha, hoje: periodo.de === hoje } : null}
+              banco={bancoFechamento}
               onChanged={() => { void qc.invalidateQueries({ queryKey: relatorioKeys.all }); void qc.invalidateQueries({ queryKey: ["relatorio", "banco-conferencia"] }); }}
             />
           )}
