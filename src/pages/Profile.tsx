@@ -1,14 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Wallet, Package, Settings as SettingsIcon, MessageCircle, ChevronRight, LogOut, Target, Radar, Sun, Moon, Landmark } from "lucide-react";
+import { User, Wallet, Package, Settings as SettingsIcon, MessageCircle, ChevronRight, Target, Radar, Sun, Moon, Landmark } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Card, CardContent } from "@/shared/ui/card";
-import { Button } from "@/shared/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/shared/hooks/use-toast";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
-import { supabase } from "@/integrations/supabase/client";
-import { avisar } from "@/shared/lib/avisar";
 
 interface MenuItem {
   icon: React.ElementType;
@@ -80,17 +76,10 @@ const menuItems: MenuItem[] = [
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
-  const { toast } = useToast();
+  const { user } = useAuth();
   const { theme, setTheme } = useTheme();
   const [planningOpen, setPlanningOpen] = useState(false);
   const isLight = theme === "light";
-
-  const handleSignOut = async () => {
-    await signOut();
-    toast({ title: "Logout realizado", description: "Até logo!" });
-    navigate("/auth");
-  };
 
   const handleItemClick = (item: MenuItem) => {
     if (item.action === "edit-planning") {
@@ -102,9 +91,17 @@ export default function Profile() {
 
   return (
     <div className="space-y-6 pb-4 md:pb-8 max-w-2xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground tracking-tight">Perfil</h1>
-        <p className="text-muted-foreground mt-1">Acesse e gerencie sua conta</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">Perfil</h1>
+          <p className="text-muted-foreground mt-1">Acesse e gerencie sua conta</p>
+        </div>
+        {/* tema: um toque troca (era um bloco "Aparência" inteiro — Rick, 27/10) */}
+        <button type="button" onClick={() => setTheme(isLight ? "dark" : "light")}
+          aria-label={isLight ? "Usar tema escuro" : "Usar tema claro"} title={isLight ? "Tema escuro" : "Tema claro"}
+          className="mt-1 h-10 w-10 shrink-0 rounded-full border border-border bg-muted/40 grid place-items-center text-primary transition-transform duration-100 active:scale-[0.94]">
+          {isLight ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+        </button>
       </div>
 
 
@@ -132,88 +129,6 @@ export default function Profile() {
           );
         })}
       </div>
-
-      {/* Aparência — tema claro/escuro */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <div className="w-11 h-11 rounded-full bg-muted/40 flex items-center justify-center text-primary">
-              {isLight ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-foreground">Aparência</p>
-              <p className="text-xs text-muted-foreground truncate">Escolha como você quer usar o app</p>
-            </div>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <Button
-              variant={isLight ? "outline" : "default"}
-              onClick={() => setTheme("dark")}
-              className="justify-center gap-2"
-            >
-              <Moon className="w-4 h-4" /> Escuro
-            </Button>
-            <Button
-              variant={isLight ? "default" : "outline"}
-              onClick={() => setTheme("light")}
-              className="justify-center gap-2"
-            >
-              <Sun className="w-4 h-4" /> Claro
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Button
-        variant="ghost"
-        onClick={async () => {
-          // REFAZER DO ZERO = Onboarding 2.0 completo: 3 atos → fixar → planejamento →
-          // cards de 1ª vez em cada tela → checklist "primeiros passos" → tour concluído.
-          const uid = user?.id;
-          if (uid) {
-            const { error } = await supabase
-              .from("profiles")
-              .update({ onboarding_completed: false, onboarding_step: 0 })
-              .eq("user_id", uid);
-            if (error) {
-              avisar.usuario("Não consegui reiniciar o tour. Tenta de novo.", error, "Profile: refazer onboarding");
-              return;
-            }
-          }
-          try {
-            // zera TUDO que o onboarding 2.0 marca como "já visto/feito"
-            Object.keys(localStorage)
-              .filter((k) =>
-                k.startsWith("orbis_intro_vista_") ||        // cards de 1ª vez por tela
-                k.startsWith("orbis_screen_seen_") ||        // (legado)
-                k === `orbis_primeiros_passos_ok_${uid}` ||  // checklist
-                k === `orbis_tour_celebrado_${uid}` ||       // card "tour concluído"
-                k === `orbis_plano_revelado_${uid}` ||       // revelação do plano
-                k === `orbis_visitou_ranking_${uid}` ||      // passo "conhecer o ranking"
-                k === `orbis_defcon_tour_ok_${uid}` ||       // passo "DEFCON 4 de teste" (treino guiado)
-                k === `orbis_mission_completed_${uid}`,      // (legado)
-              )
-              .forEach((k) => localStorage.removeItem(k));
-            localStorage.setItem(`orbis_onboarding_novo_${uid}`, "1"); // conta no fluxo 2.0
-          } catch (e) {
-            avisar.silencioso("Profile: limpar marcações do onboarding no aparelho", e);
-          }
-          window.location.assign("/onboarding-novo");
-        }}
-        className="w-full text-muted-foreground hover:text-foreground"
-      >
-        <Target className="w-4 h-4 mr-2" />
-        Refazer tour de boas-vindas
-      </Button>
-
-      <Button
-        variant="outline"
-        onClick={handleSignOut}
-        className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
-      >
-        <LogOut className="w-4 h-4 mr-2" />
-        Sair da conta
-      </Button>
 
       {user && (
         <EditPlanningModal

@@ -1,5 +1,5 @@
 /* ============================================================
-   FINANÇAS EM ABAS (04/10/2026) — Resumo · Bancos · Planejar · Análise.
+   FINANÇAS EM ABAS (04/10/2026) — Resumo · Bancos · Planejar · Raio-X (era Análise até 27/10).
    Mesma identidade da tela (preto, ouro, verde/vermelho), só reorganizada:
    cada card responde UMA pergunta, um número grande por card, no máximo duas
    linhas de explicação e uma ação. O detalhe fica um toque abaixo.
@@ -13,8 +13,9 @@ import { ChevronRight, Landmark, AlertTriangle, Lock } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { Folego, type HomeFinancas } from "./FinancasHome";
 
-export type AbaFinancas = "resumo" | "bancos" | "planejar" | "analise";
-const ROTULO: Record<AbaFinancas, string> = { resumo: "Resumo", bancos: "Bancos", planejar: "Planejar", analise: "Análise" };
+/* 27/10: "Análise" virou "Raio-X" (as duas telas respondiam "pra onde foi o dinheiro"). */
+export type AbaFinancas = "resumo" | "bancos" | "planejar" | "raiox";
+const ROTULO: Record<AbaFinancas, string> = { resumo: "Resumo", bancos: "Bancos", planejar: "Planejar", raiox: "Raio-X" };
 
 const GOLD = "#F5B800";
 const OK = "#3DD68C";
@@ -30,14 +31,15 @@ const nomeMes = () => new Date().toLocaleDateString("pt-BR", { month: "long", ti
 
 /** bancosTravado (25/10): Essencial vê a aba Bancos com cadeado, com o que o Pro mostraria (fosco). */
 export function abaValida(v: string | null, comBanco: boolean, bancosTravado = false): AbaFinancas {
-  if (v === "planejar" || v === "analise") return v;
+  if (v === "planejar" || v === "raiox") return v;
+  if (v === "analise") return "raiox";   // links antigos
   if (v === "bancos" && (comBanco || bancosTravado)) return v;
   return "resumo";
 }
 
 /* ---------- navegação: texto, ouro no selecionado, sem botões grandes ---------- */
 export function AbasNav({ aba, onAba, comBanco, bancosTravado = false }: { aba: AbaFinancas; onAba: (a: AbaFinancas) => void; comBanco: boolean; bancosTravado?: boolean }) {
-  const lista: AbaFinancas[] = comBanco || bancosTravado ? ["resumo", "bancos", "planejar", "analise"] : ["resumo", "planejar", "analise"];
+  const lista: AbaFinancas[] = comBanco || bancosTravado ? ["resumo", "bancos", "planejar", "raiox"] : ["resumo", "planejar", "raiox"];
   // 05/10: o sublinhado ouro desliza até a aba escolhida (~200ms, ease-out) e
   // acompanha a largura do texto.
   const botoes = useRef<Partial<Record<AbaFinancas, HTMLButtonElement | null>>>({});
