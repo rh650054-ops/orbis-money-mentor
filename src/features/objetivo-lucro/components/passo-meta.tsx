@@ -38,7 +38,12 @@ export function PassoMeta({ alvo, dias, onAlvo, onDias, onAnalisar }: Props) {
         <div className="mt-2 flex items-center justify-between gap-3">
           <span className="inline-flex items-center gap-1">
             <Passo onClick={() => onDias(Math.max(1, dias - 1))} label="Menos um dia"><Minus className="w-4 h-4" /></Passo>
-            <span className="vant-missao-num w-14 text-center text-[40px] leading-none" style={{ color: COR.texto }}>{dias}</span>
+            {/* 29/10 (Rick): tocar no número e digitar o período (1 a 90 dias) */}
+            <input type="number" inputMode="numeric" min={1} max={90} aria-label="Quantos dias"
+              value={dias} onFocus={(e) => e.currentTarget.select()}
+              onChange={(e) => { const v = Math.round(Number(e.target.value)); if (v >= 1) onDias(Math.min(90, v)); }}
+              className="vant-missao-num w-16 text-center text-[40px] leading-none bg-transparent rounded-[10px] outline-none focus:ring-1 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              style={{ color: COR.texto, borderBottom: "1.5px dashed rgba(245,184,0,.45)" }} />
             <Passo onClick={() => onDias(Math.min(90, dias + 1))} label="Mais um dia"><Plus className="w-4 h-4" /></Passo>
           </span>
           <span className="text-right">
@@ -48,6 +53,7 @@ export function PassoMeta({ alvo, dias, onAlvo, onDias, onAnalisar }: Props) {
         </div>
         <div className="flex gap-2 mt-3">
           {PRAZOS.map((d) => <Chip key={d} on={dias === d} onClick={() => onDias(d)}>{d} dias</Chip>)}
+          <span className="self-center text-[11px] font-bold" style={{ color: COR.mute }}>ou toque no número</span>
         </div>
 
         {alvo > 0 && (

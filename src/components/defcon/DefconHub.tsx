@@ -18,7 +18,7 @@ import { garantirPlanoDoDia } from "@/shared/lib/plano-do-dia";
 import { useMetaDoDia } from "@/hooks/useMetaDoDia";
 import { useQueryClient } from "@tanstack/react-query";
 import { ReplanejarMes, type TipoReplanejar } from "@/components/metas/ReplanejarMes";
-import { NovoDesafioSheet, useSobrarMesQuery } from "@/features/objetivo-lucro";
+import { MissaoAcoesSheet, NovoDesafioSheet, useSobrarMesQuery } from "@/features/objetivo-lucro";
 import { conferirLugar, gravarMelhor, lerMelhor } from "@/components/defcon/retomar-lugar";
 import { ArrowRight } from "lucide-react";
 import { FocoCabecalho } from "./foco/foco-cabecalho";
@@ -85,6 +85,7 @@ export default function DefconHub() {
   const sobrar = useSobrarMesQuery(user?.id);
   // 29/10: "Editar planejamento" pergunta lucro × faturamento; lucro abre a missão aqui mesmo
   const [desafioOpen, setDesafioOpen] = useState(false);
+  const [missaoOpen, setMissaoOpen] = useState(false);
   const abrirReplanejar = (tipo?: TipoReplanejar) => { setReplanInicial(tipo ?? null); setReplanOpen(true); };
   // 13/10 (Rick): mudou a meta no Planejar e a conta nova diz que não chega no mês →
   // a Vant avisa e já abre o replanejamento (máximo / realista / manter).
@@ -438,6 +439,7 @@ export default function DefconHub() {
       <FocoHero estado={estado} meta={metaViavel} temFaixas={temFaixas}
         overnightOpen={overnightOpen} exporting={exporting}
         onEditar={() => setShowEdit(true)} onIrDefcon={() => navigate("/defcon")} onPDF={() => void handlePDF()}
+        onMissao={estado === "antes" ? () => setMissaoOpen(true) : undefined}
         n={{
           dailyGoal, totalVendido, totalCaiu, faltaCair, lucro: totals.profit, workHours, blocosTot, projecao,
           ontem: ontem.vendido, pctOntem, semana, vendas: contadores.vendas, abord: contadores.abord, conv,
@@ -512,6 +514,8 @@ export default function DefconHub() {
       <EditPlanningModal userId={user.id} isOpen={showEdit} onSalvo={() => { acabouDePlanejar.current = true; }}
         onClose={() => { setShowEdit(false); void qc.invalidateQueries({ queryKey: ["meta-do-dia"] }); void loadAll(); }}
         onLucro={() => setDesafioOpen(true)} proTravado={travaPro(acesso)} onPro={() => navigate("/pro")} />
+      <MissaoAcoesSheet open={missaoOpen} onOpenChange={(o) => { setMissaoOpen(o); if (!o) { void qc.invalidateQueries({ queryKey: ["meta-do-dia"] }); void sobrar.refetch(); void loadAll(); } }}
+        onEditar={() => setDesafioOpen(true)} />
       <NovoDesafioSheet open={desafioOpen} onOpenChange={(o) => { setDesafioOpen(o); if (!o) { void sobrar.refetch(); void loadAll(); } }} />
       {metaViavel && (
         <ReplanejarMes aberto={replanOpen} onFechar={() => setReplanOpen(false)} m={metaViavel} salvando={replanejar.isPending}
