@@ -3,7 +3,10 @@
    corrido (Rick, 18/10). Puro: recebe tudo por props. */
 import { ChevronRight } from "lucide-react";
 import type { MetaDoDia } from "@/shared/lib/meta-viavel";
+import type { SobrarMes } from "@/features/objetivo-lucro";
+import type { TipoReplanejar } from "@/components/metas/ReplanejarMes";
 import { brl0, brlK, PRESS } from "./foco-tipos";
+import { DicasMes, SobrarLinha } from "./mes-sobrar";
 
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
@@ -14,7 +17,11 @@ export function projecaoDoMes(m: Pick<MetaDoDia, "vendidoMes" | "metaMensal" | "
   return { fecha, diferenca, bate: diferenca >= 0 };
 }
 
-export function MesCard({ m, onReplanejar }: { m: MetaDoDia; onReplanejar: () => void }) {
+export function MesCard({ m, onReplanejar, sobrar, onDefinirLucro, onProduto }: {
+  m: MetaDoDia; onReplanejar: (tipo?: TipoReplanejar) => void;
+  /** 29/10: SOBRAR · no bolso under the VENDER block (null while loading / not Pro) */
+  sobrar?: SobrarMes | null; onDefinirLucro?: () => void; onProduto?: () => void;
+}) {
   if (!(m.metaMensal > 0)) return null;
   const pede = m.status === "inviavel" || m.status === "apertado";
   const mes = MESES[Number(m.hoje.slice(5, 7)) - 1] ?? "";
@@ -32,7 +39,7 @@ export function MesCard({ m, onReplanejar }: { m: MetaDoDia; onReplanejar: () =>
   return (
     <section className="rounded-[20px] border mt-3 px-4 py-3.5" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }} aria-label="Seu mês">
       <div className="flex items-center justify-between gap-2">
-        <p className="orbis-mini">Seu mês · {mes}</p>
+        <p className="orbis-mini">Vender · {mes}</p>
         <span className="orbis-num text-[12px] font-bold" style={{ color: "var(--orbis-fg-3)" }}>{Math.round(pct)}%</span>
       </div>
       <p className="orbis-num text-[22px] font-extrabold leading-none mt-2 tracking-[-.5px]">
@@ -58,12 +65,16 @@ export function MesCard({ m, onReplanejar }: { m: MetaDoDia; onReplanejar: () =>
               {proj.bate ? `Bate a meta${proj.diferenca > 0 ? ` · ${brl0(proj.diferenca)} de folga` : ""}` : `Faltam ${brl0(-proj.diferenca)} pra bater`}
             </p>
             {pede && (
-              <button type="button" onClick={onReplanejar} className={`inline-flex items-center gap-0.5 h-8 px-3 rounded-full text-[12px] font-extrabold shrink-0 ${PRESS}`} style={{ border: `1px solid ${cor}66`, color: cor, background: `${cor}14` }}>
+              <button type="button" onClick={() => onReplanejar()} className={`inline-flex items-center gap-0.5 h-8 px-3 rounded-full text-[12px] font-extrabold shrink-0 ${PRESS}`} style={{ border: `1px solid ${cor}66`, color: cor, background: `${cor}14` }}>
                 Replanejar <ChevronRight className="w-3.5 h-3.5" strokeWidth={3} />
               </button>
             )}
           </div>
+          {pede && <DicasMes m={m} onDica={onReplanejar} />}
         </>
+      )}
+      {sobrar && onDefinirLucro && onProduto && (
+        <SobrarLinha s={sobrar} fecha={batido ? m.vendidoMes : proj.fecha} bate={batido || proj.bate} onDefinirLucro={onDefinirLucro} onProduto={onProduto} />
       )}
     </section>
   );
