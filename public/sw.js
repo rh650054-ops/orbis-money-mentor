@@ -54,7 +54,16 @@ self.addEventListener("fetch", (event) => {
 
   const isNavigation = req.mode === "navigate";
 
+  // 29/10: /assets/* tem hash no nome (muda o conteúdo, muda o nome), então é seguro
+  // servir do cache sem ir na rede. Era network-first em tudo: cada abertura do app
+  // pedia os ~200 arquivos de novo e estourou a cota de requisições da Vercel.
+  const imutavel = url.pathname.startsWith("/assets/");
+
   event.respondWith((async () => {
+    if (imutavel) {
+      const guardado = await caches.match(req);
+      if (guardado) return guardado;
+    }
     try {
       const fresh = await fetch(req);
       // Guarda a cópia boa pra usar offline depois (só respostas OK).
