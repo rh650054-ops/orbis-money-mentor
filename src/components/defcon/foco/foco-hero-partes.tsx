@@ -1,6 +1,6 @@
 /* Peças puras do card principal do Foco: trio de números, anel de progresso e a faixa da missão. */
 import type { ReactNode } from "react";
-import { Crosshair } from "lucide-react";
+import { Crosshair, ChevronRight } from "lucide-react";
 import type { MissaoHoje } from "@/shared/lib/meta-viavel";
 
 export function Trio({ itens }: { itens: [string, ReactNode][] }) {
@@ -35,14 +35,15 @@ export function AnelProgresso({ pct, valor, cor }: { pct: number; valor: string;
 }
 
 /** 28/10: com missão de lucro ativa, a meta do dia é a da missão — esta faixa diz de onde vem o número. */
-export function FaixaMissao({ m }: { m: MissaoHoje }) {
+export function FaixaMissao({ m, onAbrir }: { m: MissaoHoje; onAbrir?: () => void }) {
   const p = (m.produto ?? "").toLowerCase();
   const un = !p ? "unidades" : p.endsWith("s") ? p : `${p}s`;
   const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
   const ritmo = m.ritmo === "adiantado" ? { txt: `adiantado ${brl(Math.abs(m.atraso ?? 0))}`, cor: "var(--orbis-ok)" }
     : m.ritmo === "atrasado" ? { txt: `${brl(Math.abs(m.atraso ?? 0))} atrás do plano`, cor: "#F2465A" } : null;
   return (
-    <div className="mt-3 rounded-[14px] px-3 py-2.5 flex items-center gap-2.5" style={{ background: m.trabalha ? "rgba(245,184,0,.08)" : "rgba(255,255,255,.04)", border: `1px solid ${m.trabalha ? "rgba(245,184,0,.35)" : "rgba(255,255,255,.12)"}` }}>
+    <div role={onAbrir ? "button" : undefined} tabIndex={onAbrir ? 0 : undefined} onClick={onAbrir} aria-label={onAbrir ? "Abrir a missão: editar ou apagar" : undefined}
+      className={`mt-3 rounded-[14px] px-3 py-2.5 flex items-center gap-2.5 ${onAbrir ? "cursor-pointer active:scale-[0.99] transition-transform" : ""}`} style={{ background: m.trabalha ? "rgba(245,184,0,.08)" : "rgba(255,255,255,.04)", border: `1px solid ${m.trabalha ? "rgba(245,184,0,.35)" : "rgba(255,255,255,.12)"}` }}>
       <Crosshair className="w-4 h-4 shrink-0" style={{ color: m.trabalha ? "var(--orbis-gold)" : "var(--orbis-fg-3)" }} />
       <p className="text-[12px] leading-snug min-w-0" style={{ color: "var(--orbis-fg-2)" }}>
         <b style={{ color: "var(--orbis-gold)" }}>Missão {brl(m.alvo)}</b>{m.diasPeriodo > 0 ? <> · dia {m.dia}/{m.diasPeriodo}</> : null}
@@ -51,6 +52,7 @@ export function FaixaMissao({ m }: { m: MissaoHoje }) {
           : <> · <b className="text-foreground">folga no plano</b> — se for pra rua, {m.unidMeta} {un} adiantam</>}
         {ritmo ? <> · <b style={{ color: ritmo.cor }}>{ritmo.txt}</b></> : null}
       </p>
+      {onAbrir && <ChevronRight className="w-4 h-4 shrink-0 ml-auto" style={{ color: "var(--orbis-fg-3)" }} />}
     </div>
   );
 }

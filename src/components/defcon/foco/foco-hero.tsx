@@ -32,6 +32,8 @@ interface Props {
   onEditar: () => void;
   onIrDefcon: () => void;
   onPDF: () => void;
+  /** 29/10: toque na faixa da missão → editar ou apagar */
+  onMissao?: () => void;
 }
 
 const TOM = {
@@ -93,7 +95,7 @@ export function FocoHero(p: Props) {
         </>
       )}
 
-      {missao && estado !== "encerrado" && <FaixaMissao m={missao} />}
+      {missao && estado !== "encerrado" && <FaixaMissao m={missao} onAbrir={p.onMissao} />}
 
       {/* régua: Mínimo · Meta · Turbo — acende conforme o vendido passa (não é escolha) */}
       {temFaixas && meta ? (
