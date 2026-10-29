@@ -5,9 +5,12 @@ import { presenceInfo } from "@/shared/lib/presence";
 import { AvatarRanking, SeloVerificado } from "./AvatarRanking";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
-import { ChevronRight, ChevronUp, Swords } from "lucide-react";
+import { ChevronRight, ChevronUp, MessageCircle, Swords } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { abrirCrm } from "@/shared/lib/link-externo";
+import { abrirCrm, abrirLinkExterno } from "@/shared/lib/link-externo";
+import { useToast } from "@/shared/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { linkWhatsappLead, useEquipeComercialQuery, useWhatsappLeadMutation } from "@/features/equipe-comercial";
 
 interface Props {
   ranking: LeaderboardEntry[];
@@ -56,16 +59,18 @@ function Divider({ label, color }: { label: string; color: string }) {
   );
 }
 
-function Row({ entry, position, isMe, subtitle, suspect, formatCurrency, onOpenProfile }: {
+function Row({ entry, position, isMe, subtitle, suspect, formatCurrency, onOpenProfile, onContato }: {
   entry: LeaderboardEntry; position: number; isMe: boolean; subtitle: string; suspect?: string;
   formatCurrency: (v: number) => string; onOpenProfile: (uid: string) => void;
+  /** 29/10 (Rick): equipe comercial — o toque no card abre o WhatsApp do lead */
+  onContato?: (uid: string, nome: string | null) => void;
 }) {
   const navigate = useNavigate();
   const tier = getTier(position);
   const pres = presenceInfo(entry.last_active_at);
   const sub = !pres.online && pres.label ? `${subtitle} · ${pres.label}` : subtitle;
   return (
-    <button onClick={() => onOpenProfile(entry.user_id)} className="w-full text-left active:scale-[0.99] transition-transform">
+    <button onClick={() => (onContato && !isMe ? onContato(entry.user_id, entry.nome_usuario) : onOpenProfile(entry.user_id))} className="w-full text-left active:scale-[0.99] transition-transform">
       <div
         className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
         style={isMe ? { background: "#1a1305", border: `1px solid ${tier.color}`, boxShadow: `0 0 14px ${tier.glow}` } : { background: "#0e0e10" }}
@@ -94,6 +99,15 @@ function Row({ entry, position, isMe, subtitle, suspect, formatCurrency, onOpenP
           </span>
         )}
         <span className="text-white font-black text-sm shrink-0">{formatCurrency(entry.faturamento_total_mes || 0)}</span>
+        {/* WHATSAPP DO LEAD — só a equipe comercial recebe (o servidor só entrega o número pra ela) */}
+        {onContato && !isMe && (
+          <span role="button" onClick={(e) => { e.stopPropagation(); onContato(entry.user_id, entry.nome_usuario); }}
+            className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center active:scale-90 transition-transform"
+            style={{ background: "linear-gradient(160deg,#0a3b1f,#051a0e)", border: "1px solid rgba(37,211,102,.55)", boxShadow: "0 0 10px rgba(37,211,102,.3)" }}
+            aria-label={`Chamar ${entry.nome_usuario || "vendedor"} no WhatsApp`}>
+            <MessageCircle className="w-4 h-4" style={{ color: "#25D366" }} />
+          </span>
+        )}
         {/* DESAFIAR: botão de X1 direto do ranking — vermelho sangue, estilo "apontar o dedo" */}
         {!isMe && (
           <span
@@ -119,6 +133,21 @@ function Row({ entry, position, isMe, subtitle, suspect, formatCurrency, onOpenP
 }
 
 export function RankingList({ ranking, me, formatCurrency, onOpenProfile }: Props) {
+  // 29/10 (Rick): Paulo e Yan (equipe comercial) chamam o lead no WhatsApp direto do card.
+  // Ninguém mais vê o botão; o número só sai do servidor pra quem é da equipe.
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const equipe = useEquipeComercialQuery(user?.id).data === true;
+  const pedirZap = useWhatsappLeadMutation();
+  const contato = (uid: string, nome: string | null) => {
+    pedirZap.mutate(uid, {
+      onSuccess: (numero) => {
+        if (!numero) { toast({ title: "Sem WhatsApp no cadastro", description: `${nome ?? "Esse vendedor"} não tem telefone no perfil.` }); return; }
+        void abrirLinkExterno(linkWhatsappLead(numero, nome));
+      },
+      onError: () => toast({ title: "Não consegui pegar o número", description: "Tenta de novo em instantes.", variant: "destructive" }),
+    });
+  };
   const [expanded, setExpanded] = useState(false);
   // Suspeitos de fraude — a função no banco SÓ devolve dados pra ADMIN, então
   // o usuário comum recebe mapa vazio (nenhuma bolinha aparece pra ele).
@@ -171,7 +200,7 @@ export function RankingList({ ranking, me, formatCurrency, onOpenProfile }: Prop
           subtitle={subtitleFor(entry, position)}
           suspect={suspects[entry.user_id]}
           formatCurrency={formatCurrency}
-          onOpenProfile={onOpenProfile}
+          onOpenProfile={onOpenProfile} onContato={equipe ? contato : undefined}
         />
       );
     });
