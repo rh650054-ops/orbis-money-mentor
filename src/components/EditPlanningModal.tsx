@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/ui/dialog";
+import { EscolhaTipoMeta } from "@/components/metas/EscolhaTipoMeta";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { MoneyInput } from "@/shared/ui/money-input";
@@ -20,11 +21,17 @@ interface EditPlanningModalProps {
   onClose: () => void;
   /** chamado só quando o planejamento foi SALVO (antes do onClose) */
   onSalvo?: () => void;
+  /** 29/10 (Rick): com isto, o modal pergunta antes "qual é a sua meta?" — lucro no bolso
+      (fecha e abre a missão) ou faturamento (o formulário de sempre). Nunca no 1º acesso. */
+  onLucro?: () => void;
+  proTravado?: boolean;
+  onPro?: () => void;
   isRequired?: boolean;
   requiredReason?: "first_time" | "new_month" | null;
 }
 
-export function EditPlanningModal({ userId, isOpen, onClose, onSalvo, isRequired = false, requiredReason = null }: EditPlanningModalProps) {
+export function EditPlanningModal({ userId, isOpen, onClose, onSalvo, isRequired = false, requiredReason = null, onLucro, proTravado = false, onPro }: EditPlanningModalProps) {
+  const [escolhendo, setEscolhendo] = useState(false);
   const { toast } = useToast();
   const qc = useQueryClient();
   const [monthlyGoal, setMonthlyGoal] = useState(4200);
@@ -49,6 +56,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, onSalvo, isRequired
 
   useEffect(() => {
     if (isOpen) {
+      setEscolhendo(!!onLucro && !isRequired);
       loadCurrentData();
     }
   }, [isOpen, userId]);
@@ -218,7 +226,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, onSalvo, isRequired
     if (requiredReason === "new_month") {
       return "📅 Novo Mês - Atualize suas Metas";
     }
-    return "✏️ Editar Planejamento";
+    return escolhendo ? "🎯 Qual é a sua meta?" : "✏️ Editar Planejamento";
   };
 
   const getDescription = () => {
@@ -228,7 +236,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, onSalvo, isRequired
     if (requiredReason === "new_month") {
       return "É dia 1! Configure suas metas para este novo mês.";
     }
-    return "Ajuste sua meta mensal, horas e dias de trabalho";
+    return escolhendo ? "Lucro no bolso ou faturamento do mês" : "Ajuste sua meta mensal, horas e dias de trabalho";
   };
 
   // Handle close - only allow if not required
@@ -260,6 +268,11 @@ export function EditPlanningModal({ userId, isOpen, onClose, onSalvo, isRequired
           </DialogDescription>
         </DialogHeader>
 
+        {escolhendo && onLucro ? (
+          <div className="px-5 pb-5">
+            <EscolhaTipoMeta onFaturamento={() => setEscolhendo(false)} onLucro={() => { onClose(); onLucro(); }} proTravado={proTravado} onPro={onPro ? () => { onClose(); onPro(); } : undefined} />
+          </div>
+        ) : (
         <div className="px-5 pb-5 space-y-3">
           {isRequired && (
             <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/30 flex items-start gap-2">
@@ -403,6 +416,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, onSalvo, isRequired
             </Button>
           </div>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );
