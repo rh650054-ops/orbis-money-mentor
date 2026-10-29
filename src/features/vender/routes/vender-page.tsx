@@ -28,6 +28,7 @@ import { OndeRecebe } from "../components/onde-recebe";
 import { GerenciarFolha } from "../components/gerenciar-folha";
 import { PrimeiroBanco } from "../components/primeiro-banco";
 import { VitrinePro } from "../components/vitrine/vitrine-pro";
+import { VitrineCortesia } from "../components/vitrine/vitrine-cortesia";
 import { assinaEssencial, diasRestantesDeTeste, lancadoUltimos3Dias } from "../lib/vitrine";
 import { AvisoRenovacaoPix } from "@/features/renovacao";
 
@@ -78,8 +79,11 @@ export default function VenderPage() {
         {/* 25/10 (Rick): sem o título "Vender · Open Finance" na vitrine; o aviso do Pix da renovação fica */}
         <AvisoRenovacaoPix />
         <div data-tour="conectar-banco">
-          <VitrinePro lancado={lancadoUltimos3Dias(concQ.data?.dias ?? [], hoje)} assinaEssencial={assinaEssencial(assinatura)}
-            diasDeTeste={diasRestantesDeTeste(assinatura.status, assinatura.graceUntil, hoje)} />
+          {/* 29/10: Pro de cortesia sem banco pago → o banco avulso, não os planos */}
+          {bancosQ.data?.pro.origem === "cortesia"
+            ? <VitrineCortesia email={user?.email} />
+            : <VitrinePro lancado={lancadoUltimos3Dias(concQ.data?.dias ?? [], hoje)} assinaEssencial={assinaEssencial(assinatura)}
+                diasDeTeste={diasRestantesDeTeste(assinatura.status, assinatura.graceUntil, hoje)} />}
         </div>
       </div>
     );
