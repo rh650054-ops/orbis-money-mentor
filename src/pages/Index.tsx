@@ -13,6 +13,8 @@ import { getBrazilDate, getBrazilMonthStart, getBrazilDateDaysAgo } from "@/shar
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import { MissaoDoDia } from "@/components/jornada/MissaoDoDia";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
+import { NovoDesafioSheet } from "@/features/objetivo-lucro";
+import { travaPro, useAcessoQuery } from "@/shared/api/acesso";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import { WeeklyChallengeDashboardCard } from "@/components/competitions/WeeklyChallenge";
@@ -85,6 +87,9 @@ export default function Index() {
   // pra sempre — caso real do Emerson em 13/08/2026 (R$ 2.225 fantasmas).
   const [showCustos, setShowCustos] = useState(false);
   const [showEditPlanning, setShowEditPlanning] = useState(false);
+  // 29/10 (Rick): "Editar planejamento" pergunta lucro × faturamento; lucro abre a missão
+  const [desafioOpen, setDesafioOpen] = useState(false);
+  const acesso = useAcessoQuery(user?.id);
   const [isRestDay, setIsRestDay] = useState(false);
   // Segura o modal de "meta do mês" enquanto o bilhete do dia 1 não terminou.
   const [ticketPending, setTicketPending] = useState(() => isWeeklyTicketPending());
@@ -606,9 +611,11 @@ export default function Index() {
             }}
             isRequired={forced}
             requiredReason={monthlyGoalReason}
+            onLucro={() => setDesafioOpen(true)} proTravado={travaPro(acesso)} onPro={() => navigate("/pro")}
           />
         );
       })()}
+      {user && <NovoDesafioSheet open={desafioOpen} onOpenChange={(o) => { setDesafioOpen(o); if (!o) loadDashboardData(); }} />}
 
       {user && !isRestDay && !isMonthlyGoalRequired && localStorage.getItem(`orbis_mission_completed_${user.id}`) === 'true' && (
         <DayStartPopup

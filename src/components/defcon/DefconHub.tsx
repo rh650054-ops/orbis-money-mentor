@@ -18,7 +18,7 @@ import { garantirPlanoDoDia } from "@/shared/lib/plano-do-dia";
 import { useMetaDoDia } from "@/hooks/useMetaDoDia";
 import { useQueryClient } from "@tanstack/react-query";
 import { ReplanejarMes, type TipoReplanejar } from "@/components/metas/ReplanejarMes";
-import { useSobrarMesQuery } from "@/features/objetivo-lucro";
+import { NovoDesafioSheet, useSobrarMesQuery } from "@/features/objetivo-lucro";
 import { conferirLugar, gravarMelhor, lerMelhor } from "@/components/defcon/retomar-lugar";
 import { ArrowRight } from "lucide-react";
 import { FocoCabecalho } from "./foco/foco-cabecalho";
@@ -83,6 +83,8 @@ export default function DefconHub() {
   // SOBRAR no card do mês; a dica tocada no Foco abre o replanejamento já nela
   const [replanInicial, setReplanInicial] = useState<TipoReplanejar | null>(null);
   const sobrar = useSobrarMesQuery(user?.id);
+  // 29/10: "Editar planejamento" pergunta lucro × faturamento; lucro abre a missão aqui mesmo
+  const [desafioOpen, setDesafioOpen] = useState(false);
   const abrirReplanejar = (tipo?: TipoReplanejar) => { setReplanInicial(tipo ?? null); setReplanOpen(true); };
   // 13/10 (Rick): mudou a meta no Planejar e a conta nova diz que não chega no mês →
   // a Vant avisa e já abre o replanejamento (máximo / realista / manter).
@@ -445,7 +447,7 @@ export default function DefconHub() {
       {/* o mês: com o que ele faz por dia, bate a meta final? (bloco próprio, não embola com a meta de hoje) */}
       {metaViavel && metaViavel.status !== "aprendendo" && (
         <MesCard m={metaViavel} onReplanejar={abrirReplanejar} sobrar={sobrar.data ?? null}
-          onDefinirLucro={() => navigate("/finances?aba=planejar&novo=lucro")} onProduto={() => navigate("/products")} />
+          onDefinirLucro={() => setDesafioOpen(true)} onProduto={() => navigate("/products")} />
       )}
 
       {/* 25/10: meta padrão = a do planejamento; a adaptativa (3 faixas) é opcional, a partir do 3º dia vendido */}
@@ -508,7 +510,9 @@ export default function DefconHub() {
         onHistorico={() => navigate("/history")} />
 
       <EditPlanningModal userId={user.id} isOpen={showEdit} onSalvo={() => { acabouDePlanejar.current = true; }}
-        onClose={() => { setShowEdit(false); void qc.invalidateQueries({ queryKey: ["meta-do-dia"] }); void loadAll(); }} />
+        onClose={() => { setShowEdit(false); void qc.invalidateQueries({ queryKey: ["meta-do-dia"] }); void loadAll(); }}
+        onLucro={() => setDesafioOpen(true)} proTravado={travaPro(acesso)} onPro={() => navigate("/pro")} />
+      <NovoDesafioSheet open={desafioOpen} onOpenChange={(o) => { setDesafioOpen(o); if (!o) { void sobrar.refetch(); void loadAll(); } }} />
       {metaViavel && (
         <ReplanejarMes aberto={replanOpen} onFechar={() => setReplanOpen(false)} m={metaViavel} salvando={replanejar.isPending}
           inicial={replanInicial} sobrar={sobrar.data ?? null} onVerFinancas={() => navigate("/finances")}
