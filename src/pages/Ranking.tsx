@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { currentWeekEnd, currentWeekStart, useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
 import { RankingAbas } from "@/components/ranking/RankingAbas";
-import { lerAba, rotuloSemana, type Aba } from "@/components/ranking/premiacao";
+import { lerAba, rotuloSemana, PREMIO_FIM, PREMIO_INICIO, PREMIO_MES, PREMIO_SEMANA, type Aba } from "@/components/ranking/premiacao";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -324,7 +324,9 @@ export default function Ranking() {
         {activeTab === "mensal" ? "Maiores vendedores do mês · ofensiva 🔥 incluída" : "Maiores vendedores da semana · domingo a sábado"}
       </p>
 
-      <RankingAbas aba={activeTab} onAba={trocarAba} hoje={getBrazilDate()} periodoSemana={rotuloSemana(currentWeekStart(), currentWeekEnd())} />
+      <RankingAbas aba={activeTab} onAba={trocarAba} hoje={getBrazilDate()} periodoSemana={rotuloSemana(currentWeekStart(), currentWeekEnd())} fimSemana={currentWeekEnd()}
+        posicao={(isMensal ? currentUserStats : weekly.currentUserStats)?.posicao_faturamento ?? null}
+        faltaPro1={(() => { const lista = isMensal ? faturamentoRanking : weekly.ranking; const eu = isMensal ? currentUserStats : weekly.currentUserStats; const top = lista[0]; return top && eu ? Number(top.faturamento_total_mes) - Number(eu.faturamento_total_mes) : null; })()} />
 
       {/* Primeira visita: convida a colocar foto + Instagram (os concorrentes te veem) */}
       {user && perfilCarregado && (
@@ -532,7 +534,8 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
 
   return (
     <div className="space-y-4">
-      <RankingPodium top1={top1} top2={top2} top3={top3} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} variant={variant} />
+      <RankingPodium top1={top1} top2={top2} top3={top3} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} variant={variant}
+        premio={(() => { const h = getBrazilDate(); if (h < PREMIO_INICIO || h > PREMIO_FIM) return null; return `+R$ ${variant === "semanal" ? PREMIO_SEMANA : PREMIO_MES}`; })()} />
 
       {/* A cacada - quem esta logo na frente */}
       {hasParticipated && (
