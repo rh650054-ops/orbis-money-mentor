@@ -7,6 +7,7 @@ import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate, getBrazilDateLabel, getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
+import { SobrouHoje } from "@/features/objetivo-lucro";
 import { OfertaDoDia } from "@/components/jornada/OfertaDoDia";
 import { useMarcarPasso } from "@/components/jornada/useJornada";
 import jsPDF from "jspdf";
@@ -110,6 +111,14 @@ export function DefconEndScreen({
   const [daySales, setDaySales] = useState<{ amount: number; method: string; late: boolean; created_at: string }[]>([]);
   // Blocos de hora do dia: cada bloco tem hora de início/fim e as abordagens daquela
   // hora — é o que permite mostrar a conversão hora a hora, e não só a do dia inteiro.
+  // 29/10: a venda mais comum do dia = o preço que o cadastro de 1 minuto já sabe
+  const precoMaisComum = useMemo(() => {
+    const n = new Map<number, number>();
+    for (const v of daySales) { if (v.late || v.method === "gorjeta") continue; const a = Math.round((Number(v.amount) || 0) * 100) / 100; if (a > 0) n.set(a, (n.get(a) ?? 0) + 1); }
+    let melhor = 0, vezes = 0;
+    for (const [a, c] of n) if (c > vezes || (c === vezes && a < melhor)) { melhor = a; vezes = c; }
+    return melhor;
+  }, [daySales]);
   const [dayBlocks, setDayBlocks] = useState<{ started_at: string; ended_at: string | null; approaches_count: number; sales_count: number }[]>([]);
   const [horasAbertas, setHorasAbertas] = useState(true);
   // Faixa de ritmo (min entre vendas) dos MELHORES DIAS por faturamento — pra comparar com hoje.
@@ -1183,6 +1192,9 @@ export function DefconEndScreen({
             {(totalSold > 0 || recebidoNaTela > 0) && (
               <CaiuNoBolso vendido={totalSold} caiu={recebidoNaTela} rotuloFaltou={travado ? "Falta cair" : "Faltou cair"} compacto />
             )}
+            {/* SOBROU PRA VOCÊ (Rick, 29/10): o que é dele de verdade; sem custo cadastrado vira
+                "R$ ?" com o cadastro de 1 minuto ali mesmo */}
+            {totalSold > 0 && <SobrouHoje userId={userId} vendido={totalSold} precoSugerido={precoMaisComum} dia={getBrazilDate()} />}
 
             {hasCalote && (
               <div className="rounded-xl bg-destructive/10 border border-destructive/30 px-3.5 py-3 flex items-start gap-2.5">
