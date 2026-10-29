@@ -216,6 +216,13 @@ export default function Finances() {
   // 27/10 (Rick): "Criar objetivo" pergunta o tipo — juntar pra algo (caixinha) ou bater um lucro (desafio)
   const [tipoObjetivoOpen, setTipoObjetivoOpen] = useState(false);
   const [desafioOpen, setDesafioOpen] = useState(false);
+  // 29/10: "definir lucro" no Foco chega com ?novo=lucro → abre a missão direto (uma vez)
+  useEffect(() => {
+    if (abaParams.get("novo") !== "lucro") return;
+    setDesafioOpen(true);
+    const p = new URLSearchParams(abaParams); p.delete("novo"); setAbaParams(p, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Dias de trabalho do perfil — usados pra dividir "guardar por dia" só nos dias úteis
   const [workingDays, setWorkingDays] = useState<string[]>([]);

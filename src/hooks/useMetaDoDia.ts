@@ -16,7 +16,7 @@ export async function carregarMetaDoDia(dia?: string): Promise<MetaDoDia | null>
   return lerMetaDoDia(data);
 }
 
-export type TipoReplanejar = "maximo" | "realista" | "manter";
+export type TipoReplanejar = "maximo" | "dias" | "blocos" | "realista" | "manter";
 
 export function useMetaDoDia(userId: string | undefined, dia: string) {
   const qc = useQueryClient();

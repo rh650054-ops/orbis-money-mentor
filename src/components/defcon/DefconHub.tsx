@@ -17,7 +17,8 @@ import { MissaoDoDia } from "@/components/jornada/MissaoDoDia";
 import { garantirPlanoDoDia } from "@/shared/lib/plano-do-dia";
 import { useMetaDoDia } from "@/hooks/useMetaDoDia";
 import { useQueryClient } from "@tanstack/react-query";
-import { ReplanejarMes } from "@/components/metas/ReplanejarMes";
+import { ReplanejarMes, type TipoReplanejar } from "@/components/metas/ReplanejarMes";
+import { useSobrarMesQuery } from "@/features/objetivo-lucro";
 import { conferirLugar, gravarMelhor, lerMelhor } from "@/components/defcon/retomar-lugar";
 import { ArrowRight } from "lucide-react";
 import { FocoCabecalho } from "./foco/foco-cabecalho";
@@ -78,6 +79,11 @@ export default function DefconHub() {
   const { meta: metaViavel, replanejar, definirModo } = useMetaDoDia(user?.id, today);
   const acesso = useAcessoQuery(user?.id);
   const [replanOpen, setReplanOpen] = useState(false);
+  // 29/10 (Rick): "a meta do mês continua faturamento, o objetivo é o lucro no bolso" —
+  // SOBRAR no card do mês; a dica tocada no Foco abre o replanejamento já nela
+  const [replanInicial, setReplanInicial] = useState<TipoReplanejar | null>(null);
+  const sobrar = useSobrarMesQuery(user?.id);
+  const abrirReplanejar = (tipo?: TipoReplanejar) => { setReplanInicial(tipo ?? null); setReplanOpen(true); };
   // 13/10 (Rick): mudou a meta no Planejar e a conta nova diz que não chega no mês →
   // a Vant avisa e já abre o replanejamento (máximo / realista / manter).
   const acabouDePlanejar = useRef(false);
@@ -437,7 +443,10 @@ export default function DefconHub() {
         }} />
 
       {/* o mês: com o que ele faz por dia, bate a meta final? (bloco próprio, não embola com a meta de hoje) */}
-      {metaViavel && metaViavel.status !== "aprendendo" && <MesCard m={metaViavel} onReplanejar={() => setReplanOpen(true)} />}
+      {metaViavel && metaViavel.status !== "aprendendo" && (
+        <MesCard m={metaViavel} onReplanejar={abrirReplanejar} sobrar={sobrar.data ?? null}
+          onDefinirLucro={() => navigate("/finances?aba=planejar&novo=lucro")} onProduto={() => navigate("/products")} />
+      )}
 
       {/* 25/10: meta padrão = a do planejamento; a adaptativa (3 faixas) é opcional, a partir do 3º dia vendido */}
       <MetaAdaptativaCard m={metaViavel} estado={estado} salvando={definirModo.isPending}
@@ -502,7 +511,8 @@ export default function DefconHub() {
         onClose={() => { setShowEdit(false); void qc.invalidateQueries({ queryKey: ["meta-do-dia"] }); void loadAll(); }} />
       {metaViavel && (
         <ReplanejarMes aberto={replanOpen} onFechar={() => setReplanOpen(false)} m={metaViavel} salvando={replanejar.isPending}
-          onEscolher={(tipo) => { replanejar.mutate(tipo, { onSuccess: () => { setReplanOpen(false); void loadAll(); } }); }} />
+          inicial={replanInicial} sobrar={sobrar.data ?? null} onVerFinancas={() => navigate("/finances")}
+          onEscolher={(tipo) => { replanejar.mutate(tipo, { onSuccess: () => { setReplanOpen(false); void sobrar.refetch(); void loadAll(); } }); }} />
       )}
     </div>
   );
