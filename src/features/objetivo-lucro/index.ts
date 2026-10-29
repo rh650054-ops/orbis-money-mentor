@@ -5,3 +5,4 @@ export { useSobrarMesQuery, type SobrarMes } from "./api/use-sobrar-mes";
 export { nomeUnidade } from "./lib/plano";
 export { SobrouHoje } from "./components/sobrou-hoje";
 export { MissaoAcoesSheet } from "./components/missao-acoes-sheet";
+export { AnelProgresso } from "./components/anel-progresso";

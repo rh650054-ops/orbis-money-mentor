@@ -14,6 +14,10 @@ interface Props {
   top3?: LeaderboardEntry;
   formatCurrency: (v: number) => string;
   onOpenProfile: (uid: string) => void;
+  /** 29/10 (Desafio Avante): "+R$ 500" / "+R$ 50" on the champion's pedestal */
+  premio?: string | null;
+  /** header line under the label, e.g. "R$ 500 pro 1º · fecha em 27 dias" */
+  subtitulo?: React.ReactNode;
   variant?: Variant;
 }
 
@@ -50,8 +54,8 @@ function PodAvatar({ url, name, size, color, glow, icon, online }: { url: string
   );
 }
 
-function Col({ entry, position, avatarSize, barHeight, champion, green, formatCurrency, onOpenProfile }: {
-  entry?: LeaderboardEntry; position: number; avatarSize: number; barHeight: number; champion?: boolean; green?: boolean;
+function Col({ entry, position, avatarSize, barHeight, champion, green, formatCurrency, onOpenProfile, premio }: {
+  entry?: LeaderboardEntry; position: number; avatarSize: number; barHeight: number; champion?: boolean; green?: boolean; premio?: string | null;
   formatCurrency: (v: number) => string; onOpenProfile: (uid: string) => void;
 }) {
   if (!entry) return <div className="flex-1" />;
@@ -102,6 +106,10 @@ function Col({ entry, position, avatarSize, barHeight, champion, green, formatCu
         {/* Brilho que passa — só no pódio do campeão, pra dar vida sem poluir. */}
         {champion && <span className="absolute inset-0 pointer-events-none orbis-shimmer" />}
         <span className="relative" style={{ textShadow: `0 0 16px ${baseGlow}` }}>{position}</span>
+        {champion && premio && (
+          <span className="absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-2.5 py-[3px] text-[10.5px] font-black tracking-[.06em]"
+            style={{ background: "#F5B800", color: "#1a1305", boxShadow: "0 6px 18px -6px rgba(245,184,0,.9)" }}>{premio}</span>
+        )}
       </div>
     </div>
   );
@@ -134,7 +142,7 @@ function DesafiarPodio({ uid, champion }: { uid: string; champion?: boolean }) {
   );
 }
 
-export function RankingPodium({ top1, top2, top3, formatCurrency, onOpenProfile, variant = "mensal" }: Props) {
+export function RankingPodium({ top1, top2, top3, formatCurrency, onOpenProfile, variant = "mensal", premio, subtitulo }: Props) {
   if (!top1) return null;
   const green = variant === "semanal";
   const premium = variant === "premium";
@@ -155,9 +163,10 @@ export function RankingPodium({ top1, top2, top3, formatCurrency, onOpenProfile,
       <p className="text-center tracking-[0.3em] text-[11px] mb-3" style={{ color: labelColor }}>
         {label}
       </p>
+      {subtitulo && <div className="-mt-1 mb-3">{subtitulo}</div>}
       <div className="flex items-end justify-center gap-2">
         <Col entry={top2} position={2} avatarSize={56} barHeight={72} green={green} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
-        <Col entry={top1} position={1} avatarSize={80} barHeight={106} champion green={green} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
+        <Col entry={top1} position={1} avatarSize={80} barHeight={106} champion green={green} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} premio={premio} />
         <Col entry={top3} position={3} avatarSize={52} barHeight={56} green={green} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
       </div>
     </div>
