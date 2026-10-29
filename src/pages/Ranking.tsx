@@ -326,6 +326,7 @@ export default function Ranking() {
 
       <RankingAbas aba={activeTab} onAba={trocarAba} hoje={getBrazilDate()} periodoSemana={rotuloSemana(currentWeekStart(), currentWeekEnd())} fimSemana={currentWeekEnd()}
         posicao={(isMensal ? currentUserStats : weekly.currentUserStats)?.posicao_faturamento ?? null}
+        meuValor={Number((isMensal ? currentUserStats : weekly.currentUserStats)?.faturamento_total_mes ?? 0)}
         faltaPro1={(() => { const lista = isMensal ? faturamentoRanking : weekly.ranking; const eu = isMensal ? currentUserStats : weekly.currentUserStats; const top = lista[0]; return top && eu ? Number(top.faturamento_total_mes) - Number(eu.faturamento_total_mes) : null; })()} />
 
       {/* Primeira visita: convida a colocar foto + Instagram (os concorrentes te veem) */}

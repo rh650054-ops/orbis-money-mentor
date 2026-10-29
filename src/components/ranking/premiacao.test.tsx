@@ -26,6 +26,7 @@ describe("ranking semanal + premiação de novembro", () => {
     expect(onAba).toHaveBeenCalledWith("semanal");
     rerender(<RankingAbas aba="semanal" onAba={onAba} hoje="2026-11-03" periodoSemana="Semana 1 · 01/11 a 07/11" fimSemana="2026-11-07" />);
     expect(screen.getByText(/R\$ 50\b/)).toBeTruthy();
-    expect(screen.getByText(/Semana 1 · 01\/11 a 07\/11/)).toBeTruthy();
+    expect(screen.getByText(/SEMANA 1/)).toBeTruthy();
+    expect(screen.getByText(/01\/11 a 07\/11/)).toBeTruthy();
   });
 });
