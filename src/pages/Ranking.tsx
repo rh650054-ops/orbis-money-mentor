@@ -6,7 +6,10 @@ import { Progress } from "@/shared/ui/progress";
 import { cn } from "@/shared/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
-import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
+import { currentWeekEnd, currentWeekStart, useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
+import { RankingAbas } from "@/components/ranking/RankingAbas";
+import { lerAba, rotuloSemana, type Aba } from "@/components/ranking/premiacao";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Skeleton } from "@/shared/ui/skeleton";
 import PublicProfileModal from "@/components/PublicProfileModal";
@@ -17,7 +20,7 @@ import { leagueRank } from "@/components/ranking/tier";
 import { LeagueTransition } from "@/components/ranking/LeagueTransition";
 import { useMarcarPasso } from "@/components/jornada/useJornada";
 import { RankingList } from "@/components/ranking/RankingList";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { toast } from "@/shared/hooks/use-toast";
@@ -86,11 +89,11 @@ export default function Ranking() {
     isLoading, hasParticipated, loadLeaderboard
   } = useLeaderboard(user?.id);
 
-  // Fase 2 (06/07): o ranking de vendas abre → o Ranking abre direto no Semanal.
-  // Antes disso (semana de recrutamento), abre no Mensal.
-  // Ranking ÚNICO (global) — a liga semanal foi removida. Tipo em união só pra
-  // as comparações antigas (dead code do semanal) continuarem compilando.
-  const activeTab = "mensal" as "mensal" | "semanal"; // assertion keeps the union (no narrowing to "mensal")
+  // 29/10 (Rick): o Semanal volta ao lado do Mensal — premiação de novembro (R$ 500 no mês,
+  // R$ 50 por semana). A aba vive na URL (?aba=semana), pra dar pra mandar o link direto.
+  const [abaParams, setAbaParams] = useSearchParams();
+  const activeTab: Aba = lerAba(abaParams.get("aba"));
+  const trocarAba = (a: Aba) => { const q = new URLSearchParams(abaParams); if (a === "semanal") q.set("aba", "semana"); else q.delete("aba"); setAbaParams(q, { replace: true }); };
   const weekly = useWeeklyLeaderboard(user?.id, activeTab === "semanal");
   // "Ocultar meu resultado": escolha do vendedor de ficar fora do ranking (padrão: participa).
   const [rankingOculto, setRankingOculto] = useRankingOculto(user?.id);
@@ -318,8 +321,10 @@ export default function Ranking() {
       </div>
 
       <p className="text-center text-xs text-muted-foreground">
-        Maiores vendedores do mês · ofensiva 🔥 incluída
+        {activeTab === "mensal" ? "Maiores vendedores do mês · ofensiva 🔥 incluída" : "Maiores vendedores da semana · domingo a sábado"}
       </p>
+
+      <RankingAbas aba={activeTab} onAba={trocarAba} hoje={getBrazilDate()} periodoSemana={rotuloSemana(currentWeekStart(), currentWeekEnd())} />
 
       {/* Primeira visita: convida a colocar foto + Instagram (os concorrentes te veem) */}
       {user && perfilCarregado && (
