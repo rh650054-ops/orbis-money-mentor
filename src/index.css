@@ -425,13 +425,13 @@ body.battery-saver .backdrop-blur-xl {
 @keyframes vantGira { to { transform: translateX(-50%) rotate(360deg); } }
 .vant-raios { animation: vantGira 48s linear infinite; }
 @keyframes vantRespira {
-  0%, 100% { text-shadow: 0 0 18px rgba(245,184,0,.35); }
-  50%      { text-shadow: 0 0 34px rgba(245,184,0,.75), 0 0 2px rgba(255,241,184,.9); }
+  0%, 100% { filter: drop-shadow(0 0 10px rgba(var(--vant-rgb, 245,184,0), .35)); }
+  50%      { filter: drop-shadow(0 0 22px rgba(var(--vant-rgb, 245,184,0), .8)); }
 }
 .vant-respira { animation: vantRespira 3.6s ease-in-out infinite; }
 @keyframes vantVarre { 0%, 70% { background-position: 200% 0; } 100% { background-position: -80% 0; } }
 .vant-varre {
-  background: linear-gradient(115deg, transparent 30%, rgba(255,241,184,0.45) 50%, transparent 70%);
+  background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.16) 50%, transparent 62%);
   background-size: 220% 100%;
   animation: vantVarre 7s linear infinite;
 }
@@ -445,11 +445,14 @@ body.battery-saver .backdrop-blur-xl {
 @keyframes vantUrgente { 0%, 100% { border-color: rgba(242,70,90,.35); } 50% { border-color: rgba(242,70,90,.9); box-shadow: 0 0 14px rgba(242,70,90,.45); } }
 .vant-urgente { animation: vantUrgente 1.2s ease-in-out infinite; }
 /* Subiu de posição: a linha pisca em dourado. */
-@keyframes vantPisca { 0% { color: #fff; } 30% { color: #F5B800; text-shadow: 0 0 10px rgba(245,184,0,.8); } 100% { color: #fff; text-shadow: none; } }
+@keyframes vantPisca { 0% { color: #fff; } 30% { color: rgb(var(--vant-rgb, 245,184,0)); text-shadow: 0 0 10px rgba(var(--vant-rgb, 245,184,0), .8); } 100% { color: #fff; text-shadow: none; } }
+/* Faíscas em volta do medalhão do prêmio. */
+@keyframes vantFaisca { 0%, 100% { opacity: 0; scale: .3; } 40% { opacity: 1; scale: 1; } 70% { opacity: .2; scale: .6; } }
+.vant-faisca { animation: vantFaisca 3.2s ease-in-out infinite; }
 .vant-pisca { animation: vantPisca 1.2s ease-out both; }
 
 /* Respeita quem pediu menos movimento. */
 @media (prefers-reduced-motion: reduce) {
   .orbis-shimmer, .orbis-float, .orbis-rise, .orbis-clima-drift,
-  .vant-desce, .vant-estoura, .vant-sobe, .vant-raios, .vant-respira, .vant-varre, .vant-vira, .vant-enche, .vant-urgente, .vant-pisca { animation: none !important; }
+  .vant-desce, .vant-estoura, .vant-sobe, .vant-raios, .vant-respira, .vant-varre, .vant-vira, .vant-enche, .vant-urgente, .vant-pisca, .vant-faisca { animation: none !important; }
 }
