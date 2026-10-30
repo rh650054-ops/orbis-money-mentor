@@ -5,6 +5,7 @@ import { Swords } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import type { X1LiveState } from "@/hooks/useX1DefconAlert";
 import { X1Faces } from "@/components/x1/X1Avatar";
+import { DefconX1Grupo } from "./defcon-x1-grupo";
 
 // Widget do X1 DENTRO do DEFCON — 2 peças (fotos reais, sem emoji):
 //
@@ -39,6 +40,7 @@ export function DefconX1Live({ x1 }: { x1: X1LiveState }) {
 
   return (
     <>
+      {x1.grupo ? <DefconX1Grupo grupo={x1.grupo} /> : (
       <button
         onClick={() => navigate("/x1")}
         aria-label="Abrir arena do X1"
@@ -62,6 +64,7 @@ export function DefconX1Live({ x1 }: { x1: X1LiveState }) {
           </span>
         </span>
       </button>
+      )}
 
       {x1.event && (
         <button
@@ -86,7 +89,7 @@ export function DefconX1Live({ x1 }: { x1: X1LiveState }) {
             ) : (
               <>
                 <b className="block text-[13.5px] font-black text-amber-200 leading-tight">Você retomou a liderança</b>
-                <small className="block text-[11.5px] text-amber-200/80 mt-0.5">{nome} ficou pra trás. Não deixa ele voltar.</small>
+                <small className="block text-[11.5px] text-amber-200/80 mt-0.5">{x1.grupo ? "Todo mundo ficou pra trás." : `${nome} ficou pra trás.`} Não deixa voltar.</small>
               </>
             )}
           </span>
