@@ -80,17 +80,19 @@ export function useWeeklyLeaderboard(userId: string | undefined, enabled: boolea
         posicao_faturamento: i + 1,
         posicao_constancia: null,
       }));
-      // Presença (bolinha online): puxa o last_active_at de user_presence — igual o Mensal.
+      // Presença (bolinha online) + selo de verificado — igual o Mensal (30/10: o semanal
+      // não lia o verificado, então ninguém aparecia com selo na aba Semanal).
       const ids = mapped.map((e) => e.user_id);
       if (ids.length > 0) {
-        const { data: presence } = await supabase
-          .from("user_presence")
-          .select("user_id, last_active_at")
-          .in("user_id", ids);
+        const [{ data: presence }, { data: profs }] = await Promise.all([
+          supabase.from("user_presence").select("user_id, last_active_at").in("user_id", ids),
+          supabase.from("public_profiles").select("user_id, verificado").in("user_id", ids),
+        ]);
         const presMap = new Map(
           ((presence as { user_id: string; last_active_at: string }[]) || []).map((p) => [p.user_id, p.last_active_at]),
         );
-        for (const e of mapped) e.last_active_at = presMap.get(e.user_id) ?? null;
+        const verMap = new Map(((profs as { user_id: string; verificado: boolean | null }[]) || []).map((p) => [p.user_id, !!p.verificado]));
+        for (const e of mapped) { e.last_active_at = presMap.get(e.user_id) ?? null; e.verificado = verMap.get(e.user_id) ?? false; }
       }
       setRanking(mapped);
       if (userId) {

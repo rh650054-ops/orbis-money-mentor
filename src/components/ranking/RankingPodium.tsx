@@ -1,7 +1,7 @@
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { getTier } from "./tier";
 import { presenceInfo } from "@/shared/lib/presence";
-import { AvatarRanking, SeloVerificado } from "./AvatarRanking";
+import { AvatarRanking, NomeComSelo } from "./AvatarRanking";
 import { Crown, Swords } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -82,10 +82,8 @@ function Col({ entry, position, avatarSize, barHeight, champion, green, formatCu
         <div className="flex items-center justify-center" style={{ height: avatarSize * 1.12 }}>
           <PodAvatar url={entry.avatar_url} name={entry.nome_usuario} size={avatarSize} color={avatarColor} glow={avatarGlow} icon={tier.icon} online={online} />
         </div>
-        <p className="text-[13px] font-black mt-2 truncate px-0.5" style={{ color: avatarColor }}>
-          {entry.nome_usuario || "Vendedor"}
-          {entry.verificado && <SeloVerificado className="ml-1" size={13} />}
-        </p>
+        <NomeComSelo nome={entry.nome_usuario} verificado={entry.verificado} curto centro seloSize={13}
+          className="text-[13px] font-black mt-2 px-0.5" style={{ color: avatarColor }} />
         <p className="text-white text-[14px] font-black">{formatCurrency(entry.faturamento_total_mes || 0)}</p>
         <p className="text-[10px] font-black tracking-wider" style={{ color: avatarColor }}>{tier.label}</p>
       </button>

@@ -1,4 +1,4 @@
-import { CSSProperties, useEffect, useState } from "react";
+import { CSSProperties, ReactNode, useEffect, useState } from "react";
 import { fotoValida } from "@/shared/lib/avatar";
 
 /**
@@ -52,5 +52,27 @@ export function SeloVerificado({ size = 14, className }: { size?: number; classN
       <path fill="#0095F6" d={ESTRELA} />
       <path d="M8 12.5l2.6 2.6L16.5 9" stroke="#fff" strokeWidth={2.4} fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+/** "Gabriel Alves de Oliveira" → "Gabriel O." — short enough for the verified badge to fit (Rick, 30/10). */
+export function nomeCurto(nome: string | null | undefined): string {
+  const partes = (nome ?? "").trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "Vendedor";
+  const ultimo = partes.length > 1 ? partes[partes.length - 1] : undefined;
+  return ultimo ? `${partes[0]} ${ultimo.charAt(0).toUpperCase()}.` : partes[0]!;
+}
+
+/** Name + verified badge: the NAME truncates, the badge never gets cut by the "…". */
+export function NomeComSelo({ nome, verificado, curto, centro, seloSize, className, style, children }: {
+  nome: string | null | undefined; verificado?: boolean; curto?: boolean; centro?: boolean; seloSize?: number;
+  className?: string; style?: CSSProperties; children?: ReactNode;
+}) {
+  return (
+    <p className={`flex items-center min-w-0 ${centro ? "justify-center" : ""} ${className ?? ""}`} style={style}>
+      <span className="truncate min-w-0">{curto ? nomeCurto(nome) : (nome || "Vendedor")}</span>
+      {verificado && <SeloVerificado className="ml-1 shrink-0" size={seloSize} />}
+      {children}
+    </p>
   );
 }

@@ -1,13 +1,14 @@
 /* "Ver regras" drawer for the Desafio Avante. Copy kept to what is already decided
-   (period, prize, close time, verification); Rick reviews the wording. */
+   (period, prize, close time, Open Finance requirement, verification); Rick reviews the wording. */
 import { ShieldCheck } from "lucide-react";
 import { Drawer, DrawerContent, DrawerTitle } from "@/shared/ui/drawer";
 import { PREMIO_MES, PREMIO_SEMANA } from "./premiacao";
 
 const REGRAS: [string, string][] = [
   ["Mensal", `R$ ${PREMIO_MES} pro 1º lugar do Ranking do mês. Vale de 01/11 a 30/11, fecha dia 30 às 23:59 (Brasília).`],
-  ["Semanal", `R$ ${PREMIO_SEMANA} pro 1º lugar de cada semana de novembro. A semana vai de domingo a sábado e fecha sábado às 23:59.`],
-  ["Como conta", "Vale o faturamento lançado na VANT. Pra quem tem banco conectado, vale o que caiu no banco."],
+  ["Semanal", `R$ ${PREMIO_SEMANA} pro 1º lugar de cada semana de novembro. A semana começa no domingo e fecha no sábado às 23:59. Todo domingo começa uma semana nova.`],
+  ["Quem pode ganhar", "Todo mundo participa do ranking, mas só leva o prêmio quem tem banco conectado na VANT (Open Finance). Se o 1º lugar não tiver banco conectado, o prêmio vai pro próximo da lista que tiver."],
+  ["Como conta", "Vale o que caiu no banco conectado no período."],
   ["Verificação", "Antes de pagar, a equipe VANT confere as vendas do ganhador. Venda lançada de forma irregular desclassifica."],
   ["Pagamento", "A equipe VANT chama o ganhador no WhatsApp e paga o prêmio via Pix."],
 ];

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { getTier } from "./tier";
 import { presenceInfo } from "@/shared/lib/presence";
-import { AvatarRanking, SeloVerificado } from "./AvatarRanking";
+import { AvatarRanking, NomeComSelo } from "./AvatarRanking";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { ChevronRight, ChevronUp, MessageCircle, Swords } from "lucide-react";
@@ -78,12 +78,10 @@ function Row({ entry, position, isMe, subtitle, suspect, formatCurrency, onOpenP
         <span className="w-6 text-center font-black shrink-0" style={{ color: tier.color }}>{position}</span>
         <RowAvatar url={entry.avatar_url} name={entry.nome_usuario} color={tier.color} icon={tier.icon} pres={pres} />
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-white truncate">
-            {entry.nome_usuario || "Vendedor"}
-            {entry.verificado && <SeloVerificado className="ml-1" />}
-            {pres.online && <span className="ml-1.5 align-middle text-[9px] font-black text-green-400">no DEFCON</span>}
-            {isMe && <span className="ml-1.5 align-middle text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: tier.color, color: "#1a1305" }}>VOCÊ</span>}
-          </p>
+          <NomeComSelo nome={entry.nome_usuario} verificado={entry.verificado} curto className="text-sm text-white">
+            {pres.online && <span className="ml-1.5 shrink-0 text-[9px] font-black text-green-400">no DEFCON</span>}
+            {isMe && <span className="ml-1.5 shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: tier.color, color: "#1a1305" }}>VOCÊ</span>}
+          </NomeComSelo>
           <p className="text-[10px] truncate" style={{ color: tier.color }}>{sub}</p>
         </div>
         {/* Bolinha de SUSPEITA — SÓ o admin recebe dados (a função só retorna pra admin). */}
