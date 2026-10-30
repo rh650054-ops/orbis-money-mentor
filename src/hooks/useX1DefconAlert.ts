@@ -11,9 +11,19 @@ import { getBrazilDate } from "@/shared/lib/date-utils";
 //     Cooldown de 90s pra não spammar em empate técnico (flip-flop).
 //  2) ESTADO AO VIVO pro widget DENTRO da tela do DEFCON (DefconX1Live):
 //     placar meu/dele, quem lidera e o "evento" da virada (banner + vibração).
+//  3) GRUPO (Rick, 30/10: "X1 com o Zeck e o Wesley ao mesmo tempo"): junta TODOS os
+//     X1 ativos do dia + as salas em que a pessoa está. Com 2+ rivais o widget vira
+//     um placar com todo mundo, e marca quem está subindo de posição.
 export interface X1LiveEvent {
   type: "overtaken" | "regained";
   at: number;
+  /** who passed you / who you passed back (group mode) */
+  quem?: string;
+}
+export interface X1Lutador {
+  id: string; nome: string; avatar: string | null; total: number; eu: boolean; pos: number;
+  /** gained a position in the last minutes */
+  subindo: boolean;
 }
 export interface X1LiveState {
   /** true quando existe duelo ATIVO hoje (mostra o widget) */
@@ -26,28 +36,28 @@ export interface X1LiveState {
   opp: number;
   stakes: number;
   lead: "me" | "opp" | "tie" | null;
+  /** 2+ rivals today (duels + rooms): everyone, ranked. null in a plain 1v1. */
+  grupo: X1Lutador[] | null;
   /** virada recente — o widget mostra o banner e depois chama dismissEvent() */
   event: X1LiveEvent | null;
   dismissEvent: () => void;
 }
 
 const EMPTY: X1LiveState = {
-  hasDuel: false,
-  oppName: "",
-  oppAvatar: null,
-  myAvatar: null,
-  myName: "",
-  my: 0,
-  opp: 0,
-  stakes: 0,
-  lead: null,
-  event: null,
-  dismissEvent: () => {},
+  hasDuel: false, oppName: "", oppAvatar: null, myAvatar: null, myName: "", my: 0, opp: 0, stakes: 0,
+  lead: null, grupo: null, event: null, dismissEvent: () => {},
 };
 
+interface Duelo { id: string; iAmCh: boolean; oppId: string; stakes: number }
+type Perfil = { nome: string; avatar: string | null };
+const SUBINDO_MS = 3 * 60_000;
+
 export function useX1DefconAlert(userId: string | undefined, active: boolean): X1LiveState {
+  const lastPos = useRef<number | null>(null);
   const lastLead = useRef<"me" | "opp" | "tie" | null>(null);
   const lastAlertAt = useRef(0);
+  const posAntes = useRef<Map<string, number>>(new Map());
+  const subiuEm = useRef<Map<string, number>>(new Map());
   // PROVOCAÇÃO (Lote 5): a última frase do rival já avisada (não repete)
   const lastProvId = useRef<number | null>(null);
   const [state, setState] = useState<X1LiveState>(EMPTY);
@@ -58,12 +68,15 @@ export function useX1DefconAlert(userId: string | undefined, active: boolean): X
 
   useEffect(() => {
     if (!active || !userId) {
-      lastLead.current = null;
+      lastLead.current = null; lastPos.current = null; posAntes.current = new Map(); subiuEm.current = new Map();
       setState(EMPTY);
       return;
     }
     let alive = true;
-    let duel: { id: string; iAmCh: boolean; oppName: string; oppAvatar: string | null; myAvatar: string | null; myName: string; stakes: number } | null = null;
+    let duelos: Duelo[] = [];
+    let salas: string[] = [];
+    let perfis = new Map<string, Perfil>();
+    let achou = false;
 
     const notify = (title: string, body: string) => {
       if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
@@ -72,92 +85,122 @@ export function useX1DefconAlert(userId: string | undefined, active: boolean): X
         .catch(() => {});
     };
 
-    const findDuel = async () => {
+    const descobrir = async () => {
       const today = getBrazilDate();
-      const { data } = await supabase
-        .from("x1_challenges" as any)
-        .select("id, challenger_id, opponent_id, stakes_amount")
-        .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
-        .eq("status", "active")
-        .eq("scheduled_date", today)
-        .limit(1);
-      const c = ((data as any[]) || [])[0];
-      if (!c) {
-        duel = null;
-        return;
-      }
-      const iAmCh = c.challenger_id === userId;
-      const oppId = iAmCh ? c.opponent_id : c.challenger_id;
-      // Fotos reais dos dois (pedido do Rick) — public_profiles.
-      const { data: pp } = await supabase.from("public_profiles").select("user_id, nickname, avatar_url").in("user_id", [oppId, userId]);
-      const arr = (pp as any[]) || [];
-      const opp = arr.find((x) => x.user_id === oppId);
-      const me = arr.find((x) => x.user_id === userId);
-      duel = {
-        id: c.id,
-        iAmCh,
-        oppName: (opp?.nickname as string) || "Seu oponente",
-        oppAvatar: (opp?.avatar_url as string) || null,
-        myAvatar: (me?.avatar_url as string) || null,
-        myName: (me?.nickname as string) || "Você",
-        stakes: apostaVisivel(c.stakes_amount),
-      };
+      const [{ data: ds }, { data: ss }] = await Promise.all([
+        supabase.from("x1_challenges" as any).select("id, challenger_id, opponent_id, stakes_amount")
+          .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`).eq("status", "active").eq("scheduled_date", today),
+        supabase.from("x1_sala_participantes" as any).select("sala_id, x1_salas!inner(scheduled_date, status)")
+          .eq("user_id", userId).eq("status", "dentro").eq("x1_salas.scheduled_date", today).eq("x1_salas.status", "open"),
+      ]);
+      duelos = ((ds as any[]) || []).map((c) => ({
+        id: c.id, iAmCh: c.challenger_id === userId, oppId: c.challenger_id === userId ? c.opponent_id : c.challenger_id, stakes: apostaVisivel(c.stakes_amount),
+      }));
+      salas = ((ss as any[]) || []).map((r) => r.sala_id as string);
+      const ids = [userId, ...duelos.map((d) => d.oppId)];
+      const { data: pp } = await supabase.from("public_profiles").select("user_id, nickname, avatar_url").in("user_id", ids);
+      perfis = new Map(((pp as any[]) || []).map((x) => [x.user_id as string, { nome: (x.nickname as string) || "Vendedor", avatar: (x.avatar_url as string) || null }]));
+      achou = true;
     };
 
     const poll = async () => {
-      if (!duel) await findDuel();
+      if (!achou) await descobrir();
       if (!alive) return;
-      if (!duel) {
+      if (duelos.length === 0 && salas.length === 0) {
         setState((s) => (s.hasDuel ? EMPTY : s));
         return;
       }
-      // provocação nova do rival → notificação com a frase (só as que chegaram depois de abrir)
-      try {
-        const { data: pv } = await (supabase as any).rpc("x1_provocacoes_da_luta", { p_id: duel.id });
-        const dele = ((pv as Array<{ id: number; frase: string; minha: boolean }>) || []).find((p) => !p.minha);
-        if (dele) {
-          if (lastProvId.current !== null && dele.id > lastProvId.current) notify(`😏 ${duel.oppName} te provocou`, `"${dele.frase}" — responde vendendo.`);
-          lastProvId.current = Math.max(lastProvId.current ?? 0, dele.id);
-        } else if (lastProvId.current === null) lastProvId.current = 0;
-      } catch { /* provocação é enfeite: nunca derruba o placar */ }
+
+      // provocação nova de qualquer rival → notificação com a frase
+      for (const d of duelos) {
+        try {
+          const { data: pv } = await (supabase as any).rpc("x1_provocacoes_da_luta", { p_id: d.id });
+          const dele = ((pv as Array<{ id: number; frase: string; minha: boolean }>) || []).find((p) => !p.minha);
+          if (dele) {
+            if (lastProvId.current !== null && dele.id > lastProvId.current) notify(`😏 ${perfis.get(d.oppId)?.nome ?? "Seu rival"} te provocou`, `"${dele.frase}" — responde vendendo.`);
+            lastProvId.current = Math.max(lastProvId.current ?? 0, dele.id);
+          }
+        } catch { /* provocação é enfeite: nunca derruba o placar */ }
+      }
+      if (lastProvId.current === null) lastProvId.current = 0;
       if (!alive) return;
 
-      const { data } = await (supabase as any).rpc("x1_placar", { p_id: duel.id });
-      const row = ((data as any[]) || [])[0];
-      if (!row || !alive) return;
-      const my = duel.iAmCh ? Number(row.challenger_total) : Number(row.opponent_total);
-      const opp = duel.iAmCh ? Number(row.opponent_total) : Number(row.challenger_total);
+      // placar: todos os duelos + todas as salas, juntos por pessoa
+      const totais = new Map<string, number>();
+      const pega = (id: string, v: unknown) => totais.set(id, Math.max(totais.get(id) ?? 0, Number(v) || 0));
+      await Promise.all([
+        ...duelos.map(async (d) => {
+          const { data } = await (supabase as any).rpc("x1_placar", { p_id: d.id });
+          const row = ((data as any[]) || [])[0];
+          if (!row) return;
+          pega(userId, d.iAmCh ? row.challenger_total : row.opponent_total);
+          pega(d.oppId, d.iAmCh ? row.opponent_total : row.challenger_total);
+        }),
+        ...salas.map(async (id) => {
+          const { data } = await (supabase as any).rpc("x1_sala", { p_id: id });
+          for (const r of (data as any[]) || []) {
+            if (r.p_status !== "dentro") continue;
+            pega(r.user_id, r.p_total);
+            if (!perfis.has(r.user_id)) perfis.set(r.user_id, { nome: r.p_nome || "Vendedor", avatar: r.p_avatar || null });
+          }
+        }),
+      ]);
+      if (!alive) return;
+      if (!totais.has(userId)) totais.set(userId, 0);
+
+      const agora = Date.now();
+      const ordem = [...totais.entries()].sort((a, b) => b[1] - a[1]);
+      let pos = 0, ultimo = Number.NaN;
+      const grupo: X1Lutador[] = ordem.map(([id, total], i) => {
+        if (total !== ultimo) { pos = i + 1; ultimo = total; }
+        const antes = posAntes.current.get(id);
+        if (antes !== undefined && pos < antes) subiuEm.current.set(id, agora);
+        const p = perfis.get(id);
+        return { id, nome: id === userId ? "Você" : p?.nome ?? "Vendedor", avatar: p?.avatar ?? null, total, eu: id === userId, pos,
+          subindo: agora - (subiuEm.current.get(id) ?? 0) < SUBINDO_MS };
+      });
+      posAntes.current = new Map(grupo.map((g) => [g.id, g.pos]));
+
+      const eu = grupo.find((g) => g.eu)!;
+      const rivais = grupo.filter((g) => !g.eu);
+      const top = rivais[0]!;
+      const my = eu.total;
+      const lider = rivais.reduce((a, b) => (b.total > a.total ? b : a), top);
+      const opp = lider.total;
       const lead: "me" | "opp" | "tie" = my > opp ? "me" : opp > my ? "opp" : "tie";
-      const prev = lastLead.current;
+      const prevPos = lastPos.current;
+      lastPos.current = eu.pos;
       lastLead.current = lead;
 
-      // Evento de virada (banner dentro do DEFCON + notificação fora), com cooldown.
+      // Evento: alguém te passou (você caiu de posição) / você voltou pro 1º — com cooldown.
       let event: X1LiveEvent | null = null;
-      if (prev !== null) {
-        const now = Date.now();
-        if (now - lastAlertAt.current >= 90_000) {
-          if (prev !== "opp" && lead === "opp") {
-            lastAlertAt.current = now;
-            event = { type: "overtaken", at: now };
-            notify("⚔️ X1 — seu oponente passou!", `${duel.oppName} tá na sua frente. Bora reagir! 🔥`);
-          } else if (prev === "opp" && lead === "me") {
-            lastAlertAt.current = now;
-            event = { type: "regained", at: now };
-            notify("🔥 X1 — você retomou a liderança!", `Você voltou pra frente de ${duel.oppName}. Mantém o ritmo!`);
-          }
+      if (prevPos !== null && agora - lastAlertAt.current >= 90_000) {
+        if (eu.pos > prevPos) {
+          const quem = grupo.find((g) => !g.eu && g.pos === eu.pos - 1) ?? lider;
+          lastAlertAt.current = agora;
+          event = { type: "overtaken", at: agora, quem: quem.nome };
+          notify("⚔️ X1 — te passaram!", `${quem.nome} tá na sua frente. Bora reagir! 🔥`);
+        } else if (prevPos > 1 && eu.pos === 1 && my > lider.total) {
+          lastAlertAt.current = agora;
+          event = { type: "regained", at: agora, quem: lider.nome };
+          notify("🔥 X1 — você retomou a liderança!", `Você voltou pro 1º. Mantém o ritmo!`);
         }
       }
 
+      const meuPerfil = perfis.get(userId);
+      // no grupo, o "oponente" do aviso é quem te passou (ou o líder)
+      const oponente = (event?.quem && rivais.find((g) => g.nome === event!.quem)) || (rivais.length === 1 ? top : lider);
       setState((s) => ({
         hasDuel: true,
-        oppName: duel!.oppName,
-        oppAvatar: duel!.oppAvatar,
-        myAvatar: duel!.myAvatar,
-        myName: duel!.myName,
+        oppName: oponente.nome,
+        oppAvatar: oponente.avatar,
+        myAvatar: meuPerfil?.avatar ?? null,
+        myName: meuPerfil?.nome ?? "Você",
         my,
-        opp,
-        stakes: duel!.stakes,
-        lead,
+        opp: oponente.total,
+        stakes: duelos[0]?.stakes ?? 0,
+        lead: rivais.length === 1 ? (my > top.total ? "me" : top.total > my ? "opp" : "tie") : lead,
+        grupo: rivais.length >= 2 ? grupo : null,
         // não apaga um evento ainda em exibição se este poll não gerou outro
         event: event ?? s.event,
         dismissEvent,
@@ -168,9 +211,12 @@ export function useX1DefconAlert(userId: string | undefined, active: boolean): X
     // 60s (era 15s até 08/10/2026: ~10 mil consultas/dia só disso). O placar
     // vem das vendas lançadas no DEFCON; o banco só entra no fechamento.
     const t = setInterval(poll, 60_000);
+    // novo X1/sala aceito durante o Foco entra na próxima descoberta (a cada 5 min)
+    const r = setInterval(() => { achou = false; }, 5 * 60_000);
     return () => {
       alive = false;
       clearInterval(t);
+      clearInterval(r);
     };
   }, [userId, active, dismissEvent]);
 
