@@ -4,7 +4,7 @@ import { getTier } from "./tier";
 import { presenceInfo } from "@/shared/lib/presence";
 import { useNavigate } from "react-router-dom";
 import { Zap, Crown, Swords, TrendingUp, Clock, Target } from "lucide-react";
-import { AvatarRanking, SeloVerificado } from "./AvatarRanking";
+import { AvatarRanking, NomeComSelo } from "./AvatarRanking";
 
 interface Props {
   ranking: LeaderboardEntry[];
@@ -56,10 +56,7 @@ function DuelSide({
           style={{ bottom: 2, right: 6, borderColor: "#070707", background: presenceInfo(entry.last_active_at).online ? "#22c55e" : "#6b7280" }}
         />
       </div>
-      <p className="text-[14px] font-black mt-2 truncate px-1" style={{ color: tier.color }}>
-        {entry.nome_usuario || "Vendedor"}
-        {entry.verificado && <SeloVerificado className="ml-1" />}
-      </p>
+      <NomeComSelo nome={entry.nome_usuario} verificado={entry.verificado} curto centro className="text-[14px] font-black mt-2 px-1" style={{ color: tier.color }} />
       <p className="text-[11px] text-muted-foreground">
         #{position} · <span className="font-black tracking-wider" style={{ color: tier.color }}>{tier.label}</span>
       </p>

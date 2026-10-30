@@ -168,7 +168,7 @@ export function RankingAbas({ aba, onAba, hoje, periodoSemana, fimSemana, posica
             style={{ animationDelay: ".65s", color: tema.claro, background: rgba(tema, 0.1), border: `1px solid ${rgba(tema, 0.45)}` }}>
             Ver regras <ChevronRight className="w-4 h-4" />
           </button>
-          <p className="relative mt-2 flex items-center justify-center gap-1 text-[11px]" style={{ color: "#8f897c" }}><ShieldCheck className="w-3.5 h-3.5" /> Premiação sujeita à verificação</p>
+          <p className="relative mt-2 flex items-center justify-center gap-1 text-[11px]" style={{ color: "#8f897c" }}><ShieldCheck className="w-3.5 h-3.5" /> Prêmio só pra quem tem banco conectado</p>
         </section>
       </div>
       <DesafioRegras aberto={regras} onFechar={() => setRegras(false)} />
