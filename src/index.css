@@ -409,7 +409,47 @@ body.battery-saver .backdrop-blur-xl {
 }
 .orbis-clima-drift { animation: orbisClimaDrift 3.2s ease-in-out infinite; }
 
+/* ===== Desafio Avante (30/10): coreografia do painel do prêmio ===== */
+/* Entrada, uma vez: o painel desce, o emblema estoura, o número conta, os blocos sobem. */
+@keyframes vantDesce { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+.vant-desce { animation: vantDesce .5s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes vantEstoura {
+  0%   { transform: scale(.4); opacity: 0; filter: brightness(2); }
+  60%  { transform: scale(1.14); opacity: 1; }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+.vant-estoura { animation: vantEstoura .7s .15s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes vantSobe { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.vant-sobe { animation: vantSobe .5s cubic-bezier(.2,.8,.2,1) both; }
+/* Ambiente, em loop e discreto: os raios giram devagar, o número respira, o brilho passa de vez em quando. */
+@keyframes vantGira { to { transform: translateX(-50%) rotate(360deg); } }
+.vant-raios { animation: vantGira 48s linear infinite; }
+@keyframes vantRespira {
+  0%, 100% { text-shadow: 0 0 18px rgba(245,184,0,.35); }
+  50%      { text-shadow: 0 0 34px rgba(245,184,0,.75), 0 0 2px rgba(255,241,184,.9); }
+}
+.vant-respira { animation: vantRespira 3.6s ease-in-out infinite; }
+@keyframes vantVarre { 0%, 70% { background-position: 200% 0; } 100% { background-position: -80% 0; } }
+.vant-varre {
+  background: linear-gradient(115deg, transparent 30%, rgba(255,241,184,0.45) 50%, transparent 70%);
+  background-size: 220% 100%;
+  animation: vantVarre 7s linear infinite;
+}
+/* O segundo vira: o dígito novo entra de baixo. */
+@keyframes vantVira { from { transform: translateY(55%); opacity: 0; } to { transform: none; opacity: 1; } }
+.vant-vira { animation: vantVira .32s cubic-bezier(.2,.8,.2,1) both; }
+/* A barra enche até a sua posição. */
+@keyframes vantEnche { from { width: 0; } }
+.vant-enche { animation: vantEnche 1.1s .5s cubic-bezier(.2,.8,.2,1) both; }
+/* Última hora: o cronômetro pulsa em vermelho. */
+@keyframes vantUrgente { 0%, 100% { border-color: rgba(242,70,90,.35); } 50% { border-color: rgba(242,70,90,.9); box-shadow: 0 0 14px rgba(242,70,90,.45); } }
+.vant-urgente { animation: vantUrgente 1.2s ease-in-out infinite; }
+/* Subiu de posição: a linha pisca em dourado. */
+@keyframes vantPisca { 0% { color: #fff; } 30% { color: #F5B800; text-shadow: 0 0 10px rgba(245,184,0,.8); } 100% { color: #fff; text-shadow: none; } }
+.vant-pisca { animation: vantPisca 1.2s ease-out both; }
+
 /* Respeita quem pediu menos movimento. */
 @media (prefers-reduced-motion: reduce) {
-  .orbis-shimmer, .orbis-float, .orbis-rise, .orbis-clima-drift { animation: none !important; }
+  .orbis-shimmer, .orbis-float, .orbis-rise, .orbis-clima-drift,
+  .vant-desce, .vant-estoura, .vant-sobe, .vant-raios, .vant-respira, .vant-varre, .vant-vira, .vant-enche, .vant-urgente, .vant-pisca { animation: none !important; }
 }
