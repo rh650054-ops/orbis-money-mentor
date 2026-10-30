@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+
+// o número do prêmio conta de 0 até o valor (requestAnimationFrame): no teste, chega na hora
+vi.stubGlobal("requestAnimationFrame", (cb: (t: number) => void) => { cb(performance.now() + 10_000); return 1; });
+vi.stubGlobal("cancelAnimationFrame", () => {});
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { lerAba, premioDaAba, rotuloSemana } from "./premiacao";
 import { RankingAbas } from "./RankingAbas";
 
@@ -21,10 +25,12 @@ describe("ranking semanal + premiação de novembro", () => {
   it("as abas trocam e o semanal mostra o período", () => {
     const onAba = vi.fn();
     const { rerender } = render(<RankingAbas aba="mensal" onAba={onAba} hoje="2026-11-03" periodoSemana="Semana 1 · 01/11 a 07/11" fimSemana="2026-11-07" />);
+    act(() => {});
     expect(screen.getByText(/R\$ 500/)).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "Semanal" }));
     expect(onAba).toHaveBeenCalledWith("semanal");
     rerender(<RankingAbas aba="semanal" onAba={onAba} hoje="2026-11-03" periodoSemana="Semana 1 · 01/11 a 07/11" fimSemana="2026-11-07" />);
+    act(() => {});
     expect(screen.getByText(/R\$ 50\b/)).toBeTruthy();
     expect(screen.getByText(/SEMANA 1/)).toBeTruthy();
     expect(screen.getByText(/01\/11 a 07\/11/)).toBeTruthy();
