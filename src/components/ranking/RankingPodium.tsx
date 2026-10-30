@@ -24,8 +24,8 @@ interface Props {
 // Liga Semanal = AMBIENTE verde (fundo + badge). As medalhas continuam ouro/prata/bronze:
 // o top1 ganha ESMERALDA no lugar do ouro; top2/top3 mantêm prata/bronze. A base do pódio
 // usa a MESMA cor do círculo (medalha) de cada posição.
-const EMERALD = "#34D399";
-const EMERALD_GLOW = "rgba(52,211,153,0.55)";
+const EMERALD = "#38BDF8"; // semanal: azul elétrico do Desafio da Semana (30/10)
+const EMERALD_GLOW = "rgba(56,189,248,0.55)";
 
 function PodAvatar({ url, name, size, color, glow, icon, online }: { url: string | null; name: string | null; size: number; color: string; glow: string; icon: string; online: boolean }) {
   const dot = Math.max(12, Math.round(size * 0.22));
@@ -96,7 +96,7 @@ function Col({ entry, position, avatarSize, barHeight, champion, green, formatCu
           height: barHeight,
           fontSize: champion ? 30 : 22,
           color: "#ffffff",
-          background: `linear-gradient(180deg, ${baseColor}${green ? "55" : "40"} 0%, ${green ? "#07130d" : "#101015"} 88%)`,
+          background: `linear-gradient(180deg, ${baseColor}${green ? "55" : "40"} 0%, ${green ? "#03101a" : "#101015"} 88%)`,
           border: `1px solid ${baseColor}66`,
           borderBottom: "none",
           boxShadow: `inset 0 1px 0 ${baseColor}66`,
@@ -108,7 +108,7 @@ function Col({ entry, position, avatarSize, barHeight, champion, green, formatCu
         <span className="relative" style={{ textShadow: `0 0 16px ${baseGlow}` }}>{position}</span>
         {champion && premio && (
           <span className="absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-2.5 py-[3px] text-[10.5px] font-black tracking-[.06em]"
-            style={{ background: "#F5B800", color: "#1a1305", boxShadow: "0 6px 18px -6px rgba(245,184,0,.9)" }}>{premio}</span>
+            style={green ? { background: "#38BDF8", color: "#03101a", boxShadow: "0 6px 18px -6px rgba(56,189,248,.9)" } : { background: "#F5B800", color: "#1a1305", boxShadow: "0 6px 18px -6px rgba(245,184,0,.9)" }}>{premio}</span>
         )}
       </div>
     </div>
@@ -147,16 +147,16 @@ export function RankingPodium({ top1, top2, top3, formatCurrency, onOpenProfile,
   const green = variant === "semanal";
   const premium = variant === "premium";
   const label = premium ? "PÓDIO DA COMPETIÇÃO" : green ? "PÓDIO DA SEMANA" : "PÓDIO DO MÊS";
-  // Mensal (global) e competição usam o DOURADO oficial do app; só a liga semanal é verde.
-  const labelColor = green ? "#6EE7B7" : "#F5D77A";
+  // Mensal (global) e competição usam o DOURADO oficial do app; a liga semanal é azul (30/10, era verde).
+  const labelColor = green ? "#7DD3FC" : "#F5D77A";
   const bg = green
-    ? "radial-gradient(120% 70% at 50% 0%, rgba(16,185,129,0.18) 0%, #06120d 62%)"
+    ? "radial-gradient(120% 70% at 50% 0%, rgba(56,189,248,0.18) 0%, #03101a 62%)"
     : "radial-gradient(120% 70% at 50% 0%, rgba(245,181,68,0.20) 0%, #120d04 62%)";
   return (
     <div
       className="rounded-2xl border p-4 pt-3"
       style={{
-        borderColor: green ? "#11352a" : "#3a2c0a",
+        borderColor: green ? "#0d3550" : "#3a2c0a",
         background: bg,
       }}
     >
