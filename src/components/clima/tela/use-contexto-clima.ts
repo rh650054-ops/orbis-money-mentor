@@ -27,11 +27,15 @@ export function useContextoClima(userId: string | undefined) {
       const em7 = new Date(`${hoje}T12:00:00`); em7.setDate(em7.getDate() + 7);
       const ate = `${em7.getFullYear()}-${String(em7.getMonth() + 1).padStart(2, "0")}-${String(em7.getDate()).padStart(2, "0")}`;
       const desde = new Date(Date.now() - 90 * 86400000).toISOString();
+      // contas: de 3 dias atrasada até 7 dias à frente. Conta esquecida de meses atrás (Rick, 01/11:
+      // "contas R$ 1.185 vencendo hoje" eram de setembro) não entra na leitura do dia.
+      const ha3 = new Date(`${hoje}T12:00:00`); ha3.setDate(ha3.getDate() - 3);
+      const desdeConta = `${ha3.getFullYear()}-${String(ha3.getMonth() + 1).padStart(2, "0")}-${String(ha3.getDate()).padStart(2, "0")}`;
       const [plano, perfil, vendas, contas, ficha, blocos, apr] = await Promise.all([
         db.from("daily_goal_plans").select("daily_goal").eq("user_id", userId).eq("date", hoje).maybeSingle(),
         db.from("profiles").select("monthly_goal").eq("user_id", userId).maybeSingle(),
         db.from("daily_sales").select("total_profit, total_debt").eq("user_id", userId).eq("date", hoje).limit(50),
-        db.from("planned_bills").select("name, amount, due_date").eq("user_id", userId).eq("paid", false).not("due_date", "is", null).lte("due_date", ate).order("due_date").limit(4),
+        db.from("planned_bills").select("name, amount, due_date").eq("user_id", userId).eq("paid", false).not("due_date", "is", null).gte("due_date", desdeConta).lte("due_date", ate).order("due_date").limit(4),
         db.from("orbis_ficha").select("melhor_hora").eq("user_id", userId).maybeSingle(),
         db.from("challenge_blocks").select("started_at, sales_count").eq("user_id", userId).gte("started_at", desde).limit(1000),
         rpc.rpc("clima_meu_aprendizado"),

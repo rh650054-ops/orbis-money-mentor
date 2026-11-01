@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, Share2, ShieldAlert, Siren } from "lucide-react";
 import type { AlertaOficial, Tempo } from "@/hooks/useClima";
 import { toast } from "@/shared/hooks/use-toast";
+import { alertaAtivo, alertaFuturo, quandoAlerta } from "../decisao";
 import { BotaoAcao, COR, Cartao, Folha, Rotulo, Titulo } from "./comum";
 
 const COR_ALERTA = { vermelho: "#FF5C5C", laranja: "#FF9F43", amarelo: "#F5B800" } as const;
@@ -15,7 +16,10 @@ const hora = (s: string) => (s.length >= 16 ? `${s.slice(8, 10)}/${s.slice(5, 7)
 export function AlertasSeguranca({ t, cidade }: { t: Tempo; cidade: string }) {
   const navigate = useNavigate();
   const [detalhe, setDetalhe] = useState<AlertaOficial | null>(null);
-  const oficial = (t.oficiais ?? [])[0] ?? null;
+  // 01/11: o INMET avisa até 3 dias antes. Alerta valendo agora manda; alerta de outro dia é só aviso.
+  const ativo = alertaAtivo(t.oficiais);
+  const futuro = ativo ? null : alertaFuturo(t.oficiais);
+  const oficial = ativo ?? futuro;
   const modelo = t.alerta;
 
   if (!oficial && !modelo) {
@@ -28,10 +32,10 @@ export function AlertasSeguranca({ t, cidade }: { t: Tempo; cidade: string }) {
     );
   }
 
-  const nivel = oficial?.nivel ?? (/tempestade/i.test(modelo?.titulo ?? "") ? "vermelho" : "laranja");
+  const nivel = futuro ? "amarelo" : oficial?.nivel ?? (/tempestade/i.test(modelo?.titulo ?? "") ? "vermelho" : "laranja");
   const grave = nivel !== "amarelo";
   const cor = COR_ALERTA[nivel];
-  const titulo = oficial ? `INMET emitiu alerta de ${oficial.tipo.toLowerCase()} para sua região` : modelo!.titulo;
+  const titulo = futuro ? `INMET prevê ${futuro.tipo.toLowerCase()} pra ${quandoAlerta(futuro)}` : oficial ? `INMET emitiu alerta de ${oficial.tipo.toLowerCase()} para sua região` : modelo!.titulo;
   const compartilhar = async () => {
     const txt = `⚠️ ${titulo}${cidade ? ` (${cidade})` : ""}${oficial ? ` · até ${hora(oficial.fim)}` : ""}. ${grave ? "Procura abrigo e evita deslocamento." : "Fica atento."} — via VANT`;
     try {
@@ -50,7 +54,7 @@ export function AlertasSeguranca({ t, cidade }: { t: Tempo; cidade: string }) {
             {grave ? <ShieldAlert className="w-6 h-6" style={{ color: cor }} strokeWidth={2.2} /> : <AlertTriangle className="w-6 h-6" style={{ color: cor }} strokeWidth={2.2} />}
           </span>
           <div className="min-w-0">
-            <Rotulo cor={cor}>{grave ? "Alerta importante" : "Atenção"}</Rotulo>
+            <Rotulo cor={cor}>{grave ? "Alerta importante" : futuro ? "Aviso pros próximos dias" : "Atenção"}</Rotulo>
             <p className="text-[17px] font-bold leading-snug mt-1" style={{ color: COR.texto }}>{titulo}</p>
             <p className="text-[13px] mt-1" style={{ color: COR.sub }}>
               {oficial ? `${oficial.severidade} · ${hora(oficial.inicio)} até ${hora(oficial.fim)}` : modelo!.texto}

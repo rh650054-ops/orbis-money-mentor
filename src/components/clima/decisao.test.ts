@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DiaClima, HoraClima, Tempo } from "@/hooks/useClima";
-import { decisaoAgora, janelaDoDia, janelasDeVenda, planoDoDia, resumoDia, resumoVenda, statusHora } from "./decisao";
+import { alertaAtivo, alertaFuturo, decisaoAgora, quandoAlerta, janelaDoDia, janelasDeVenda, planoDoDia, resumoDia, resumoVenda, statusHora } from "./decisao";
 import { lerMovimento } from "./tela/visual";
 import { notaDaHora } from "./picos";
 
@@ -25,6 +25,22 @@ describe("Clima · decisão", () => {
 
   it("chovendo agora: manda esperar até a hora que abre", () => {
     expect(decisaoAgora(tempo(dia, { estado: "chuva" }))).toMatchObject({ titulo: "Espera até 16h", nivel: "atencao" });
+  });
+
+  it("céu limpo agora, tempestade daqui a 2h: janela curta, não 'pausa a venda' (Rick, 01/11)", () => {
+    const h = [hora(11, 26), hora(12, 39), hora(13, 66, { codigo: 95, mm: 3 }), hora(14, 69, { codigo: 61, mm: 2 })];
+    const t = tempo(h, { estado: "sol", alerta: { titulo: "Tempestade", texto: "" } });
+    expect(decisaoAgora(t).titulo).toBe("Janela curta até 12h"); // 12h já é "instável" (39%)
+    // a 1 h da tempestade (às 12h o próximo é 13h), aí sim para
+    expect(decisaoAgora(tempo(h.slice(1), { estado: "sol", alerta: { titulo: "Tempestade", texto: "" } })).titulo).toBe("Pausa a venda");
+  });
+
+  it("alerta do INMET pra outro dia é aviso, não decisão", () => {
+    const of = { tipo: "Tempestade", severidade: "Perigo Potencial", nivel: "amarelo" as const, inicio: "2026-11-03 00:00", fim: "2026-11-03 23:59", riscos: "", instrucoes: [] };
+    const agora = new Date("2026-11-01T11:14:00-03:00");
+    expect(alertaAtivo([of], agora)).toBeNull();
+    expect(alertaFuturo([of], agora)).toBe(of);
+    expect(quandoAlerta(of)).toBe("terça (03/11)");
   });
 
   it("seco agora mas chuva em 2h: janela curta", () => {

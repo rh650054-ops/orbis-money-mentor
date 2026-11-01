@@ -62,9 +62,24 @@ export function alertaAtivo(oficiais: AlertaOficial[] | undefined, agora = new D
     return fim >= agora && ini.getTime() - agora.getTime() <= 3 * 3600_000;
   }) ?? null;
 }
-/** Perigo de verdade nas próximas 2 h pelos modelos: tempestade, chuva forte ou rajada ≥ 50 km/h. */
+/** Alerta oficial pra OUTRO dia (INMET avisa até 3 dias antes): só aviso, nunca decisão. */
+export function alertaFuturo(oficiais: AlertaOficial[] | undefined, agora = new Date()): AlertaOficial | null {
+  if (alertaAtivo(oficiais, agora)) return null;
+  return [...(oficiais ?? [])].filter((a) => dataLocal(a.inicio) > agora).sort((a, b) => a.inicio.localeCompare(b.inicio))[0] ?? null;
+}
+/** "terça (03/11)" para um alerta futuro. */
+export function quandoAlerta(a: AlertaOficial): string {
+  const d = dataLocal(a.inicio);
+  const ddmm = `${a.inicio.slice(8, 10)}/${a.inicio.slice(5, 7)}`;
+  if (Number.isNaN(d.getTime())) return ddmm;
+  const dia = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long" }).format(d).replace("-feira", "");
+  return `${dia} (${ddmm})`;
+}
+/** Perigo de verdade AGORA ou na próxima hora pelos modelos: tempestade, chuva forte ou rajada ≥ 50 km/h.
+ *  Rick, 01/11: às 11h, céu azul, tempestade prevista pras 13h (66%) virava "Pausa a venda · procura
+ *  abrigo" duas horas antes. Agora a janela é esta hora e a próxima; a de depois vira "Janela curta até 13h". */
 export function perigoPerto(t: Tempo): boolean {
-  return t.horas.slice(0, 3).some((h, i) => {
+  return t.horas.slice(0, 2).some((h, i) => {
     const it = intensidade(h, t.horas[i - 1]);
     return it === "tempestade" || it === "chuva forte" || (h.rajada ?? 0) >= 50;
   });
