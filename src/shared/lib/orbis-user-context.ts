@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { vendidoDoDia, type LinhaVendida } from "@/shared/lib/vendido";
 import { getBrazilDate } from "@/shared/lib/date-utils";
+import { contasAbertas, proximoVencimento as proximoVencimentoStr, type ContaLinha } from "@/shared/lib/contas";
 
 // FASE 1 do Agente Vant: monta um retrato COMPLETO e compacto do vendedor
 // (últimos 30 dias de TUDO que ele faz no app) pro mentor de IA personalizar
@@ -53,7 +54,7 @@ export async function buildOrbisUserContext(userId: string): Promise<string> {
         .select("id,name,stock_quantity,stock_min,sale_price,is_active")
         .eq("user_id", userId).eq("is_active", true),
       sb.from("planned_bills")
-        .select("name,amount,saved_amount,due_date,paid")
+        .select("name,amount,saved_amount,due_date,paid,recurring,paid_cycle,duration_months,cycles_paid")
         .eq("user_id", userId).eq("paid", false),
     ]);
 
@@ -127,10 +128,9 @@ export async function buildOrbisUserContext(userId: string): Promise<string> {
       byCat[k] = (byCat[k] || 0) + num(e.amount);
     }
     const topGasto = Object.entries(byCat).map(([k, v]) => ({ k, v })).sort((a, b) => b.v - a.v)[0];
-    const d10 = back(-10); // 10 dias pra FRENTE
-    const contas = ((billsR.data as Record<string, unknown>[]) || [])
-      .filter((b) => String(b.due_date) >= todayISO && String(b.due_date) <= d10)
-      .sort((a, b) => String(a.due_date).localeCompare(String(b.due_date))).slice(0, 3);
+    // próximos 10 dias pela regra do Financeiro (recorrente = dia do mês + ciclo pago; 01/11)
+    const contas = contasAbertas((billsR.data as unknown as ContaLinha[]) || [], todayISO, 10, 0).slice(0, 3)
+      .map((b) => ({ ...b, due_date: proximoVencimentoStr(b, todayISO) }));
 
     // ---- Perfil, meta, streak, ranking ----
     const prof = (profR.data as Record<string, unknown> | null) || {};

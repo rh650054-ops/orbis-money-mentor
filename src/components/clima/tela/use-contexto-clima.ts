@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import type { ContextoClima } from "@/hooks/useClima";
 import { horasFortes, type PerfilHora } from "../picos";
+import { contasAbertas, type ContaLinha } from "@/shared/lib/contas";
 import type { AprendizadoVendas } from "./insights";
 
 // Tabelas que os tipos gerados (velhos) não conhecem: consulta genérica, sem `any`.
@@ -24,18 +25,14 @@ export function useContextoClima(userId: string | undefined) {
     let vivo = true;
     (async () => {
       const hoje = getBrazilDate();
-      const em7 = new Date(`${hoje}T12:00:00`); em7.setDate(em7.getDate() + 7);
-      const ate = `${em7.getFullYear()}-${String(em7.getMonth() + 1).padStart(2, "0")}-${String(em7.getDate()).padStart(2, "0")}`;
       const desde = new Date(Date.now() - 90 * 86400000).toISOString();
-      // contas: de 3 dias atrasada até 7 dias à frente. Conta esquecida de meses atrás (Rick, 01/11:
-      // "contas R$ 1.185 vencendo hoje" eram de setembro) não entra na leitura do dia.
-      const ha3 = new Date(`${hoje}T12:00:00`); ha3.setDate(ha3.getDate() - 3);
-      const desdeConta = `${ha3.getFullYear()}-${String(ha3.getMonth() + 1).padStart(2, "0")}-${String(ha3.getDate()).padStart(2, "0")}`;
+      // contas: mesma regra do Financeiro (recorrente = dia do mês + ciclo pago), 3 dias atrasada
+      // até 7 dias à frente. Rick, 01/11: Luz/Água/Aluguel pagas em outubro apareciam "vence hoje".
       const [plano, perfil, vendas, contas, ficha, blocos, apr] = await Promise.all([
         db.from("daily_goal_plans").select("daily_goal").eq("user_id", userId).eq("date", hoje).maybeSingle(),
         db.from("profiles").select("monthly_goal").eq("user_id", userId).maybeSingle(),
         db.from("daily_sales").select("total_profit, total_debt").eq("user_id", userId).eq("date", hoje).limit(50),
-        db.from("planned_bills").select("name, amount, due_date").eq("user_id", userId).eq("paid", false).not("due_date", "is", null).gte("due_date", desdeConta).lte("due_date", ate).order("due_date").limit(4),
+        db.from("planned_bills").select("name, amount, due_date, paid, recurring, paid_cycle, duration_months, cycles_paid").eq("user_id", userId).eq("paid", false).not("due_date", "is", null).limit(200),
         db.from("orbis_ficha").select("melhor_hora").eq("user_id", userId).maybeSingle(),
         db.from("challenge_blocks").select("started_at, sales_count").eq("user_id", userId).gte("started_at", desde).limit(1000),
         rpc.rpc("clima_meu_aprendizado"),
@@ -55,7 +52,6 @@ export function useContextoClima(userId: string | undefined) {
       }
       const horasDele = [...mapa.entries()].map(([hora, v]) => ({ hora, ...v }));
       const a = (apr.data ?? null) as AprendizadoVendas | null;
-      const dias = (iso: string) => Math.round((new Date(`${iso}T12:00:00`).getTime() - new Date(`${hoje}T12:00:00`).getTime()) / 86400000);
       const melhor = ficha.data?.melhor_hora;
       setPerfilHoras(horasDele);
       setAprendizado(a);
@@ -64,7 +60,7 @@ export function useContextoClima(userId: string | undefined) {
         melhorHora: melhor != null ? Number(melhor) : null,
         melhoresHoras: horasFortes(horasDele).topo,
         quedaChuvaPct: a?.queda_chuva_pct ?? null,
-        contas: (contas.data ?? []).map((b) => ({ nome: String(b.name), dias: dias(String(b.due_date)), valor: Number(b.amount) || 0 })),
+        contas: contasAbertas((contas.data ?? []) as unknown as ContaLinha[], hoje).slice(0, 4).map((b) => ({ nome: String(b.name), dias: b.dias, valor: Number(b.amount) || 0 })),
       });
     })().catch(() => { if (vivo) setContexto({}); });
     return () => { vivo = false; };
