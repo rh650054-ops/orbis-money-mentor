@@ -19,7 +19,6 @@ import { faltou, sobra } from "@/shared/lib/dinheiro";
 import { CaixinhaMeta } from "@/components/defcon/CaixinhaMeta";
 import { usePixDoBanco, puxarBancoAgora, horaDaLeitura } from "@/components/conectar/banco-pix";
 import { CaiuNoBolso } from "@/components/relatorio/CaiuNoBolso";
-import { usePixDestravado, BotaoDestravar, marcarDiaManual } from "./destravar-pix";
 import { compartilharArquivo, baixarArquivo } from "@/shared/lib/compartilhar";
 
 // Revisitar cada HORA (bloco) do dia: helpers de horário/duração do bloco.
@@ -74,7 +73,6 @@ export function DefconEndScreen({
   // (pluggy-hora) — antes esta tela pedia leitura nova a cada 5 min.
   const { pix: pixBanco, recarregar: relerBanco } = usePixDoBanco(!!userId, 60_000);
   const [lendoBanco, setLendoBanco] = useState(false);
-  const { podeDestravar, destravado, destravar } = usePixDestravado(!!userId && pixBanco.temBanco);
   useEffect(() => {
     if (!userId) return;
     let vivo = true;
@@ -570,8 +568,8 @@ export function DefconEndScreen({
   // Finance) vê só o que CAIU; o que ele lançou e ainda não caiu aparece como
   // "ainda não caiu", não como calote. Sem banco, segue digitando como sempre.
   // 09/10 18:46 (Rick): Pix E maquininha travados pra todo Pro com banco, sem
-  // exceção. Só os sócios destravam, respondendo a pergunta (destravar-pix.tsx).
-  const travado = pixBanco.temBanco && !destravado;
+  // exceção (o "destravar" dos sócios saiu em 01/11 — ninguém usou).
+  const travado = pixBanco.temBanco;
   // Dinheiro do fechamento: sem banco, vem o que foi lançado no Foco; com banco, começa
   // vazio e o vendedor digita quanto recebeu em dinheiro de verdade (Rick, 18/10 23:10).
   useEffect(() => {
@@ -1015,8 +1013,6 @@ export function DefconEndScreen({
       if (totalRecebido > 0 || mexeu) {
         await onSaveBreakdown(dinheiroNum, cartaoNum, pixNum);
         await gravarDinheiroInformado(dinheiroNum);
-        // sócio: o dia destravado não é mais refeito pelo banco; travado volta a ser
-        if (podeDestravar) await marcarDiaManual(getBrazilDate(), destravado);
       }
       onExit();
     } finally {
@@ -1183,7 +1179,6 @@ export function DefconEndScreen({
             ) : (
               <PaymentInput emoji="💳" label="Cartão" value={cartao} onChange={(v) => { setMexeu(true); setCartao(v); }} accent="text-muted-foreground" />
             )}
-            {travado && podeDestravar && <BotaoDestravar onDestravar={() => { destravar(); setMexeu(true); }} />}
             <PaymentInput emoji="💵" label="Dinheiro" value={dinheiro} onChange={(v) => { setMexeu(true); setDinheiro(v); }} accent="text-muted-foreground" />
 
             {/* CAIU NO BOLSO — o mesmo bloco do Financeiro (Rick, 17/10 21:29): vendido,
