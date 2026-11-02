@@ -83,7 +83,8 @@ export function DesafioCard() {
       )}
 
       <div className="mt-3 flex items-center justify-between gap-2">
-        <p className="text-[10.5px]" style={{ color: COR.mute }}>lucro = vendas − {formatCurrency(d.custo_unid)} por {nomeUnidade(d.analise.produto_nome, 1)}</p>
+        {/* 02/11 (Rick): dia fechado = recebido − custo da receita; hoje = estimativa com o calote médio */}
+        <p className="text-[10.5px] leading-snug" style={{ color: COR.mute }}>lucro = recebido − {formatCurrency(d.analise.custo_receita || d.custo_unid)} por {nomeUnidade(d.analise.produto_nome, 1)} · hoje é estimativa até o banco fechar</p>
         <button type="button" disabled={excluir.isPending}
           onClick={() => (confirmar ? excluir.mutate(d.id) : setConfirmar(true))}
           className="h-8 px-2.5 rounded-full text-[11.5px] font-bold inline-flex items-center gap-1 shrink-0"
