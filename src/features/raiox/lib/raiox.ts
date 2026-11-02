@@ -27,6 +27,11 @@ export interface Estado { cor: string; texto: string; pct: number }
 export function estadoCategoria(c: CategoriaRX, ref: CatAnalise | undefined, corrente: boolean, mesAnt: string): Estado {
   if (ref) {
     const r = referencia(ref, corrente);
+    if (r.metrica === "Teto") {
+      // 02/11: a budget is not "normal": say how much of it is gone
+      const pct = Math.round(r.pct);
+      return { cor: r.cor, texto: pct > 100 ? `passou do teto (${pct}%)` : `${pct}% do teto`, pct: Math.min(100, r.pct) };
+    }
     if (r.metrica) {
       const x = r.pct / 100;
       const texto = x >= 2 ? `${Math.floor(x)}x acima do normal` : x > 1.05 ? `+${Math.round((x - 1) * 100)}% acima do normal` : x < 0.9 ? "abaixo do normal" : "no normal";
@@ -35,6 +40,11 @@ export function estadoCategoria(c: CategoriaRX, ref: CatAnalise | undefined, cor
   }
   const v = variacao(c.total, c.anterior);
   if (v === null) return { cor: COR.mute, texto: "novo este mês", pct: 100 };
+  // 02/11: a month still running vs a whole closed month ("-89% vs out." on day 2) is not a comparison
+  if (corrente) {
+    const pct = Math.round((c.total / c.anterior) * 100);
+    return { cor: COR.mute, texto: `${pct}% do que foi em ${mesCurto(mesAnt)}`, pct: Math.min(100, pct) };
+  }
   const cor = v <= -10 ? COR.verde : v <= 10 ? COR.mute : v <= 30 ? COR.ouro : v <= 100 ? LARANJA : COR.coral;
   const texto = v >= 100 ? `${Math.round(c.total / c.anterior)}x ${mesCurto(mesAnt)}` : `${v > 0 ? "+" : ""}${v}% vs ${mesCurto(mesAnt)}.`;
   return { cor, texto, pct: Math.min(100, c.anterior > 0 ? (c.total / c.anterior) * 100 : 100) };
@@ -82,3 +92,16 @@ export function destinatarios(lista: LancamentoRX[], n = 3): { nome: string; tot
 }
 
 export const nomeDestinatario = (l: LancamentoRX) => (l.comerciante || l.descricao || "Sem nome").trim();
+
+/** 02/11: which "Vant percebeu" alerts to show. With a teto, only when the teto is really being
+ *  eaten (half of it gone) — a R$ 85 grocery run on day 2 against a R$ 700 teto is not an alert.
+ *  Without a teto, the server's pace rule stands. */
+export function alertasValidos<A extends { categoria: string; total: number }>(
+  alertas: A[], refs: Record<string, CatAnalise | undefined>,
+): A[] {
+  return alertas.filter((a) => {
+    const ref = refs[a.categoria];
+    if (!ref?.tem_teto || !(ref.normal > 0)) return true;
+    return a.total >= ref.normal * 0.5;
+  });
+}

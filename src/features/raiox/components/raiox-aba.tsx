@@ -18,7 +18,7 @@ import { VantPercebeu } from "@/components/financas/analise/VantPercebeu";
 import { useAnalise, useCategoriasSaida, useRevisao } from "@/components/financas/analise/use-analise";
 import { useLancamentosQuery } from "../api/use-lancamentos-query";
 import { useMesesQuery, useResumoQuery } from "../api/use-resumo-query";
-import { mesAnterior } from "../lib/raiox";
+import { alertasValidos, mesAnterior } from "../lib/raiox";
 import { FILTROS_VAZIOS, type CategoriaRX, type Filtros } from "../types";
 import { Cabecalho } from "./cabecalho";
 import { ResumoMes } from "./resumo-mes";
@@ -71,7 +71,7 @@ export function RaioXAba({ userId, temBanco, onImportar }: { userId?: string; te
   }
 
   const corrente = mes === atual;
-  const alertas = (analise.data?.alertas ?? []).slice(0, 2);
+  const alertas = alertasValidos(analise.data?.alertas ?? [], refs).slice(0, 2);
   const pend = revisao.data?.pendentes ?? [];
   const abrirCat = (slug: string) => { const c = r.categorias.find((x) => x.categoria === slug); if (c) setCat(c); };
   const extrato = (v: string) => navigate(`/financas/extrato?mes=${mes}&v=${v}`);
@@ -85,7 +85,7 @@ export function RaioXAba({ userId, temBanco, onImportar }: { userId?: string; te
         <section aria-label="Vant percebeu" className="flex flex-col gap-2">
           <h2 className="text-[15px] font-black uppercase tracking-[.08em]" style={{ color: COR.texto }}>Vant percebeu</h2>
           {alertas.map((a) => (
-            <VantPercebeu key={a.categoria} alerta={a} corrente={corrente} temTeto={!!refs[a.categoria]?.tem_teto} onVer={() => abrirCat(a.categoria)} />
+            <VantPercebeu key={a.categoria} alerta={a} corrente={corrente} teto={refs[a.categoria]?.tem_teto ? refs[a.categoria]?.normal : undefined} onVer={() => abrirCat(a.categoria)} />
           ))}
         </section>
       )}
