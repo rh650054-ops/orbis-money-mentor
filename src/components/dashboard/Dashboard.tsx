@@ -157,8 +157,10 @@ const DIAS_EN = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday
 const LETRAS = ["S", "T", "Q", "Q", "S", "S", "D"]; // segunda → domingo
 function isoLocal(d: Date) { return d.toLocaleDateString("en-CA"); }
 
-export function SemanaRow({ workingDays, diasTrabalhados }: {
+export function SemanaRow({ workingDays, diasTrabalhados, folgaMissao }: {
   workingDays: string[] | null; diasTrabalhados: string[];
+  /** 01/11: dias do plano da missão de lucro (data → trabalha?); vale mais que o perfil */
+  folgaMissao?: Map<string, boolean> | null;
 }) {
   const hojeStr = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   const hoje = new Date(`${hojeStr}T12:00:00`);
@@ -167,7 +169,8 @@ export function SemanaRow({ workingDays, diasTrabalhados }: {
   const semana = LETRAS.map((letra, i) => {
     const d = new Date(hoje); d.setDate(hoje.getDate() - dow + i);
     const iso = isoLocal(d);
-    const folga = Array.isArray(workingDays) && workingDays.length > 0 && !workingDays.includes(DIAS_EN[d.getDay()]!);
+    const planoDia = folgaMissao?.get(iso);
+    const folga = planoDia !== undefined ? !planoDia : Array.isArray(workingDays) && workingDays.length > 0 && !workingDays.includes(DIAS_EN[d.getDay()]!);
     const passou = iso < hojeStr;
     const fez = diasTrabalhados.includes(iso);
     return { letra, iso, folga, fez, ehHoje: iso === hojeStr, perdeu: temHistorico && passou && !folga && !fez };

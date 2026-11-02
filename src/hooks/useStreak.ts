@@ -54,6 +54,19 @@ export const useStreak = (userId: string | undefined) => {
 
     const workingDays = profile.working_days || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
 
+    // 01/11 (Rick): "segunda eu falei que é folga — o app já entende que é folga pra não quebrar
+    // minha constância". Dias dentro do plano de uma missão de lucro seguem o plano (folga ou
+    // trabalho); fora dele, os dias do perfil. Missão mais nova vale mais.
+    const planoMissao = new Map<string, boolean>();
+    {
+      const { data: missoes } = await (supabase as unknown as { from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { order: (k: string, o: { ascending: boolean }) => { limit: (n: number) => Promise<{ data: { plano: unknown }[] | null }> } } } } })
+        .from("objetivos_lucro").select("plano").eq("user_id", userId).order("criado_em", { ascending: true }).limit(20);
+      for (const m of missoes ?? []) {
+        if (!Array.isArray(m.plano)) continue;
+        for (const x of m.plano as { d?: unknown; t?: unknown }[]) if (typeof x.d === "string") planoMissao.set(x.d, x.t === true);
+      }
+    }
+
     // Get work logs for the last 90 days
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
@@ -112,8 +125,9 @@ export const useStreak = (userId: string | undefined) => {
       const dayOfWeek = getDayOfWeek(checkDate);
       const log = logs.find(l => l.date === dateStr);
 
-      // Skip if this day is not in working days
-      if (!workingDays.includes(dayOfWeek)) {
+      // Skip if this day is not a work day (mission plan first, then the profile's weekdays)
+      const trabalhaNoPlano = planoMissao.get(dateStr);
+      if (trabalhaNoPlano === false || (trabalhaNoPlano === undefined && !workingDays.includes(dayOfWeek))) {
         checkDate.setDate(checkDate.getDate() - 1);
         continue;
       }

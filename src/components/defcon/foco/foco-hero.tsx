@@ -34,6 +34,8 @@ interface Props {
   onPDF: () => void;
   /** 29/10: toque na faixa da missão → editar ou apagar */
   onMissao?: () => void;
+  /** 01/11: amanhã é folga no plano da missão → o "Amanhã" do fim do dia diz "folga" */
+  amanhaFolga?: boolean;
 }
 
 const TOM = {
@@ -56,6 +58,8 @@ export function FocoHero(p: Props) {
   const bateu = n.dailyGoal > 0 && n.totalVendido >= n.dailyGoal;
   const falta = Math.max(0, n.dailyGoal - n.totalVendido);
   const diaNome = meta ? DIAS_PT[meta.diaSemana] ?? "hoje" : "hoje";
+  // 01/11 (Rick): com missão, amanhã de folga no plano diz "folga" (vem do DefconHub)
+  const amanhaFolga = p.amanhaFolga === true;
   const missao /* 28/10: missão ativa e o plano de hoje já segue ela */ = meta?.missao && Math.abs(meta.meta - n.dailyGoal) < 1 ? meta.missao : null;
   const pctMeta = n.dailyGoal > 0 ? Math.round((n.totalVendido / n.dailyGoal) * 100) : 0;
   // 25/10: cada hora diz quanto vender em R$ e em quantidade (ticket médio dele)
@@ -143,7 +147,7 @@ export function FocoHero(p: Props) {
       {estado === "rodando" ? (
         <Trio itens={[["Vendas", n.vendas], ["Abord.", n.abord], ["Conv.", <span key="c" style={{ color: "var(--orbis-gold)" }}>{n.conv}%</span>]]} />
       ) : estado === "encerrado" ? (
-        <Trio itens={[["Ranking", n.ligaCor ? <span key="r" style={{ color: n.ligaCor }}>#{n.rankPos} <small className="text-[11px] font-bold">{n.ligaLabel}</small></span> : "—"], ["Semana", v(n.semana)], ["Amanhã", <span key="a" className="text-[13px]">{n.horaInicio != null ? `${String(n.horaInicio).padStart(2, "0")}h · ` : ""}{v(n.dailyGoal)}</span>]]} />
+        <Trio itens={[["Ranking", n.ligaCor ? <span key="r" style={{ color: n.ligaCor }}>#{n.rankPos} <small className="text-[11px] font-bold">{n.ligaLabel}</small></span> : "—"], ["Semana", v(n.semana)], ["Amanhã", amanhaFolga ? <span key="a" className="text-[13px]" style={{ color: "var(--orbis-fg-2)" }}>folga</span> : <span key="a" className="text-[13px]">{n.horaInicio != null ? `${String(n.horaInicio).padStart(2, "0")}h · ` : ""}{v(n.dailyGoal)}</span>]]} />
       ) : (
         <Trio itens={[["Ontem", n.ontem > 0 ? <>{v(n.ontem)} {n.pctOntem > 0 && <small className="text-[11px]" style={{ color: n.pctOntem >= 100 ? "var(--orbis-ok)" : "var(--orbis-fg-3)" }}>{n.pctOntem}%</small>}</> : "—"], ["Semana", n.semana > 0 ? v(n.semana) : "—"], ["Ranking", n.ligaCor ? <span key="r" style={{ color: n.ligaCor }}>#{n.rankPos} <small className="text-[11px] font-bold">{n.ligaLabel}</small></span> : "—"]]} />
       )}

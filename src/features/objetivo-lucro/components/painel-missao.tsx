@@ -20,6 +20,19 @@ export function PainelMissao({ b, c, diasTrabalho }: { b: BaseLucro; c: Cronogra
   return (
     <section className="mt-3">
       <p className="orbis-section px-0.5 mb-2 inline-flex items-center gap-2" style={{ color: COR.ouro }}><span className="w-4 h-px" style={{ background: COR.ouro }} /> A conta da missão</p>
+      {/* 01/11 (Rick): no fim do planejamento, o resumo grande: quanto fatura, quanto sobra */}
+      <div className="mb-2 rounded-[18px] px-4 py-3.5 grid grid-cols-2 gap-3" style={{ background: "linear-gradient(160deg,rgba(245,184,0,.12),#0b0b0d 70%)", border: "1px solid rgba(245,184,0,.4)" }}>
+        <span className="min-w-0">
+          <span className="block text-[10.5px] font-black uppercase tracking-[.1em]" style={{ color: COR.mute }}>Seu faturamento</span>
+          <span className="block vant-missao-num text-[30px] leading-none mt-1" style={{ color: COR.texto }}>{brl0(c.faturamentoTotal)}</span>
+          <span className="block text-[11px] mt-1" style={{ color: COR.sub }}>{brl0(c.faturamentoTotal / d)} por dia · {d} dias</span>
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[10.5px] font-black uppercase tracking-[.1em]" style={{ color: COR.mute }}>Seu lucro</span>
+          <span className="block vant-missao-num text-[30px] leading-none mt-1" style={{ color: COR.verde }}>{brl0(c.lucroTotal)}</span>
+          <span className="block text-[11px] mt-1" style={{ color: COR.sub }}>{brl0(c.lucroTotal / d)} por dia no bolso</span>
+        </span>
+      </div>
       <div className="rounded-[18px] overflow-hidden" style={{ background: "#0b0b0d", border: `1px solid ${COR.linha}` }}>
         <p className="orbis-section px-4 pt-3" style={{ color: COR.mute }}>Por dia de trabalho</p>
         {linhas.map((l, i) => (

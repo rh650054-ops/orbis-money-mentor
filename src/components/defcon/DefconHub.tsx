@@ -18,7 +18,7 @@ import { garantirPlanoDoDia } from "@/shared/lib/plano-do-dia";
 import { useMetaDoDia } from "@/hooks/useMetaDoDia";
 import { useQueryClient } from "@tanstack/react-query";
 import { ReplanejarMes, type TipoReplanejar } from "@/components/metas/ReplanejarMes";
-import { MissaoAcoesSheet, NovoDesafioSheet, useSobrarMesQuery } from "@/features/objetivo-lucro";
+import { MissaoAcoesSheet, NovoDesafioSheet, mesPelaMissao, useMissaoResumo, useSobrarMesQuery } from "@/features/objetivo-lucro";
 import { conferirLugar, gravarMelhor, lerMelhor } from "@/components/defcon/retomar-lugar";
 import { ArrowRight } from "lucide-react";
 import { FocoCabecalho } from "./foco/foco-cabecalho";
@@ -77,6 +77,9 @@ export default function DefconHub() {
   // meta viável (11/10): a meta do cérebro, as faixas e o replanejamento do mês
   const qc = useQueryClient();
   const { meta: metaViavel, replanejar, definirModo } = useMetaDoDia(user?.id, today);
+  // 01/11 (Rick): com missão de lucro ativa, o card do mês mostra o faturamento que a missão pede
+  const resumoMissao = useMissaoResumo();
+  const mesCard = metaViavel && resumoMissao ? mesPelaMissao(metaViavel, resumoMissao.faturamento, resumoMissao.folgas, today) : metaViavel;
   const acesso = useAcessoQuery(user?.id);
   const [replanOpen, setReplanOpen] = useState(false);
   // 29/10 (Rick): "a meta do mês continua faturamento, o objetivo é o lucro no bolso" —
@@ -440,6 +443,7 @@ export default function DefconHub() {
         overnightOpen={overnightOpen} exporting={exporting}
         onEditar={() => setShowEdit(true)} onIrDefcon={() => navigate("/defcon")} onPDF={() => void handlePDF()}
         onMissao={estado === "antes" ? () => setMissaoOpen(true) : undefined}
+        amanhaFolga={resumoMissao?.folgas.get(new Date(Date.now() + 86_400_000).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })) === false}
         n={{
           dailyGoal, totalVendido, totalCaiu, faltaCair, lucro: totals.profit, workHours, blocosTot, projecao,
           ontem: ontem.vendido, pctOntem, semana, vendas: contadores.vendas, abord: contadores.abord, conv,
@@ -448,7 +452,7 @@ export default function DefconHub() {
 
       {/* o mês: com o que ele faz por dia, bate a meta final? (bloco próprio, não embola com a meta de hoje) */}
       {metaViavel && metaViavel.status !== "aprendendo" && (
-        <MesCard m={metaViavel} onReplanejar={abrirReplanejar} sobrar={sobrar.data ?? null}
+        <MesCard m={mesCard ?? metaViavel} onReplanejar={abrirReplanejar} sobrar={sobrar.data ?? null}
           onDefinirLucro={() => setDesafioOpen(true)} onProduto={() => navigate("/products")} />
       )}
 
