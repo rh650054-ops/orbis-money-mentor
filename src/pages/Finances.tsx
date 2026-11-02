@@ -110,6 +110,7 @@ import { avisar } from "@/shared/lib/avisar";
 import { reduzirImagem } from "@/shared/lib/imagem";
 import { ehAppDaLoja } from "@/shared/lib/platform";
 import { abrirLinkExterno } from "@/shared/lib/link-externo";
+import { useMissaoResumo } from "@/features/objetivo-lucro";
 
 interface PlannedBill {
   id: string;
@@ -226,6 +227,19 @@ export default function Finances() {
 
   // Dias de trabalho do perfil — usados pra dividir "guardar por dia" só nos dias úteis
   const [workingDays, setWorkingDays] = useState<string[]>([]);
+  // 02/11 (Rick: "não está mostrando minhas folgas com base no planejamento do lucro"):
+  // inside an active profit mission the plan says which days are work/rest; outside it,
+  // the profile weekdays. One rule for every calendar on this screen.
+  const missao = useMissaoResumo();
+  const folgasMissao = missao?.folgas ?? null;
+  const temEscala = (workingDays && workingDays.length > 0) || !!folgasMissao;
+  const ehDiaTrabalho = (d: Date): boolean => {
+    const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const t = folgasMissao?.get(k);
+    if (t !== undefined) return t;
+    if (!workingDays || workingDays.length === 0) return true;
+    return workingDays.includes(["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][d.getDay()] ?? "");
+  };
   const [weeklyWorkDays, setWeeklyWorkDays] = useState<number>(0);
   // Como as metas entram no "a guardar hoje":
   //  "sobra" (padrão) = contas primeiro; a meta fica com o que sobrar do líquido do dia.
@@ -1164,7 +1178,6 @@ export default function Finances() {
   const trabalhouHoje = (Number(summary.grossToday) || 0) > 0;
   const workingDaysUntil = (dueDateStr: string | null): number => {
     if (!dueDateStr) return 30;
-    const weekdayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
     // Parse ao meio-dia local pra evitar erro de fuso/DST
     const due = new Date(dueDateStr + "T12:00:00");
@@ -1177,7 +1190,7 @@ export default function Finances() {
     const msPerDay = 1000 * 60 * 60 * 24;
     const calendarDays = Math.floor((dueDay.getTime() - today.getTime()) / msPerDay) + 1;
 
-    if (!workingDays || workingDays.length === 0) {
+    if (!temEscala) {
       if (weeklyWorkDays > 0) {
         return Math.max(1, Math.ceil(calendarDays * (weeklyWorkDays / 7)));
       }
@@ -1188,9 +1201,8 @@ export default function Finances() {
     const cursor = new Date(today);
     let primeiro = true; // 1ª iteração = hoje
     while (cursor.getTime() <= dueDay.getTime()) {
-      const name = weekdayNames[cursor.getDay()] ?? "";
       // Conta o dia se é dia de trabalho — OU se é HOJE e você trabalhou hoje (mesmo no descanso).
-      if (workingDays.includes(name) || (primeiro && trabalhouHoje)) count++;
+      if (ehDiaTrabalho(cursor) || (primeiro && trabalhouHoje)) count++;
       primeiro = false;
       cursor.setDate(cursor.getDate() + 1);
     }
@@ -1203,10 +1215,9 @@ export default function Finances() {
 
   // Soma N DIAS DE TRABALHO a uma data (pula os dias de descanso do perfil).
   const somarDiasUteis = (inicio: Date, n: number): Date => {
-    const weekdayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     const cursor = new Date(inicio);
     cursor.setHours(12, 0, 0, 0);
-    if (!workingDays || workingDays.length === 0) {
+    if (!temEscala) {
       // Sem escala definida: estima pelos dias por semana (ou dias corridos).
       const fator = weeklyWorkDays > 0 ? 7 / weeklyWorkDays : 1;
       cursor.setDate(cursor.getDate() + Math.ceil(n * fator));
@@ -1216,7 +1227,7 @@ export default function Finances() {
     let guard = 0;
     while (restantes > 0 && guard < 4000) {
       cursor.setDate(cursor.getDate() + 1);
-      if (workingDays.includes(weekdayNames[cursor.getDay()] ?? "")) restantes--;
+      if (ehDiaTrabalho(cursor)) restantes--;
       guard++;
     }
     return cursor;
@@ -1380,8 +1391,7 @@ export default function Finances() {
   // dos useMemo abaixo pra não quebrar a regra dos hooks)
 
   // "A guardar hoje" — quanto reservar do líquido de hoje pras metas + contas
-  const todayName = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][new Date().getDay()] ?? "";
-  const escaladoHoje = workingDays && workingDays.length > 0 ? workingDays.includes(todayName) : true;
+  const escaladoHoje = ehDiaTrabalho(new Date());
   // Trabalhou no descanso? Conta como dia de trabalho → guarda a parte de hoje também.
   const todayIsWorkDay = escaladoHoje || trabalhouHoje;
   // Metas ativas que ainda faltam fechar + o ritmo (por dia útil) que cada uma pede.
@@ -1415,8 +1425,7 @@ export default function Finances() {
   // SEQUÊNCIA DE DIAS GUARDANDO. Só dias de trabalho contam; descanso não quebra.
   // Hoje entra se já guardou; se ainda não, a sequência é contada até ontem.
   const sequencia = useMemo(() => {
-    const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-    const ehTrabalho = (d: Date) => (workingDays && workingDays.length > 0 ? workingDays.includes(nomes[d.getDay()] ?? "") : true);
+    const ehTrabalho = ehDiaTrabalho;
     const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const hoje = new Date(getBrazilDate() + "T12:00:00");
     const hojeYmd = ymd(hoje);
@@ -1462,7 +1471,7 @@ export default function Finances() {
     }
     const jaGuardouAlgumDia = Object.values(diasGuardados).some((v) => v > 0);
     return { atual, recorde, ultimos, guardouHoje, jaGuardouAlgumDia };
-  }, [diasGuardados, workingDays, user?.id]);
+  }, [diasGuardados, workingDays, user?.id, folgasMissao]);
 
   // MÊS BLINDADO: quanto das contas em aberto já está coberto.
   const blindado = useMemo(() => {
@@ -1509,7 +1518,6 @@ export default function Finances() {
   // useMemo: esse loop (dias do mês × contas) rodava em TODO render — inclusive a cada
   // tecla digitada em qualquer modal. Era a maior fonte de lag de digitação da tela.
   const proximosDias = useMemo(() => {
-    const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     const base = new Date();
     base.setHours(12, 0, 0, 0);
     // Dias úteis por mês (pra taxa sustentável das contas recorrentes no próximo ciclo).
@@ -1521,10 +1529,9 @@ export default function Finances() {
     for (let i = 0; i <= diasAteFimMes; i++) {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
-      const nome = nomes[d.getDay()] ?? "";
       const isToday = i === 0;
       // Hoje conta como trabalho se está na escala OU se você trabalhou hoje (descanso trabalhado).
-      const isWork = (workingDays && workingDays.length > 0 ? workingDays.includes(nome) : true) || (isToday && trabalhouHoje);
+      const isWork = ehDiaTrabalho(d) || (isToday && trabalhouHoje);
       let raw = 0;
       if (isToday) {
         raw = alvoHoje;
@@ -1558,7 +1565,7 @@ export default function Finances() {
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bills, workingDays, weeklyWorkDays, savedTodayAmount, trabalhouHoje, alvoHoje]);
+  }, [bills, workingDays, weeklyWorkDays, savedTodayAmount, trabalhouHoje, alvoHoje, folgasMissao]);
   // Hoje e "dia fechado" saem da própria projeção (já com o crédito aplicado).
   const restanteGuardarHoje = proximosDias.find((d) => d.isToday)?.valor ?? Math.max(0, alvoHoje - savedTodayAmount);
   const diaGuardadoFechado = savedToday || (savedTodayAmount > 0 && restanteGuardarHoje <= 0.005);
@@ -1579,13 +1586,11 @@ export default function Finances() {
 
   // Converte N dias ÚTEIS a partir de hoje numa data curta + nome do mês.
   const dataEmDiasUteis = (nDiasUteis: number) => {
-    const nm = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     const cur = new Date(); cur.setHours(12, 0, 0, 0);
     let count = 0, guard = 0;
     while (count < nDiasUteis && guard < 4000) {
       cur.setDate(cur.getDate() + 1); guard++;
-      const util = workingDays && workingDays.length > 0 ? workingDays.includes(nm[cur.getDay()] ?? "") : true;
-      if (util) count++;
+      if (ehDiaTrabalho(cur)) count++;
     }
     return { data: cur.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }), mes: cur.toLocaleDateString("pt-BR", { month: "long" }) };
   };
