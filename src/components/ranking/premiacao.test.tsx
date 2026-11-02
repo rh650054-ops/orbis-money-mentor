@@ -36,3 +36,19 @@ describe("ranking semanal + premiação de novembro", () => {
     expect(screen.getByText(/01\/11 a 07\/11/)).toBeTruthy();
   });
 });
+
+import { liderDoPremio } from "./premiacao";
+describe("quem leva o prêmio (Rick, 02/11)", () => {
+  const r = [
+    { user_id: "a", verificado: false, faturamento_total_mes: 1557 },
+    { user_id: "b", verificado: false, faturamento_total_mes: 1422 },
+    { user_id: "c", verificado: true, faturamento_total_mes: 734 },
+    { user_id: "d", verificado: true, faturamento_total_mes: 725 },
+  ];
+  it("é o verificado mais bem colocado", () => {
+    expect(liderDoPremio(r)).toMatchObject({ pos: 3, entry: { user_id: "c" } });
+  });
+  it("ninguém verificado → null", () => {
+    expect(liderDoPremio(r.slice(0, 2))).toBeNull();
+  });
+});

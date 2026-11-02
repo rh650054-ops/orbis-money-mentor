@@ -27,3 +27,12 @@ export function premioDaAba(aba: Aba, hoje: string): { valor: number; texto: str
     ? { valor: PREMIO_MES, texto: "pro 1º lugar de novembro", antes }
     : { valor: PREMIO_SEMANA, texto: "pro melhor vendedor da semana", antes };
 }
+
+/** Who takes the prize right now (Rick, 02/11): the best-placed VERIFIED seller (bank connected).
+    Unverified sellers stay in the ranking but don't take the prize. null when nobody is verified. */
+export function liderDoPremio<T extends { user_id: string; verificado?: boolean; faturamento_total_mes?: number | string | null }>(
+  ranking: T[],
+): { entry: T; pos: number; acima: number } | null {
+  const i = ranking.findIndex((e) => e.verificado && Number(e.faturamento_total_mes ?? 0) > 0);
+  return i < 0 ? null : { entry: ranking[i]!, pos: i + 1, acima: i };
+}
