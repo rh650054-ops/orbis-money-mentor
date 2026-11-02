@@ -6,3 +6,5 @@ export { nomeUnidade } from "./lib/plano";
 export { SobrouHoje } from "./components/sobrou-hoje";
 export { MissaoAcoesSheet } from "./components/missao-acoes-sheet";
 export { AnelProgresso } from "./components/anel-progresso";
+export { useMissaoResumo, type MissaoResumo } from "./api/use-missao-resumo";
+export { ehFolga, mapaDeFolga, mesPelaMissao } from "./lib/missao-dias";

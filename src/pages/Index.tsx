@@ -30,6 +30,7 @@ import FirstTimeCard from "@/components/FirstTimeCard";
 import ConfirmarEmailNudge from "@/components/ConfirmarEmailNudge";
 import { lembrarMetaDia } from "@/shared/lib/offline-day";
 import { avisar } from "@/shared/lib/avisar";
+import { useMissaoResumo } from "@/features/objetivo-lucro";
 
 const REWARD_TIERS = [
   { name: "Semente", emoji: "🌱", threshold: 10_000, accent: "140 70% 45%", rarity: "Comum" },
@@ -91,6 +92,11 @@ export default function Index() {
   const [desafioOpen, setDesafioOpen] = useState(false);
   const acesso = useAcessoQuery(user?.id);
   const [isRestDay, setIsRestDay] = useState(false);
+  // 01/11 (Rick): com missão de lucro ativa, a meta do mês é o faturamento do plano dela e a
+  // folga é a do plano (o perfil volta a valer quando a missão acabar)
+  const missao = useMissaoResumo();
+  const planoHoje = missao?.folgas.get(getBrazilDate());
+  const descansoHoje = planoHoje !== undefined ? !planoHoje : isRestDay;
   // Segura o modal de "meta do mês" enquanto o bilhete do dia 1 não terminou.
   const [ticketPending, setTicketPending] = useState(() => isWeeklyTicketPending());
   // Conta NOVA (passou pelo onboarding 2.0 → tem linha em onboarding_planos):
@@ -531,14 +537,14 @@ export default function Index() {
       {/* A semana encosta no card da meta, por fora dele (pedido do Rick) —
           por isso os dois moram no MESMO filho do stagger, sem o gap de 28px. */}
       <div>
-      <SemanaRow workingDays={workingDays} diasTrabalhados={diasTrabalhados} />
+      <SemanaRow workingDays={workingDays} diasTrabalhados={diasTrabalhados} folgaMissao={missao?.folgas ?? null} />
       <HeroCard
         faturamento={faturamentoMes}
-        meta={monthlyGoal}
+        meta={missao ? missao.faturamento : monthlyGoal}
         diaria={ritmoDia}
         vendidoHoje={dailyProfit}
         metaHoje={dailyGoal}
-        descanso={isRestDay}
+        descanso={descansoHoje}
         onEditMeta={() => setShowEditPlanning(true)}
         onFoco={() => navigate("/daily-goals")}
       />
@@ -582,7 +588,7 @@ export default function Index() {
       <CompeticaoRow onClick={() => navigate('/competitions')} />
 
 
-      <AntiProcrastination visible={!isRestDay && !hasPlanToday} />
+      <AntiProcrastination visible={!descansoHoje && !hasPlanToday} />
 
 
       {user && (() => {
@@ -617,7 +623,7 @@ export default function Index() {
       })()}
       {user && <NovoDesafioSheet open={desafioOpen} onOpenChange={(o) => { setDesafioOpen(o); if (!o) loadDashboardData(); }} />}
 
-      {user && !isRestDay && !isMonthlyGoalRequired && localStorage.getItem(`orbis_mission_completed_${user.id}`) === 'true' && (
+      {user && !descansoHoje && !isMonthlyGoalRequired && localStorage.getItem(`orbis_mission_completed_${user.id}`) === 'true' && (
         <DayStartPopup
           userId={user.id}
           onStart={() => navigate('/daily-goals')}
