@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
 
       if (pago && valor > 0) {
         await admin.from("mp_vendas").upsert({
+          provedor: "mercadopago",
           payment_id: String(pay.id),
           user_id: con.user_id,
           valor,
@@ -62,7 +63,7 @@ Deno.serve(async (req) => {
           descricao: String(pay?.description ?? "").slice(0, 120),
           pago_em: pago,
           data: brDate(pago),
-        }, { onConflict: "payment_id", ignoreDuplicates: true });
+        }, { onConflict: "provedor,payment_id", ignoreDuplicates: true });
       }
 
       // ---- C) era uma COBRANÇA da Vant? dá baixa no calote sozinha.
