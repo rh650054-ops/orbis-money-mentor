@@ -5,7 +5,15 @@ import { ChevronRight, TrendingUp } from "lucide-react";
 import { COR, Cartao, Rotulo } from "../planejar/ui";
 import { reais, type Alerta } from "./tipos";
 
-export function VantPercebeu({ alerta, corrente, temTeto, onVer }: { alerta: Alerta; corrente: boolean; temTeto: boolean; onVer: () => void }) {
+/** 02/11: with a teto the card talks about the teto (R$ X de R$ Y), never "passando do teto"
+ *  while it is not; without one it compares with the usual pace. */
+export function VantPercebeu({ alerta, corrente, teto, onVer }: { alerta: Alerta; corrente: boolean; teto?: number; onVer: () => void }) {
+  const comTeto = teto != null && teto > 0;
+  const passou = comTeto && alerta.total > teto;
+  const titulo = !comTeto ? "acima do seu normal" : passou ? "passou do teto" : `já usou ${Math.round((alerta.total / teto) * 100)}% do teto`;
+  const linha = comTeto
+    ? `${reais(alerta.total)} de ${reais(teto)}${corrente ? " até hoje" : " no mês"}`
+    : `${reais(alerta.total)} ${corrente ? "até hoje" : "no mês"} · esperado ${reais(alerta.esperado)}`;
   return (
     <Cartao className="p-0">
       <button type="button" onClick={onVer}
@@ -16,10 +24,10 @@ export function VantPercebeu({ alerta, corrente, temTeto, onVer }: { alerta: Ale
         <span className="flex-1 min-w-0">
           <Rotulo cor={COR.sub}>Vant percebeu</Rotulo>
           <span className="block text-[17px] font-bold leading-snug mt-1" style={{ color: COR.texto }}>
-            {alerta.rotulo} está {temTeto ? "passando do teto" : "acima do seu normal"}
+            {alerta.rotulo} {comTeto ? titulo : `está ${titulo}`}
           </span>
           <span className="block text-[13px] mt-1 tabular-nums" style={{ color: COR.sub }}>
-            {reais(alerta.total)} {corrente ? "até hoje" : "no mês"} · esperado {reais(alerta.esperado)}
+            {linha}
           </span>
           <span className="inline-flex items-center gap-0.5 mt-2 text-[14px] font-extrabold" style={{ color: COR.ouro }}>
             Ver por quê <ChevronRight className="w-4 h-4 transition-transform duration-[120ms] group-active:translate-x-0.5" strokeWidth={2.6} />

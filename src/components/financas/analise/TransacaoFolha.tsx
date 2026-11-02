@@ -10,6 +10,7 @@ import { erroCategoria, useCriarCategoria } from "./use-categoria";
 import { NovoTopico } from "./NovoTopico";
 
 type Modo = "ver" | "categoria" | "nome";
+const NOVO = "__novo";
 
 function Acao({ icone: Icone, children, onClick }: { icone: typeof Tag; children: React.ReactNode; onClick: () => void }) {
   return (
@@ -73,8 +74,10 @@ export function TransacaoFolha({ l, onFechar }: { l: Lancamento | null; onFechar
             {(cats.data ?? []).filter((c) => c.slug !== l.categoria && c.slug !== "transferencia_propria").map((c) => (
               <Chip key={c.slug} ativo={nova === c.slug} onClick={() => setNova(c.slug)}>{c.rotulo}</Chip>
             ))}
+            {/* 02/11: creating a topic used to hide behind "Outros" */}
+            <Chip ativo={nova === NOVO} onClick={() => setNova(NOVO)}>+ Criar tópico</Chip>
           </div>
-          {nova === "outros" && (
+          {(nova === "outros" || nova === NOVO) && (
             <NovoTopico ocupado={criar.isPending || acao.isPending}
               onCriar={(nome, teto) => criar.mutate({ nome, teto }, {
                 onSuccess: (c) => rodar({ tipo: "mover", id: l.id, categoria: c.slug, todos }, `Movido pro tópico ${c.rotulo}`),
@@ -91,7 +94,7 @@ export function TransacaoFolha({ l, onFechar }: { l: Lancamento | null; onFechar
               Aplicar a todos de {l.nome} ({l.mesmo_nome}) e aos próximos
             </button>
           )}
-          {nova === "outros" ? (
+          {nova === NOVO ? null : nova === "outros" ? (
             <button type="button" onClick={() => rodar({ tipo: "mover", id: l.id, categoria: "outros", todos }, "Movido pra Outros")}
               disabled={acao.isPending} className="text-[14px] font-bold min-h-10" style={{ color: COR.sub }}>
               Deixar em Outros, sem nome
