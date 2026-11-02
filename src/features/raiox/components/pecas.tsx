@@ -27,11 +27,12 @@ export function LinkOuro({ children, onClick }: { children: ReactNode; onClick: 
 }
 
 /** Row: background lifts, scale .99, chevron nudges 2px. */
-export function Linha({ children, onClick, rotulo, borda = true }: { children: ReactNode; onClick: () => void; rotulo?: string; borda?: boolean }) {
+export function Linha({ children, onClick, rotulo, borda = true, icone }: { children: ReactNode; onClick: () => void; rotulo?: string; borda?: boolean; icone?: ReactNode }) {
   return (
     <button type="button" onClick={() => { haptic(); onClick(); }} aria-label={rotulo}
       className={`group w-full text-left flex items-center gap-3 py-3 -mx-2 px-2 rounded-[12px] transition-[transform,background-color] duration-[120ms] active:scale-[0.99] active:bg-white/[.05] ${borda ? "border-t first:border-t-0" : ""}`}
       style={{ borderColor: "rgba(255,255,255,.06)" }}>
+      {icone}
       <span className="flex-1 min-w-0">{children}</span>
       <ChevronRight className="w-4 h-4 shrink-0 transition-transform duration-[120ms] group-active:translate-x-0.5" strokeWidth={2.4} style={{ color: "#5c5850" }} />
     </button>

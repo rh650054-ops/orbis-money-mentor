@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Barra, Cartao, COR, Folha } from "@/components/financas/planejar/ui";
 import type { CatAnalise } from "@/components/financas/analise/tipos";
+import { IconeCategoria } from "@/components/financas/analise/icones";
 import type { CategoriaRX } from "../types";
 import { FORA_DO_PESO, estadoCategoria } from "../lib/raiox";
 import { Linha, LinkOuro, Titulo, inteiro } from "./pecas";
@@ -19,7 +20,8 @@ export function ParaOndeFoi({ cats, refs, corrente, mesAnt, onAbrir, onTetos }: 
     const e = estadoCategoria(c, refs[c.categoria], corrente, mesAnt);
     const parte = base > 0 ? Math.round((c.total / base) * 100) : 0;
     return (
-      <Linha key={c.categoria} onClick={() => { if (fechar) setTodas(false); onAbrir(c); }} rotulo={`${c.rotulo}, ${inteiro(c.total)}`}>
+      <Linha key={c.categoria} onClick={() => { if (fechar) setTodas(false); onAbrir(c); }} rotulo={`${c.rotulo}, ${inteiro(c.total)}`}
+        icone={<IconeCategoria slug={c.categoria} rotulo={c.rotulo} />}>
         <span className="flex items-baseline justify-between gap-3">
           <span className="text-[15px] font-semibold truncate" style={{ color: COR.texto }}>{c.rotulo}</span>
           <span className="text-[17px] font-bold tabular-nums shrink-0" style={{ color: COR.texto }}>{inteiro(c.total)}</span>

@@ -37,3 +37,15 @@ describe("Outros vira tópico", () => {
     expect(mover).toHaveBeenCalledWith(expect.objectContaining({ categoria: "outros" }), expect.anything());
   });
 });
+
+import { iconePorNome } from "./icones";
+import { Baby, Dog, Dumbbell, ShoppingCart, Tag } from "lucide-react";
+describe("ícone do tópico pelo nome (Rick, 01/11)", () => {
+  it("reconhece o nome, sem acento e sem caixa", () => {
+    expect(iconePorNome("Mercado")).toBe(ShoppingCart);
+    expect(iconePorNome("ACADEMIA")).toBe(Dumbbell);
+    expect(iconePorNome("Ração do cachorro")).toBe(Dog);
+    expect(iconePorNome("Fraldas do bebê")).toBe(Baby);
+    expect(iconePorNome("Coisa aleatória")).toBe(Tag);
+  });
+});
