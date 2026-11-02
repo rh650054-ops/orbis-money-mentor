@@ -99,6 +99,7 @@ async function sincronizar(admin: any, con: any, dias: number) {
       const pago = p?.date_approved ?? p?.date_created;
       const poi = String(p?.point_of_interaction?.type ?? "").toLowerCase();
       return {
+        provedor: "mercadopago",
         payment_id: String(p.id),
         user_id: con.user_id,
         valor: Number(p?.transaction_amount) || 0,
@@ -115,7 +116,12 @@ async function sincronizar(admin: any, con: any, dias: number) {
 
   if (linhas.length > 0) {
     // ignoreDuplicates: nunca reescreve uma venda que o vendedor já lançou
-    await admin.from("mp_vendas").upsert(linhas, { onConflict: "payment_id", ignoreDuplicates: true });
+    // 02/11: the key is (provedor, payment_id); a failed save used to be silent and mark the sync OK
+    const { error } = await admin.from("mp_vendas").upsert(linhas, { onConflict: "provedor,payment_id", ignoreDuplicates: true });
+    if (error) {
+      await marcar(admin, con.user_id, { ultimo_erro: "salvar_vendas", ultima_sync_em: new Date().toISOString() });
+      return 0;
+    }
   }
   await marcar(admin, con.user_id, { ultima_sync_em: new Date().toISOString(), ultimo_erro: null });
   return linhas.length;
