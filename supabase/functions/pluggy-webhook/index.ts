@@ -167,7 +167,13 @@ Deno.serve(async (req) => {
     // no Open Finance budget spent).
     if (eDeItem) {
       try {
-        await importarPiloto(admin, apiKey, itemId, con.user_id, con.id, con.institution_name ?? null);
+        const p = await importarPiloto(admin, apiKey, itemId, con.user_id, con.id, con.institution_name ?? null);
+        // 02/11: new statement rows need the analysis (own transfers → "entre contas", learned
+        // rules, card bill). Without it a Pix between his own accounts counted as spent AND received.
+        if (p.gravadas > 0) {
+          const { error } = await admin.rpc("extrato_analisar_padroes", { p_uid: con.user_id });
+          if (error) console.error("pluggy-webhook: analisar_padroes", error.message);
+        }
       } catch (e) {
         console.error("pluggy-webhook: piloto", (e as Error)?.message);
       }
