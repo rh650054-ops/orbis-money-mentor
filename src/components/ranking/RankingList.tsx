@@ -17,6 +17,8 @@ interface Props {
   me: LeaderboardEntry | null;
   formatCurrency: (v: number) => string;
   onOpenProfile: (uid: string) => void;
+  /** 02/11: who takes the prize right now → "LEVA O PRÊMIO" on that row */
+  liderId?: string | null;
 }
 
 // presenceInfo/ONLINE_MS vêm de "@/shared/lib/presence" (compartilhado: pódio, chase, comunidade, perfil).
@@ -59,8 +61,8 @@ function Divider({ label, color }: { label: string; color: string }) {
   );
 }
 
-function Row({ entry, position, isMe, subtitle, suspect, formatCurrency, onOpenProfile, onContato }: {
-  entry: LeaderboardEntry; position: number; isMe: boolean; subtitle: string; suspect?: string;
+function Row({ entry, position, isMe, subtitle, suspect, formatCurrency, onOpenProfile, onContato, lider }: {
+  entry: LeaderboardEntry; position: number; isMe: boolean; subtitle: string; suspect?: string; lider?: boolean;
   formatCurrency: (v: number) => string; onOpenProfile: (uid: string) => void;
   /** 29/10 (Rick): equipe comercial — o toque no card abre o WhatsApp do lead */
   onContato?: (uid: string, nome: string | null) => void;
@@ -81,6 +83,7 @@ function Row({ entry, position, isMe, subtitle, suspect, formatCurrency, onOpenP
           <NomeComSelo nome={entry.nome_usuario} verificado={entry.verificado} curto className="text-sm text-white">
             {pres.online && <span className="ml-1.5 shrink-0 text-[9px] font-black text-green-400">no DEFCON</span>}
             {isMe && <span className="ml-1.5 shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: tier.color, color: "#1a1305" }}>VOCÊ</span>}
+            {lider && <span className="ml-1.5 shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: "#F5B800", color: "#1a1305" }}>LEVA O PRÊMIO</span>}
           </NomeComSelo>
           <p className="text-[10px] truncate" style={{ color: tier.color }}>{sub}</p>
         </div>
@@ -130,7 +133,7 @@ function Row({ entry, position, isMe, subtitle, suspect, formatCurrency, onOpenP
   );
 }
 
-export function RankingList({ ranking, me, formatCurrency, onOpenProfile }: Props) {
+export function RankingList({ ranking, me, formatCurrency, onOpenProfile, liderId }: Props) {
   // 29/10 (Rick): Paulo e Yan (equipe comercial) chamam o lead no WhatsApp direto do card.
   // Ninguém mais vê o botão; o número só sai do servidor pra quem é da equipe.
   const { user } = useAuth();
@@ -199,6 +202,7 @@ export function RankingList({ ranking, me, formatCurrency, onOpenProfile }: Prop
           suspect={suspects[entry.user_id]}
           formatCurrency={formatCurrency}
           onOpenProfile={onOpenProfile} onContato={equipe ? contato : undefined}
+          lider={!!liderId && entry.user_id === liderId}
         />
       );
     });

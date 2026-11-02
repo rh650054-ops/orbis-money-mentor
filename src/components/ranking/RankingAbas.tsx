@@ -8,7 +8,7 @@
    Visual (30/10, referência do Rick): cada aba com identidade própria — Mensal ouro com coroa,
    Semanal azul elétrico com moeda de raio —, medalhão 3D, valor metálico, abas no topo, regras. */
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight, Crown, ShieldCheck, Zap } from "lucide-react";
+import { BadgeCheck, ChevronRight, Crown, ShieldCheck, Zap } from "lucide-react";
 import { premioDaAba, PREMIO_FIM, type Aba } from "./premiacao";
 import { rgba, TEMAS, type TemaDesafio } from "./desafio-tema";
 import { DesafioEmblema } from "./desafio-emblema";
@@ -89,8 +89,36 @@ function Abas({ aba, onAba }: { aba: Aba; onAba: (a: Aba) => void }) {
   );
 }
 
-export function RankingAbas({ aba, onAba, hoje, periodoSemana, fimSemana, posicao, faltaPro1, meuValor }: {
+/** 02/11 (Rick): "se o 1º e o 2º não têm verificado e o 3º tem, mostra que ele é o ganhador até então". */
+function QuemLeva({ lider, tema }: { lider: { nome: string; pos: number; eu: boolean } | null; tema: TemaDesafio }) {
+  const primeiro = (n: string) => n.trim().split(/\s+/)[0] || "Vendedor";
+  const frente = lider && lider.pos > 1 ? (lider.pos === 2 ? "O 1º não tem banco conectado." : `Do 1º ao ${lider.pos - 1}º ninguém tem banco conectado.`) : "";
+  return (
+    <div className="relative mt-3 vant-sobe rounded-[14px] px-3 py-2.5 flex items-center gap-2.5" style={{ animationDelay: ".6s", background: lider?.eu ? rgba(tema, 0.16) : "rgba(0,0,0,.35)", border: `1px solid ${lider?.eu ? rgba(tema, 0.6) : "rgba(255,255,255,.07)"}` }}>
+      <BadgeCheck className="w-5 h-5 shrink-0" style={{ color: lider ? tema.cor : "#8f897c" }} />
+      <div className="min-w-0">
+        {!lider ? (
+          <p className="text-[12.5px] font-bold" style={{ color: "#b9b3a6" }}>Ninguém com banco conectado ainda. O primeiro verificado leva.</p>
+        ) : lider.eu ? (
+          <>
+            <p className="text-[13px] font-black" style={{ color: tema.claro }}>Você leva o prêmio até agora</p>
+            <p className="text-[11.5px] mt-0.5" style={{ color: "#b9b3a6" }}>Dos verificados, você é o mais bem colocado ({lider.pos}º). {frente}</p>
+          </>
+        ) : (
+          <>
+            <p className="text-[13px] font-black text-white">Quem leva até agora: <span style={{ color: tema.claro }}>{primeiro(lider.nome)}</span> · {lider.pos}º</p>
+            <p className="text-[11.5px] mt-0.5" style={{ color: "#b9b3a6" }}>{frente || "É o 1º e tem banco conectado."} Só leva quem é verificado.</p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function RankingAbas({ aba, onAba, hoje, periodoSemana, fimSemana, posicao, faltaPro1, meuValor, lider }: {
   aba: Aba; onAba: (a: Aba) => void; hoje: string; periodoSemana: string; fimSemana: string;
+  /** 02/11: best-placed verified seller of this tab (who takes the prize right now); undefined = don't show */
+  lider?: { nome: string; pos: number; eu: boolean } | null;
   /** the viewer's place, how much to the 1st and his own total — the hook that sends him back to the street */
   posicao?: number | null; faltaPro1?: number | null; meuValor?: number | null;
 }) {
@@ -163,6 +191,8 @@ export function RankingAbas({ aba, onAba, hoje, periodoSemana, fimSemana, posica
               )}
             </div>
           )}
+
+          {!premio.antes && lider !== undefined && <QuemLeva lider={lider} tema={tema} />}
 
           <button type="button" onClick={() => setRegras(true)} className="relative mt-3 vant-sobe w-full h-11 rounded-[14px] text-[13.5px] font-black flex items-center justify-center gap-1"
             style={{ animationDelay: ".65s", color: tema.claro, background: rgba(tema, 0.1), border: `1px solid ${rgba(tema, 0.45)}` }}>

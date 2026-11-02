@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { currentWeekEnd, currentWeekStart, useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
 import { RankingAbas } from "@/components/ranking/RankingAbas";
-import { lerAba, rotuloSemana, PREMIO_FIM, PREMIO_INICIO, PREMIO_MES, PREMIO_SEMANA, type Aba } from "@/components/ranking/premiacao";
+import { liderDoPremio, lerAba, rotuloSemana, PREMIO_FIM, PREMIO_INICIO, PREMIO_MES, PREMIO_SEMANA, type Aba } from "@/components/ranking/premiacao";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -327,6 +327,7 @@ export default function Ranking() {
       <RankingAbas aba={activeTab} onAba={trocarAba} hoje={getBrazilDate()} periodoSemana={rotuloSemana(currentWeekStart(), currentWeekEnd())} fimSemana={currentWeekEnd()}
         posicao={(isMensal ? currentUserStats : weekly.currentUserStats)?.posicao_faturamento ?? null}
         meuValor={Number((isMensal ? currentUserStats : weekly.currentUserStats)?.faturamento_total_mes ?? 0)}
+        lider={(() => { const lista = isMensal ? faturamentoRanking : weekly.ranking; if (lista.length === 0) return undefined; const l = liderDoPremio(lista); return l ? { nome: l.entry.nome_usuario || "Vendedor", pos: l.pos, eu: l.entry.user_id === user?.id } : null; })()}
         faltaPro1={(() => { const lista = isMensal ? faturamentoRanking : weekly.ranking; const eu = isMensal ? currentUserStats : weekly.currentUserStats; const top = lista[0]; return top && eu ? Number(top.faturamento_total_mes) - Number(eu.faturamento_total_mes) : null; })()} />
 
       {/* Primeira visita: convida a colocar foto + Instagram (os concorrentes te veem) */}
@@ -536,6 +537,7 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
   return (
     <div className="space-y-4">
       <RankingPodium top1={top1} top2={top2} top3={top3} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} variant={variant}
+        premioPara={liderDoPremio(ranking)?.entry.user_id ?? null}
         premio={(() => { const h = getBrazilDate(); if (h < PREMIO_INICIO || h > PREMIO_FIM) return null; return `+R$ ${variant === "semanal" ? PREMIO_SEMANA : PREMIO_MES}`; })()} />
 
       {/* A cacada - quem esta logo na frente */}
@@ -543,7 +545,8 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
         <RankingChase ranking={ranking} me={currentUserStats} formatCurrency={formatCurrency} />
       )}
 
-      <RankingList ranking={ranking} me={currentUserStats} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
+      <RankingList ranking={ranking} me={currentUserStats} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile}
+        liderId={(() => { const h = getBrazilDate(); return h < PREMIO_INICIO || h > PREMIO_FIM ? null : liderDoPremio(ranking)?.entry.user_id ?? null; })()} />
       {hasParticipated && currentUserStats && (
         <PonteFinancas faturamento={Number(currentUserStats.faturamento_total_mes) || 0} formatCurrency={formatCurrency} />
       )}

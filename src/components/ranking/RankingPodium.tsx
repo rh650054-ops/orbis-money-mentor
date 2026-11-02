@@ -16,6 +16,8 @@ interface Props {
   onOpenProfile: (uid: string) => void;
   /** 29/10 (Desafio Avante): "+R$ 500" / "+R$ 50" on the champion's pedestal */
   premio?: string | null;
+  /** 02/11: user_id of who takes the prize (best-placed verified). The pill goes on that pedestal. */
+  premioPara?: string | null;
   /** header line under the label, e.g. "R$ 500 pro 1º · fecha em 27 dias" */
   subtitulo?: React.ReactNode;
   variant?: Variant;
@@ -104,7 +106,7 @@ function Col({ entry, position, avatarSize, barHeight, champion, green, formatCu
         {/* Brilho que passa — só no pódio do campeão, pra dar vida sem poluir. */}
         {champion && <span className="absolute inset-0 pointer-events-none orbis-shimmer" />}
         <span className="relative" style={{ textShadow: `0 0 16px ${baseGlow}` }}>{position}</span>
-        {champion && premio && (
+        {premio && (
           <span className="absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-2.5 py-[3px] text-[10.5px] font-black tracking-[.06em]"
             style={green ? { background: "#38BDF8", color: "#03101a", boxShadow: "0 6px 18px -6px rgba(56,189,248,.9)" } : { background: "#F5B800", color: "#1a1305", boxShadow: "0 6px 18px -6px rgba(245,184,0,.9)" }}>{premio}</span>
         )}
@@ -140,7 +142,10 @@ function DesafiarPodio({ uid, champion }: { uid: string; champion?: boolean }) {
   );
 }
 
-export function RankingPodium({ top1, top2, top3, formatCurrency, onOpenProfile, variant = "mensal", premio, subtitulo }: Props) {
+export function RankingPodium({ top1, top2, top3, formatCurrency, onOpenProfile, variant = "mensal", premio, premioPara, subtitulo }: Props) {
+  // 02/11: o "+R$" fica no pedestal de quem leva (o verificado mais bem colocado); sem ninguém
+  // verificado no pódio, nenhum pedestal mostra. Sem premioPara (outros usos), segue no 1º.
+  const pilula = (e?: LeaderboardEntry, campeao = false) => (premioPara === undefined ? (campeao ? premio : null) : e && e.user_id === premioPara ? premio : null);
   if (!top1) return null;
   const green = variant === "semanal";
   const premium = variant === "premium";
@@ -163,9 +168,9 @@ export function RankingPodium({ top1, top2, top3, formatCurrency, onOpenProfile,
       </p>
       {subtitulo && <div className="-mt-1 mb-3">{subtitulo}</div>}
       <div className="flex items-end justify-center gap-2">
-        <Col entry={top2} position={2} avatarSize={56} barHeight={72} green={green} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
-        <Col entry={top1} position={1} avatarSize={80} barHeight={106} champion green={green} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} premio={premio} />
-        <Col entry={top3} position={3} avatarSize={52} barHeight={56} green={green} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
+        <Col entry={top2} position={2} avatarSize={56} barHeight={72} green={green} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} premio={pilula(top2)} />
+        <Col entry={top1} position={1} avatarSize={80} barHeight={106} champion green={green} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} premio={pilula(top1, true)} />
+        <Col entry={top3} position={3} avatarSize={52} barHeight={56} green={green} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} premio={pilula(top3)} />
       </div>
     </div>
   );
