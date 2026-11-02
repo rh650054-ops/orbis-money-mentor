@@ -57,13 +57,27 @@ const soDigitos = (v: unknown) => String(v ?? "").replace(/\D/g, "");
 /** A data da Pluggy às vezes vem só com o dia (meia-noite UTC cravada). Nesse
  *  caso não dá pra saber a hora: fica o dia como veio, sem converter fuso. */
 // deno-lint-ignore no-explicit-any
-export function quandoFoi(t: any): { dia: string; instante: string | null } {
+export function quandoFoi(t: any, horasAtraso = 0, agora = Date.now()): { dia: string; instante: string | null } {
   const bruto = String(t?.date ?? "");
   if (!bruto) return { dia: diaBRT(new Date()), instante: null };
-  const d = new Date(bruto);
+  let d = new Date(bruto);
   if (Number.isNaN(d.getTime())) return { dia: bruto.slice(0, 10), instante: null };
   const soDia = /T00:00:00(\.0+)?(Z|\+00:00)$/.test(bruto) || bruto.length <= 10;
-  return soDia ? { dia: bruto.slice(0, 10), instante: null } : { dia: diaBRT(d), instante: d.toISOString() };
+  if (soDia) return { dia: bruto.slice(0, 10), instante: null };
+  if (horasAtraso > 0) {
+    const certo = new Date(d.getTime() + horasAtraso * 3_600_000);
+    // if the bank already sends the right time, the shifted one lands in the future: keep it as it came
+    if (certo.getTime() <= agora + 10 * 60_000) d = certo;
+  }
+  return { dia: diaBRT(d), instante: d.toISOString() };
+}
+
+/** 02/11/2026: PagBank (via Pluggy) sends every credit 6h EARLIER than it happened. Checked on
+ *  ~650 entries: the fastest read came 6h00 after the stored time (other banks: seconds), and a
+ *  Pix the bank statement lists at 00:41 of day 2 arrived as 18:41 of day 1. A morning Pix then
+ *  looked like 5 a.m. and was pushed to the previous day. */
+export function horasAtrasoDoBanco(instituicao: string | null | undefined): number {
+  return /pag\s*bank|pagseguro/i.test(instituicao ?? "") ? 6 : 0;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -118,6 +132,8 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
     .filter((c: { type?: string }) => String(c?.type ?? "").toUpperCase() === "BANK");
 
   const { data: perfil } = await admin.from("profiles").select("cpf").eq("user_id", userId).maybeSingle();
+  const { data: conexao } = await admin.from("bank_connections").select("institution_name").eq("id", conexaoId).maybeSingle();
+  const atraso = horasAtrasoDoBanco(conexao?.institution_name);
   const cpf = soDigitos(perfil?.cpf);
   try { await gravarDono(admin, contas, conexaoId); } catch (e) { console.error("pluggy dono", (e as Error)?.message); }
 
@@ -145,7 +161,7 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
       for (const t of txs) if (t?.type === "CREDIT" && Number(t?.amount) > 0 && t?.id) vistos.add(String(t.id));
       // deno-lint-ignore no-explicit-any
       const linhas = txs.filter((t: any) => t?.type === "CREDIT" && Number(t?.amount) > 0).map((t: any) => {
-        const q = quandoFoi(t);
+        const q = quandoFoi(t, atraso);
         const p = ehPix(t);
         const quem = pagadorDe(t);
         if (p) pix++;
