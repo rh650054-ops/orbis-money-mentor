@@ -1826,6 +1826,91 @@ function renderAfiliados(){
 }
 
 
+/* ===== TELA COMISSÕES · time comercial (03/11/2026, Rick) =====
+   "Ver as vendas do nosso time comercial e já saber quanto vamos pagar pra cada um".
+   A conta mora no banco (crm_equipe_comissoes): 1ª cobrança paga depois que o vendedor
+   assumiu o cartão (não renovação), valor líquido, 30% lead próprio / código de sócio,
+   10% lead de influenciador. Paga todo dia 10 o mês anterior. Vendedor vê só o dele. */
+let MES_EQ=mesAtual(), EQ=[];
+async function recarregarEquipe(){ EQ=(await chamar("crm_equipe_comissoes",{p_mes:MES_EQ}))||[]; mostrarProblemas(); renderComissoes(); }
+const dataBR=iso=>{const [a,m,d]=String(iso||"").split("-");return d&&m?d+"/"+m:"";};
+function comissoesHTML(){
+ const mes=esc(mesNome(MES_EQ)), dono=ehDono();
+ const soma=k=>EQ.reduce((a,p)=>a+(+p[k]||0),0);
+ const pagarEm=EQ[0]?.pagar_em||"";
+ const totCom=soma("comissao"), totPago=soma("pago"), totFalta=Math.max(0,totCom-totPago);
+ const origem=r=>!r?"lead próprio":esc(r);
+ const stPill=it=>it.status==="cancelada"?`<span class="pill bad">reembolsada</span>`
+   :it.status==="sem_pagamento"?`<span class="pill">fechou · ainda não pagou</span>`:"";
+ const linha=p=>{
+  const falta=Math.max(0,(+p.comissao||0)-(+p.pago||0)), itens=p.itens||[];
+  const ini=String(p.nome||"?").trim().charAt(0).toUpperCase();
+  return `<div class="afil" data-eq="${esc(p.user_id)}">
+   <div class="afil-h" style="display:flex;align-items:center;gap:10px">
+    <span class="eq-av">${/^https:\/\//.test(p.avatar||"")?`<img src="${esc(p.avatar)}" alt="">`:esc(ini)}</span>
+    <b>${esc(String(p.nome).split(/\s+/).slice(0,2).join(" "))}</b>
+    <span class="pill">${p.vendas} venda${+p.vendas===1?"":"s"} em ${mes}</span>
+    <span class="pill" style="margin-left:auto;${falta>0.009?"color:var(--warn);border-color:var(--warn)":""}">${falta>0.009?"a pagar "+brl(falta)+" · "+dataBR(p.pagar_em):(+p.comissao>0?"pago":"sem comissão")}</span>
+   </div>
+   <div class="afil-g" style="grid-template-columns:repeat(3,1fr)">
+    <div class="afil-n"><span>Comissão · ${mes}</span><b class="num" style="color:var(--c1)">${brl(p.comissao)}</b><i>paga em ${dataBR(p.pagar_em)}</i></div>
+    <div class="afil-n"><span>Vendido (líquido)</span><b class="num">${brl(p.liquido)}</b><i>1ª cobrança de cada cliente</i></div>
+    <div class="afil-n"><span>Já pago</span><b class="num">${brl(p.pago)}</b><i>${(p.pagamentos||[]).map(g=>esc(g.em)+" · "+brl(g.valor)).join(" · ")||"nenhum pagamento"}</i></div>
+   </div>
+   ${itens.length?`<div style="overflow-x:auto;margin-top:10px"><table class="tabela eq-t">
+    <thead><tr><th>Cliente</th><th class="eq-x">Pagou</th><th>Origem</th><th class="n">Líquido</th><th class="n eq-x">%</th><th class="n">Comissão</th></tr></thead>
+    <tbody>${itens.map(it=>`<tr${it.status!=="valida"?' style="opacity:.6"':""}>
+     <td>${esc(String(it.cliente).split(/\s+/).slice(0,2).join(" "))} ${stPill(it)}</td>
+     <td class="eq-x">${esc(it.pago_em||"—")}</td><td>${origem(it.ref)}</td>
+     <td class="n">${it.liquido!=null?brl(it.liquido):"—"}</td><td class="n eq-x">${(+it.pct||0)}%</td>
+     <td class="n" style="font-weight:700;color:var(--c1)">${+it.comissao>0?brl(it.comissao):"—"}</td></tr>`).join("")}</tbody></table></div>`
+    :`<p class="nota" style="margin-top:8px">Nenhuma venda fechada em ${mes}.</p>`}
+   ${dono?`<div class="afil-f"><button class="btn ghost" data-eq-pagar style="padding:7px 11px;margin-left:auto">Registrar pagamento</button></div>
+   <div class="afil-pg" hidden>
+    <input class="txtarea" style="min-height:0" type="number" step="0.01" min="0.01" data-pg-valor value="${falta>0?falta.toFixed(2):""}" placeholder="Valor pago (R$)">
+    <input class="txtarea" style="min-height:0" data-pg-obs placeholder="Obs. / ID do Pix">
+    <button class="btn go" data-pg-ok>Confirmar ${mes}</button>
+    <button class="btn ghost" data-pg-nao>Cancelar</button>
+   </div>`:""}
+  </div>`;};
+ return `
+ <h2 class="sec">${dono?"Time comercial":"Sua comissão"} · ${mes}</h2>
+ <div class="box pad">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+   <button class="btn ghost" id="eqMesAnt" style="padding:6px 10px">‹</button>
+   <b style="min-width:70px;text-align:center">${mes}</b>
+   <button class="btn ghost" id="eqMesProx" style="padding:6px 10px" ${MES_EQ>=mesAtual()?"disabled":""}>›</button>
+   ${dono&&EQ.length?`<span style="font-size:12px;color:var(--dim);margin-left:auto">${soma("vendas")} vendas · comissão <b>${brl(totCom)}</b> · paga <b>${brl(totPago)}</b> ·
+    <b style="color:var(--${totFalta>0.009?"warn":"c2"})">${totFalta>0.009?"a pagar "+brl(totFalta)+" em "+dataBR(pagarEm):"tudo pago"}</b></span>`:""}
+  </div>
+  ${EQ.length?EQ.map(linha).join(""):`<div class="vazio"><strong>Ninguém no time comercial ainda</strong>Quem estiver ativo na equipe do CRM aparece aqui.</div>`}
+  <p class="nota">Como é calculado: cada cliente que o vendedor fechou (cartão "ganho" com ele de responsável) conta pela
+  <b>1ª cobrança paga depois que ele assumiu</b> (renovação não conta), no <b>valor líquido</b> que caiu pra VANT.
+  <b>30%</b> quando o lead é dele ou veio de código de sócio (RICK5, MOHAMED34, ORBIS5); <b>10%</b> quando veio do link de um influenciador ou afiliado.
+  Reembolso ou chargeback zera a comissão sozinho (vale a próxima cobrança, se tiver). A venda entra no mês da cobrança e é <b>paga no dia 10 do mês seguinte</b>.</p>
+ </div>`;
+}
+function renderComissoes(){
+ const el=document.getElementById("p-comissoes"); if(!el)return;
+ el.innerHTML=comissoesHTML();
+ const a=document.getElementById("eqMesAnt"), p=document.getElementById("eqMesProx");
+ if(a) a.onclick=()=>{MES_EQ=mesMais(MES_EQ,-1); recarregarEquipe();};
+ if(p) p.onclick=()=>{MES_EQ=mesMais(MES_EQ,1); recarregarEquipe();};
+ el.querySelectorAll("[data-eq-pagar]").forEach(b=>b.onclick=()=>{const c=b.closest(".afil").querySelector(".afil-pg"); c.hidden=!c.hidden; if(!c.hidden) c.querySelector("[data-pg-valor]").focus();});
+ el.querySelectorAll("[data-pg-nao]").forEach(b=>b.onclick=()=>{b.closest(".afil-pg").hidden=true;});
+ el.querySelectorAll("[data-pg-ok]").forEach(b=>b.onclick=async()=>{
+  const box=b.closest(".afil"), uid=box.dataset.eq, v=+box.querySelector("[data-pg-valor]").value, obs=box.querySelector("[data-pg-obs]").value;
+  const nome=(EQ.find(x=>x.user_id===uid)||{}).nome||"vendedor";
+  if(!(v>0)){ toast("Informe o valor pago"); return; }
+  if(!confirm("Registrar pagamento de "+brl(v)+" para "+nome+" ("+mesNome(MES_EQ)+")?")) return;
+  b.disabled=true;
+  const {error}=await sb.rpc("crm_equipe_pagar",{p_user:uid,p_mes:MES_EQ,p_valor:v,p_obs:obs});
+  if(error){ toast(error.message); b.disabled=false; return; }
+  toast("Pagamento registrado"); await recarregarEquipe();
+ });
+}
+
+
 /* ===== abas ===== */
 function aplicarPapel(){
  document.querySelectorAll('[data-tab="parceiros"]').forEach(b=>b.hidden=false);
@@ -1836,7 +1921,7 @@ function aplicarPapel(){
 }
 function aba(t){
  document.querySelectorAll("[data-tab]").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));
- ["hoje","alertas","esteiras","metricas","parceiros","afiliados","admin"].forEach(k=>{const el=document.getElementById("p-"+k); if(el) el.hidden=k!==t;});
+ ["hoje","alertas","esteiras","metricas","parceiros","afiliados","comissoes","admin"].forEach(k=>{const el=document.getElementById("p-"+k); if(el) el.hidden=k!==t;});
  if(t==="metricas"&&!PERIODO) carregarPeriodo();
 }
 document.querySelectorAll("[data-tab]").forEach(b=>{
@@ -1858,7 +1943,7 @@ async function depoisDoLogin(){
   await chamar("crm_sync_upgrade");   // assinantes novos entram no Dia 1 do Upgrade Pro
   try{ await carregarTudo(); ULTIMA_CARGA=Date.now(); }
   catch(e){ PROBLEMAS.push("carregamento: "+(e.message||e)); mostrarProblemas(); }
-  try{ aplicarPapel(); render(); renderParceiros(); renderAfiliados(); }
+  try{ aplicarPapel(); render(); renderParceiros(); renderAfiliados(); recarregarEquipe(); }
   catch(e){ PROBLEMAS.push("desenho da tela: "+(e.message||e)); mostrarProblemas(); }
   /* aba Admin: crm-admin.js + seções (crm-admin-*.js). Recebe o mesmo cliente logado. */
   if(ehDono() && window.CRMAdmin){
