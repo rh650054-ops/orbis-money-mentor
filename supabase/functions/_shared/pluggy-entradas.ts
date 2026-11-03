@@ -145,6 +145,9 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
   // 21/10/2026: what Pluggy returned in THIS read. Mercado Pago re-issues its Pix with new
   // ids (the old ones vanish from Pluggy), and we kept both: the same Pix counted twice.
   const vistos = new Set<string>();
+  // 03/11: day|amount of what came back, so a vanished entry is only removed when a re-issued
+  // twin (same day, same amount, new id) came in its place
+  const vistosPorChave = new Map<string, number>();
   let leituraCompleta = contasRes.ok && contas.length > 0;
   for (const conta of contas) {
     let cursor: string | null = null;
@@ -158,7 +161,12 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
       // deno-lint-ignore no-explicit-any
       const txs: any[] = corpo?.results ?? [];
       // deno-lint-ignore no-explicit-any
-      for (const t of txs) if (t?.type === "CREDIT" && Number(t?.amount) > 0 && t?.id) vistos.add(String(t.id));
+      for (const t of txs) {
+        if (t?.type !== "CREDIT" || !(Number(t?.amount) > 0) || !t?.id) continue;
+        vistos.add(String(t.id));
+        const k = chaveSumida(quandoFoi(t, atraso).dia, Number(t.amount));
+        vistosPorChave.set(k, (vistosPorChave.get(k) ?? 0) + 1);
+      }
       // deno-lint-ignore no-explicit-any
       const linhas = txs.filter((t: any) => t?.type === "CREDIT" && Number(t?.amount) > 0).map((t: any) => {
         const q = quandoFoi(t, atraso);
@@ -200,7 +208,7 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
     }
     if (!terminou) leituraCompleta = false;
   }
-  const removidas = leituraCompleta ? await tirarSumidas(admin, conexaoId, dataDe, vistos) : 0;
+  const removidas = leituraCompleta ? await tirarSumidas(admin, conexaoId, dataDe, vistos, vistosPorChave) : 0;
   return { contas: contas.length, gravadas, pix, removidas };
 }
 
@@ -208,12 +216,16 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
  *  returns (re-issued with a new id, or deleted by the bank). Only after a COMPLETE read,
  *  never the window's first day (Pluggy filters in UTC), and never if Pluggy returned nothing. */
 // deno-lint-ignore no-explicit-any
-export async function tirarSumidas(admin: any, conexaoId: string, dataDe: string, vistos: Set<string>): Promise<number> {
+export async function tirarSumidas(
+  admin: any, conexaoId: string, dataDe: string, vistos: Set<string>, vistosPorChave: Map<string, number>,
+): Promise<number> {
   if (vistos.size === 0) return 0;
   const { data, error } = await admin.from("auto_detected_sales")
-    .select("transaction_id").eq("bank_connection_id", conexaoId).gt("transaction_date", dataDe).eq("status", "pending");
+    .select("transaction_id, transaction_date, amount").eq("bank_connection_id", conexaoId).gt("transaction_date", dataDe).eq("status", "pending");
   if (error || !data) return 0;
-  const sumidas = idsSumidos((data as { transaction_id: string }[]).map((r) => r.transaction_id), vistos);
+  const guardados = (data as { transaction_id: string; transaction_date: string; amount: number | string }[])
+    .map((r) => ({ id: r.transaction_id, chave: chaveSumida(r.transaction_date, Number(r.amount)) }));
+  const sumidas = idsSumidos(guardados, vistos, vistosPorChave);
   let n = 0;
   for (let i = 0; i < sumidas.length; i += 100) {
     const lote = sumidas.slice(i, i + 100);
@@ -225,9 +237,22 @@ export async function tirarSumidas(admin: any, conexaoId: string, dataDe: string
   return n;
 }
 
-/** Pure part: which stored ids did not come back. */
-export function idsSumidos(guardados: string[], vistos: Set<string>): string[] {
-  return guardados.filter((id) => !vistos.has(id));
+export const chaveSumida = (dia: string, valor: number) => `${dia}|${valor.toFixed(2)}`;
+
+/** Pure part: stored entries that did not come back AND were replaced by a re-issued twin.
+ *  03/11/2026: Mercado Pago sometimes returns only part of the list; removing every entry that
+ *  did not come back wiped whole days (a seller's 01/11 went from R$ 295 to zero). Now an entry
+ *  is removed only while there is a new id with the same day and amount to take its place. */
+export function idsSumidos(guardados: { id: string; chave: string }[], vistos: Set<string>, vistosPorChave: Map<string, number>): string[] {
+  const livres = new Map(vistosPorChave);
+  for (const g of guardados) if (vistos.has(g.id)) livres.set(g.chave, (livres.get(g.chave) ?? 0) - 1);
+  const out: string[] = [];
+  for (const g of guardados) {
+    if (vistos.has(g.id)) continue;
+    const n = livres.get(g.chave) ?? 0;
+    if (n > 0) { out.push(g.id); livres.set(g.chave, n - 1); }
+  }
+  return out;
 }
 
 /** transactions/deleted webhook: Pluggy tells which ids are gone. */
