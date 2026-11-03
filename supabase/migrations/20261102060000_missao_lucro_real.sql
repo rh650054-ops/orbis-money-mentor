@@ -10,7 +10,7 @@
 
 -- helper: one row per mission day with units, sold and real profit
 create or replace function public.objetivo_lucro_dias(p_obj uuid, p_ate date)
- returns table(d date, unid numeric, vendido numeric, lucro numeric, real boolean)
+ returns table(d date, unid numeric, vendido numeric, lucro numeric, fechado boolean)
  language sql
  stable security definer
  set search_path to 'public'
@@ -141,7 +141,7 @@ begin
          count(*) filter (where x.d < hoje and x.unid > 0),
          coalesce(sum(x.vendido) filter (where x.d = hoje), 0), coalesce(sum(x.unid) filter (where x.d = hoje), 0),
          coalesce(sum(x.lucro) filter (where x.d < hoje), 0), coalesce(sum(x.lucro) filter (where x.d = hoje), 0),
-         coalesce(jsonb_agg(jsonb_build_object('dia', x.d, 'unid', x.unid, 'lucro', x.lucro, 'real', x.real) order by x.d), '[]'::jsonb)
+         coalesce(jsonb_agg(jsonb_build_object('dia', x.d, 'unid', x.unid, 'lucro', x.lucro, 'real', x.fechado) order by x.d), '[]'::jsonb)
     into v_valor_antes, v_unid_antes, v_dias_antes, v_valor_hoje, v_unid_hoje, v_lucro_antes, v_lucro_hoje, v_dias
     from public.objetivo_lucro_dias(o.id, least(hoje, o.fim)) x;
 

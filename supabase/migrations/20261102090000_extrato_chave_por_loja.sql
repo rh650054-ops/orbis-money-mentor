@@ -45,13 +45,15 @@ begin
 end $function$;
 
 -- old key → new keys, per user (old key is still in the column)
-create temp table _mapa on commit drop as
+drop table if exists _mapa;
+drop table if exists _regra;
+create temp table _mapa as
 select l.user_id, l.tipo, l.chave as velha,
        coalesce(public.extrato_chave(l.comerciante), public.extrato_chave(l.descricao_norm)) as nova
   from public.extrato_lancamentos l
  where l.chave is not null;
 
-create temp table _regra on commit drop as
+create temp table _regra as
 select r.user_id, r.tipo, r.comerciante as velha, r.categoria, r.esfera, r.valor_min,
        (select count(distinct m.nova) from _mapa m
          where m.user_id = r.user_id and m.tipo = r.tipo and m.velha = r.comerciante and m.nova is not null) as n
@@ -81,6 +83,9 @@ delete from public.extrato_regras_usuario r
 update public.extrato_lancamentos l
    set chave = coalesce(public.extrato_chave(l.comerciante), public.extrato_chave(l.descricao_norm))
  where l.chave is distinct from coalesce(public.extrato_chave(l.comerciante), public.extrato_chave(l.descricao_norm));
+
+drop table if exists _mapa;
+drop table if exists _regra;
 
 update public.extrato_categorias set rotulo = 'Mercado de casa'
  where slug = 'mercado' and user_id is null;
