@@ -18,6 +18,13 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [hasSession, setHasSession] = useState(false);
+  // 03/11/2026 (Iara): new e-mails bring ?token_hash=… — the token is only spent when the
+  // person presses Salvar (verifyOtp), so a mail app that pre-opens the link, or a double
+  // tap, no longer burns it. Old e-mails (#access_token in the hash) keep working below.
+  const [tokenHash] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get("token_hash"); } catch { return null; }
+  });
+  const [linkUsado, setLinkUsado] = useState(false);
 
   useEffect(() => {
     // Supabase auto-cria sessão ao chegar com o token de recovery no hash.
@@ -52,6 +59,15 @@ export default function ResetPassword() {
     }
 
     setLoading(true);
+    if (tokenHash) {
+      const { error: otpErr } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+      if (otpErr) {
+        setLoading(false);
+        setLinkUsado(true);
+        avisar.silencioso("ResetPassword: verifyOtp", otpErr);
+        return;
+      }
+    }
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
 
@@ -113,13 +129,14 @@ export default function ResetPassword() {
                   Redirecionando...
                 </p>
               </div>
-            ) : !hasSession ? (
+            ) : linkUsado || (!hasSession && !tokenHash) ? (
               <div className="space-y-3 py-3 text-center">
                 <p className="text-sm text-foreground">
-                  Link inválido ou expirado.
+                  Esse link não vale mais.
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Solicite um novo link de recuperação.
+                  Ele já foi usado, passou de 1 hora, ou você pediu um link mais novo depois.
+                  Peça de novo e abra só o <b className="text-foreground">e-mail mais recente</b>.
                 </p>
                 <Button
                   onClick={() => navigate("/forgot-password")}

@@ -341,6 +341,7 @@
         ${S.isSuper ? `<button class="btn ghost" data-act="admin" data-uid="${uid}" style="${BTN_S}${isUserAdmin ? ";color:var(--warn);border-color:var(--warn)" : ""}"
             title="${isUserSuper ? "Super admin (protegido)" : isUserAdmin ? "Remover admin" : "Tornar admin"}" ${busy || isUserSuper ? "disabled" : ""}>${isUserSuper ? "★ Super admin" : isUserAdmin ? "★ Remover admin" : "☆ Tornar admin"}</button>` : ""}
         <button class="btn ghost" data-act="editar" data-uid="${uid}" style="${BTN_S}" title="Ver/editar perfil">Abrir / editar</button>
+        <button class="btn ghost" data-act="senha" data-uid="${uid}" style="${BTN_S}" title="Gerar uma senha temporária (a pessoa troca no primeiro login)" ${busy ? "disabled" : ""}>Nova senha</button>
         <button class="btn ${u.plan_status === "active" ? "lose" : "win"}" data-act="plano" data-uid="${uid}" style="${BTN_S}" ${busy || comp ? "disabled" : ""}>${u.plan_status === "active" ? "Desativar" : "Ativar"}</button>
         <button class="btn ghost" data-act="excluir" data-uid="${uid}" style="${BTN_S};color:var(--bad);border-color:var(--bad)" title="Excluir conta definitivamente" ${busy ? "disabled" : ""}>Excluir</button>
       </div>
@@ -372,6 +373,7 @@
       else if (act === "editar") abrirCliente(el, u);
       else if (act === "plano") toggleAssinatura(el, u);
       else if (act === "excluir") excluirConta(el, u);
+      else if (act === "senha") novaSenha(el, u);
     }));
   }
 
@@ -426,6 +428,22 @@
       if (r.error) { U.aviso("Erro: " + (r.error.message || "Tente novamente."), true); return; }
       U.aviso((isUserAdmin ? "Admin removido: " : "✅ Agora é admin: ") + nome);
       await carregarAdminMeta();
+    });
+  }
+
+  // 03/11/2026: temp password for someone locked out (recovery link "expired").
+  // The server generates it (admin only) and marks must_change_password, so the app asks
+  // for a new one on the first login. Shown once here to be copied and sent by WhatsApp.
+  async function novaSenha(el, u) {
+    const label = u.nickname || u.email || u.user_id;
+    if (!U.confirmar(`Gerar uma senha temporária para "${label}"?\n\nA senha atual dela para de funcionar. No primeiro login o app pede pra ela criar uma senha nova.`)) return;
+    await comOcupado(el, u, async () => {
+      const { data, error } = await U.funcao("admin-reset-password", { userId: u.user_id });
+      if (error || !data || !data.tempPassword) { U.aviso("Não deu pra gerar a senha: " + (error || "resposta vazia"), true); return; }
+      const cpf = U.fmtCpf(u.cpf);
+      const texto = `Oi! Sua senha da Vant foi trocada. Entre com o CPF ${cpf} e a senha ${data.tempPassword} — o app vai pedir pra você criar uma senha sua.`;
+      await U.copiar(texto, "Mensagem com a senha copiada");
+      window.prompt(`Senha temporária de "${label}" (a mensagem pronta já foi copiada):`, data.tempPassword);
     });
   }
 

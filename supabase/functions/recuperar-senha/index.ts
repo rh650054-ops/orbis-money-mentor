@@ -8,6 +8,10 @@
 //    ResetPassword carimba profiles.email_verificado_em via email_confirmar_por_recuperacao();
 //  - o link de recovery e gerado pelo servidor (auth.admin.generateLink) para o
 //    e-mail INTERNO da conta e enviado ao e-mail pessoal; expira conforme o Auth (1h);
+//  - 03/11/2026 (Iara): o e-mail NAO leva mais o action_link do Auth (que gasta o token no
+//    primeiro GET). Apps de e-mail que "pre-abrem" links e toque duplo gastavam o token e a
+//    pessoa via "link expirado". Agora o link abre /reset-password?token_hash=...; o token
+//    so e usado (verifyOtp) quando a pessoa aperta Salvar.
 //  - freio: 5 pedidos por CPF/h e 10 por IP/h (3 era apertado: quem nao ve o e-mail e insiste caia no bloqueio) (cadastro_pode_tentar, service_role only);
 //  - resposta identica em todos os caminhos (evita enumeracao).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
@@ -60,7 +64,7 @@ Deno.serve(async (req) => {
       email: `${cpf}@orbis.internal`,
       options: { redirectTo: `${APP_URL}/reset-password` },
     });
-    if (error || !link?.properties?.action_link || !link?.user?.id) {
+    if (error || !link?.properties?.hashed_token || !link?.user?.id) {
       if (error) console.error("recuperar-senha generateLink:", error.message);
       return ok();
     }
@@ -71,14 +75,15 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!perfil?.email) return ok();
 
+    const linkTela = `${APP_URL}/reset-password?token_hash=${encodeURIComponent(link.properties.hashed_token)}&type=recovery`;
     await enviarEmail({
       to: perfil.email,
       subject: "Recuperar sua senha da Vant",
       html: layoutEmail(
         `Bora voltar, ${perfil.nickname ?? "vendedor"}?`,
         `<p>Recebemos um pedido pra trocar a senha da sua conta na Vant.</p>
-         <p style="margin:20px 0"><a href="${link.properties.action_link}" style="display:inline-block;background:#f5c518;color:#111;font-weight:700;padding:14px 22px;border-radius:10px;text-decoration:none">Criar nova senha</a></p>
-         <p>O link vale por 1 hora e só funciona uma vez.</p>`,
+         <p style="margin:20px 0"><a href="${linkTela}" style="display:inline-block;background:#f5c518;color:#111;font-weight:700;padding:14px 22px;border-radius:10px;text-decoration:none">Criar nova senha</a></p>
+         <p>O link vale por 1 hora. Se você pedir outro, use sempre o e-mail mais recente.</p>`,
       ),
     });
     return ok();
