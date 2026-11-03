@@ -76,9 +76,10 @@ export const PEDIDO_MIN_PADRAO_MIN = 61;
 export const POS_FOCO_TARDIO_DE_MIN = 210;
 export const POS_FOCO_TARDIO_ATE_MIN = 330;
 
-/** Banks whose Open Finance feed lags hours behind the Pix (measured on real data, 16/10/2026). */
+/** Banks whose Open Finance feed lags hours behind the Pix (measured on real data, 16/10/2026).
+ *  03/11: PagBank too — median 2h30 from the Pix to Pluggy (other banks ~1h). */
 export function bancoLento(nome: string | null | undefined): boolean {
-  return /\bc6\b|ita[uú]/i.test(String(nome ?? ""));
+  return /\bc6\b|ita[uú]|pag\s*bank|pagseguro/i.test(String(nome ?? ""));
 }
 
 const BRT_OFFSET_MIN = -3 * 60; // Brasília has no DST since 2019

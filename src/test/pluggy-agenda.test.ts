@@ -76,6 +76,8 @@ describe("pluggy agenda — when the bank is read", () => {
     const fim = brt("2026-10-16 17:37");
     const lento = (o: Partial<Contexto>) => baseOrig({ disponivelHoje: 3, focoFimEm: fim, bancoLento: true, ...o });
     expect(bancoLento("C6 Bank")).toBe(true);
+    expect(bancoLento("PagBank")).toBe(true);
+    expect(bancoLento("PagBank Empresas")).toBe(true);
     expect(bancoLento("C6 Bank Empresas")).toBe(true);
     expect(bancoLento("Itaú")).toBe(true);
     expect(bancoLento("Nubank")).toBe(false);
