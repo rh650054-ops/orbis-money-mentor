@@ -6,10 +6,14 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-/** Gera uma senha temporária no formato OrbisXXXXXX! */
+/** Senha temporária forte e fácil de digitar: Vant-XXXX-XXXX (sem 0/O/1/I/l).
+ *  03/11/2026: antes era Orbis + 6 dígitos de Math.random (1 milhão de combinações). */
 function generateTempPassword(): string {
-  const digits = Math.floor(100000 + Math.random() * 900000).toString();
-  return `Orbis${digits}!`;
+  const ALFA = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  const c = Array.from(bytes, (b) => ALFA[b % ALFA.length]).join("");
+  return `Vant-${c.slice(0, 4)}-${c.slice(4)}`;
 }
 
 Deno.serve(async (req) => {
