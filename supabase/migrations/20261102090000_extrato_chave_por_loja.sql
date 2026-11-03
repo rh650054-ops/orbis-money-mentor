@@ -44,48 +44,53 @@ begin
   return left(t[1], 12) || ' ' || left(t[2], 4);
 end $function$;
 
--- old key → new keys, per user (old key is still in the column)
-drop table if exists _mapa;
-drop table if exists _regra;
-create temp table _mapa as
-select l.user_id, l.tipo, l.chave as velha,
-       coalesce(public.extrato_chave(l.comerciante), public.extrato_chave(l.descricao_norm)) as nova
-  from public.extrato_lancamentos l
- where l.chave is not null;
+-- 03/11: one DO block, so the helper tables live in a single session (the SQL Editor
+-- may run each statement on a different connection).
+do $migr$
+begin
+  drop table if exists _mapa;
+  drop table if exists _regra;
+  -- old key → new keys, per user (old key is still in the column)
+  create temp table _mapa as
+  select l.user_id, l.tipo, l.chave as velha,
+         coalesce(public.extrato_chave(l.comerciante), public.extrato_chave(l.descricao_norm)) as nova
+    from public.extrato_lancamentos l
+   where l.chave is not null;
 
-create temp table _regra as
-select r.user_id, r.tipo, r.comerciante as velha, r.categoria, r.esfera, r.valor_min,
-       (select count(distinct m.nova) from _mapa m
-         where m.user_id = r.user_id and m.tipo = r.tipo and m.velha = r.comerciante and m.nova is not null) as n
-  from public.extrato_regras_usuario r;
+  create temp table _regra as
+  select r.user_id, r.tipo, r.comerciante as velha, r.categoria, r.esfera, r.valor_min,
+         (select count(distinct m.nova) from _mapa m
+           where m.user_id = r.user_id and m.tipo = r.tipo and m.velha = r.comerciante and m.nova is not null) as n
+    from public.extrato_regras_usuario r;
 
--- generic (bank prefix): unlock what it dragged, keep the category
-update public.extrato_lancamentos l set confianca = 'padrao'
-  from _regra g
- where g.n > 3 and l.user_id = g.user_id and l.tipo = g.tipo and l.chave = g.velha
-   and l.confianca = 'usuario' and not l.categoria_fixa;
+  -- generic (bank prefix): unlock what it dragged, keep the category
+  update public.extrato_lancamentos l set confianca = 'padrao'
+    from _regra g
+   where g.n > 3 and l.user_id = g.user_id and l.tipo = g.tipo and l.chave = g.velha
+     and l.confianca = 'usuario' and not l.categoria_fixa;
 
--- a real shop/person (1 to 3 variants): the rule follows it to the new key(s)
-insert into public.extrato_regras_usuario (user_id, comerciante, tipo, categoria, esfera, valor_min)
-select distinct g.user_id, m.nova, g.tipo, g.categoria, g.esfera, g.valor_min
-  from _regra g join _mapa m on m.user_id = g.user_id and m.tipo = g.tipo and m.velha = g.velha
- where g.n between 1 and 3 and m.nova is not null
-on conflict (user_id, comerciante, tipo) do nothing;
+  -- a real shop/person (1 to 3 variants): the rule follows it to the new key(s)
+  insert into public.extrato_regras_usuario (user_id, comerciante, tipo, categoria, esfera, valor_min)
+  select distinct g.user_id, m.nova, g.tipo, g.categoria, g.esfera, g.valor_min
+    from _regra g join _mapa m on m.user_id = g.user_id and m.tipo = g.tipo and m.velha = g.velha
+   where g.n between 1 and 3 and m.nova is not null
+  on conflict (user_id, comerciante, tipo) do nothing;
 
--- old keys go away (unless the old key is also a valid new key)
-delete from public.extrato_regras_usuario r
- using _regra g
- where r.user_id = g.user_id and r.tipo = g.tipo and r.comerciante = g.velha
-   and (g.n = 0 or g.n > 3
-        or not exists (select 1 from _mapa m where m.user_id = g.user_id and m.tipo = g.tipo and m.nova = g.velha));
+  -- old keys go away (unless the old key is also a valid new key)
+  delete from public.extrato_regras_usuario r
+   using _regra g
+   where r.user_id = g.user_id and r.tipo = g.tipo and r.comerciante = g.velha
+     and (g.n = 0 or g.n > 3
+          or not exists (select 1 from _mapa m where m.user_id = g.user_id and m.tipo = g.tipo and m.nova = g.velha));
 
--- every row gets its new key
-update public.extrato_lancamentos l
-   set chave = coalesce(public.extrato_chave(l.comerciante), public.extrato_chave(l.descricao_norm))
- where l.chave is distinct from coalesce(public.extrato_chave(l.comerciante), public.extrato_chave(l.descricao_norm));
-
-drop table if exists _mapa;
-drop table if exists _regra;
+  -- every row gets its new key
+  update public.extrato_lancamentos l
+     set chave = coalesce(public.extrato_chave(l.comerciante), public.extrato_chave(l.descricao_norm))
+   where l.chave is distinct from coalesce(public.extrato_chave(l.comerciante), public.extrato_chave(l.descricao_norm));
+  drop table if exists _mapa;
+  drop table if exists _regra;
+end
+$migr$;
 
 update public.extrato_categorias set rotulo = 'Mercado de casa'
  where slug = 'mercado' and user_id is null;
