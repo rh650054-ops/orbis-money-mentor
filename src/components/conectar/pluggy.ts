@@ -11,6 +11,7 @@
    ============================================================ */
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
+import { ehAppDaLoja } from "@/shared/lib/platform";
 
 const CDN = "https://cdn.pluggy.ai/pluggy-connect/latest/pluggy-connect.js";
 
@@ -18,6 +19,8 @@ interface PluggyConnectCtor {
   new (opts: {
     connectToken: string;
     includeSandbox?: boolean;
+    /** open the bank's OAuth page in the system browser instead of the webview */
+    forceOauthInBrowser?: boolean;
     /** item que já existe: abre o widget pra autorizar de novo (Pluggy "update mode") */
     updateItem?: string;
     /** quais bancos aparecem na lista (ids da Pluggy) */
@@ -84,6 +87,9 @@ export async function ligarBanco(aoAbrir?: () => void, reautorizarItem?: string)
       const widget = new Ctor({
         connectToken: token,
         includeSandbox: false,
+        // 03/11/2026: inside the store app the Mercado Pago login opened in the webview and
+        // came back to the same "Conectar" screen forever. Pluggy: open OAuth in the system browser.
+        forceOauthInBrowser: ehAppDaLoja(),
         ...(reautorizarItem ? { updateItem: reautorizarItem } : {}),
         ...(connectorIds && !reautorizarItem ? { connectorIds } : {}),
         onSuccess: (d) => {
