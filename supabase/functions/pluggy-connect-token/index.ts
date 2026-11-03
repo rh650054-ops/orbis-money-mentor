@@ -79,7 +79,8 @@ Deno.serve(async (req) => {
     const ctRes = await fetch("https://api.pluggy.ai/connect_token", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-API-KEY": apiKey },
-      body: JSON.stringify(itemId ? { itemId, options: { clientUserId: uid } } : { options: { clientUserId: uid } }),
+      // 03/11: avoidDuplicates — tapping "Conectar" several times created the same bank 4–5 times
+      body: JSON.stringify(itemId ? { itemId, options: { clientUserId: uid } } : { options: { clientUserId: uid, avoidDuplicates: true } }),
       signal: AbortSignal.timeout(20000),
     });
     if (!ctRes.ok) {
