@@ -16,6 +16,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { pluggyKey, importarEntradas, pedirAtualizacao } from "../_shared/pluggy-entradas.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
+import { limparRepetidas } from "../_shared/pluggy-duplicadas.ts";
 import {
   precisaDoVendedor, motivoDeLeitura, contarLeitura, leiturasDeHoje, relogioBRT, orcamentoDaConexao, contarPedido,
   podePedir, diasParaImportar, MAX_POR_RODADA, PEDIDO_MIN_PADRAO_MIN, PRIORIDADE, type Motivo, bancoLento,
@@ -41,6 +42,9 @@ Deno.serve(async (req) => {
 
     const agora = new Date();
     const { dia: hoje } = relogioBRT(agora);
+
+    // 04/11: the same bank connected several times → keep the oldest, remove the copies
+    const repetidas = await limparRepetidas(admin, pluggyKey).catch((e) => { console.error("pluggy-hora: repetidas", e); return 0; });
 
     const { data: cons } = await admin.from("bank_connections")
       .select("id, item_id, user_id, status, last_synced_at, institution_name, pluggy_pedido_em, leituras_dia, leituras_qtd, pedidos_mes, pedidos_mes_qtd, pedidos_dia, pedidos_dia_qtd")
@@ -150,7 +154,7 @@ Deno.serve(async (req) => {
     }
     const resumo = {
       conexoes: conexoes.length, devidas: devidas.length, lidas_agora: rodada.length,
-      porMotivo, entradas: lidas, pix, pedidos, falhas, piloto, globais: globais + rodada.length,
+      porMotivo, entradas: lidas, pix, pedidos, falhas, piloto, globais: globais + rodada.length, repetidas,
     };
     console.log("pluggy-hora", resumo);
     return json({ ok: true, ...resumo });
