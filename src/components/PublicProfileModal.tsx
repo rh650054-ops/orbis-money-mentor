@@ -9,6 +9,9 @@ import { presenceInfo } from "@/shared/lib/presence";
 import { useAuth } from "@/hooks/useAuth";
 import { Instagram, MessageCircle, MapPin, Package, Store, Loader2, Trophy, Flame, X, Swords, Medal } from "lucide-react";
 import { SeloVerificado } from "@/components/ranking/AvatarRanking";
+import { useToast } from "@/shared/hooks/use-toast";
+import { abrirLinkExterno } from "@/shared/lib/link-externo";
+import { linkWhatsappLead, useEquipeComercialQuery, useWhatsappLeadMutation } from "@/features/equipe-comercial";
 
 const EXCLUSIVE_EMOJIS = ["🦁", "🐺", "🦅", "🔥", "⚡", "💎", "🚀", "👑", "🎯", "💪", "🏆", "⭐", "🐉", "🦈", "🐯", "🦊"];
 const isEmojiAvatar = (a: string | null) => !!a && EXCLUSIVE_EMOJIS.includes(a);
@@ -50,6 +53,20 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
   const navigate = useNavigate();
   // Ganhos: só o dono do perfil. Admin vê no CRM (18/10/2026: admin saiu do app).
   const canSeeWinnings = !!userId && viewer?.id === userId;
+  const { toast } = useToast();
+  const equipe = useEquipeComercialQuery(viewer?.id).data === true;
+  const pedirZap = useWhatsappLeadMutation();
+  const chamarNoZap = () => {
+    if (!userId) return;
+    const nome = profile?.nickname ?? null;
+    pedirZap.mutate(userId, {
+      onSuccess: (numero) => {
+        if (!numero) { toast({ title: "Sem WhatsApp no cadastro", description: `${nome ?? "Esse vendedor"} não tem telefone no perfil.` }); return; }
+        void abrirLinkExterno(linkWhatsappLead(numero, nome));
+      },
+      onError: () => toast({ title: "Não consegui pegar o número", description: "Tenta de novo em instantes.", variant: "destructive" }),
+    });
+  };
   const [winTotal, setWinTotal] = useState<number | null>(null);
   const [x1Hist, setX1Hist] = useState<Array<{ id: string; otherName: string; won: boolean; prize: number }>>([]);
   const [compWins, setCompWins] = useState<Array<{ id: string; label: string; value: number }>>([]);
@@ -385,6 +402,17 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
                   <p className="text-sm text-muted-foreground">
                     Este usuário ainda não preencheu o perfil público.
                   </p>
+                </div>
+              )}
+
+              {/* 04/11 (Rick): only admin/comercial — the server hands the number only to them */}
+              {equipe && !canSeeWinnings && (
+                <div className="px-5 pb-2">
+                  <Button onClick={chamarNoZap} disabled={pedirZap.isPending}
+                    className="w-full h-11 font-bold text-white" style={{ background: "#1FAF56" }}>
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    {pedirZap.isPending ? "Abrindo..." : "Chamar no WhatsApp"}
+                  </Button>
                 </div>
               )}
 
