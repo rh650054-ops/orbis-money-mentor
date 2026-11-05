@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { diasDePro } from "./planos.ts";
 import { cancelarNaHotmart, padroesParaCancelar, type AssinaturaAtiva } from "./cancelar-padrao.ts";
+import { codigoDaAssinatura, fimDoPeriodo } from "./periodo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,7 +60,8 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
     const buyerEmail = payload.data?.buyer?.email || payload.buyer?.email;
     const buyerDoc = payload.data?.buyer?.document || payload.buyer?.document;
     const purchaseId = payload.data?.purchase?.transaction || payload.purchase?.transaction || "";
-    const subscriptionId = payload.data?.subscription?.subscriber?.code || "";
+    // 04/11: cancellations carry the code in data.subscriber.code (32 of 57 were unidentified)
+    const subscriptionId = codigoDaAssinatura(payload);
 
     // ===== ORIGEM E DINHEIRO DA VENDA (23/08/2026) =====
     // A Hotmart manda quem indicou e quanto entrou — e a gente ignorava tudo isso.
@@ -221,7 +223,7 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
     // em data.subscriber.code): se esse código é de um banco extra — e não da
     // assinatura principal — também cai aqui.
     const BANCO_EXTRA_OFFERS = new Set(["3nnrr1xn", "otgozkn9"]);
-    const assinanteCod = String(payload.data?.subscription?.subscriber?.code || payload.data?.subscriber?.code || "");
+    const assinanteCod = subscriptionId;
     const evBx = String(event || "").toUpperCase();
     let bxDono: string | null = null;
     let ehBancoExtra = BANCO_EXTRA_OFFERS.has(String(compra?.offer?.code ?? "").trim());
@@ -306,10 +308,10 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
     const planoNome = String(payload.data?.subscription?.plan?.name ?? "");
     const proDays = diasDePro(offerCode, planoNome);
 
-    // Calculate period end (30 days from now as default for monthly)
+    // 04/11: fixed due day — the period ends on Hotmart's next charge date; access is blocked
+    // 3 days after it (grace) by expire_overdue_subscriptions. Before: now()+30 on every event.
     const now = new Date();
-    const periodEnd = new Date(now);
-    periodEnd.setDate(periodEnd.getDate() + (proDays ?? 30));
+    const periodEnd = fimDoPeriodo(compra?.date_next_charge, proDays ?? 30, now);
     const graceEnd = new Date(periodEnd);
     graceEnd.setDate(graceEnd.getDate() + 3);
 
@@ -321,28 +323,17 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
       eventNormalized.includes("PURCHASE_COMPLETE") ||
       eventNormalized.includes("SUBSCRIPTION_RENEWAL")
     ) {
-      // Activate subscription
-      exigir("subscriptions", await supabase
-        .from("subscriptions")
-        .upsert(
-          {
-            user_id: userId,
-            provider: "hotmart",
-            status: "active",
-            current_period_end: periodEnd.toISOString(),
-            grace_until: graceEnd.toISOString(),
-            hotmart_purchase_id: purchaseId,
-            hotmart_subscription_id: subscriptionId,
-            last_event_at: now.toISOString(),
-          },
-          { onConflict: "user_id" }
-        ));
-
-      // Update profile plan_status
-      exigir("profiles", await supabase
-        .from("profiles")
-        .update({ plan_status: "active", is_trial_active: false })
-        .eq("user_id", userId));
+      // 04/11: one function decides (subscription code + fixed due day). COMPLETE never revives a
+      // cancelled row, and another subscription's event never shortens access paid further ahead.
+      const { data: resAtivar, error: eAtivar } = await supabase.rpc("hotmart_acesso_aplicar", {
+        p_user: userId, p_acao: "ativar", p_sub: subscriptionId || null, p_purchase: purchaseId || null,
+        p_fim: periodEnd.toISOString(), p_complete: eventNormalized.includes("PURCHASE_COMPLETE"),
+      });
+      exigir("hotmart_acesso_aplicar", { error: eAtivar });
+      if (resAtivar === "complete_ignorado") {
+        console.log(`hotmart-webhook: COMPLETE ignored, subscription was cancelled (user ${userId})`);
+        return new Response(JSON.stringify({ status: "ok", acesso: resAtivar }), { headers: corsHeaders });
+      }
 
       if (proDays) {
         const { error: proErr } = await supabase.rpc("pro_conceder", {
@@ -371,20 +362,11 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
       eventNormalized.includes("PURCHASE_DELAYED") ||
       eventNormalized.includes("PURCHASE_PROTEST")
     ) {
-      // Past due
-      exigir("subscriptions", await supabase
-        .from("subscriptions")
-        .upsert(
-          {
-            user_id: userId,
-            provider: "hotmart",
-            status: "past_due",
-            hotmart_purchase_id: purchaseId,
-            hotmart_subscription_id: subscriptionId,
-            last_event_at: now.toISOString(),
-          },
-          { onConflict: "user_id" }
-        ));
+      // Past due: only the subscription that holds the access; the end stays (blocked on the 3rd day)
+      const { error: eAtr } = await supabase.rpc("hotmart_acesso_aplicar", {
+        p_user: userId, p_acao: "atrasar", p_sub: subscriptionId || null, p_purchase: purchaseId || null,
+      });
+      exigir("hotmart_acesso_aplicar", { error: eAtr });
 
       console.log(`Subscription past_due for user ${userId}`);
     } else if (
@@ -392,31 +374,23 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
       eventNormalized.includes("PURCHASE_REFUNDED") ||
       eventNormalized.includes("PURCHASE_CHARGEBACK")
     ) {
-      // Cancel immediately
-      exigir("subscriptions", await supabase
-        .from("subscriptions")
-        .upsert(
-          {
-            user_id: userId,
-            provider: "hotmart",
-            status: "canceled",
-            grace_until: now.toISOString(), // Block immediately
-            hotmart_purchase_id: purchaseId,
-            hotmart_subscription_id: subscriptionId,
-            last_event_at: now.toISOString(),
-          },
-          { onConflict: "user_id" }
-        ));
+      // Cancel: only the subscription that holds the access. Another live Hotmart subscription of the
+      // same person takes over instead of cutting access (an upgrader's old plan being cancelled).
+      const { data: resCanc, error: eCanc } = await supabase.rpc("hotmart_acesso_aplicar", {
+        p_user: userId, p_acao: "cancelar", p_sub: subscriptionId || null, p_purchase: purchaseId || null,
+      });
+      exigir("hotmart_acesso_aplicar", { error: eCanc });
 
-      exigir("profiles", await supabase
-        .from("profiles")
-        .update({ plan_status: "expired" })
-        .eq("user_id", userId));
-
-      if (proDays) {
+      // Pro goes away only when THIS subscription is the Pro one (offer code, or the code saved with the Pro).
+      // Cancellations come without the offer, so before the Pro was never revoked by them.
+      const rPro = await supabase.from("orbis_pro").select("assinante_codigo").eq("user_id", userId).maybeSingle();
+      const codigoPro = (rPro.data as { assinante_codigo?: string | null } | null)?.assinante_codigo ?? null;
+      const ehDoPro = (!!subscriptionId && codigoPro === subscriptionId) || (!!proDays && (!codigoPro || codigoPro === subscriptionId));
+      if (ehDoPro) {
         const { error: proErr } = await supabase.rpc("pro_revogar", { p_user: userId });
         exigir("pro_revogar", { error: proErr });
       }
+      console.log(`hotmart-webhook: cancel → ${String(resCanc)} (pro revogado: ${ehDoPro})`);
 
       console.log(`Subscription canceled for user ${userId}`);
     }

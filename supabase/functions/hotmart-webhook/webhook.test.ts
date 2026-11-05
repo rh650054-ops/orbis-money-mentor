@@ -56,8 +56,9 @@ function supabaseFalso(opts: { falhar?: Set<string>; achar?: string | null; perf
 
   const cliente = {
     from: tabela,
-    rpc: (nome: string) => {
+    rpc: (nome: string, args?: Record<string, unknown>) => {
       chamadas.push(`rpc.${nome}`);
+      if (args) gravados.push({ tabela: `rpc.${nome}`, op: "rpc", linha: args });
       if (falhar.has(`rpc.${nome}`)) return Promise.resolve({ data: null, error: { message: "falhou" } });
       return Promise.resolve({ data: nome === "orbis_achar_usuario" ? achar : true, error: null });
     },
@@ -94,25 +95,18 @@ beforeAll(async () => {
 
 describe("hotmart-webhook: recebido ≠ concluído", () => {
   it("assinatura não gravou → 500, evento liberado, e o reenvio da Hotmart ativa a assinatura", async () => {
-    const sb = supabaseFalso({ falhar: new Set(["subscriptions.upsert"]) });
+    const sb = supabaseFalso({ falhar: new Set(["rpc.hotmart_acesso_aplicar"]) });
     const r1 = await tratarHotmart(pedido(), () => sb.cliente as never);
     expect(r1.status).toBe(500);
     expect(sb.marcados.size).toBe(0); // não ficou "processado"
-    expect(sb.chamadas).not.toContain("profiles.update");
+    expect(sb.chamadas).not.toContain("rpc.pro_conceder");
 
     sb.falhar.clear(); // Hotmart reenvia, banco voltou
     const r2 = await tratarHotmart(pedido(), () => sb.cliente as never);
     expect(r2.status).toBe(200);
     expect(await r2.json()).toEqual({ status: "ok" });
     expect(sb.marcados.size).toBe(1);
-    expect(sb.chamadas.filter((c) => c === "subscriptions.upsert")).toHaveLength(2);
-  });
-
-  it("perfil não gravou → também libera pra reenvio", async () => {
-    const sb = supabaseFalso({ falhar: new Set(["profiles.update"]) });
-    const r = await tratarHotmart(pedido(), () => sb.cliente as never);
-    expect(r.status).toBe(500);
-    expect(sb.marcados.size).toBe(0);
+    expect(sb.chamadas.filter((c) => c === "rpc.hotmart_acesso_aplicar")).toHaveLength(2);
   });
 
   it("Pro não liberou (pro_conceder) → libera pra reenvio", async () => {
@@ -134,11 +128,11 @@ describe("hotmart-webhook: recebido ≠ concluído", () => {
     expect((await tratarHotmart(pedido(), () => sb.cliente as never)).status).toBe(200);
     const r2 = await tratarHotmart(pedido(), () => sb.cliente as never);
     expect(await r2.json()).toEqual({ status: "duplicate" });
-    expect(sb.chamadas.filter((c) => c === "subscriptions.upsert")).toHaveLength(1);
+    expect(sb.chamadas.filter((c) => c === "rpc.hotmart_acesso_aplicar")).toHaveLength(1);
   });
 
   it("cancelamento que não gravou → libera pra reenvio (não deixa acesso aberto)", async () => {
-    const sb = supabaseFalso({ falhar: new Set(["subscriptions.upsert"]) });
+    const sb = supabaseFalso({ falhar: new Set(["rpc.hotmart_acesso_aplicar"]) });
     const r = await tratarHotmart(pedido("8qbxvm9p", "SUBSCRIPTION_CANCELLATION"), () => sb.cliente as never);
     expect(r.status).toBe(500);
     expect(sb.marcados.size).toBe(0);
@@ -147,8 +141,10 @@ describe("hotmart-webhook: recebido ≠ concluído", () => {
 
 describe("hotmart-webhook: fallback pelo xcod", () => {
   const UID = "3f2b8c1e-9a7d-4e21-b6c3-0d5e4f6a7b8c";
-  const assinaturaDe = (sb: ReturnType<typeof supabaseFalso>) =>
-    sb.gravados.find((g) => g.tabela === "subscriptions" && g.op === "upsert")?.linha;
+  const assinaturaDe = (sb: ReturnType<typeof supabaseFalso>) => {
+    const l = sb.gravados.find((g) => g.tabela === "rpc.hotmart_acesso_aplicar")?.linha;
+    return l ? { user_id: l.p_user } : undefined;
+  };
 
   it("e-mail/CPF diferentes na Hotmart → acha a conta pelo xcod e ativa", async () => {
     const sb = supabaseFalso({ achar: null, perfis: new Set([UID]) });
@@ -179,5 +175,34 @@ describe("hotmart-webhook: fallback pelo xcod", () => {
     const r = await tratarHotmart(pedido("8qbxvm9p", "PURCHASE_APPROVED", "nao-uuid"), () => sb.cliente as never);
     expect(await r.json()).toEqual({ status: "unlinked" });
     expect(sb.chamadas).not.toContain("profiles.select");
+  });
+});
+
+describe("hotmart-webhook: dia fixo e a assinatura certa (Rick, 04/11)", () => {
+  const corpo = (event: string, data: Record<string, unknown>) =>
+    new Request("https://x/hotmart-webhook", {
+      method: "POST",
+      headers: { "x-hotmart-hottok": "segredo-teste", "content-type": "application/json" },
+      body: JSON.stringify({ id: `ev-${event}-${JSON.stringify(data).length}`, event, data }),
+    });
+  const args = (sb: ReturnType<typeof supabaseFalso>) =>
+    sb.gravados.find((g) => g.tabela === "rpc.hotmart_acesso_aplicar")?.linha;
+
+  it("aprovado → fim = próxima cobrança da Hotmart; COMPLETE avisa a função", async () => {
+    const prox = Date.now() + 20 * 86_400_000;
+    const sb = supabaseFalso();
+    await tratarHotmart(corpo("PURCHASE_COMPLETE", {
+      buyer: { email: "a@b.com" }, purchase: { transaction: "T9", offer: { code: "8qbxvm9p" }, date_next_charge: prox },
+      subscription: { subscriber: { code: "S9" } },
+    }), () => sb.cliente as never);
+    expect(args(sb)).toMatchObject({ p_acao: "ativar", p_sub: "S9", p_complete: true, p_fim: new Date(prox).toISOString() });
+  });
+
+  it("cancelamento só com data.subscriber.code → identifica a assinatura", async () => {
+    const sb = supabaseFalso();
+    await tratarHotmart(corpo("SUBSCRIPTION_CANCELLATION", {
+      buyer: { email: "a@b.com" }, subscriber: { code: "OLD1" }, subscription: {},
+    }), () => sb.cliente as never);
+    expect(args(sb)).toMatchObject({ p_acao: "cancelar", p_sub: "OLD1" });
   });
 });
