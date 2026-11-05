@@ -29,7 +29,7 @@ const CATEGORIAS_SAIDA = [
   "lazer", "parcelas", "saque", "taxas", "apostas", "transferencia_propria", "outros", "nao_identificado",
   "fatura_cartao", "impostos",
 ];
-const CATEGORIAS_ENTRADA = ["pix_recebido", "cartao_recebido", "transferencia_recebida", "estorno", "outros_entrada"];
+const CATEGORIAS_ENTRADA = ["pix_recebido", "cartao_recebido", "transferencia_recebida", "estorno", "outros_entrada", "transferencia_propria"]  // 04/11: money back from a pocket/investment;
 const TODAS = new Set([...CATEGORIAS_SAIDA, ...CATEGORIAS_ENTRADA]);
 
 // Bloco ESTATICO (identico pra todo mundo) -> cache_control. O dinamico so leva a
