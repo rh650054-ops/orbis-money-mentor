@@ -766,6 +766,20 @@
     const bt = sub("cl-salvar") || document.querySelector("#drawer #cl-salvar");
     if (bt) { bt.disabled = true; bt.textContent = "Salvando…"; }
     try {
+      // 05/11/2026 (Carlos): changing the CPF here must move the LOGIN too, or the person keeps
+      // entering another account with that CPF. The server does both and asks first when
+      // another account already logs in with it (that one is kept, renamed "antiga").
+      const cpfNovo = f.cpf ? U.soDigitos(f.cpf) : "";
+      if (cpfNovo && cpfNovo !== U.soDigitos(u.cpf)) {
+        const prev = await U.rpc("admin_mover_login_cpf", { p_user: u.user_id, p_cpf: cpfNovo, p_confirmar: false });
+        if (prev.error) throw new Error(prev.error);
+        const outra = prev.data && prev.data.outra_conta;
+        if (outra && !U.confirmar(`Outra conta já entra com o CPF ${U.fmtCpf(cpfNovo)}:\n\n"${outra.nome || "sem nome"}" (${outra.plano || "—"})\n\nSe confirmar, ESTA conta passa a entrar com esse CPF. A outra não é apagada: vira "antiga" e fica com outro login.\n\nConfirmar?`)) {
+          throw new Error("CPF não alterado.");
+        }
+        const mv = await U.rpc("admin_mover_login_cpf", { p_user: u.user_id, p_cpf: cpfNovo, p_confirmar: true });
+        if (mv.error) throw new Error(mv.error);
+      }
       const { error } = await S.sb.from("profiles").update({
         nickname: f.nickname || null, phone: f.phone || null,
         cpf: f.cpf ? U.soDigitos(f.cpf) : null, city: f.city || null, state: f.state || null,
