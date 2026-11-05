@@ -153,13 +153,17 @@ Deno.serve(async (req) => {
     const { error: eSelo } = await admin.rpc("banco_conceder_selo", { p_user: con.user_id });
     if (eSelo) console.error("pluggy-webhook: selo", eSelo.message);
 
-    // 21/10/2026: Pluggy removed these transactions (Mercado Pago re-issues Pix with new ids)
-    if (evento.toLowerCase() === "transactions/deleted") {
+    // 04/11 (audit OF1): a deletion re-reads 7 days first, so a re-issued twin is in before anything goes
+    const apagou = evento.toLowerCase() === "transactions/deleted";
+    const r = await importarEntradas(admin, apiKey, itemId, con.user_id, con.id,
+      evento === "item/created" ? diasDoPrimeiroImporte() : apagou ? 7 : 2);
+
+    // 21/10/2026: Pluggy removed these transactions (Mercado Pago re-issues Pix with new ids).
+    // 04/11: only the ones with a twin already stored go (apagarTransacoes).
+    if (apagou) {
       const n = await apagarTransacoes(admin, con.id, payload?.transactionIds ?? payload?.data?.transactionIds);
       console.log("pluggy-webhook: transacoes apagadas", n);
     }
-
-    const r = await importarEntradas(admin, apiKey, itemId, con.user_id, con.id, evento === "item/created" ? diasDoPrimeiroImporte() : 2);
 
     // 15/10/2026: balances, card and investments too. The robot and pluggy-sync read
     // them right when they ask the bank to refresh, so they got the OLD numbers; the
