@@ -1,3 +1,4 @@
+import { marcarFimDoDia } from "@/features/constancia";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
@@ -247,6 +248,8 @@ export function useDefconChallenge(userId: string | undefined) {
     await gravar("challenge_sessions", sid, {
       status: "completed", ended_at: endedAt.toISOString(), ...(worked != null ? { worked_minutes: worked } : {}),
     });
+    // 05/11: finishing all the blocks also ends the day (before, only "Encerrar" lit the flame)
+    marcarFimDoDia(userId);
 
     setPhase("finished");
   }, [clearTimer]);
@@ -1382,9 +1385,8 @@ export function useDefconChallenge(userId: string | undefined) {
        uma vez, roda a animação e apaga a chave — assim ninguém assiste de novo
        dando refresh, e a chama nunca mente. Só marca se houve venda: dia sem
        venda não é dia trabalhado. */
-    try {
-      if (userId && totalSoldRef.current > 0) localStorage.setItem(`orbis_chama_acender_${userId}`, String(Date.now()));
-    } catch (e) { avisar.silencioso("DEFCON: marcar chama pra acender", e); }
+    // 05/11: the day counts from the moment the Foco opened; the end-of-day screen plays on the Home
+    marcarFimDoDia(userId);
 
     setPhase("abandoned");
   };
