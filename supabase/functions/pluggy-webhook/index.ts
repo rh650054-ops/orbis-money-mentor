@@ -186,9 +186,12 @@ Deno.serve(async (req) => {
       }
     }
 
+    const agoraLeitura = new Date().toISOString();
     await admin.from("bank_connections").update({
-      last_synced_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      last_synced_at: agoraLeitura,
+      updated_at: agoraLeitura,
+      // 05/11 (audit #2): only a complete read proves "no Pix that day"
+      ...(r.completa ? { leitura_ok_em: agoraLeitura } : {}),
     }).eq("id", con.id);
 
     // Pix novo pode ter caído num dia já fechado: refaz Pix/cartão/calote desses dias.

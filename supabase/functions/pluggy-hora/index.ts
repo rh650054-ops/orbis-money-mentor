@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     const desligadas = await desligarPausadas(admin, pluggyKey).catch((e) => { console.error("pluggy-hora: pausadas", e); return 0; });
 
     const { data: cons } = await admin.from("bank_connections")
-      .select("id, item_id, user_id, status, last_synced_at, institution_name, pluggy_pedido_em, leituras_dia, leituras_qtd, pedidos_mes, pedidos_mes_qtd, pedidos_dia, pedidos_dia_qtd")
+      .select("id, item_id, user_id, status, last_synced_at, leitura_ok_em, institution_name, pluggy_pedido_em, leituras_dia, leituras_qtd, pedidos_mes, pedidos_mes_qtd, pedidos_dia, pedidos_dia_qtd")
       .neq("status", "deleted").is("pausado_em", null);
     // deno-lint-ignore no-explicit-any
     const conexoes: any[] = cons ?? [];
@@ -112,11 +112,15 @@ Deno.serve(async (req) => {
     for (const { c, motivo, orc } of rodada) {
       porMotivo[motivo] = (porMotivo[motivo] ?? 0) + 1;
       const ultimaLeitura = c.last_synced_at ? new Date(c.last_synced_at) : null;
+      let leituraOk = false;
       try {
-        const dias = diasParaImportar(ultimaLeitura, new Date(), motivo === "fechamento" ? 2 : 1);
+        // 05/11: the window starts at the last GOOD read, so a failed one is read again
+        const desdeOk = c.leitura_ok_em ? new Date(c.leitura_ok_em) : ultimaLeitura;
+        const dias = diasParaImportar(desdeOk, new Date(), motivo === "fechamento" ? 2 : 1);
         const r = await importarEntradas(admin, apiKey, c.item_id, c.user_id, c.id, dias);
         lidas += r.gravadas;
         pix += r.pix;
+        leituraOk = r.completa;
       } catch (e) {
         falhas++;
         console.error("pluggy-hora: importar", c.id, (e as Error)?.message);
@@ -138,6 +142,8 @@ Deno.serve(async (req) => {
         leituras_dia: hoje,
         leituras_qtd: contarLeitura(c.leituras_dia, c.leituras_qtd, hoje),
       };
+      // 05/11 (audit #2): only a complete read proves "no Pix that day"
+      if (leituraOk) mudar.leitura_ok_em = agoraIso;
       const ultimoPedido = c.pluggy_pedido_em ? new Date(c.pluggy_pedido_em) : null;
       if (podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN, { motivo, restanteMes: orc.restanteMes }) && await pedirAtualizacao(apiKey, c.item_id)) {
         pedidos++;

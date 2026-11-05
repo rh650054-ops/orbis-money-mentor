@@ -214,7 +214,8 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
     if (!terminou) leituraCompleta = false;
   }
   const removidas = leituraCompleta ? await tirarSumidas(admin, conexaoId, dataDe, vistos, vistosPorChave) : 0;
-  return { contas: contas.length, gravadas, pix, removidas };
+  // 05/11 (audit #2): completa = every account read to the end → the caller stamps leitura_ok_em
+  return { contas: contas.length, gravadas, pix, removidas, completa: leituraCompleta };
 }
 
 /** Entries of this connection, inside the window just read in full, that Pluggy no longer
