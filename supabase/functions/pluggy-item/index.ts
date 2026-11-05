@@ -14,7 +14,7 @@
 // Entrada: { item_id }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
-import { importarEntradas } from "../_shared/pluggy-entradas.ts";
+import { diasDoPrimeiroImporte, importarEntradas } from "../_shared/pluggy-entradas.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
     const conId = String((con as any)?.id ?? "");
     if (conId && status === "UPDATED") {
       try {
-        const r = await importarEntradas(admin, apiKey, itemId, uid, conId, 7);
+        const r = await importarEntradas(admin, apiKey, itemId, uid, conId, diasDoPrimeiroImporte());
         entradas = r.gravadas;
         console.log(`pluggy-item: ${r.contas} contas, ${r.gravadas} entradas para ${uid}`);
       } catch (e) {

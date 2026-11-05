@@ -15,7 +15,7 @@
 // connect_token) e de um vendedor Pro, o webhook cria a conexao sozinho.
 // O item e conferido NA PLUGGY antes: o clientUserId tem que bater.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { apagarTransacoes, importarEntradas } from "../_shared/pluggy-entradas.ts";
+import { apagarTransacoes, diasDoPrimeiroImporte, importarEntradas } from "../_shared/pluggy-entradas.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 
 const cors = {
@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
       console.log("pluggy-webhook: transacoes apagadas", n);
     }
 
-    const r = await importarEntradas(admin, apiKey, itemId, con.user_id, con.id, evento === "item/created" ? 7 : 2);
+    const r = await importarEntradas(admin, apiKey, itemId, con.user_id, con.id, evento === "item/created" ? diasDoPrimeiroImporte() : 2);
 
     // 15/10/2026: balances, card and investments too. The robot and pluggy-sync read
     // them right when they ask the bank to refresh, so they got the OLD numbers; the
