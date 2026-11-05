@@ -29,3 +29,39 @@ describe("idsSumidos", () => {
     expect(idsSumidos([g("a", "2026-11-01", 5), g("b", "2026-11-01", 5)], new Set(["a", "b"]), porChave)).toEqual([]);
   });
 });
+
+import { apagarTransacoes } from "../../supabase/functions/_shared/pluggy-entradas";
+
+describe("apagarTransacoes: only with a re-issued twin (audit OF1, 04/11)", () => {
+  type Row = { transaction_id: string; amount: number; transaction_date: string; created_at: string };
+  function adminFalso(rows: Row[]) {
+    const apagados: string[] = [];
+    const from = () => {
+      let ids: string[] | null = null; let del = false; let depois = "";
+      const q = {
+        select: () => q, eq: () => q, delete: () => { del = true; return q; },
+        in: (col: string, v: string[]) => { if (col === "transaction_id") ids = v; return q; },
+        gt: (_c: string, v: string) => { depois = v; return q; },
+        then(res: (r: { data: unknown; error: null }) => unknown) {
+          if (del) { apagados.push(...(ids ?? [])); return Promise.resolve({ data: (ids ?? []).map((id) => ({ id })), error: null }).then(res); }
+          const data = ids ? rows.filter((r) => ids!.includes(r.transaction_id)) : rows.filter((r) => r.created_at > depois);
+          return Promise.resolve({ data, error: null }).then(res);
+        },
+      };
+      return q;
+    };
+    return { admin: { from }, apagados };
+  }
+  const R = (id: string, v: number, at: string) => ({ transaction_id: id, amount: v, transaction_date: "2026-11-03", created_at: at });
+
+  it("deletes the old id when the new copy is already stored", async () => {
+    const f = adminFalso([R("old", 20, "2026-11-03T10:00"), R("new", 20, "2026-11-03T12:00")]);
+    expect(await apagarTransacoes(f.admin, "c1", ["old"])).toBe(1);
+    expect(f.apagados).toEqual(["old"]);
+  });
+  it("keeps a sale that Pluggy dropped with no twin", async () => {
+    const f = adminFalso([R("old", 20, "2026-11-03T10:00"), R("other", 35, "2026-11-03T12:00")]);
+    expect(await apagarTransacoes(f.admin, "c1", ["old"])).toBe(0);
+    expect(f.apagados).toEqual([]);
+  });
+});

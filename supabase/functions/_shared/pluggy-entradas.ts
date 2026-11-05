@@ -260,13 +260,42 @@ export function idsSumidos(guardados: { id: string; chave: string }[], vistos: S
   return out;
 }
 
-/** transactions/deleted webhook: Pluggy tells which ids are gone. */
+/** transactions/deleted webhook: Pluggy tells which ids are gone.
+    04/11 (audit OF1): before, every listed id was deleted on the spot, for every bank — real sales
+    vanished. Now an id only goes when a re-issued twin (same day, same amount, another id, stored
+    after it) is already there; the rest stays. Run it AFTER the re-import, so the twins are in. */
 // deno-lint-ignore no-explicit-any
 export async function apagarTransacoes(admin: any, conexaoId: string, ids: unknown): Promise<number> {
-  const lista = Array.isArray(ids) ? ids.map(String).filter(Boolean) : [];
+  const lista = Array.isArray(ids) ? ids.map(String).filter(Boolean).slice(0, 500) : [];
   if (lista.length === 0) return 0;
+  const { data: alvos, error: e1 } = await admin.from("auto_detected_sales")
+    .select("transaction_id, amount, transaction_date, created_at")
+    .eq("bank_connection_id", conexaoId).in("transaction_id", lista);
+  if (e1) { console.error("pluggy apagar (ler):", e1.message); return 0; }
+  // deno-lint-ignore no-explicit-any
+  const rows = (alvos ?? []) as any[];
+  if (rows.length === 0) return 0;
+  const dias = [...new Set(rows.map((r) => String(r.transaction_date)))];
+  const desde = rows.map((r) => String(r.created_at)).sort()[0] ?? "";
+  const { data: outros, error: e2 } = await admin.from("auto_detected_sales")
+    .select("transaction_id, amount, transaction_date, created_at")
+    .eq("bank_connection_id", conexaoId).in("transaction_date", dias).gt("created_at", desde);
+  if (e2) { console.error("pluggy apagar (gemeas):", e2.message); return 0; }
+  const fora = new Set(lista);
+  const gemeas = new Map<string, number>();
+  // deno-lint-ignore no-explicit-any
+  for (const o of (outros ?? []) as any[]) {
+    if (fora.has(String(o.transaction_id))) continue;
+    const k = chaveSumida(String(o.transaction_date), Number(o.amount));
+    gemeas.set(k, (gemeas.get(k) ?? 0) + 1);
+  }
+  const apagar = idsSumidos(
+    rows.map((r) => ({ id: String(r.transaction_id), chave: chaveSumida(String(r.transaction_date), Number(r.amount)) })),
+    new Set(), gemeas,
+  );
+  if (apagar.length === 0) return 0;
   const { data, error } = await admin.from("auto_detected_sales").delete()
-    .eq("bank_connection_id", conexaoId).in("transaction_id", lista.slice(0, 500)).select("id");
+    .eq("bank_connection_id", conexaoId).in("transaction_id", apagar).select("id");
   if (error) { console.error("pluggy apagar:", error.message); return 0; }
   return (data ?? []).length;
 }
