@@ -31,7 +31,7 @@ import ConfirmarEmailNudge from "@/components/ConfirmarEmailNudge";
 import { lembrarMetaDia } from "@/shared/lib/offline-day";
 import { avisar } from "@/shared/lib/avisar";
 import { useMissaoResumo } from "@/features/objetivo-lucro";
-import { ChamaTopo, FimDoDia, fimDoDiaPendente, limparFimDoDia, useConstanciaQuery } from "@/features/constancia";
+import { ChamaTopo, ConstanciaPainel, FimDoDia, fimDoDiaPendente, limparFimDoDia, useConstanciaQuery } from "@/features/constancia";
 
 const REWARD_TIERS = [
   { name: "Semente", emoji: "🌱", threshold: 10_000, accent: "140 70% 45%", rarity: "Comum" },
@@ -95,6 +95,7 @@ export default function Index() {
   // 05/11: the flame at the top is the streak (server rule); the end-of-day screen reads the DEFCON's mark once
   const constancia = useConstanciaQuery(user?.id, getBrazilDate().slice(0, 7) + "-01");
   const [fimDoDia, setFimDoDia] = useState(false);
+  const [painelChama, setPainelChama] = useState(false);
   useEffect(() => {
     if (user?.id && constancia.data && fimDoDiaPendente(user.id)) setFimDoDia(true);
   }, [user?.id, constancia.data]);
@@ -500,9 +501,10 @@ export default function Index() {
      - todo assunto num Bloco com a mesma borda — é a borda que dá contexto;
      - régua: 28px entre blocos (space-y-7). */
   return <div className="orbis-stagger bg-background px-1 pt-3 pb-10 space-y-7 overflow-x-hidden max-w-2xl mx-auto">
-      <HeaderV9 nome={nickname || "vendedor"} chama={<ChamaTopo userId={user.id} />} />
-      {/* 05/11 (Rick): the DEFCON 4 closed → the full-screen "+1 dia de constância" plays once (Duolingo style) */}
-      {fimDoDia && constancia.data && <FimDoDia c={constancia.data} hoje={getBrazilDate()} onFechar={() => { limparFimDoDia(user.id); setFimDoDia(false); }} />}
+      <HeaderV9 nome={nickname || "vendedor"} chama={<ChamaTopo userId={user.id} onAbrir={() => setPainelChama(true)} />} />
+      <ConstanciaPainel userId={user.id} open={painelChama} onOpenChange={setPainelChama} />
+      {/* 05/11 (Rick): the DEFCON 4 closed → "Aperte pra acender o fogo" → the +1 plays once → "Combinado!" opens the calendar panel */}
+      {fimDoDia && constancia.data && <FimDoDia c={constancia.data} hoje={getBrazilDate()} onFechar={() => { limparFimDoDia(user.id); setFimDoDia(false); setPainelChama(true); }} />}
 
       {/* DASHBOARD ENXUTO (Lote 7, 03/10): UM aviso por vez acima da meta.
           Fila por prioridade; cada aviso continua decidindo sozinho se aparece,

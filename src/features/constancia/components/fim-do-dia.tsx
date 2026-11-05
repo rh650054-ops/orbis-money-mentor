@@ -1,14 +1,16 @@
 /* End of the day (Rick, 05/11): after the DEFCON 4 closes, the Home opens with this full screen —
-   the flame charges, the old number flies off, the new one bounces in with sparks and sound, the
-   week fills its checks one by one, the Vant speaks, "Combinado!". Frozen before today: the ice
-   cracks and the flame comes back. Sequence copied from Duolingo's streak screen. */
+   the flame is out and he PRESSES "Aperte pra acender o fogo" (10:33: a press, not a swipe); then the
+   flame charges, the old number flies off, the new one bounces in with sparks and sound, the week
+   fills its checks one by one, the Vant speaks, "Combinado!" opens the Constância panel (the
+   calendar explains how it works). Frozen before today: the ice cracks and the flame comes back.
+   Sequence copied from Duolingo's streak screen. The press is also what lets the sound play. */
 import { useEffect, useRef, useState } from "react";
 import type { Constancia } from "../types";
 import { tocar } from "../lib/som";
 import { ehMarco, nomeDoMarco, proximoMarco } from "../lib/marcos";
 import { ChamaIcone } from "./chama-icone";
 
-type Fase = "carregando" | "virou" | "semana" | "feito";
+type Fase = "espera" | "carregando" | "virou" | "semana" | "feito";
 const LETRAS = ["S", "T", "Q", "Q", "S", "S", "D"];
 
 export function numerosDoDia(c: Constancia): { velho: number; novo: number; gelo: boolean; resgate: boolean } {
@@ -19,7 +21,7 @@ export function numerosDoDia(c: Constancia): { velho: number; novo: number; gelo
 }
 
 export function FimDoDia({ c, hoje, onFechar }: { c: Constancia; hoje: string; onFechar: () => void }) {
-  const [fase, setFase] = useState<Fase>("carregando");
+  const [fase, setFase] = useState<Fase>("espera");
   const [checks, setChecks] = useState(0);
   const timers = useRef<number[]>([]);
   const { velho, novo, gelo, resgate } = numerosDoDia(c);
@@ -34,18 +36,19 @@ export function FimDoDia({ c, hoje, onFechar }: { c: Constancia; hoje: string; o
   });
   const feitosAntes = semana.filter((d) => d.feito && !d.hoje).length;
 
-  useEffect(() => {
-    const lista = timers.current;
-    const t = (fn: () => void, ms: number) => lista.push(window.setTimeout(fn, ms));
+  useEffect(() => { const lista = timers.current; return () => lista.forEach(clearTimeout); }, []);
+  const acender = () => {
+    if (fase !== "espera") return;
+    const t = (fn: () => void, ms: number) => timers.current.push(window.setTimeout(fn, ms));
     tocar(gelo ? "gelo" : "carga");
+    setFase("carregando");
     t(() => { tocar("virou"); setFase("virou"); }, 700);
     t(() => { setFase("semana"); setChecks(feitosAntes); }, 1500);
     t(() => { tocar("check"); setChecks(feitosAntes + 1); }, 2000);
     t(() => setFase("feito"), 2500);
-    return () => lista.forEach(clearTimeout);
-  }, [gelo, feitosAntes]);
+  };
 
-  const virou = fase !== "carregando";
+  const virou = fase !== "espera" && fase !== "carregando";
   const marco = ehMarco(novo);
   const prox = proximoMarco(novo);
   const fala = marco ? `Marco de ${nomeDoMarco(novo)}! ${novo} dias seguidos na rua.`
@@ -75,7 +78,7 @@ export function FimDoDia({ c, hoje, onFechar }: { c: Constancia; hoje: string; o
           const a = (i / 12) * Math.PI * 2; const r = 110 + (i % 3) * 22;
           return <span key={i} className="vant-faisca" style={{ ["--dx" as string]: `${Math.round(Math.cos(a) * r)}px`, ["--dy" as string]: `${Math.round(Math.sin(a) * r)}px`, animationDelay: `${(i % 4) * 0.04}s` }} />;
         })}</>}
-        <div className={fase === "carregando" ? "vant-carregar" : "vant-respira"}>
+        <div className={fase === "carregando" ? "vant-carregar" : fase === "espera" ? "" : "vant-respira"}>
           <ChamaIcone size={140} look={virou ? "acesa" : gelo ? "gelo" : "apagada"} brilho={virou} />
         </div>
       </div>
@@ -103,6 +106,11 @@ export function FimDoDia({ c, hoje, onFechar }: { c: Constancia; hoje: string; o
         )}
       </div>
       <div className="mt-auto w-full">
+        {fase === "espera" && (
+          <button type="button" onClick={acender} className="vant-pulsa w-full h-[64px] rounded-[16px] text-[17px] font-bold active:scale-[0.97] inline-flex items-center justify-center gap-2" style={{ background: "linear-gradient(180deg,#ffc63a,#f5b800)", color: "#1A1200", boxShadow: "0 0 30px rgba(245,184,0,.35)" }}>
+            <ChamaIcone size={18} look="apagada" brilho={false} /> Aperte pra acender o fogo
+          </button>
+        )}
         {fase === "feito" && (
           <button type="button" onClick={onFechar} className="vant-entra w-full h-[54px] rounded-[14px] text-[16px] font-bold active:scale-[0.97]" style={{ background: "linear-gradient(180deg,#ffc63a,#f5b800)", color: "#1A1200" }}>Combinado!</button>
         )}

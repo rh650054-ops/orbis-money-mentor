@@ -7,7 +7,8 @@ import { useConstanciaQuery } from "../api/use-constancia";
 import { ChamaIcone, lookDoEstado } from "./chama-icone";
 import { ConstanciaPainel } from "./constancia-painel";
 
-export function ChamaTopo({ userId }: { userId: string | undefined }) {
+/** `onAbrir` given = the parent owns the panel (the Home opens it after the end-of-day screen too). */
+export function ChamaTopo({ userId, onAbrir }: { userId: string | undefined; onAbrir?: () => void }) {
   const { data: c } = useConstanciaQuery(userId);
   const [aberto, setAberto] = useState(false);
   const dias = c?.dias ?? 0;
@@ -17,7 +18,7 @@ export function ChamaTopo({ userId }: { userId: string | undefined }) {
   const cor = look === "gelo" ? "#9FD6F5" : look === "apagada" ? "#57534A" : undefined;
   return (
     <>
-      <button type="button" onClick={() => setAberto(true)} aria-label={`Chama da constância: ${numero} dias${estado === "congelada" ? ", congelada" : estado === "perdeu" ? ", perdida" : estado === "resgate" ? ", em resgate" : ""}. Toque para ver`}
+      <button type="button" onClick={() => (onAbrir ? onAbrir() : setAberto(true))} aria-label={`Chama da constância: ${numero} dias${estado === "congelada" ? ", congelada" : estado === "perdeu" ? ", perdida" : estado === "resgate" ? ", em resgate" : ""}. Toque para ver`}
         className="inline-flex items-center gap-1 shrink-0 px-1.5 py-1 rounded-full active:scale-95 transition-transform">
         <ChamaIcone size={16} look={look} />
         <b className="orbis-num" style={{
@@ -26,7 +27,7 @@ export function ChamaTopo({ userId }: { userId: string | undefined }) {
         }}>{numero}</b>
         {estado === "resgate" && <Lock className="w-3 h-3" style={{ color: "#F9CE63" }} aria-hidden />}
       </button>
-      <ConstanciaPainel userId={userId} open={aberto} onOpenChange={setAberto} />
+      {!onAbrir && <ConstanciaPainel userId={userId} open={aberto} onOpenChange={setAberto} />}
     </>
   );
 }

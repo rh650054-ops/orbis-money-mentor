@@ -64,3 +64,19 @@ describe("chama da constância", () => {
     expect(fimDoDiaPendente("u1")).toBe(false);
   });
 });
+
+import { fireEvent } from "@testing-library/react";
+import { FimDoDia } from "./components/fim-do-dia";
+describe("fim do dia: aperte pra acender", () => {
+  it("starts out with the button; pressing it runs the +1 and Combinado closes", async () => {
+    vi.useFakeTimers();
+    const onFechar = vi.fn();
+    render(<FimDoDia c={base()} hoje="2026-11-05" onFechar={onFechar} />);
+    expect(screen.queryByText("Combinado!")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Aperte pra acender o fogo/ }));
+    await vi.advanceTimersByTimeAsync(2600);
+    fireEvent.click(screen.getByText("Combinado!"));
+    expect(onFechar).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+});
