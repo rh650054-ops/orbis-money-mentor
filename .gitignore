@@ -31,7 +31,9 @@ dist-ssr
 # Capacitor native projects (android/, ios/) ARE versioned since 07/10/2026:
 # permissions, icons, version codes and signing config live there. Their own
 # .gitignore files keep build output and copied web assets out.
-.claude/
+.claude/*
+!.claude/agents/
+!.claude/commands/
 skills-lock.json
 
 # Refactor working backlog (local-only, never committed)
