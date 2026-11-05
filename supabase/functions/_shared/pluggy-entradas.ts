@@ -52,6 +52,11 @@ export function diaBRT(d: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: BRT, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 }
 
+/** 04/11 (Rick): the bank verifies the whole month — the first read goes back to day 1 (at least 7 days). */
+export function diasDoPrimeiroImporte(agora: Date = new Date()): number {
+  return Math.max(7, Number(diaBRT(agora).slice(8, 10)));
+}
+
 const soDigitos = (v: unknown) => String(v ?? "").replace(/\D/g, "");
 
 /** A data da Pluggy às vezes vem só com o dia (meia-noite UTC cravada). Nesse
