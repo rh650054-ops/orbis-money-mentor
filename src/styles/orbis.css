@@ -284,6 +284,8 @@ html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; overscro
 .vant-respira { animation: vant-respira-k 2.2s ease-in-out infinite; }
 .vant-entra, .vant-fala { animation: vant-entra-k .5s var(--ease-orbis) both; }
 .vant-check { animation: vant-check-k .45s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes vant-pulsa-k { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+.vant-pulsa { animation: vant-pulsa-k 1.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .vant-anel, .vant-faisca, .vant-carregar, .vant-respira, .vant-entra, .vant-fala, .vant-check { animation: none !important; }
+  .vant-anel, .vant-faisca, .vant-carregar, .vant-respira, .vant-entra, .vant-fala, .vant-check, .vant-pulsa { animation: none !important; }
 }
