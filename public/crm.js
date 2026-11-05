@@ -634,6 +634,23 @@ function vendasHojeHTML(){
    :`<p class="nota" style="margin:8px 0 0">Nenhuma venda aprovada ainda hoje.</p>`}
  </div>`;
 }
+/* 05/11 (Rick): "Renova esta semana" opens who renews, with the day, the value and the phone — one tap to call. */
+function listaRenovamHTML(lista){
+ const ord=[...lista].sort((a,b)=>dias(a.renova)-dias(b.renova));
+ if(!ord.length) return `<div class="box pad" id="lista-renovam" style="margin-top:9px"><p class="nota" style="margin:0">Ninguém renova nos próximos 7 dias.</p></div>`;
+ return `<div class="box" id="lista-renovam" style="margin-top:9px">
+  ${ord.map(f=>{const k=dias(f.renova);const quando=k<0?`venceu há ${-k} dia${k===-1?"":"s"}`:k===0?"vence hoje":k===1?"vence amanhã":`em ${k} dias`;
+   const msg=`Fala ${f.n.split(" ")[0]}! Passando pra avisar que a sua Vant renova ${k===0?"hoje":k===1?"amanhã":"dia "+String(f.renova).slice(8,10)+"/"+String(f.renova).slice(5,7)}. Qualquer dúvida é só me chamar aqui. 🤝`;
+   return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)">
+    <button class="pill" data-painel="${f.id}" style="flex:1;min-width:0;text-align:left;display:flex;flex-direction:column;gap:2px;border:0;background:transparent;padding:0;cursor:pointer">
+     <span style="font-weight:700;color:var(--fg)">${esc(f.n)}</span>
+     <span class="num" style="font-size:11.5px;color:${k<=1?"var(--warn)":"var(--dim)"}">${quando}${f.renova?" · "+esc(String(f.renova).slice(8,10)+"/"+String(f.renova).slice(5,7)):""}${f.pago?" · "+brl(f.pago):""}</span>
+    </button>
+    ${f.tel?`<a class="pill" href="${linkZap(f,msg)}" target="_blank" rel="noopener" style="color:var(--c2);border-color:var(--c2);text-decoration:none;white-space:nowrap">${esc(zapFmt(f.tel))} ↗</a>`:`<span class="pill" style="white-space:nowrap">sem WhatsApp</span>`}
+   </div>`;}).join("")}
+  <p class="nota" style="margin:8px 14px 10px">O botão abre o seu WhatsApp já com o aviso da renovação. Toque no nome pra abrir a ficha.</p>
+ </div>`;
+}
 /* ===== TELA HOJE ===== */
 function renderHoje(){
  const q=fila(),f=atual();
@@ -676,11 +693,12 @@ function renderHoje(){
   <div class="stat"><div class="k">Vendas hoje</div><div class="v num">${vend} / ${META.vendas}</div>
    <div class="meter"><i style="width:${Math.min(100,vend/META.vendas*100)}%"></i></div>
    <div class="s">${VENDAS?`${VENDAS.novas} nova${VENDAS.novas===1?"":"s"} · ${VENDAS.renov} renovaç${VENDAS.renov===1?"ão":"ões"} (Hotmart)`:"aprovadas na Hotmart"}</div></div>
-  <div class="stat" style="border-color:var(--warn)"><div class="k" style="color:var(--warn)">Renova esta semana</div>
-   <div class="v num" style="color:var(--warn)">${brl(renovam)}</div><div class="s">${queRenovam.length} cliente${queRenovam.length===1?"":"s"} · avise antes</div></div>
+  <button class="stat" id="ver-renovam" style="border-color:var(--warn);text-align:left;cursor:pointer;font:inherit;color:inherit;background:inherit" aria-expanded="${S.verRenovam?"true":"false"}" aria-controls="lista-renovam"><div class="k" style="color:var(--warn)">Renova esta semana</div>
+   <div class="v num" style="color:var(--warn)">${brl(renovam)}</div><div class="s">${queRenovam.length} cliente${queRenovam.length===1?"":"s"} · ${S.verRenovam?"toque pra esconder":"toque pra ver quem"}</div></button>
   <div class="stat" style="border-color:var(--bad)"><div class="k" style="color:var(--bad)">Sem contato</div>
    <div class="v num" style="color:var(--bad)">${travados}</div><div class="s">travados por falta de atividade</div></div>
  </div>
+ ${S.verRenovam?listaRenovamHTML(queRenovam):""}
  <div class="box pad" style="margin-top:9px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
   <span style="font-size:22px">💬</span>
   <div style="flex:1;min-width:180px">
@@ -885,6 +903,8 @@ function ligarHoje(f){
  const bt=document.getElementById("ir-travados");
  if(bt)bt.onclick=()=>{const q=fila(),i=q.findIndex(x=>etapaDe(x)==="acabou");
   if(i>=0){S.pos=i;salvar();renderHoje();window.scrollTo({top:0,behavior:"smooth"});}};
+ const vr=document.getElementById("ver-renovam");
+ if(vr)vr.onclick=()=>{S.verRenovam=!S.verRenovam;renderHoje();};
  document.querySelectorAll("[data-painel]").forEach(b=>b.onclick=()=>abrir(+b.dataset.painel));
  document.querySelectorAll("[data-venda]").forEach(b=>b.onclick=()=>abrir(+b.dataset.venda,"conversa"));
  if(!f)return;
