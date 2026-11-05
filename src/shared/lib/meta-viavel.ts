@@ -15,8 +15,9 @@
    Conta nova: 'aprendendo' (meta manual) até o 1º dia vendido.
 
    25/10/2026 — dois modos (profiles.meta_adaptativa):
-     padrão     = meta é o que falta do mês ÷ dias de trabalho que faltam, sem trava.
-                  Um número só (sem Mínimo/Turbo). Todo mundo começa aqui.
+     padrão     = meta é o que falta do mês ÷ dias de trabalho que faltam, travada em 1,3× o
+                  ritmo (04/11: sem trava pedia ~3× o que ele vende). Um número só (sem
+                  Mínimo/Turbo). Todo mundo começa aqui. A missão de lucro tem a mesma trava.
      adaptativo = a regra de cima (pelo ritmo) com as três faixas. Liga no Foco,
                   oferecido a partir do 3º dia vendido (DIAS_PRA_ADAPTATIVA).
    O status continua calculado nos dois: é o que oferece o replanejamento.
