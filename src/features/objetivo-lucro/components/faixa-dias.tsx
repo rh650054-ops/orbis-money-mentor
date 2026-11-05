@@ -3,7 +3,8 @@
 import type { Desafio } from "../types";
 import { COR } from "./ui";
 
-export function FaixaDias({ d }: { d: Desafio }) {
+/** 05/11: every bar is a button — tap opens how that day went (onDia). */
+export function FaixaDias({ d, onDia }: { d: Desafio; onDia?: (dia: string) => void }) {
   const porDia = new Map(d.dias.map((x) => [x.dia, x.lucro]));
   const plano = new Map(d.plano.map((x) => [x.d, x]));
   const alvoMedio = d.alvo / Math.max(1, d.dias_trabalho);
@@ -25,9 +26,11 @@ export function FaixaDias({ d }: { d: Desafio }) {
           const h = lucro === undefined ? (futuro && p ? hPlano : 4) : Math.max(6, Math.min(36, (lucro / Math.max(1, alvoDia)) * 24));
           const cor = futuro ? (folga ? "rgba(255,255,255,.04)" : "rgba(245,184,0,.22)") : lucro === undefined ? (folga ? "rgba(255,255,255,.06)" : "rgba(255,255,255,.16)") : lucro >= alvoDia * 0.95 ? COR.verde : COR.ouro;
           return (
-            <span key={key} className={`flex-1 rounded-[3px] ${hoje && lucro === undefined ? "animate-pulse" : ""}`}
-              style={{ height: h, background: cor, outline: hoje ? `1.5px solid ${COR.texto}` : undefined, outlineOffset: 1 }}
-              title={`${dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}${p ? (p.t ? ` · plano ${p.u}` : " · folga") : ""}${lucro !== undefined ? ` · R$ ${lucro.toFixed(0)}` : ""}`} />
+            <button key={key} type="button" onClick={() => onDia?.(key)} className="flex-1 min-w-0 flex items-end h-full active:opacity-70"
+              aria-label={`${dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}${p ? (p.t ? ` · plano ${p.u}` : " · folga") : ""}${lucro !== undefined ? ` · R$ ${lucro.toFixed(0)}` : ""} — ver o dia`}>
+              <span className={`w-full rounded-[3px] ${hoje && lucro === undefined ? "animate-pulse" : ""}`}
+                style={{ height: h, background: cor, outline: hoje ? `1.5px solid ${COR.texto}` : undefined, outlineOffset: 1 }} />
+            </button>
           );
         })}
       </div>

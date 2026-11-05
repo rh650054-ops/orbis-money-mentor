@@ -93,3 +93,23 @@ export const desafioSchema = z.object({
 });
 export type Desafio = z.infer<typeof desafioSchema>;
 export type FonteCalote = "banco" | "app";
+
+/** 05/11: one day of the mission in detail (objetivo_lucro_dia) — tap on a bar or a day card. */
+export const diaMissaoSchema = z.object({
+  dia: z.string(),
+  hoje: z.boolean().catch(false),
+  futuro: z.boolean().catch(false),
+  trabalha: z.boolean().catch(true),
+  plano_unid: num, plano_lucro: num,
+  unid: num, vendas: num, vendido: num, recebido: num,
+  dinheiro: num, pix: num, cartao: num, gorjeta: num, fiado: num,
+  calote: num, custo: num, custo_unid: num, lucro: num,
+  bateu: z.boolean().catch(false),
+  fonte: z.enum(["banco", "app", "estimativa"]).catch("app"),
+  inicio: z.string().nullable().catch(null),
+  fim: z.string().nullable().catch(null),
+  minutos: z.coerce.number().nullable().catch(null),
+  horas: z.array(z.object({ h: num, unid: num, valor: num })).catch([]),
+  melhor_hora: z.coerce.number().nullable().catch(null),
+});
+export type DiaMissao = z.infer<typeof diaMissaoSchema>;
