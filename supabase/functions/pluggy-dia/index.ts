@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     if (!apiKey) return json({ error: "pluggy_nao_configurado" });
 
     const { data: cons } = await admin.from("bank_connections")
-      .select("id, item_id, user_id, institution_name").neq("status", "deleted").limit(60);
+      .select("id, item_id, user_id, institution_name").neq("status", "deleted").is("pausado_em", null).limit(60);
     // deno-lint-ignore no-explicit-any
     const lista: any[] = cons ?? [];
     const total = { conexoes: lista.length, cartoes: 0, parcelas: 0, emprestimos: 0, investimentos: 0, cheque: 0, falhas: 0 };
