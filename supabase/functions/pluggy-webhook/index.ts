@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
     let con: any = null;
     {
       const { data } = await admin.from("bank_connections")
-        .select("id, user_id, institution_name").eq("item_id", itemId).maybeSingle();
+        .select("id, user_id, institution_name, pausado_em").eq("item_id", itemId).maybeSingle();
       con = data;
     }
 
@@ -148,6 +148,9 @@ Deno.serve(async (req) => {
     if (!temExtrato || (status && status !== "UPDATED")) {
       return respond({ status, sem_extrato: true });
     }
+
+    // 04/11: lost access → the bank is paused (removed after 7 days): nothing is imported
+    if (con?.pausado_em) return respond({ status, pausado: true });
 
     // banco atualizou de verdade → o vendedor vira VERIFICADO
     const { error: eSelo } = await admin.rpc("banco_conceder_selo", { p_user: con.user_id });

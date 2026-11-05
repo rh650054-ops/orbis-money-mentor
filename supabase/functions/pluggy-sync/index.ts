@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
 
     const admin = createClient(URL_SUPA, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
     const { data: cons } = await admin.from("bank_connections")
-      .select("id, item_id, status, last_synced_at, pluggy_pedido_em, institution_name, leituras_dia, leituras_qtd, pedidos_mes, pedidos_mes_qtd, pedidos_dia, pedidos_dia_qtd").eq("user_id", uid).neq("status", "deleted");
+      .select("id, item_id, status, last_synced_at, pluggy_pedido_em, institution_name, leituras_dia, leituras_qtd, pedidos_mes, pedidos_mes_qtd, pedidos_dia, pedidos_dia_qtd").eq("user_id", uid).neq("status", "deleted").is("pausado_em", null);
     const { dia: hoje } = relogioBRT(new Date());
     // deno-lint-ignore no-explicit-any
     const todas: any[] = cons ?? [];

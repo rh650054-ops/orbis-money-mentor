@@ -17,6 +17,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { pluggyKey, importarEntradas, pedirAtualizacao } from "../_shared/pluggy-entradas.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { limparRepetidas } from "../_shared/pluggy-duplicadas.ts";
+import { desligarPausadas } from "../_shared/pluggy-pausa.ts";
 import {
   precisaDoVendedor, motivoDeLeitura, contarLeitura, leiturasDeHoje, relogioBRT, orcamentoDaConexao, contarPedido,
   podePedir, diasParaImportar, MAX_POR_RODADA, PEDIDO_MIN_PADRAO_MIN, PRIORIDADE, type Motivo, bancoLento,
@@ -45,10 +46,12 @@ Deno.serve(async (req) => {
 
     // 04/11: the same bank connected several times → keep the oldest, remove the copies
     const repetidas = await limparRepetidas(admin, pluggyKey).catch((e) => { console.error("pluggy-hora: repetidas", e); return 0; });
+    // 04/11: lost access 7+ days ago → removed on Pluggy; paused ones are not read (below)
+    const desligadas = await desligarPausadas(admin, pluggyKey).catch((e) => { console.error("pluggy-hora: pausadas", e); return 0; });
 
     const { data: cons } = await admin.from("bank_connections")
       .select("id, item_id, user_id, status, last_synced_at, institution_name, pluggy_pedido_em, leituras_dia, leituras_qtd, pedidos_mes, pedidos_mes_qtd, pedidos_dia, pedidos_dia_qtd")
-      .neq("status", "deleted");
+      .neq("status", "deleted").is("pausado_em", null);
     // deno-lint-ignore no-explicit-any
     const conexoes: any[] = cons ?? [];
     if (conexoes.length === 0) return json({ ok: true, conexoes: 0, lidas: 0 });
@@ -154,7 +157,7 @@ Deno.serve(async (req) => {
     }
     const resumo = {
       conexoes: conexoes.length, devidas: devidas.length, lidas_agora: rodada.length,
-      porMotivo, entradas: lidas, pix, pedidos, falhas, piloto, globais: globais + rodada.length, repetidas,
+      porMotivo, entradas: lidas, pix, pedidos, falhas, piloto, globais: globais + rodada.length, repetidas, desligadas,
     };
     console.log("pluggy-hora", resumo);
     return json({ ok: true, ...resumo });
