@@ -117,6 +117,8 @@ Deno.serve(async (req) => {
       try {
         const r = await importarEntradas(admin, apiKey, itemId, uid, conId, diasDoPrimeiroImporte());
         entradas = r.gravadas;
+        // 05/11 (audit #2): only a complete read proves "no Pix that day"
+        if (r.completa) await admin.from("bank_connections").update({ leitura_ok_em: new Date().toISOString() }).eq("id", conId);
         console.log(`pluggy-item: ${r.contas} contas, ${r.gravadas} entradas para ${uid}`);
       } catch (e) {
         console.error("pluggy-item: importar falhou", (e as Error)?.message);

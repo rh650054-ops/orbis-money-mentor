@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
 
     const admin = createClient(URL_SUPA, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
     const { data: cons } = await admin.from("bank_connections")
-      .select("id, item_id, status, last_synced_at, pluggy_pedido_em, institution_name, leituras_dia, leituras_qtd, pedidos_mes, pedidos_mes_qtd, pedidos_dia, pedidos_dia_qtd").eq("user_id", uid).neq("status", "deleted").is("pausado_em", null);
+      .select("id, item_id, status, last_synced_at, leitura_ok_em, pluggy_pedido_em, institution_name, leituras_dia, leituras_qtd, pedidos_mes, pedidos_mes_qtd, pedidos_dia, pedidos_dia_qtd").eq("user_id", uid).neq("status", "deleted").is("pausado_em", null);
     const { dia: hoje } = relogioBRT(new Date());
     // deno-lint-ignore no-explicit-any
     const todas: any[] = cons ?? [];
@@ -74,10 +74,12 @@ Deno.serve(async (req) => {
       let pediuEste = false;
       // called at the end of the Foco / day closing → spends the reserve, like the after-Foco read
       if (podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN, { motivo: abrir ? "calma" : "pos_foco", restanteMes: orc.restanteMes }) && await pedirAtualizacao(apiKey, c.item_id)) { pediu++; pediuEste = true; }
+      let leituraOk = false;
       try {
-        const dias = diasParaImportar(c.last_synced_at ? new Date(c.last_synced_at) : null, new Date(), 2);
+        const dias = diasParaImportar(c.leitura_ok_em ? new Date(c.leitura_ok_em) : c.last_synced_at ? new Date(c.last_synced_at) : null, new Date(), 2);
         const r = await importarEntradas(admin, apiKey, c.item_id, uid, c.id, dias);
         entradas += r.gravadas;
+        leituraOk = r.completa;
       } catch (e) { console.error("pluggy-sync: importar", (e as Error)?.message); }
       // 04/10: saldo + gastos (Raio-X) também na leitura pedida pelo app, não só no cron
       try {
@@ -85,7 +87,8 @@ Deno.serve(async (req) => {
         piloto += p.gravadas;
       } catch (e) { console.error("pluggy-sync: piloto", (e as Error)?.message); }
       const agora = new Date().toISOString();
-      const leitura = { last_synced_at: agora, updated_at: agora, leituras_dia: hoje, leituras_qtd: contarLeitura(c.leituras_dia, c.leituras_qtd, hoje) };
+      const leitura = { last_synced_at: agora, updated_at: agora, leituras_dia: hoje, leituras_qtd: contarLeitura(c.leituras_dia, c.leituras_qtd, hoje),
+        ...(leituraOk ? { leitura_ok_em: agora } : {}) };
       await admin.from("bank_connections")
         .update(pediuEste ? { ...leitura, pluggy_pedido_em: agora, ...contarPedido(orc) } : leitura)
         .eq("id", c.id);
