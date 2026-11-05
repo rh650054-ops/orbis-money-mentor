@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { getTier } from "./tier";
+import { rotuloSuspeita } from "./suspeita";
 import { presenceInfo } from "@/shared/lib/presence";
 import { AvatarRanking, NomeComSelo } from "./AvatarRanking";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { ChevronRight, ChevronUp, Swords } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { abrirCrm } from "@/shared/lib/link-externo";
 
 interface Props {
   ranking: LeaderboardEntry[];
@@ -82,16 +82,14 @@ function Row({ entry, position, isMe, subtitle, suspect, formatCurrency, onOpenP
           </NomeComSelo>
           <p className="text-[10px] truncate" style={{ color: tier.color }}>{sub}</p>
         </div>
-        {/* Bolinha de SUSPEITA — SÓ o admin recebe dados (a função só retorna pra admin). */}
+        {/* 04/11 (Rick didn't understand the red "!" and tapping it opened the CRM): admin-only chip that says
+            WHY ("pico 2,1x" = a day 2.1× above his own average; "conta nova" = new account selling a lot). Not clickable. */}
         {suspect && (
           <span
-            role="button"
-            onClick={(e) => { e.stopPropagation(); void abrirCrm(); }}
-            title={`⚠️ Suspeito: ${suspect} — revise no CRM (Admin › Anti-trapaça)`}
-            className="shrink-0 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center animate-pulse shadow-[0_0_8px_rgba(239,68,68,.7)]"
-            aria-label="Suspeito de fraude — abrir o CRM"
+            className="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/40 whitespace-nowrap"
+            aria-label={`Atenção (só admin vê): ${suspect}`}
           >
-            <span className="text-[9px] leading-none">!</span>
+            ⚠ {rotuloSuspeita(suspect)}
           </span>
         )}
         <span className="text-white font-black text-sm shrink-0">{formatCurrency(entry.faturamento_total_mes || 0)}</span>
