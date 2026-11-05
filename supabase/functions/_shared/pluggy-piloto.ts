@@ -46,10 +46,17 @@ const DIC_SAIDA: Array<[RegExp, string]> = [
   [/\b(PAGAMENTO\s*(DE\s*)?FATURA|PGTO\s*FATURA|FATURA\s*CARTAO|FATURA|PICPAY\s*CARD)\b/, "fatura_cartao"],
   [/\b(RECEITA\s*FED\w*|SIMPLES\s*NACIONAL|DARF|PGMEI|DAS\s*MEI)\b/, "impostos"],
   [/\b(EMPRESTIMO|FINANCIAMENTO|CREDIARIO|CONSIGNADO|CREDITO\s*PESSOAL|PARCELA)\b/, "parcelas"],
-  [/\b(APLICACAO|RESGATE|POUPANCA|CAIXINHA|COFRINHO|RDB|CDB|TESOURO|INVESTIMENTO)\b/, "transferencia_propria"],
+  // 04/11: investments and Mercado Pago "bolso" (pockets) are his own money moving, not spending
+  [/\b(APLICACAO|RESGATE|POUPANCA|CAIXINHA|COFRINHO|RDB|CDB|TESOURO|INVESTIMENTO|RENDA\s*(VARIAVEL|FIXA)|TRANSF\w*\s*(PARA\s*O|DO|NO)\s*BOLSO)\b/, "transferencia_propria"],
+  // 04/11: supermarkets had no merchant rule and fell into Pluggy's generic "Shopping" → "Roupas"
+  [/\b(SUPERM\w*|HIPERM\w*|MINIMERCADO|MERCADINHO|MERCEARIA|ATACAD\w*|ASSAI|CARREFOUR|OXXO|HORTIFRUTI|SACOLAO|PAO\s*DE\s*ACUCAR|SONDA|DIA\s*BRASIL)\b/, "mercado"],
+  [/\b(EMBALAGE\w*|DESCARTAVE\w*)\b/, "insumos"],
+  [/\b(AUTOPASS)\b/, "onibus"],
 ];
 const DIC_ENTRADA: Array<[RegExp, string]> = [
   [/\b(STONE|PAGSEGURO|PAG\s*SEGURO|MERCADO\s*PAGO|MERCADOPAGO|CIELO|GETNET|SUMUP|SUM\s*UP|INFINITE\s*PAY|INFINITEPAY|PAGBANK|SAFRAPAY)\b/, "cartao_recebido"],
+  // 04/11: money coming back from a Mercado Pago "bolso" / investment is his own, not income
+  [/\b(TRANSF\w*\s*(DO|DE\s*UM)\s*BOLSO|RESGATE|RENDA\s*(VARIAVEL|FIXA))\b/, "transferencia_propria"],
   [/\b(ESTORNO|DEVOLUCAO|REEMBOLSO|CASHBACK)\b/, "estorno"],
   [/\b(PIX\s*RECEBIDO|RECEBIMENTO\s*PIX|TRANSF\w*\s*RECEBIDA\s*PIX|PIX\s*CRED)\b/, "pix_recebido"],
   [/\b(TED|DOC\b|TRANSF\w*\s*RECEBIDA)\b/, "transferencia_recebida"],
@@ -69,7 +76,9 @@ const PLUGGY_SAIDA: Array<[RegExp, string]> = [
   [/telecom|internet|mobile|phone/i, "celular_internet"],
   [/electricity|water|utilities|rent|housing|condominium/i, "contas_casa"],
   [/streaming|subscription|digital services|software/i, "assinaturas"],
-  [/clothing|apparel|shopping/i, "roupas"],
+  [/clothing|apparel/i, "roupas"],
+  // 04/11: Pluggy's generic "Shopping" is any store (supermarket, OXXO, packaging…), not clothes
+  [/shopping/i, "compras_debito"],
   [/entertainment|leisure|travel|tickets/i, "lazer"],
   [/gambling|betting|lottery/i, "apostas"],
   [/bank fees|fees|interest|late payment/i, "taxas"],
@@ -102,7 +111,7 @@ const debitoSemLoja = (t: any) =>
   && !t?.merchant?.name && !t?.merchant?.businessName;
 
 // deno-lint-ignore no-explicit-any
-function categoria(t: any, tipo: "saida" | "entrada", alvo: string, proprio: boolean): { cat: string; conf: string } {
+export function categoria(t: any, tipo: "saida" | "entrada", alvo: string, proprio: boolean): { cat: string; conf: string } {
   if (proprio) return { cat: tipo === "saida" ? "transferencia_propria" : "transferencia_recebida", conf: "regra" };
   if (tipo === "saida" && debitoSemLoja(t)) return { cat: "compras_debito", conf: "padrao" };
   const dic = tipo === "saida" ? DIC_SAIDA : DIC_ENTRADA;
