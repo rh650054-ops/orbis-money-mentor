@@ -8,12 +8,15 @@ import { nomeUnidade } from "../lib/plano";
 import { brl0 } from "../lib/formato";
 import { AnelProgresso } from "./anel-progresso";
 import { FaixaDias } from "./faixa-dias";
+import { DiaDetalheSheet } from "./dia-detalhe-sheet";
 import { COR } from "./ui";
 
 export function DesafioCard() {
   const { data: d } = useDesafioAtualQuery();
   const excluir = useExcluirDesafioMutation();
   const [confirmar, setConfirmar] = useState(false);
+  // 05/11 (Rick): tap a bar → how that day went, wherever this card appears
+  const [diaAberto, setDiaAberto] = useState<string | null>(null);
   if (!d) return null;
 
   const un = nomeUnidade(d.analise.produto_nome);
@@ -56,7 +59,8 @@ export function DesafioCard() {
         </div>
       </div>
 
-      <FaixaDias d={d} />
+      <FaixaDias d={d} onDia={setDiaAberto} />
+      <DiaDetalheSheet d={d} dia={diaAberto} onFechar={() => setDiaAberto(null)} />
 
       {bateu ? (
         <p className="text-[14px] font-black mt-3" style={{ color: COR.verde }}>Missão cumprida: {formatCurrency(d.lucro)} de lucro de verdade. 🏆</p>

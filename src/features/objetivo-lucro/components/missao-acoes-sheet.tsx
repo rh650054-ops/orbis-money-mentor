@@ -8,6 +8,7 @@ import { Gaveta } from "@/shared/components/gaveta";
 import { useDesafioAtualQuery } from "../api/use-objetivo-lucro";
 import { DesafioCard } from "./desafio-card";
 import { DiaADia } from "./dia-a-dia";
+import { DiaDetalheSheet } from "./dia-detalhe-sheet";
 import { faturamentoDoPlano } from "../lib/missao-dias";
 import { brl0 } from "../lib/formato";
 import { COR, PRESS } from "./ui";
@@ -15,6 +16,7 @@ import { COR, PRESS } from "./ui";
 export function MissaoAcoesSheet({ open, onOpenChange, onEditar }: { open: boolean; onOpenChange: (o: boolean) => void; onEditar: () => void }) {
   const { data: d } = useDesafioAtualQuery();
   const [verDias, setVerDias] = useState(false);
+  const [diaAberto, setDiaAberto] = useState<string | null>(null);  // 05/11: tap a day card
   const temPlano = !!d && d.plano.length > 0;
   return (
     <Gaveta open={open} onOpenChange={onOpenChange} titulo="Sua missão" style={{ background: COR.fundo, borderColor: "#2a2416" }}>
@@ -37,7 +39,8 @@ export function MissaoAcoesSheet({ open, onOpenChange, onEditar }: { open: boole
             <CalendarDays className="w-4 h-4" /> {verDias ? "Esconder o dia a dia" : "Ver o dia a dia"}
           </button>
         )}
-        {temPlano && verDias && d && <DiaADia d={d} />}
+        {temPlano && verDias && d && <DiaADia d={d} onDia={setDiaAberto} />}
+        {d && <DiaDetalheSheet d={d} dia={diaAberto} onFechar={() => setDiaAberto(null)} />}
         <button type="button" onClick={() => { onOpenChange(false); onEditar(); }}
           className={`w-full h-[50px] rounded-[14px] inline-flex items-center justify-center gap-2 text-[14.5px] font-black ${PRESS}`}
           style={{ background: "linear-gradient(180deg,#FFF1B3 0%,#FFC800 55%,#D9A800 100%)", color: "#1A1200" }}>

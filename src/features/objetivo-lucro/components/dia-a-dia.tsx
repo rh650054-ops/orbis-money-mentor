@@ -11,7 +11,8 @@ import { COR } from "./ui";
 const DOW = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 const hojeIso = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
 
-export function DiaADia({ d }: { d: Desafio }) {
+/** 05/11: every card is a button — tap opens how that day went (onDia). */
+export function DiaADia({ d, onDia }: { d: Desafio; onDia?: (dia: string) => void }) {
   const un = nomeUnidade(d.analise.produto_nome);
   const preco = d.custo_unid + d.lucro_unid;
   const feito = new Map(d.dias.map((x) => [x.dia, x]));
@@ -27,7 +28,8 @@ export function DiaADia({ d }: { d: Desafio }) {
         const bateu = real !== undefined && p.t && real.unid >= p.u;
         const borda = ehHoje ? COR.texto : bateu ? "rgba(61,214,140,.6)" : p.t ? "rgba(245,184,0,.45)" : COR.linha;
         return (
-          <div key={p.d} className="rounded-[14px] px-2.5 py-2 min-h-[96px] flex flex-col"
+          <button key={p.d} type="button" onClick={() => onDia?.(p.d)} aria-label={`${dow} ${dd} — ver o dia`}
+            className="rounded-[14px] px-2.5 py-2 min-h-[96px] flex flex-col text-left active:scale-[0.97] transition-transform"
             style={{ background: p.t ? "linear-gradient(180deg,rgba(245,184,0,.09),#0b0b0d 70%)" : "#0b0b0d", border: `1.5px solid ${borda}`, opacity: passou && !real && p.t ? 0.6 : 1 }}>
             <p className="text-[10.5px] font-black tracking-[.08em] flex items-center justify-between" style={{ color: ehHoje ? COR.texto : COR.mute }}>
               <span>{dow} {String(dd).padStart(2, "0")}</span>
@@ -44,7 +46,7 @@ export function DiaADia({ d }: { d: Desafio }) {
                 <p className="orbis-num text-[11px] font-bold" style={{ color: COR.verde }}>+{brl0(real ? real.lucro : p.u * d.lucro_unid)} lucro</p>
               </>
             )}
-          </div>
+          </button>
         );
       })}
     </div>
