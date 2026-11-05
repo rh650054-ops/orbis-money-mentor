@@ -31,6 +31,7 @@ import ConfirmarEmailNudge from "@/components/ConfirmarEmailNudge";
 import { lembrarMetaDia } from "@/shared/lib/offline-day";
 import { avisar } from "@/shared/lib/avisar";
 import { useMissaoResumo } from "@/features/objetivo-lucro";
+import { ChamaTopo, FimDoDia, fimDoDiaPendente, limparFimDoDia, useConstanciaQuery } from "@/features/constancia";
 
 const REWARD_TIERS = [
   { name: "Semente", emoji: "🌱", threshold: 10_000, accent: "140 70% 45%", rarity: "Comum" },
@@ -91,6 +92,12 @@ export default function Index() {
   // 29/10 (Rick): "Editar planejamento" pergunta lucro × faturamento; lucro abre a missão
   const [desafioOpen, setDesafioOpen] = useState(false);
   const acesso = useAcessoQuery(user?.id);
+  // 05/11: the flame at the top is the streak (server rule); the end-of-day screen reads the DEFCON's mark once
+  const constancia = useConstanciaQuery(user?.id, getBrazilDate().slice(0, 7) + "-01");
+  const [fimDoDia, setFimDoDia] = useState(false);
+  useEffect(() => {
+    if (user?.id && constancia.data && fimDoDiaPendente(user.id)) setFimDoDia(true);
+  }, [user?.id, constancia.data]);
   const [isRestDay, setIsRestDay] = useState(false);
   // 01/11 (Rick): com missão de lucro ativa, a meta do mês é o faturamento do plano dela e a
   // folga é a do plano (o perfil volta a valer quando a missão acabar)
@@ -486,7 +493,6 @@ export default function Index() {
      (space-y-7). Saudação e constância viram um bloco só, com 14px entre
      elas, porque são a mesma ideia ("quem é você / como está sua semana");
      assim o olho lê 5 blocos separados em vez de 8 linhas grudadas. */
-  const diasNoMes = diasTrabalhados.filter((d) => d.slice(0, 7) === getBrazilDate().slice(0, 7)).length;
 
   /* v9.1 "padrão Opal" (Rick, 01/09):
      - topo enxuto (data 10px, saudação 15px) com a CHAMA e o avatar à direita;
@@ -494,11 +500,9 @@ export default function Index() {
      - todo assunto num Bloco com a mesma borda — é a borda que dá contexto;
      - régua: 28px entre blocos (space-y-7). */
   return <div className="orbis-stagger bg-background px-1 pt-3 pb-10 space-y-7 overflow-x-hidden max-w-2xl mx-auto">
-      <HeaderV9
-        nome={nickname || "vendedor"}
-        diasTrabalhados={diasNoMes}
-        userId={user.id}
-      />
+      <HeaderV9 nome={nickname || "vendedor"} chama={<ChamaTopo userId={user.id} />} />
+      {/* 05/11 (Rick): the DEFCON 4 closed → the full-screen "+1 dia de constância" plays once (Duolingo style) */}
+      {fimDoDia && constancia.data && <FimDoDia c={constancia.data} hoje={getBrazilDate()} onFechar={() => { limparFimDoDia(user.id); setFimDoDia(false); }} />}
 
       {/* DASHBOARD ENXUTO (Lote 7, 03/10): UM aviso por vez acima da meta.
           Fila por prioridade; cada aviso continua decidindo sozinho se aparece,

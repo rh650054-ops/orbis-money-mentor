@@ -21,108 +21,15 @@ import { Zap, ChevronRight, Medal, Moon } from "lucide-react";
 import { ClimaChip } from "@/components/clima/ClimaChip";
 import { formatCurrency } from "@/shared/lib/utils";
 import { AnimatedCurrency, Ring, FillBar, useCountUp } from "@/shared/motion";
-import { avisar } from "@/shared/lib/avisar";
 
 const fmtCurto = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(Math.round(n));
 
-/* ============================================================
-   A CHAMA (padrão Opal)
-   Vetor, não emoji: o emoji muda de desenho em cada aparelho e não dá
-   pra acender, apagar nem pulsar. Três pontas (meio alta, direita média,
-   esquerda baixinha), corpo redondo, degradê creme → âmbar.
-   ============================================================ */
-let seqChama = 0;
-export function Chama({ size = 21, aceso = true }: { size?: number; aceso?: boolean }) {
-  const [id] = useState(() => `orbis-chama-${++seqChama}`);
-  return (
-    <svg width={size} height={Math.round(size * 1.28)} viewBox="0 0 100 128" aria-hidden
-      style={aceso ? { filter: "drop-shadow(0 0 8px rgba(255,168,60,.55)) drop-shadow(0 0 18px rgba(255,140,20,.25))" } : undefined}>
-      <defs>
-        <linearGradient id={id} x1="0.14" y1="0.06" x2="0.86" y2="0.96">
-          <stop offset="0" stopColor="#FFF8EE" /><stop offset="0.30" stopColor="#FDE6C2" />
-          <stop offset="0.62" stopColor="#F7C88C" /><stop offset="1" stopColor="#EDA45C" />
-        </linearGradient>
-      </defs>
-      <path
-        fill={aceso ? `url(#${id})` : "#3A3730"}
-        stroke={aceso ? "#FFF3DF" : "#4A463D"}
-        strokeWidth="2.4" strokeLinejoin="round"
-        d="M50 3 C56 23 62 35 66 48 L74 32 C86 50 92 62 92 80 C92 105 74 123 50 123 C26 123 8 105 8 80 C8 63 14 54 20 44 L25 57 C31 40 42 22 50 3 Z"
-      />
-    </svg>
-  );
-}
-
-/* A chave que o DEFCON grava ao encerrar o dia. A Home lê UMA vez, roda a
-   animação e apaga — não dá pra assistir de novo dando refresh, então a
-   chama nunca mente. */
-export const CHAVE_ACENDER = (uid: string) => `orbis_chama_acender_${uid}`;
-const VALIDADE_MS = 12 * 60 * 60 * 1000; // a marca vale por 12h: fechou à noite, abriu de manhã, ainda acende
-export function pedirAcenderChama(uid: string | undefined) {
-  if (!uid) return;
-  try { localStorage.setItem(CHAVE_ACENDER(uid), String(Date.now())); } catch (e) { avisar.silencioso("dashboard: acender", e); }
-}
-/* Lê a marca SEM apagar. Aceita "1" (versão antiga) ou um timestamp recente. */
-function marcaPendente(uid: string | undefined): boolean {
-  if (!uid) return false;
-  try {
-    const v = localStorage.getItem(CHAVE_ACENDER(uid));
-    if (!v) return false;
-    if (v === "1") return true;
-    return Date.now() - Number(v) < VALIDADE_MS;
-  } catch { return false; }
-}
-
-export function ChamaStreak({ dias, userId }: { dias: number; userId?: string }) {
-  // "vai acender": abre apagado no número anterior e sobe pro atual.
-  const [acender, setAcender] = useState(false);
-  const [mostra, setMostra] = useState(dias);
-  const [aceso, setAceso] = useState(dias > 0);
-
-  useEffect(() => {
-    /* BUG (Rick, 01/09 à noite): "terminei o DEFCON e não animou". A Home monta
-       com dias = 0 (os dados ainda estão carregando), o efeito rodava, CONSUMIA
-       a marca e desistia porque dias <= 0. Quando os dados chegavam (dias = 1),
-       a marca já tinha ido embora. Agora: com dias = 0 a marca fica intacta —
-       só é consumida no render em que existe um número pra subir. */
-    if (dias <= 0) { setMostra(0); setAceso(false); return; }
-    const pedido = marcaPendente(userId);
-    if (!pedido) { setMostra(dias); setAceso(true); return; }
-    try { if (userId) localStorage.removeItem(CHAVE_ACENDER(userId)); } catch (e) { avisar.silencioso("dashboard: apagar acender", e); }
-    setMostra(Math.max(0, dias - 1));
-    setAceso(false);
-    const t1 = window.setTimeout(() => { setAceso(true); setAcender(true); }, 300);
-    const t2 = window.setTimeout(() => setMostra(dias), 650);
-    const t3 = window.setTimeout(() => setAcender(false), 1200);
-    return () => { window.clearTimeout(t1); window.clearTimeout(t2); window.clearTimeout(t3); };
-  }, [dias, userId]);
-
-  return (
-    <span className="inline-flex items-center gap-1 shrink-0" aria-label={`${dias} dias trabalhados`}>
-      <span className={acender ? "orbis-chama-pulso" : undefined} style={{ display: "inline-flex" }}>
-        <Chama size={16} aceso={aceso} />
-      </span>
-      <b
-        key={mostra}
-        className="orbis-num orbis-chama-num"
-        style={{
-          fontSize: 13.5, fontWeight: 800, lineHeight: 1,
-          ...(aceso
-            ? { background: "linear-gradient(180deg,#FFE59A,#F9CE63 48%,#EFB23A)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }
-            : { color: "#57534A" }),
-        }}
-      >
-        {mostra}
-      </b>
-    </span>
-  );
-}
+/* A CHAMA saiu daqui (05/11/2026): agora é a chama da CONSTÂNCIA, em @/features/constancia
+   (ChamaTopo + o painel + a tela de fim do dia). O cabeçalho só recebe o chip pronto. */
 
 /* ---------- Cabeçalho enxuto: data + saudação · chama · clima ---------- */
-export function HeaderV9({ nome, diasTrabalhados, userId }: {
-  nome: string; diasTrabalhados: number; userId?: string;
-}) {
+export function HeaderV9({ nome, chama }: { nome: string; chama?: ReactNode }) {
   const agora = new Date();
   const h = Number(agora.toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false }));
   const saud = h >= 5 && h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
@@ -142,7 +49,7 @@ export function HeaderV9({ nome, diasTrabalhados, userId }: {
       </div>
       {/* O ícone de perfil saiu daqui (Rick, 11/09): ele já existe na barra de
           baixo, era o único item repetido da tela. O clima ocupa o lugar dele. */}
-      <ChamaStreak dias={diasTrabalhados} userId={userId} />
+      {chama}
       <ClimaChip />
     </div>
   );
