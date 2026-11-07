@@ -97,7 +97,8 @@ export default function Index() {
   const [fimDoDia, setFimDoDia] = useState(false);
   const [painelChama, setPainelChama] = useState(false);
   useEffect(() => {
-    if (user?.id && constancia.data && fimDoDiaPendente(user.id)) setFimDoDia(true);
+    // 06/11: cleared as soon as it opens — closing the app mid-animation must not replay it on every open
+    if (user?.id && constancia.data && fimDoDiaPendente(user.id)) { limparFimDoDia(user.id); setFimDoDia(true); }
   }, [user?.id, constancia.data]);
   const [isRestDay, setIsRestDay] = useState(false);
   // 01/11 (Rick): com missão de lucro ativa, a meta do mês é o faturamento do plano dela e a
@@ -504,7 +505,7 @@ export default function Index() {
       <HeaderV9 nome={nickname || "vendedor"} chama={<ChamaTopo userId={user.id} onAbrir={() => setPainelChama(true)} />} />
       <ConstanciaPainel userId={user.id} open={painelChama} onOpenChange={setPainelChama} />
       {/* 05/11 (Rick): the DEFCON 4 closed → "Aperte pra acender o fogo" → the +1 plays once → "Combinado!" opens the calendar panel */}
-      {fimDoDia && constancia.data && <FimDoDia c={constancia.data} hoje={getBrazilDate()} onFechar={() => { limparFimDoDia(user.id); setFimDoDia(false); setPainelChama(true); }} />}
+      {fimDoDia && constancia.data && <FimDoDia c={constancia.data} hoje={getBrazilDate()} onFechar={() => { setFimDoDia(false); setPainelChama(true); }} />}
 
       {/* DASHBOARD ENXUTO (Lote 7, 03/10): UM aviso por vez acima da meta.
           Fila por prioridade; cada aviso continua decidindo sozinho se aparece,
