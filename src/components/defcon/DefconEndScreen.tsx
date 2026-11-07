@@ -1136,7 +1136,7 @@ export function DefconEndScreen({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-foreground">Pix</p>
                   <p className="text-[11px] text-success font-semibold flex items-center gap-1 truncate">
-                    <Lock className="w-3 h-3 shrink-0" /> o que caiu no banco · {pixBanco.qtd} {pixBanco.qtd === 1 ? "entrada" : "entradas"}
+                    <Lock className="w-3 h-3 shrink-0" /> o que caiu no banco{/* 06/11: qtd also counts the maquininha, so it only shows when there is none (Rick saw "3 entradas" for 2 Pix) */}{pixBanco.maquininha > 0 ? "" : ` · ${pixBanco.qtd} ${pixBanco.qtd === 1 ? "entrada" : "entradas"}`}
                   </p>
                   {/* 17/10 21:28 (Rick): só a hora que o banco foi lido. Sem "lançado", sem "ao vivo", sem aviso de banco lento. */}
                   <p className="text-[10.5px] text-muted-foreground flex items-center gap-1 truncate">
