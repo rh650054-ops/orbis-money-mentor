@@ -1,489 +1,304 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Método Cremo — as 3 receitas por R$ 19,90</title>
+<meta name="description" content="Aprenda a preparar as batidas cremosas de morango, maracujá e açaí da Cremo em videoaulas, por R$ 19,90.">
 <meta property="og:title" content="Método Cremo — as 3 receitas por R$ 19,90">
 <meta property="og:description" content="Aprenda a preparar as batidas cremosas de morango, maracujá e açaí da Cremo em videoaulas.">
-<meta property="og:image" content="/acai.jpg">
-<style>[hidden]{display:none!important}</style>
-<title>Método Cremo</title>
-<meta name="description" content="Aprenda a preparar as 3 batidas cremosas da Cremo — morango, maracujá e açaí — em videoaulas, por R$ 19,90.">
+<meta property="og:image" content="https://metodo-cremo.vercel.app/acai.jpg">
+<meta name="theme-color" content="#0a0809">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Cinzel:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap">
 <style>
-/* Layout: a street-brand flyer. Left-aligned heavy type, flat color blocks per flavor (morango, maracujá, açaí),
-   black and paper sections alternating, price-tag stickers and a taped phone print as proof. Sharp corners, no glow. */
-:root{
-  --ink:#0d0b0a;        /* black of the bottles and isopor */
-  --paper:#f3ece0;      /* label paper */
-  --paper-2:#e8dfcf;
-  --line:#0d0b0a;
-  --morango:#f27a9a;
-  --maracuja:#f4c430;
-  --acai:#5c2172;
-  --acai-2:#c99ae2;
-  --gold:#cfa760;       /* only around the real logo */
-  --mute-d:#a39a8b;     /* muted text on black */
-  --mute-l:#5e564a;     /* muted text on paper */
-  --display:'Bricolage Grotesque','Arial Narrow',Impact,sans-serif;
-  --body:'Instrument Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
-  color-scheme:dark;
-}
+body{margin:0;background:#0a0809}
+a{color:#e8c784}a:hover{color:#f6dfa8}
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
-body{margin:0;background:var(--ink);color:var(--paper);font-family:var(--body);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
-img{max-width:100%;height:auto;display:block}
-.wrap{max-width:1120px;margin:0 auto;padding-inline:20px}
-p{margin:0}
-h1,h2,h3{margin:0;font-family:var(--display);font-weight:800;letter-spacing:-.02em;text-wrap:balance}
-h2{font-size:clamp(34px,6vw,64px);line-height:.98;font-variation-settings:"wdth" 82}
-.kicker{font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.14em;text-transform:uppercase}
-.paper{background:var(--paper);color:var(--ink)}
-.paper .muted{color:var(--mute-l)}
-.muted{color:var(--mute-d)}
-section{padding-block:80px}
-@media (max-width:640px){section{padding-block:60px}}
-
-/* CTA */
-.cta{display:inline-flex;align-items:center;gap:12px;min-height:58px;padding:16px 26px;background:var(--maracuja);color:var(--ink);text-decoration:none;
-  font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:.01em;text-transform:uppercase;border:2.5px solid var(--ink);
-  box-shadow:5px 5px 0 var(--ink);transition:transform .12s ease, box-shadow .12s ease}
-.on-dark .cta{box-shadow:5px 5px 0 var(--paper)}
-.cta:hover{transform:translate(-2px,-2px);box-shadow:7px 7px 0 var(--ink)}
-.on-dark .cta:hover{box-shadow:7px 7px 0 var(--paper)}
-.cta:active{transform:translate(3px,3px);box-shadow:2px 2px 0 var(--ink)}
-.cta:focus-visible{outline:3px solid var(--acai-2);outline-offset:4px}
-.cta svg{width:20px;height:20px;flex:none}
-.disclaimer{font-size:12.5px;line-height:1.45;margin-top:14px;max-width:46ch}
-
-/* sticker */
-.sticker{display:inline-block;font-family:var(--display);font-weight:800;line-height:1;padding:10px 14px;border:2.5px solid var(--ink);color:var(--ink);transform:rotate(-3deg)}
-
-/* HERO */
-.hero{padding-block:22px 72px;position:relative;overflow:hidden}
-.nav{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.nav img{width:118px}
-.nav a{font-family:var(--display);font-weight:700;font-size:14px;color:var(--paper);text-decoration:none;border-bottom:2px solid var(--maracuja);padding-bottom:2px}
-.hero-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:48px;align-items:center;margin-top:52px}
-@media (max-width:880px){.hero-grid{grid-template-columns:minmax(0,1fr);gap:44px;margin-top:36px}}
-.hero h1{font-size:clamp(40px,7.4vw,86px);line-height:.94;font-variation-settings:"wdth" 78;letter-spacing:-.025em}
-.money{display:inline-block;background:var(--maracuja);color:var(--ink);padding:0 .12em;transform:rotate(-1.5deg);margin-inline:-.04em}
-.hero .sub{font-size:clamp(18px,2.2vw,22px);line-height:1.4;margin-top:22px;max-width:34ch}
-.hero .sub b{color:#fff}
-.hero .flv{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
-.pill{font-family:var(--display);font-weight:700;font-size:14px;padding:6px 12px;color:var(--ink)}
-.hero .row{display:flex;flex-wrap:wrap;align-items:center;gap:22px;margin-top:30px}
-.price-inline{font-family:var(--display);font-weight:800;font-size:15px;line-height:1.15;color:var(--mute-d)}
-.price-inline b{display:block;font-size:30px;color:var(--paper);letter-spacing:-.02em}
-
-/* proof (phone print) */
-.proof{position:relative;justify-self:center;width:min(440px,100%)}
-.print{position:relative;transform:rotate(2.2deg);border:10px solid #1d1a17;border-radius:6px;box-shadow:0 30px 60px -20px rgba(0,0,0,.9);background:#000}
-.print img{width:100%}
-.tape{position:absolute;width:110px;height:30px;background:rgba(243,236,224,.78);top:-16px;left:50%;transform:translateX(-50%) rotate(-4deg);mix-blend-mode:normal}
-.proof .note{position:absolute;right:-6px;bottom:-34px;background:var(--paper);color:var(--ink);font-family:var(--display);font-weight:700;font-size:14px;line-height:1.2;padding:10px 12px;transform:rotate(-3deg);max-width:210px;border:2px solid var(--ink)}
-.proof .tag{position:absolute;right:-10px;top:-30px;z-index:2;background:var(--morango);font-size:15px}
-@media (max-width:520px){.proof .note{right:0}.proof .tag{right:0}}
-
-/* ticker */
-.ticker{border-block:2.5px solid var(--ink);background:var(--maracuja);color:var(--ink);overflow:hidden;white-space:nowrap}
-.ticker div{display:inline-block;padding:12px 0;font-family:var(--display);font-weight:800;font-size:clamp(18px,2.6vw,26px);letter-spacing:.02em;text-transform:uppercase;animation:tick 28s linear infinite}
-.ticker span{margin-inline:18px}
-@keyframes tick{to{transform:translateX(-50%)}}
-
-/* opportunity */
-.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:start}
-@media (max-width:860px){.two{grid-template-columns:minmax(0,1fr);gap:28px}}
-.story p{font-size:19px;line-height:1.55}
-.story p+p{margin-top:16px}
-.big-quote{margin-top:26px;padding:22px 0 0;border-top:2.5px solid var(--ink);font-family:var(--display);font-weight:800;font-size:clamp(26px,3.6vw,38px);line-height:1.05;font-variation-settings:"wdth" 85}
-.big-quote mark{background:var(--maracuja);color:var(--ink);padding:0 .1em}
-
-/* flavors */
-.flavors-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:18px}
-.flavor{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);border-top:2.5px solid var(--ink)}
-.flavor:last-of-type{border-bottom:2.5px solid var(--ink)}
-.flavor .img{min-height:260px;background-size:cover;background-position:center;border-right:2.5px solid var(--ink)}
-.flavor .txt{padding:34px 30px;display:flex;flex-direction:column;justify-content:center;gap:12px;color:var(--ink)}
-.flavor .n{font-family:var(--display);font-weight:800;font-size:14px;letter-spacing:.1em}
-.flavor h3{font-size:clamp(46px,7vw,84px);line-height:.9;font-variation-settings:"wdth" 75;letter-spacing:-.03em}
-.flavor p{font-size:18px;max-width:30ch}
-.flavor.rev{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr)}
-.flavor.rev .img{order:2;border-right:0;border-left:2.5px solid var(--ink)}
-.f-m .txt{background:var(--morango)}
-.f-y .txt{background:var(--maracuja)}
-.f-a .txt{background:var(--acai);color:var(--paper)}
-@media (max-width:760px){
-  .flavor,.flavor.rev{grid-template-columns:minmax(0,1fr)}
-  .flavor .img,.flavor.rev .img{order:0;min-height:190px;border:0;border-bottom:2.5px solid var(--ink)}
-}
-.three-note{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:18px;margin-top:28px}
-.three-note p{font-family:var(--display);font-weight:800;font-size:clamp(22px,3vw,30px);line-height:1.05}
-
-/* channels */
-.channels{margin-top:40px;display:flex;flex-direction:column}
-.ch{display:grid;grid-template-columns:120px minmax(0,1fr);gap:24px;padding:26px 0;border-top:1.5px solid #2c2722;align-items:baseline}
-.ch:last-child{border-bottom:1.5px solid #2c2722}
-.ch .k{font-family:var(--display);font-weight:800;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--maracuja)}
-.ch h3{font-size:clamp(24px,3.2vw,34px);line-height:1.05;font-variation-settings:"wdth" 85}
-.ch p{margin-top:8px;max-width:58ch}
-@media (max-width:560px){.ch{grid-template-columns:minmax(0,1fr);gap:6px}}
-.endline{margin-top:34px;font-family:var(--display);font-weight:800;font-size:clamp(24px,3.4vw,36px);line-height:1.08;max-width:24ch}
-.endline span{color:var(--maracuja)}
-
-/* lessons = recipe card */
-.recipe{background:#fffdf8;border:2.5px solid var(--ink);box-shadow:8px 8px 0 var(--ink);padding:30px 28px;position:relative}
-.recipe .head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;border-bottom:2.5px dashed var(--ink);padding-bottom:14px}
-.recipe .head h3{font-size:26px}
-.recipe ol{list-style:none;padding:0;margin:8px 0 0;counter-reset:l}
-.recipe li{counter-increment:l;display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px 0;border-bottom:1.5px solid var(--paper-2);font-size:17px}
-.recipe li::before{content:counter(l,decimal-leading-zero);font-family:var(--display);font-weight:800;font-size:18px;color:var(--mute-l)}
-.recipe li:last-child{border-bottom:0}
-.dot{width:14px;height:14px;border:2px solid var(--ink)}
-.callout{font-family:var(--display);font-weight:800;font-size:clamp(24px,3vw,32px);line-height:1.08;margin-top:26px}
-
-/* author */
-.author{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:56px;align-items:center}
-@media (max-width:860px){.author{grid-template-columns:minmax(0,1fr);gap:40px}}
-.author p{font-size:19px}
-.author p+p{margin-top:14px}
-.author .sig{font-family:var(--display);font-weight:800;font-size:22px;margin-top:22px;color:var(--maracuja)}
-.stamp{position:relative;border:2.5px solid var(--paper);padding:26px;transform:rotate(-1.5deg)}
-.stamp .big{font-family:var(--display);font-weight:800;font-size:clamp(54px,9vw,96px);line-height:.9;letter-spacing:-.03em;font-variation-settings:"wdth" 75;color:var(--maracuja);font-variant-numeric:tabular-nums}
-.stamp .l{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.08em;text-transform:uppercase;margin-top:10px}
-.stamp .grid{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:22px;border-top:1.5px solid #3a342d}
-.stamp .grid div{padding:14px 0 0}
-.stamp .grid div+div{padding-left:16px;border-left:1.5px solid #3a342d}
-.stamp .grid b{display:block;font-family:var(--display);font-size:24px;color:var(--paper);font-variant-numeric:tabular-nums}
-.stamp .grid span{font-size:13px;color:var(--mute-d)}
-.stamp small{display:block;font-size:12.5px;color:var(--mute-d);margin-top:16px;line-height:1.4}
-
-/* offer */
-.offer{background:var(--maracuja);color:var(--ink);border-block:2.5px solid var(--ink)}
-.offer-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:center}
-@media (max-width:860px){.offer-grid{grid-template-columns:minmax(0,1fr);gap:34px}}
-.offer h2{font-variation-settings:"wdth" 78}
-.offer .lead{font-size:19px;margin-top:18px;max-width:40ch}
-.ticket{background:var(--ink);color:var(--paper);padding:30px 28px 26px;position:relative;
-  -webkit-mask:radial-gradient(circle 12px at 0 62%,transparent 98%,#000) left/51% 100% no-repeat, radial-gradient(circle 12px at 100% 62%,transparent 98%,#000) right/51% 100% no-repeat;
-          mask:radial-gradient(circle 12px at 0 62%,transparent 98%,#000) left/51% 100% no-repeat, radial-gradient(circle 12px at 100% 62%,transparent 98%,#000) right/51% 100% no-repeat}
-.ticket .t{font-family:var(--display);font-weight:800;font-size:15px;letter-spacing:.14em;color:var(--maracuja)}
-.ticket ul{list-style:none;padding:0;margin:16px 0 0}
-.ticket li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1.5px dashed #3a342d;font-size:16px}
-.ticket li span:last-child{color:var(--mute-d);font-size:14px}
-.ticket .total{display:flex;justify-content:space-between;align-items:end;margin-top:22px;padding-top:18px;border-top:2px dashed #3a342d}
-.ticket .total .k{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute-d)}
-.ticket .total .v{font-family:var(--display);font-weight:800;font-size:clamp(46px,8vw,64px);line-height:.9;letter-spacing:-.03em;color:var(--maracuja);font-variant-numeric:tabular-nums}
-.ticket .total .v small{font-size:.45em}
-.ticket .cta{margin-top:24px;width:100%;justify-content:center;border-color:var(--maracuja);box-shadow:none}
-.ticket .cta:hover{box-shadow:none;transform:translateY(-1px)}
-.ticket .one{text-align:center;font-size:14px;color:var(--mute-d);margin-top:12px}
-
-/* faq */
-.faq{margin-top:34px;border-top:2.5px solid var(--ink)}
-details{border-bottom:2.5px solid var(--ink)}
-summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:22px 0;font-family:var(--display);font-weight:800;font-size:clamp(20px,2.6vw,26px);line-height:1.15}
-summary::-webkit-details-marker{display:none}
-summary::after{content:"";flex:none;width:30px;height:30px;border:2.5px solid var(--ink);background:
-  linear-gradient(var(--ink),var(--ink)) center/12px 2.5px no-repeat, linear-gradient(var(--ink),var(--ink)) center/2.5px 12px no-repeat}
-details[open] summary::after{background:linear-gradient(var(--ink),var(--ink)) center/12px 2.5px no-repeat;background-color:var(--maracuja)}
-summary:focus-visible{outline:3px solid var(--acai);outline-offset:4px}
-details p{padding:0 0 24px;font-size:18px;max-width:62ch;color:var(--mute-l)}
-
-/* final */
-.final h2{font-size:clamp(42px,8vw,96px);line-height:.92;font-variation-settings:"wdth" 75}
-.final h2 .y{color:var(--maracuja)}
-.final .lead{font-size:20px;margin-top:22px;max-width:42ch}
-footer{border-top:1.5px solid #2c2722;padding-block:30px 110px;font-size:13px;color:var(--mute-d)}
-footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
-
-/* sticky (phones) */
-.sticky{position:fixed;left:0;right:0;bottom:0;z-index:30;display:none;align-items:center;gap:14px;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
-  background:var(--ink);border-top:2.5px solid var(--maracuja);transform:translateY(110%);transition:transform .22s ease}
-.sticky.show{transform:none}
-.sticky .p{font-family:var(--display);font-weight:800;font-size:13px;line-height:1.1;color:var(--mute-d)}
-.sticky .p b{display:block;font-size:22px;color:var(--paper)}
-.sticky .cta{flex:1;justify-content:center;min-height:50px;font-size:15px;padding:12px 14px;box-shadow:none;border-color:var(--maracuja)}
-@media (max-width:760px){.sticky{display:flex}}
-
-.hero-bar{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:22px;font-family:var(--display);font-weight:800;font-size:clamp(18px,2vw,22px);color:#fff}
-.hero-bar .y{color:var(--maracuja)}
-.think{font-family:var(--display);font-weight:800;font-size:22px;color:var(--acai)}
-.punch{margin-top:22px!important;padding:16px 18px;background:var(--ink);color:var(--paper);font-family:var(--display);font-weight:800;font-size:clamp(20px,2.4vw,26px);line-height:1.15;transform:rotate(-.8deg)}
-.punch-d{font-family:var(--display);font-weight:800;font-size:clamp(20px,2.4vw,26px);line-height:1.15;color:var(--maracuja);margin-top:18px!important}
-.vs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;margin-top:26px;border:2.5px solid var(--ink)}
-.vs-col{padding:18px 18px 20px}
-.vs-col.bad{background:var(--paper-2);color:var(--mute-l)}
-.vs-col.good{background:var(--ink);color:var(--paper)}
-.vs-h{font-family:var(--display);font-weight:800;font-size:15px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px}
-.vs-col.good .vs-h{color:var(--maracuja)}
-.vs ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
-.vs li{font-size:15.5px;line-height:1.35;display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px}
-.vs .bad li::before{content:"×";font-weight:800;color:#b5483a}
-.vs .good li::before{content:"✓";font-weight:800;color:var(--maracuja)}
-@media (max-width:520px){.vs{grid-template-columns:minmax(0,1fr)}}
-.recipe-foot{margin-top:14px;padding-top:14px;border-top:2.5px dashed var(--ink);font-family:var(--display);font-weight:800;font-size:19px}
-.ticket li span:last-child{color:var(--maracuja);font-weight:800}
+details>summary{list-style:none;cursor:pointer}
+details>summary::-webkit-details-marker{display:none}
+details[open] .faq-plus{transform:rotate(45deg)}
+.cta-btn{transition:transform .15s ease, box-shadow .15s ease}
+.cta-btn:hover{transform:translateY(-2px);box-shadow:0 18px 40px -14px rgba(217,181,110,.75)}
+.cta-btn:focus-visible{outline:3px solid #f6dfa8;outline-offset:4px}
+summary:focus-visible{outline:2px solid #d9b56e;outline-offset:6px;border-radius:6px}
 </style>
 
-</head><body><!-- HERO -->
-<header class="hero on-dark">
-  <div class="wrap">
-    <nav class="nav" aria-label="Topo">
-      <img src="logo.webp" alt="Cremo · Shake de Mousse Premium" width="745" height="390">
-      <a href="#oferta">Ver a oferta</a>
-    </nav>
+<style>html{scroll-behavior:smooth}img{max-width:100%}@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}</style>
+</head>
+<body>
 
-    <div class="hero-grid">
-      <div>
-        <p class="kicker" style="color:var(--maracuja)">Método Cremo</p>
-        <h1 style="margin-top:14px">Eu faturei <span class="money">R$&nbsp;3.142</span> em apenas 4 dias vendendo minhas batidas na rua.</h1>
-        <p class="sub">Agora vou te ensinar a fazer as <b>3 receitas que uso na minha própria marca</b>, com videoaulas mostrando todo o preparo.</p>
-        <div class="flv" aria-label="Sabores">
-          <span class="pill" style="background:var(--morango)">Morango</span>
-          <span class="pill" style="background:var(--maracuja)">Maracujá</span>
-          <span class="pill" style="background:var(--acai-2)">Açaí</span>
+
+<div style="background: #0a0809; color: #efe6d4; font-family: 'Manrope', system-ui, sans-serif; font-size: 17px; line-height: 1.6; overflow: hidden">
+
+  <!-- ============ HERO ============ -->
+  <header style="position: relative; padding: 28px 24px 0; background: radial-gradient(60% 55% at 72% 46%, rgba(217,181,110,.16), rgba(10,8,9,0) 70%), #0a0809">
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 16px">
+      <img src="logo.webp" alt="Cremo · Shake de Mousse Premium" style="width: 150px; height: auto; display: block">
+      <a href="#oferta" style="font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: .22em; text-decoration: none; color: #e8c784; border-bottom: 1px solid rgba(232,199,132,.5); padding-bottom: 4px">VER A OFERTA</a>
+    </div>
+
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 40px; padding: 48px 0 72px">
+      <div style="flex: 1 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 22px">
+        <div style="display: flex; align-items: center; gap: 14px">
+          <span style="width: 36px; height: 1px; background: #d9b56e"></span>
+          <span style="font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: .3em; color: #d9b56e">MÉTODO CREMO</span>
         </div>
-        <p class="muted" style="margin-top:18px;max-width:46ch">Aprenda a fazer batidas cremosas de morango, maracujá e açaí e descubra como esse produto pode ser o primeiro passo para começar a vender por conta própria.</p>
-        <p class="hero-bar"><span>3 sabores.</span><span>Videoaulas práticas.</span><span class="y">Apenas R$ 19,90.</span></p>
-        <div class="row">
-          <a class="cta js-checkout" href="https://pay.kiwify.com.br/IT3Hyal">Quero aprender as 3 receitas
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg></a>
-        </div>
-        <p class="disclaimer muted">Resultado real da minha experiência. Não é uma promessa de ganhos.</p>
-      </div>
-
-      <figure class="proof" style="margin:0">
-        <span class="sticker tag">print real</span>
-        <div class="print">
-          <span class="tape" aria-hidden="true"></span>
-          <img src="prova.png" alt="Print do app de vendas do Rick: faturamento de novembro de R$ 3.142,00, lucro líquido de R$ 2.221,84 e custos de R$ 920,16" width="579" height="414">
-        </div>
-        <figcaption class="note">Meu app de vendas, faturamento de novembro.</figcaption>
-      </figure>
-    </div>
-  </div>
-</header>
-
-<div class="ticker" aria-hidden="true"><div>
-  <span>Morango</span>✦<span>Maracujá</span>✦<span>Açaí</span>✦<span>3 receitas</span>✦<span>Videoaulas</span>✦<span>R$ 19,90</span>✦
-  <span>Morango</span>✦<span>Maracujá</span>✦<span>Açaí</span>✦<span>3 receitas</span>✦<span>Videoaulas</span>✦<span>R$ 19,90</span>✦
-</div></div>
-
-<!-- OPORTUNIDADE -->
-<section class="paper">
-  <div class="wrap two">
-    <h2>E se você pudesse transformar uma simples receita em uma oportunidade?</h2>
-    <div class="story">
-      <p class="think">Pensa comigo...</p>
-      <p>Você não precisa necessariamente começar com uma loja, funcionários ou uma grande estrutura para testar uma ideia de negócio.</p>
-      <p>Às vezes, tudo começa com um produto que as pessoas tenham vontade de comprar.</p>
-      <p>Foi assim que comecei com a Cremo. Peguei minhas receitas, transformei em produtos e comecei a oferecer minhas batidas nas ruas.</p>
-      <p class="big-quote">Em apenas 4 dias de trabalho, registrei <mark>R$ 3.142</mark> em faturamento.</p>
-      <p style="margin-top:16px">E agora quero te mostrar como preparar os três sabores que fazem parte da minha marca.</p>
-      <p class="punch">Porque antes de conseguir sua primeira venda, você precisa ter algo para vender.</p>
-    </div>
-  </div>
-</section>
-
-<!-- SABORES -->
-<section class="paper" style="padding-top:0">
-  <div class="wrap">
-    <div class="flavors-head" style="margin-bottom:28px">
-      <h2>Três sabores.<br>Diferentes possibilidades.</h2>
-      <span class="sticker" style="background:var(--maracuja)">Os 3 num método só</span>
-    </div>
-  </div>
-  <div class="wrap">
-    <article class="flavor f-m">
-      <div class="img" style="background-image:url('morango.jpg')" role="img" aria-label="Mousse de morango com pedaços de fruta"></div>
-      <div class="txt"><span class="n">01 / 03</span><h3>Morango</h3><p>Uma batida cremosa com o sabor irresistível do morango, combinando mousse e geleia em uma receita deliciosa.</p></div>
-    </article>
-    <article class="flavor f-y rev">
-      <div class="img" style="background-image:url('maracuja.jpg')" role="img" aria-label="Mousse de maracujá com sementes"></div>
-      <div class="txt"><span class="n">02 / 03</span><h3>Maracujá</h3><p>Uma combinação de cremosidade e o sabor marcante do maracujá, com um toque especial de geleia.</p></div>
-    </article>
-    <article class="flavor f-a">
-      <div class="img" style="background-image:url('acai.jpg')" role="img" aria-label="Creme de açaí com frutinhas e banana"></div>
-      <div class="txt"><span class="n">03 / 03</span><h3>Açaí</h3><p>Uma receita diferenciada para transformar o açaí em uma batida cremosa, saborosa e cheia de personalidade.</p></div>
-    </article>
-    <div class="three-note">
-      <p>Você aprende os três sabores em um único método.</p>
-      <a class="cta js-checkout" href="https://pay.kiwify.com.br/IT3Hyal">Quero as 3 receitas
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg></a>
-    </div>
-  </div>
-</section>
-
-<!-- VENDER -->
-<section class="on-dark">
-  <div class="wrap">
-    <p class="kicker" style="color:var(--maracuja)">Depois de aprender</p>
-    <h2 style="margin-top:14px;max-width:16ch">Imagine começar a vender suas próprias batidas.</h2>
-    <p class="muted" style="margin-top:18px;max-width:52ch;font-size:19px">Imagine preparar seus primeiros produtos, tirar boas fotos e oferecer para pessoas que já estão perto de você. Você pode explorar diferentes caminhos:</p>
-    <div class="channels">
-      <div class="ch"><span class="k">Na rua</span><div><h3>Foi assim que eu comecei.</h3><p class="muted">Produzindo minhas batidas e oferecendo diretamente aos clientes.</p></div></div>
-      <div class="ch"><span class="k">Encomenda</span><div><h3>Divulgue pelo WhatsApp, Instagram ou para pessoas da sua região.</h3><p class="muted">E teste a procura pelo produto.</p></div></div>
-      <div class="ch"><span class="k">Delivery</span><div><h3>Estruture uma operação para vender por aplicativos como o iFood.</h3><p class="muted">Seguindo os requisitos de cadastro e as regras sanitárias.</p></div></div>
-    </div>
-    <p class="muted" style="margin-top:28px;font-size:17px">Cada caminho exige planejamento e tem seus próprios desafios.</p>
-    <p class="endline" style="margin-top:12px">Mas todos começam com a mesma coisa: <span>aprender a fazer um produto que você tenha vontade de oferecer aos clientes.</span></p>
-  </div>
-</section>
-
-<!-- NÃO É RECEITA QUALQUER -->
-<section class="paper">
-  <div class="wrap">
-    <p class="kicker" style="color:var(--acai)">Videoaulas</p>
-    <h2 style="margin-top:14px;max-width:18ch">Não é uma receita qualquer da internet.</h2>
-    <div class="two" style="margin-top:36px">
-      <div class="story">
-        <p>São as receitas que utilizo na minha própria marca.</p>
-        <p>Eu já preparei, levei para as ruas, apresentei aos clientes e comercializei essas batidas. E agora resolvi mostrar como faço.</p>
-        <div class="vs" role="table" aria-label="Receita da internet comparada ao Método Cremo">
-          <div class="vs-col bad" role="rowgroup">
-            <p class="vs-h">Receita escrita da internet</p>
-            <ul>
-              <li>Você lê e tenta adivinhar o preparo</li>
-              <li>Ninguém mostra a textura certa</li>
-              <li>Quem escreveu nunca vendeu</li>
-            </ul>
-          </div>
-          <div class="vs-col good" role="rowgroup">
-            <p class="vs-h">Método Cremo</p>
-            <ul>
-              <li>Você assiste e acompanha cada sabor</li>
-              <li>Mostra como chegar ao resultado</li>
-              <li>Receitas de uma marca que vende na rua</li>
-            </ul>
+        <h1 style="margin: 0; font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 600; font-size: clamp(42px, 5.6vw, 76px); line-height: 1.02; letter-spacing: -.01em; color: #fbf3e0">Eu faturei <span style="font-style: italic; color: #e8c784">R$ 3.142</span> em apenas 4 dias vendendo minhas batidas na rua.</h1>
+        <p style="margin: 0; font-size: clamp(18px, 1.6vw, 21px); line-height: 1.5; color: #d8cdb8; max-width: 33em">Agora vou te ensinar a fazer <strong style="color: #fff">as 3 receitas que uso na minha própria marca</strong>: as batidas cremosas de morango, maracujá e açaí, com videoaulas práticas, mesmo começando do zero.</p>
+        <p style="margin: 0; font-size: 15px; color: #a89d88">Para consumir em casa ou dar o primeiro passo para vender por conta própria.</p>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 22px; margin-top: 8px">
+          <a class="cta-btn" href="https://pay.kiwify.com.br/IT3Hyal" style="display: inline-flex; align-items: center; gap: 12px; min-height: 60px; padding: 18px 34px; border-radius: 999px; background: linear-gradient(180deg, #f3d999, #d9b56e 55%, #b98f45); color: #1c1305; font-weight: 800; font-size: 16px; letter-spacing: .08em; text-decoration: none; box-shadow: 0 12px 30px -12px rgba(217,181,110,.6), inset 0 1px 0 rgba(255,255,255,.55)">QUERO APRENDER AS RECEITAS
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+          <div style="display: flex; flex-direction: column; line-height: 1.2">
+            <span style="font-size: 13px; color: #a89d88">Acesso às 3 receitas</span>
+            <span style="font-family: 'Cormorant Garamond', serif; font-weight: 700; font-size: 34px; color: #fbf3e0">R$ 19,90</span>
           </div>
         </div>
-        <p class="callout">Você vai assistir às videoaulas e acompanhar como cada sabor é feito.</p>
+        <p style="margin: 0; font-size: 12.5px; line-height: 1.5; color: #8a8070; max-width: 46em">Resultado pessoal de vendas. Seus resultados podem variar e não há garantia de faturamento ou lucro.</p>
       </div>
-      <div class="recipe">
-        <div class="head"><h3>O que você vai aprender</h3><span class="kicker muted">Passo a passo</span></div>
-        <ol>
-          <li><span>Quais ingredientes utilizo em cada sabor</span><span class="dot" style="background:var(--paper-2)"></span></li>
-          <li><span>Como preparar a batida de morango</span><span class="dot" style="background:var(--morango)"></span></li>
-          <li><span>Como preparar a batida de maracujá</span><span class="dot" style="background:var(--maracuja)"></span></li>
-          <li><span>Como preparar a batida de açaí</span><span class="dot" style="background:var(--acai)"></span></li>
-          <li><span>Como combinar mousse e geleia para chegar ao resultado</span><span class="dot" style="background:var(--paper-2)"></span></li>
-          <li><span>Como reproduzir as receitas acompanhando o passo a passo</span><span class="dot" style="background:var(--paper-2)"></span></li>
-        </ol>
-        <p class="recipe-foot">Mesmo que nunca tenha preparado uma batida antes.</p>
+
+      <div style="flex: 1 1 440px; min-width: 0; display: flex; justify-content: center">
+        <div style="position: relative; width: 100%; max-width: 560px; aspect-ratio: 1.08 / 1">
+          <img src="label-morango.webp" alt="Etiqueta Cremo Morango" style="position: absolute; left: 0%; top: 12%; width: 44%; height: auto; transform: rotate(-9deg); filter: drop-shadow(0 30px 40px rgba(0,0,0,.7)); z-index: 1">
+          <img src="label-acai.webp" alt="Etiqueta Cremo Açaí" style="position: absolute; right: 0%; top: 12%; width: 44%; height: auto; transform: rotate(9deg); filter: drop-shadow(0 30px 40px rgba(0,0,0,.7)); z-index: 1">
+          <img src="label-maracuja.webp" alt="Etiqueta Cremo Maracujá" style="position: absolute; left: 27%; top: 0%; width: 46%; height: auto; filter: drop-shadow(0 40px 50px rgba(0,0,0,.8)); z-index: 2">
+        </div>
       </div>
     </div>
-  </div>
-</section>
+  </header>
 
-<!-- QUEM -->
-<section class="on-dark">
-  <div class="wrap author">
-    <div>
-      <p class="kicker" style="color:var(--maracuja)">Quem está por trás</p>
-      <h2 style="margin-top:14px">De quem vende nas ruas para quem quer aprender.</h2>
-      <p style="margin-top:22px">Eu sou Rick, criador da Cremo.</p>
-      <p>Eu sei como é começar com uma ideia e querer transformar aquilo em alguma coisa maior.</p>
-      <p>Por isso, não quero apenas te entregar uma lista de ingredientes. Quero mostrar como faço as receitas de um produto que comercializo de verdade.</p>
-      <p>O Método Cremo nasceu para compartilhar esse conhecimento de uma forma simples, prática e acessível.</p>
-      <p class="punch-d">Você aprende as receitas. O que vai construir a partir delas depende de você.</p>
-      <p class="sig">@rickmartinsj</p>
-    </div>
-    <div class="stamp" aria-label="Resultado de novembro">
-      <div class="big">R$ 3.142</div>
-      <div class="l">Faturamento registrado em novembro</div>
-      <div class="grid">
-        <div><b>R$ 2.221,84</b><span>lucro líquido</span></div>
-        <div><b>R$ 920,16</b><span>custos</span></div>
+  <!-- ============ PROVA ============ -->
+  <section style="padding: 0 24px">
+    <div style="max-width: 1200px; margin: 0 auto; border-top: 1px solid #3a2f1f; border-bottom: 1px solid #3a2f1f; display: flex; flex-wrap: wrap; align-items: center; gap: 28px; padding: 30px 0">
+      <img src="prova.png" alt="Print do app de vendas do Rick com faturamento de novembro de R$ 3.142" style="flex: 0 1 300px; width: 300px; max-width: 100%; height: auto; border-radius: 14px; border: 1px solid #3a2f1f; display: block">
+      <div style="flex: 1 1 520px; min-width: 0; display: flex; flex-wrap: wrap; gap: 0">
+        <div style="flex: 1 1 160px; padding: 6px 24px 6px 0; border-right: 1px solid #2c241a">
+          <div style="font-family: 'Cormorant Garamond', serif; font-weight: 700; font-size: 44px; line-height: 1; color: #e8c784">R$ 3.142</div>
+          <div style="font-size: 13px; letter-spacing: .08em; color: #a89d88; margin-top: 8px">FATURAMENTO DE NOVEMBRO</div>
+        </div>
+        <div style="flex: 1 1 160px; padding: 6px 24px; border-right: 1px solid #2c241a">
+          <div style="font-family: 'Cormorant Garamond', serif; font-weight: 700; font-size: 44px; line-height: 1; color: #fbf3e0">R$ 2.221</div>
+          <div style="font-size: 13px; letter-spacing: .08em; color: #a89d88; margin-top: 8px">LUCRO LÍQUIDO</div>
+        </div>
+        <div style="flex: 1 1 160px; padding: 6px 0 6px 24px">
+          <div style="font-family: 'Cormorant Garamond', serif; font-weight: 700; font-size: 44px; line-height: 1; color: #fbf3e0">3 sabores</div>
+          <div style="font-size: 13px; letter-spacing: .08em; color: #a89d88; margin-top: 8px">MORANGO · MARACUJÁ · AÇAÍ</div>
+        </div>
+        <p style="flex: 1 1 100%; margin: 18px 0 0; font-size: 13px; color: #8a8070">Números do meu app de vendas. Resultado pessoal, que depende dos dias trabalhados, custos, clientes e vendas.</p>
       </div>
-      <small>Números do meu app de vendas. Resultado real da minha operação, que depende de vendas, localização, custos e demanda.</small>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- OFERTA -->
-<section class="offer" id="oferta">
-  <div class="wrap offer-grid">
-    <div>
-      <p class="kicker">Quanto vale aprender as três receitas da Cremo?</p>
-      <h2 style="margin-top:14px">Menos que uma garrafa de Cremo.</h2>
-      <p class="lead">Você pode pesquisar diferentes receitas, comprar ingredientes e tentar descobrir sozinho como chegar à textura e ao sabor que deseja.</p>
-      <p class="lead" style="margin-top:12px"><b>Ou pode acompanhar diretamente o preparo dos três sabores da minha marca.</b></p>
-      <p class="lead" style="margin-top:12px">Por isso, decidi deixar o Método Cremo com um valor acessível: <b>R$ 19,90, menos do que uma garrafa de Cremo custa na rua.</b></p>
+  <!-- ============ OPORTUNIDADE ============ -->
+  <section style="padding: 110px 24px">
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 56px; align-items: flex-start">
+      <h2 style="flex: 1 1 420px; min-width: 0; margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: clamp(38px, 4.4vw, 58px); line-height: 1.05; color: #fbf3e0">E se você pudesse transformar uma receita em uma <span style="font-style: italic; color: #e8c784">oportunidade?</span></h2>
+      <div style="flex: 1 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 18px; font-size: 18.5px; color: #d8cdb8">
+        <p style="margin: 0">Você não precisa necessariamente começar com uma loja, funcionários ou uma grande estrutura.</p>
+        <p style="margin: 0">Às vezes, o primeiro passo é encontrar um produto que as pessoas tenham vontade de comprar.</p>
+        <p style="margin: 0">Foi assim que comecei a desenvolver minha marca de batidas, a Cremo. Peguei três sabores, transformei em produtos e comecei a vendê-los nas ruas.</p>
+        <blockquote style="margin: 10px 0 0; padding: 0 0 0 26px; border-left: 2px solid #d9b56e; font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 600; font-size: 32px; line-height: 1.2; color: #fbf3e0">Em apenas quatro dias de trabalho, registrei R$ 3.142 em faturamento.</blockquote>
+        <p style="margin: 0">E agora você pode aprender a preparar essas mesmas receitas.</p>
+      </div>
     </div>
-    <div class="ticket on-dark">
-      <p class="t">MÉTODO CREMO · VOCÊ RECEBE</p>
-      <ul>
-        <li><span>Videoaula da batida de morango</span><span>✓</span></li>
-        <li><span>Videoaula da batida de maracujá</span><span>✓</span></li>
-        <li><span>Videoaula da batida de açaí</span><span>✓</span></li>
-        <li><span>Passo a passo prático do preparo</span><span>✓</span></li>
-      </ul>
-      <div class="total"><span class="k">Tudo isso por apenas</span><span class="v"><small>R$</small> 19,90</span></div>
-      <a class="cta js-checkout" href="https://pay.kiwify.com.br/IT3Hyal">Sim, quero o Método Cremo</a>
-      <p class="one">Uma única compra. Três receitas para aprender.</p>
+  </section>
+
+  <!-- ============ SABORES ============ -->
+  <section style="padding: 0 24px 110px">
+    <div style="max-width: 1200px; margin: 0 auto">
+      <div style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; margin-bottom: 52px">
+        <span style="font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: .3em; color: #d9b56e">OS SABORES</span>
+        <h2 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: clamp(38px, 4.4vw, 58px); line-height: 1.05; color: #fbf3e0">Três sabores. Diferentes possibilidades.</h2>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 22px">
+        <article style="flex: 1 1 320px; min-width: 0; border-radius: 22px; overflow: hidden; background: #1a0e12; border: 1px solid #3d1f29; display: flex; flex-direction: column">
+          <img src="morango.jpg" alt="Mousse de morango com pedaços de fruta" style="width: 100%; height: 230px; object-fit: cover; display: block">
+          <div style="padding: 26px 28px 32px; display: flex; flex-direction: column; gap: 12px">
+            <span style="font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: .3em; color: #ff9ab6">SABOR 01</span>
+            <h3 style="margin: 0; font-family: 'Cinzel', serif; font-weight: 700; font-size: 34px; letter-spacing: .06em; color: #ff9ab6">MORANGO</h3>
+            <p style="margin: 0; font-size: 16.5px; color: #d8cdb8">Cremoso, saboroso e com uma combinação deliciosa de mousse e geleia de morango.</p>
+          </div>
+        </article>
+        <article style="flex: 1 1 320px; min-width: 0; border-radius: 22px; overflow: hidden; background: #19140a; border: 1px solid #3d3216; display: flex; flex-direction: column">
+          <img src="maracuja.jpg" alt="Mousse de maracujá com sementes" style="width: 100%; height: 230px; object-fit: cover; display: block">
+          <div style="padding: 26px 28px 32px; display: flex; flex-direction: column; gap: 12px">
+            <span style="font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: .3em; color: #f2c75a">SABOR 02</span>
+            <h3 style="margin: 0; font-family: 'Cinzel', serif; font-weight: 700; font-size: 34px; letter-spacing: .06em; color: #f2c75a">MARACUJÁ</h3>
+            <p style="margin: 0; font-size: 16.5px; color: #d8cdb8">Uma receita que combina cremosidade com o sabor marcante e levemente ácido do maracujá.</p>
+          </div>
+        </article>
+        <article style="flex: 1 1 320px; min-width: 0; border-radius: 22px; overflow: hidden; background: #150c1a; border: 1px solid #36203f; display: flex; flex-direction: column">
+          <img src="acai.jpg" alt="Creme de açaí com frutinhas e banana" style="width: 100%; height: 230px; object-fit: cover; display: block">
+          <div style="padding: 26px 28px 32px; display: flex; flex-direction: column; gap: 12px">
+            <span style="font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: .3em; color: #cf9cec">SABOR 03</span>
+            <h3 style="margin: 0; font-family: 'Cinzel', serif; font-weight: 700; font-size: 34px; letter-spacing: .06em; color: #cf9cec">AÇAÍ</h3>
+            <p style="margin: 0; font-size: 16.5px; color: #d8cdb8">Uma maneira diferente e deliciosa de preparar uma batida cremosa com açaí.</p>
+          </div>
+        </article>
+      </div>
+      <p style="margin: 36px 0 0; text-align: center; font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 600; font-size: 28px; color: #e8c784">Você aprende os três sabores em um único método.</p>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- FAQ -->
-<section class="paper">
-  <div class="wrap" style="max-width:880px">
-    <h2>Dúvidas frequentes</h2>
-    <div class="faq">
-      <details><summary>Nunca fiz uma batida. Vou conseguir aprender?</summary><p>As videoaulas mostram o preparo passo a passo, para que mesmo iniciantes possam acompanhar.</p></details>
-      <details><summary>Vou aprender os três sabores?</summary><p>Sim! Morango, maracujá e açaí estão incluídos.</p></details>
-      <details><summary>Posso utilizar as receitas para vender?</summary><p>Sim. Você pode usar as receitas como ponto de partida para produzir e comercializar suas próprias batidas, observando as exigências sanitárias e comerciais da sua região.</p></details>
-      <details><summary>O método ensina a vender no iFood?</summary><p>O conteúdo ensina o preparo das receitas. Você pode estudar a venda por delivery como uma possibilidade, mas o cadastro e a operação no iFood não fazem parte dessas aulas.</p></details>
-      <details><summary>Vou faturar R$ 3.142 também?</summary><p>Não existe garantia de faturamento. Esse foi um resultado real da minha operação, que depende de fatores como vendas, localização, custos e demanda.</p></details>
-      <details><summary>Quanto vou pagar?</summary><p>R$ 19,90 para acessar as três receitas em videoaulas.</p></details>
+  <!-- ============ VENDER ============ -->
+  <section style="padding: 110px 24px; background: #110d0e; border-top: 1px solid #2c241a; border-bottom: 1px solid #2c241a">
+    <div style="max-width: 1200px; margin: 0 auto">
+      <div style="display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-end; justify-content: space-between; margin-bottom: 52px">
+        <h2 style="flex: 1 1 520px; min-width: 0; margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: clamp(38px, 4.4vw, 58px); line-height: 1.05; color: #fbf3e0">Imagine começar a vender <span style="font-style: italic; color: #e8c784">suas próprias batidas.</span></h2>
+        <p style="flex: 1 1 340px; min-width: 0; margin: 0; font-size: 17px; color: #a89d88">Você pode estudar diferentes formas de comercializar o produto, de acordo com a realidade da sua cidade.</p>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 22px">
+        <div style="flex: 1 1 300px; min-width: 0; padding: 30px; border-radius: 20px; border: 1px solid #3a2f1f; display: flex; flex-direction: column; gap: 14px">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#d9b56e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"></path><path d="M6 21V8h12v13"></path><path d="M9 21v-5h6v5"></path><path d="M4 8l2-5h12l2 5"></path></svg>
+          <h3 style="margin: 0; font-family: 'Cinzel', serif; font-size: 18px; letter-spacing: .14em; color: #e8c784">NA RUA</h3>
+          <p style="margin: 0; font-size: 16.5px; color: #d8cdb8">Levando as bebidas prontas para oferecer aos clientes.</p>
+        </div>
+        <div style="flex: 1 1 300px; min-width: 0; padding: 30px; border-radius: 20px; border: 1px solid #3a2f1f; display: flex; flex-direction: column; gap: 14px">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#d9b56e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8.5 8.5 0 01-12.7 7.4L3 21l1.6-5.1A8.5 8.5 0 1121 12z"></path></svg>
+          <h3 style="margin: 0; font-family: 'Cinzel', serif; font-size: 18px; letter-spacing: .14em; color: #e8c784">POR ENCOMENDA</h3>
+          <p style="margin: 0; font-size: 16.5px; color: #d8cdb8">Divulgando para amigos, conhecidos e clientes pelo WhatsApp e Instagram.</p>
+        </div>
+        <div style="flex: 1 1 300px; min-width: 0; padding: 30px; border-radius: 20px; border: 1px solid #3a2f1f; display: flex; flex-direction: column; gap: 14px">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#d9b56e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="17" r="3"></circle><circle cx="18" cy="17" r="3"></circle><path d="M9 17h6l-2-7h-3"></path><path d="M15 10h3l3 7"></path></svg>
+          <h3 style="margin: 0; font-family: 'Cinzel', serif; font-size: 18px; letter-spacing: .14em; color: #e8c784">POR DELIVERY</h3>
+          <p style="margin: 0; font-size: 16.5px; color: #d8cdb8">Estruturando uma operação para vender por aplicativos como o iFood, desde que atenda aos requisitos da plataforma e às normas sanitárias.</p>
+        </div>
+      </div>
+      <p style="margin: 48px auto 0; max-width: 780px; text-align: center; font-size: 19px; color: #d8cdb8">O mais importante é que, antes de pensar em vender, você aprenda a preparar um bom produto. <strong style="color: #e8c784">E é exatamente por aí que o Método Cremo começa.</strong></p>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- FINAL -->
-<section class="final on-dark">
-  <div class="wrap">
-    <h2>Seu próximo passo pode <span class="y">começar com uma receita.</span></h2>
-    <p class="lead muted">Você não precisa ter tudo resolvido hoje. Pode começar aprendendo a fazer o produto, preparando suas primeiras batidas e descobrindo o que pode construir a partir daí.</p>
-    <p class="lead" style="margin-top:14px">Eu comecei levando minhas batidas para vender nas ruas. <b style="color:var(--maracuja)">Agora é sua vez de aprender a prepará-las.</b></p>
-    <p class="kicker" style="margin-top:30px;color:var(--paper)">Método Cremo · R$ 19,90</p>
-    <div style="margin-top:18px">
-      <a class="cta js-checkout" href="https://pay.kiwify.com.br/IT3Hyal">Quero aprender as 3 receitas
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg></a>
+  <!-- ============ VIDEOAULAS ============ -->
+  <section style="padding: 110px 24px">
+    <div style="max-width: 1200px; margin: 0 auto">
+      <div style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; margin-bottom: 52px">
+        <span style="font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: .3em; color: #d9b56e">VIDEOAULAS</span>
+        <h2 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: clamp(38px, 4.4vw, 58px); line-height: 1.05; color: #fbf3e0">Você vai aprender <span style="font-style: italic; color: #e8c784">vendo como eu faço.</span></h2>
+        <p style="margin: 0; max-width: 640px; font-size: 18px; color: #a89d88">Nada de receber somente um PDF e ter que adivinhar como preparar. O Método Cremo traz videoaulas demonstrando o preparo das três receitas.</p>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 22px">
+        <div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+          <div style="position: relative; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; border: 1px solid #3a2f1f">
+            <img src="morango.jpg" alt="" style="width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(.72)">
+            <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+              <span style="width: 68px; height: 68px; border-radius: 50%; background: rgba(10,8,9,.72); border: 1.5px solid #e8c784; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="#e8c784" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg></span>
+            </div>
+            <span style="position: absolute; left: 14px; bottom: 12px; font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: .2em; color: #fff; background: rgba(10,8,9,.7); padding: 6px 10px; border-radius: 6px">AULA · MORANGO</span>
+          </div>
+          <p style="margin: 0; font-size: 16px; color: #d8cdb8">O preparo da batida de morango.</p>
+        </div>
+        <div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+          <div style="position: relative; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; border: 1px solid #3a2f1f">
+            <img src="maracuja.jpg" alt="" style="width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(.72)">
+            <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+              <span style="width: 68px; height: 68px; border-radius: 50%; background: rgba(10,8,9,.72); border: 1.5px solid #e8c784; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="#e8c784" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg></span>
+            </div>
+            <span style="position: absolute; left: 14px; bottom: 12px; font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: .2em; color: #fff; background: rgba(10,8,9,.7); padding: 6px 10px; border-radius: 6px">AULA · MARACUJÁ</span>
+          </div>
+          <p style="margin: 0; font-size: 16px; color: #d8cdb8">O preparo da batida de maracujá.</p>
+        </div>
+        <div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+          <div style="position: relative; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; border: 1px solid #3a2f1f">
+            <img src="acai.jpg" alt="" style="width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(.72)">
+            <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+              <span style="width: 68px; height: 68px; border-radius: 50%; background: rgba(10,8,9,.72); border: 1.5px solid #e8c784; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="#e8c784" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg></span>
+            </div>
+            <span style="position: absolute; left: 14px; bottom: 12px; font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: .2em; color: #fff; background: rgba(10,8,9,.7); padding: 6px 10px; border-radius: 6px">AULA · AÇAÍ</span>
+          </div>
+          <p style="margin: 0; font-size: 16px; color: #d8cdb8">O preparo da batida de açaí.</p>
+        </div>
+      </div>
+      <div style="margin-top: 40px; display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: center; font-size: 16px; color: #d8cdb8">
+        <span style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d9b56e" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>Os ingredientes utilizados</span>
+        <span style="display: flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d9b56e" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>A combinação dos ingredientes para chegar à textura cremosa</span>
+      </div>
+      <p style="margin: 34px 0 0; text-align: center; font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 600; font-size: 28px; color: #e8c784">Receitas de uma marca de verdade, ensinadas por quem prepara e vende o produto.</p>
     </div>
-    <p class="disclaimer muted" style="margin-top:18px">O método ensina o preparo das bebidas. Os resultados comerciais dependem de cada pessoa.</p>
-  </div>
-</section>
+  </section>
 
-<footer>
-  <div class="wrap">
-    <span>CREMO · @rickmartinsj</span>
-    <span>Resultado pessoal de vendas. Seus resultados podem variar e não há garantia de faturamento ou lucro.</span>
-  </div>
-</footer>
+  <!-- ============ QUEM ============ -->
+  <section style="padding: 110px 24px; background: #110d0e; border-top: 1px solid #2c241a; border-bottom: 1px solid #2c241a">
+    <div style="max-width: 1100px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 64px; align-items: center">
+      <div style="flex: 1 1 360px; min-width: 0; display: flex; justify-content: center">
+        <div style="position: relative; width: 100%; max-width: 420px">
+          <img src="prova.png" alt="Print do app de vendas: faturamento R$ 3.142, lucro líquido R$ 2.221,84, custos R$ 920,16" style="width: 100%; height: auto; display: block; border-radius: 18px; border: 1px solid #4a3c26; box-shadow: 0 40px 60px -30px rgba(0,0,0,.9); transform: rotate(-2deg)">
+          <span style="position: absolute; right: -8px; bottom: -22px; font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: .18em; color: #1c1305; background: #e8c784; padding: 9px 14px; border-radius: 999px; transform: rotate(-2deg)">MEU APP DE VENDAS · NOVEMBRO</span>
+        </div>
+      </div>
+      <div style="flex: 1 1 460px; min-width: 0; display: flex; flex-direction: column; gap: 16px; font-size: 18px; color: #d8cdb8">
+        <span style="font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: .3em; color: #d9b56e">QUEM ESTÁ POR TRÁS</span>
+        <h2 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: clamp(38px, 4.4vw, 56px); line-height: 1.05; color: #fbf3e0">Eu sou Rick, <span style="font-style: italic; color: #e8c784">criador da Cremo.</span></h2>
+        <p style="margin: 0">Minha experiência não vem só de assistir a vídeos sobre empreendedorismo.</p>
+        <p style="margin: 0">Eu vou para a rua, ofereço meus produtos, converso com clientes e acompanho meus resultados de vendas.</p>
+        <p style="margin: 0">Criei uma marca de batidas e agora quero compartilhar as receitas que fazem parte dela.</p>
+        <p style="margin: 0; color: #a89d88">Você não precisa ter a mesma história que eu. Mas pode começar aprendendo o que eu aprendi a preparar.</p>
+        <span style="font-family: 'Cinzel', serif; font-size: 15px; letter-spacing: .12em; color: #e8c784; margin-top: 6px">@RICKMARTINSJ</span>
+      </div>
+    </div>
+  </section>
 
-<div class="sticky" id="sticky">
-  <p class="p">3 receitas<b>R$ 19,90</b></p>
-  <a class="cta js-checkout" href="https://pay.kiwify.com.br/IT3Hyal" tabindex="-1">Quero aprender</a>
+  <!-- ============ OFERTA ============ -->
+  <section id="oferta" style="padding: 120px 24px; background: radial-gradient(50% 50% at 50% 40%, rgba(217,181,110,.14), rgba(10,8,9,0) 70%), #0a0809">
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center">
+      <span style="font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: .3em; color: #d9b56e">QUANTO CUSTA APRENDER AS TRÊS RECEITAS?</span>
+      <p style="margin: 0; max-width: 680px; font-size: 18px; color: #a89d88">Você poderia tentar descobrir sozinho quais ingredientes usar, testar várias combinações e gastar tempo até encontrar uma receita que goste. Ou pode acompanhar o preparo das três batidas da Cremo, passo a passo, em vídeo.</p>
+
+      <div style="width: 100%; max-width: 560px; margin-top: 26px; padding: 6px; border-radius: 30px; border: 1px solid #6b5530">
+        <div style="border-radius: 24px; border: 1px solid #3a2f1f; background: #120e0c; padding: 40px 34px 34px; display: flex; flex-direction: column; align-items: center; gap: 20px">
+          <img src="logo.webp" alt="Cremo" style="width: 170px; height: auto; display: block">
+          <span style="font-family: 'Cinzel', serif; font-size: 15px; letter-spacing: .32em; color: #e8c784">MÉTODO CREMO</span>
+          <div style="width: 100%; display: flex; flex-direction: column; gap: 0; text-align: left">
+            <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 0; border-bottom: 1px solid #2c241a"><span style="color: #efe6d4">Videoaula de morango</span><span style="color: #ff9ab6; font-size: 14px">incluso</span></div>
+            <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 0; border-bottom: 1px solid #2c241a"><span style="color: #efe6d4">Videoaula de maracujá</span><span style="color: #f2c75a; font-size: 14px">incluso</span></div>
+            <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 0; border-bottom: 1px solid #2c241a"><span style="color: #efe6d4">Videoaula de açaí</span><span style="color: #cf9cec; font-size: 14px">incluso</span></div>
+            <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 0"><span style="color: #efe6d4">Demonstração prática do preparo</span><span style="color: #e8c784; font-size: 14px">incluso</span></div>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 6px">
+            <span style="font-size: 14px; color: #a89d88">acesso completo às 3 receitas</span>
+            <span style="font-family: 'Cormorant Garamond', serif; font-weight: 700; font-size: 84px; line-height: 1; color: #f3d999">R$ 19,90</span>
+          </div>
+          <a class="cta-btn" href="https://pay.kiwify.com.br/IT3Hyal" style="width: 100%; display: inline-flex; justify-content: center; align-items: center; gap: 12px; min-height: 62px; padding: 18px 26px; border-radius: 999px; background: linear-gradient(180deg, #f3d999, #d9b56e 55%, #b98f45); color: #1c1305; font-weight: 800; font-size: 16px; letter-spacing: .08em; text-decoration: none; box-shadow: 0 12px 30px -12px rgba(217,181,110,.6), inset 0 1px 0 rgba(255,255,255,.55)">QUERO COMEÇAR POR R$ 19,90</a>
+          <span style="font-size: 14px; color: #a89d88">Uma compra para aprender as três receitas.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section style="padding: 100px 24px; background: #110d0e; border-top: 1px solid #2c241a">
+    <div style="max-width: 820px; margin: 0 auto">
+      <h2 style="margin: 0 0 36px; text-align: center; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: clamp(38px, 4.4vw, 54px); line-height: 1.05; color: #fbf3e0">Perguntas frequentes</h2>
+      <div style="display: flex; flex-direction: column; border-top: 1px solid #3a2f1f">
+        <details style="border-bottom: 1px solid #3a2f1f"><summary style="display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 24px 0; font-size: 19px; font-weight: 700; color: #fbf3e0">Preciso saber cozinhar?<span class="faq-plus" style="flex: none; font-size: 28px; font-weight: 400; color: #d9b56e; transition: transform .2s">+</span></summary><p style="margin: 0; padding: 0 0 24px; color: #a89d88">Não. As videoaulas são pensadas para acompanhar o preparo, inclusive para iniciantes.</p></details>
+        <details style="border-bottom: 1px solid #3a2f1f"><summary style="display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 24px 0; font-size: 19px; font-weight: 700; color: #fbf3e0">Posso preparar as batidas para vender?<span class="faq-plus" style="flex: none; font-size: 28px; font-weight: 400; color: #d9b56e; transition: transform .2s">+</span></summary><p style="margin: 0; padding: 0 0 24px; color: #a89d88">Sim. Você pode aprender as receitas e utilizá-las como ponto de partida para produzir bebidas destinadas à venda, respeitando as normas aplicáveis.</p></details>
+        <details style="border-bottom: 1px solid #3a2f1f"><summary style="display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 24px 0; font-size: 19px; font-weight: 700; color: #fbf3e0">Vou aprender a vender no iFood?<span class="faq-plus" style="flex: none; font-size: 28px; font-weight: 400; color: #d9b56e; transition: transform .2s">+</span></summary><p style="margin: 0; padding: 0 0 24px; color: #a89d88">O Método Cremo ensina a preparar as três receitas. A abertura de uma operação no iFood, precificação, taxas e exigências do delivery são etapas adicionais.</p></details>
+        <details style="border-bottom: 1px solid #3a2f1f"><summary style="display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 24px 0; font-size: 19px; font-weight: 700; color: #fbf3e0">Vou ganhar o mesmo dinheiro que você?<span class="faq-plus" style="flex: none; font-size: 28px; font-weight: 400; color: #d9b56e; transition: transform .2s">+</span></summary><p style="margin: 0; padding: 0 0 24px; color: #a89d88">Não existe essa garantia. Meus resultados dependem da minha operação, dos dias trabalhados, custos, clientes e vendas. Compartilho minha experiência para mostrar o que fiz, não para prometer resultados iguais.</p></details>
+        <details style="border-bottom: 1px solid #3a2f1f"><summary style="display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 24px 0; font-size: 19px; font-weight: 700; color: #fbf3e0">Quanto custa?<span class="faq-plus" style="flex: none; font-size: 28px; font-weight: 400; color: #d9b56e; transition: transform .2s">+</span></summary><p style="margin: 0; padding: 0 0 24px; color: #a89d88">Apenas R$ 19,90 pelo conteúdo das três receitas.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FINAL ============ -->
+  <section style="padding: 110px 24px 60px; text-align: center; background: radial-gradient(55% 60% at 50% 100%, rgba(217,181,110,.14), rgba(10,8,9,0) 70%), #0a0809">
+    <div style="max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 22px">
+      <div style="display: flex; justify-content: center; align-items: flex-end; gap: 0; margin-bottom: 10px">
+        <img src="label-morango.webp" alt="" style="width: 96px; height: auto; transform: rotate(-8deg) translateX(14px)">
+        <img src="label-maracuja.webp" alt="" style="width: 112px; height: auto; position: relative; z-index: 1">
+        <img src="label-acai.webp" alt="" style="width: 96px; height: auto; transform: rotate(8deg) translateX(-14px)">
+      </div>
+      <h2 style="margin: 0; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: clamp(40px, 5vw, 66px); line-height: 1.02; color: #fbf3e0">Quem sabe o seu próximo negócio <span style="font-style: italic; color: #e8c784">começa com uma batida?</span></h2>
+      <p style="margin: 0; max-width: 640px; font-size: 18px; color: #a89d88">Você já viu o que eu consegui construir vendendo as minhas. Agora pode aprender o preparo dos três sabores e descobrir o que consegue fazer com esse conhecimento.</p>
+      <span style="font-family: 'Cinzel', serif; font-size: 14px; letter-spacing: .22em; color: #efe6d4">COMECE PELO PRODUTO. APRENDA AS RECEITAS.</span>
+      <a class="cta-btn" href="https://pay.kiwify.com.br/IT3Hyal" style="display: inline-flex; align-items: center; gap: 12px; min-height: 60px; padding: 18px 34px; border-radius: 999px; background: linear-gradient(180deg, #f3d999, #d9b56e 55%, #b98f45); color: #1c1305; font-weight: 800; font-size: 16px; letter-spacing: .08em; text-decoration: none; box-shadow: 0 12px 30px -12px rgba(217,181,110,.6), inset 0 1px 0 rgba(255,255,255,.55)">QUERO MEU MÉTODO CREMO POR R$ 19,90</a>
+    </div>
+    <footer style="max-width: 1200px; margin: 90px auto 0; padding-top: 26px; border-top: 1px solid #2c241a; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 13px; color: #8a8070; text-align: left">
+      <span>CREMO · Shake de Mousse Premium · @rickmartinsj</span>
+      <span>Resultado pessoal de vendas. Seus resultados podem variar e não há garantia de faturamento ou lucro.</span>
+    </footer>
+  </section>
 </div>
 
-<script>
-/* ===== CONFIGURE AQUI ===== */
-var CHECKOUT_URL = "https://pay.kiwify.com.br/IT3Hyal";   // cole o link do checkout, ex.: "https://pay.kiwify.com.br/XXXX"
-/* ========================== */
-(function(){
-  if(/^https:\/\//.test(CHECKOUT_URL)){
-    var framed = window.top !== window.self;
-    document.querySelectorAll('.js-checkout').forEach(function(a){ a.href = CHECKOUT_URL; if(framed){ a.target = '_blank'; a.rel = 'noopener'; } });
-  }
-  var sticky = document.getElementById('sticky'), hero = document.querySelector('.hero'), offer = document.getElementById('oferta');
-  function onScroll(){
-    var o = offer.getBoundingClientRect();
-    var overOffer = o.top < window.innerHeight && o.bottom > 0;
-    sticky.classList.toggle('show', window.scrollY > hero.offsetHeight * 0.85 && !overOffer);
-  }
-  window.addEventListener('scroll', onScroll, {passive:true}); onScroll();
-})();
-</script>
-</body></html>
+</body>
+</html>
