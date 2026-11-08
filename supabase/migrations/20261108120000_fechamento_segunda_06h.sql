@@ -176,18 +176,22 @@ end $$;
 -- 7) what the app shows: status of a closed period, winner, how many pendencias (no names) ---
 create or replace function public.premio_resultado(p_tipo text, p_inicio date)
 returns jsonb language sql stable security definer set search_path = public as $$
-  select case when not exists (select 1 from public.premio_fechamento f where f.tipo = p_tipo and f.inicio = p_inicio) then null
-         else jsonb_build_object(
-           'status', (select max(status) from public.premio_fechamento f where f.tipo = p_tipo and f.inicio = p_inicio),
-           'fim', (select max(fim) from public.premio_fechamento f where f.tipo = p_tipo and f.inicio = p_inicio),
-           'homologado_em', (select max(homologado_em) from public.premio_fechamento f where f.tipo = p_tipo and f.inicio = p_inicio),
-           'pendencias', (select coalesce(jsonb_array_length(max(pendencias)), 0) from public.premio_fechamento f where f.tipo = p_tipo and f.inicio = p_inicio),
-           'vencedor', (select jsonb_build_object('user_id', f.user_id, 'nome', pp.nickname, 'valor', f.valor, 'posicao', f.posicao)
-                          from public.premio_fechamento f left join public.public_profiles pp on pp.user_id = f.user_id
-                         where f.tipo = p_tipo and f.inicio = p_inicio
-                         order by (case when f.leva_premio then 0 else 1 end), (case when f.verificado and f.valor > 0 then 0 else 1 end), f.posicao
-                         limit 1))
-    end;
+  with p as (
+    select f.fim, f.status, f.pendencias, f.homologado_em
+      from public.premio_fechamento f where f.tipo = p_tipo and f.inicio = p_inicio limit 1  -- same on every row of the period
+  ),
+  v as (
+    select f.user_id, pp.nickname, f.valor, f.posicao
+      from public.premio_fechamento f left join public.public_profiles pp on pp.user_id = f.user_id
+     where f.tipo = p_tipo and f.inicio = p_inicio
+     order by (case when f.leva_premio then 0 else 1 end), (case when f.verificado and f.valor > 0 then 0 else 1 end), f.posicao
+     limit 1
+  )
+  select jsonb_build_object(
+           'status', p.status, 'fim', p.fim, 'homologado_em', p.homologado_em,
+           'pendencias', jsonb_array_length(p.pendencias),
+           'vencedor', (select jsonb_build_object('user_id', v.user_id, 'nome', v.nickname, 'valor', v.valor, 'posicao', v.posicao) from v))
+    from p;
 $$;
 
 revoke all on function public.premio_pendencias(date, date) from public, anon, authenticated;
