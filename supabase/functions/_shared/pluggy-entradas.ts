@@ -81,8 +81,15 @@ export function quandoFoi(t: any, horasAtraso = 0, agora = Date.now()): { dia: s
  *  ~650 entries: the fastest read came 6h00 after the stored time (other banks: seconds), and a
  *  Pix the bank statement lists at 00:41 of day 2 arrived as 18:41 of day 1. A morning Pix then
  *  looked like 5 a.m. and was pushed to the previous day. */
+/** 08/11/2026: Cora sends every credit 3h EARLIER (Brazil clock stamped as UTC). Checked on 360
+ *  entries of the first Cora seller: 43% landed between 0h and 5h (other banks: 0% to 6%), and
+ *  shifting +3h lines them up with his Foco hours. Without the shift, the morning Pix looked like
+ *  "before the Foco", was dropped from "caiu" and became calote (R$ 1.193 on 07/11). */
 export function horasAtrasoDoBanco(instituicao: string | null | undefined): number {
-  return /pag\s*bank|pagseguro/i.test(instituicao ?? "") ? 6 : 0;
+  const nome = instituicao ?? "";
+  if (/pag\s*bank|pagseguro/i.test(nome)) return 6;
+  if (/^\s*cora\b/i.test(nome)) return 3;
+  return 0;
 }
 
 // deno-lint-ignore no-explicit-any
