@@ -1,6 +1,7 @@
 -- ============================================================================
 -- Weekly closing, official rule (Rick, 08/11/2026 05:19):
---   • competition week = Monday 00:00 → Sunday 23:59:59, America/Sao_Paulo;
+--   • competition week = Monday 00:00 → Sunday 23:59:59, America/Sao_Paulo
+--     (transition: the first official week is Sunday 01/11 → Sunday 08/11, 8 days);
 --   • between Sunday 23:59:59 and Monday 06:00 the banks are reconciled (pluggy-dia 03:20);
 --   • the closing runs Monday at 06:00; Monday sales already belong to the new week;
 --   • late bank credits keep their real date (transaction_date already does that);
@@ -130,7 +131,9 @@ begin
     return jsonb_build_object('cedo', true);  -- before 06:00 the banks are still being reconciled
   end if;
   if extract(isodow from hoje) = 1 then  -- Monday: last Monday → yesterday (Sunday)
-    r := r || jsonb_build_object('semana', public.premio_congelar('semana', hoje - 7, hoje - 1));
+    -- transition week (Rick, 08/11 09:44): the first official week is Sun 01/11 → Sun 08/11 (8 days)
+    r := r || jsonb_build_object('semana', public.premio_congelar('semana',
+           case when hoje - 1 = date '2026-11-08' then date '2026-11-01' else hoje - 7 end, hoje - 1));
   end if;
   if extract(day from hoje) = 1 then
     r := r || jsonb_build_object('mes', public.premio_congelar('mes', (hoje - 1) - (extract(day from hoje - 1)::int - 1), hoje - 1));

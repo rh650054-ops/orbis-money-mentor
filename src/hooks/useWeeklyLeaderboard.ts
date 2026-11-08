@@ -14,6 +14,9 @@ const TEMPORADA_INICIO = "2026-07-05";
 // SEGUNDA 00:00 → DOMINGO 23:59:59 (Brasília), apurada na segunda seguinte às 06:00.
 // Calendário de novembro: 02–08, 09–15, 16–22, 23–29 (30/11 é "Semana 5", apurada 07/12).
 export const SEMANA_SEG_DOM_DESDE = "2026-11-02";
+// Semana de transição (Rick, 08/11 09:44): a primeira semana oficial vai de DOMINGO 01/11 a
+// DOMINGO 08/11 (8 dias), apurada 09/11 06:00. Daí em diante, sempre segunda → domingo.
+export const SEMANA_TRANSICAO = { inicio: "2026-11-01", fim: "2026-11-08" } as const;
 // Aquecimento (Fase 1): a janela do ranking começa FIXA no dia 01/07. Assim ele
 // arranca limpo no dia 1 — SEM contar o dia anterior (30/06) — e a temporada
 // oficial (segunda→domingo) assume no dia 06/07.
@@ -30,6 +33,7 @@ export function segundaDaSemana(iso: string): string {
 /** The last closed week (Mon→Sun) before `todayISO`: what the result card shows. */
 export function semanaAnterior(todayISO: string = getBrazilDate()): { inicio: string; fim: string } {
   const inicio = maisDias(segundaDaSemana(todayISO), -7);
+  if (inicio === SEMANA_SEG_DOM_DESDE) return { ...SEMANA_TRANSICAO }; // the week before 09/11 is the 8-day one
   return { inicio, fim: maisDias(inicio, 6) };
 }
 
@@ -37,6 +41,7 @@ export function semanaAnterior(todayISO: string = getBrazilDate()): { inicio: st
 // - Fase 1 (01–04/07): janela começa FIXA em 01/07 (não conta o dia 30/06).
 // - A PARTIR DE 05/07 (domingo): semana DOMINGO→SÁBADO.
 export function currentWeekStart(todayISO: string = getBrazilDate()): string {
+  if (todayISO >= SEMANA_TRANSICAO.inicio && todayISO <= SEMANA_TRANSICAO.fim) return SEMANA_TRANSICAO.inicio;
   if (todayISO >= SEMANA_SEG_DOM_DESDE) return segundaDaSemana(todayISO);
   if (todayISO < TEMPORADA_INICIO) {
     // Trava o começo no dia 01/07 (se por acaso for antes disso, usa o próprio dia).
@@ -53,6 +58,7 @@ export function currentWeekStart(todayISO: string = getBrazilDate()): string {
 // - Fase 1 (01–04/07): termina HOJE (janela = 01/07 → hoje).
 // - A PARTIR DE 05/07: sábado da semana (domingo + 6).
 export function currentWeekEnd(todayISO: string = getBrazilDate()): string {
+  if (todayISO >= SEMANA_TRANSICAO.inicio && todayISO <= SEMANA_TRANSICAO.fim) return SEMANA_TRANSICAO.fim;
   if (todayISO >= SEMANA_SEG_DOM_DESDE) return maisDias(segundaDaSemana(todayISO), 6); // domingo
   if (todayISO < TEMPORADA_INICIO) return todayISO;
   const d = new Date(`${todayISO}T12:00:00Z`);

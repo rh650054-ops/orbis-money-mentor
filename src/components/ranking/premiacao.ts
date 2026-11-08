@@ -1,6 +1,6 @@
 /* DESAFIO AVANTE — premiação de novembro (Rick, 29/10/2026): R$ 500 pro 1º do mês
    (constância) e R$ 50 pro melhor vendedor de cada semana.
-   08/11 (regra oficial): semana = SEGUNDA → DOMINGO, apurada segunda 06:00. Semana 1 = 02–08/11. */
+   08/11 (regra oficial): semana = SEGUNDA → DOMINGO, apurada segunda 06:00. Semana 1 = 01–08/11 (transição). */
 export const PREMIO_INICIO = "2026-11-01";
 export const PREMIO_FIM = "2026-11-30";
 export const PREMIO_MES = 500;
@@ -14,10 +14,12 @@ export function lerAba(v: string | null): Aba {
 
 const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
-/** "Semana 2 · 09/11 a 15/11" (número só dentro de novembro; Semana 1 começa em 02/11). */
-export const SEMANA_1_INICIO = "2026-11-02";
+/** "Semana 2 · 09/11 a 15/11" (número só dentro de novembro). Semana 1 = 01/11 a 08/11 (8 dias,
+ *  transição decidida em 08/11); da Semana 2 em diante, segunda → domingo. */
+export const SEMANA_1_INICIO = "2026-11-01";
 export function rotuloSemana(inicio: string, fim: string): string {
-  const n = inicio >= SEMANA_1_INICIO && inicio <= PREMIO_FIM ? Math.floor((Number(inicio.slice(8, 10)) - 2) / 7) + 1 : null;
+  const n = inicio === SEMANA_1_INICIO ? 1
+    : inicio >= "2026-11-02" && inicio <= PREMIO_FIM ? Math.floor((Number(inicio.slice(8, 10)) - 2) / 7) + 1 : null;
   return `${n ? `Semana ${n} · ` : ""}${ddmm(inicio)} a ${ddmm(fim)}`;
 }
 

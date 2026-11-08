@@ -13,9 +13,9 @@ describe("ranking semanal + premiação de novembro", () => {
     expect(lerAba(null)).toBe("mensal");
   });
   it("semanas de novembro numeradas (segunda a domingo, Semana 1 = 02/11)", () => {
-    expect(rotuloSemana("2026-11-02", "2026-11-08")).toBe("Semana 1 · 02/11 a 08/11");
+    expect(rotuloSemana("2026-11-01", "2026-11-08")).toBe("Semana 1 · 01/11 a 08/11");
     expect(rotuloSemana("2026-11-30", "2026-12-06")).toBe("Semana 5 · 30/11 a 06/12");
-    expect(rotuloSemana("2026-11-01", "2026-11-07")).toBe("01/11 a 07/11"); // regra antiga: sem número
+    expect(rotuloSemana("2026-10-25", "2026-10-31")).toBe("25/10 a 31/10");
     expect(rotuloSemana("2026-10-25", "2026-10-31")).toBe("25/10 a 31/10");
   });
   it("prêmio: R$ 500 no mês, R$ 50 na semana; antes de 1/11 avisa que começa; depois de 30/11 some", () => {
