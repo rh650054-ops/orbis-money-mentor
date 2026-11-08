@@ -247,7 +247,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
         <p class="muted" style="margin-top:18px;max-width:46ch">Aprenda a fazer batidas cremosas de morango, maracujá e açaí e descubra como esse produto pode ser o primeiro passo para começar a vender por conta própria.</p>
         <p class="hero-bar"><span>3 sabores.</span><span>Videoaulas práticas.</span><span class="y">Apenas R$ 19,90.</span></p>
         <div class="row">
-          <a class="cta js-checkout" href="#oferta">Quero aprender as 3 receitas
+          <a class="cta js-checkout" href="https://pay.kiwify.com.br/IT3Hyal">Quero aprender as 3 receitas
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg></a>
         </div>
         <p class="disclaimer muted">Resultado real da minha experiência. Não é uma promessa de ganhos.</p>
@@ -309,7 +309,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
     </article>
     <div class="three-note">
       <p>Você aprende os três sabores em um único método.</p>
-      <a class="cta js-checkout" href="#oferta">Quero as 3 receitas
+      <a class="cta js-checkout" href="https://pay.kiwify.com.br/IT3Hyal">Quero as 3 receitas
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg></a>
     </div>
   </div>
@@ -420,7 +420,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
         <li><span>Passo a passo prático do preparo</span><span>✓</span></li>
       </ul>
       <div class="total"><span class="k">Tudo isso por apenas</span><span class="v"><small>R$</small> 19,90</span></div>
-      <a class="cta js-checkout" href="#oferta">Sim, quero o Método Cremo</a>
+      <a class="cta js-checkout" href="https://pay.kiwify.com.br/IT3Hyal">Sim, quero o Método Cremo</a>
       <p class="one">Uma única compra. Três receitas para aprender.</p>
     </div>
   </div>
@@ -449,7 +449,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
     <p class="lead" style="margin-top:14px">Eu comecei levando minhas batidas para vender nas ruas. <b style="color:var(--maracuja)">Agora é sua vez de aprender a prepará-las.</b></p>
     <p class="kicker" style="margin-top:30px;color:var(--paper)">Método Cremo · R$ 19,90</p>
     <div style="margin-top:18px">
-      <a class="cta js-checkout" href="#oferta">Quero aprender as 3 receitas
+      <a class="cta js-checkout" href="https://pay.kiwify.com.br/IT3Hyal">Quero aprender as 3 receitas
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg></a>
     </div>
     <p class="disclaimer muted" style="margin-top:18px">O método ensina o preparo das bebidas. Os resultados comerciais dependem de cada pessoa.</p>
@@ -465,16 +465,17 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 
 <div class="sticky" id="sticky">
   <p class="p">3 receitas<b>R$ 19,90</b></p>
-  <a class="cta js-checkout" href="#oferta" tabindex="-1">Quero aprender</a>
+  <a class="cta js-checkout" href="https://pay.kiwify.com.br/IT3Hyal" tabindex="-1">Quero aprender</a>
 </div>
 
 <script>
 /* ===== CONFIGURE AQUI ===== */
-var CHECKOUT_URL = "";   // cole o link do checkout, ex.: "https://pay.kiwify.com.br/XXXX"
+var CHECKOUT_URL = "https://pay.kiwify.com.br/IT3Hyal";   // cole o link do checkout, ex.: "https://pay.kiwify.com.br/XXXX"
 /* ========================== */
 (function(){
   if(/^https:\/\//.test(CHECKOUT_URL)){
-    document.querySelectorAll('.js-checkout').forEach(function(a){ a.href = CHECKOUT_URL; a.target = '_blank'; a.rel = 'noopener'; });
+    var framed = window.top !== window.self;
+    document.querySelectorAll('.js-checkout').forEach(function(a){ a.href = CHECKOUT_URL; if(framed){ a.target = '_blank'; a.rel = 'noopener'; } });
   }
   var sticky = document.getElementById('sticky'), hero = document.querySelector('.hero'), offer = document.getElementById('oferta');
   function onScroll(){
