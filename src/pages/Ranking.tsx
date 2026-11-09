@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { currentWeekEnd, currentWeekStart, useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
 import { RankingAbas } from "@/components/ranking/RankingAbas";
+import { ResultadoSemana } from "@/components/ranking/ResultadoSemana";
 import { liderDoPremio, lerAba, rotuloSemana, PREMIO_FIM, PREMIO_INICIO, PREMIO_MES, PREMIO_SEMANA, type Aba } from "@/components/ranking/premiacao";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
@@ -321,7 +322,7 @@ export default function Ranking() {
       </div>
 
       <p className="text-center text-xs text-muted-foreground">
-        {activeTab === "mensal" ? "Maiores vendedores do mês · ofensiva 🔥 incluída" : "Maiores vendedores da semana · domingo a sábado"}
+        {activeTab === "mensal" ? "Maiores vendedores do mês · ofensiva 🔥 incluída" : "Maiores vendedores da semana · segunda a domingo"}
       </p>
 
       <RankingAbas aba={activeTab} onAba={trocarAba} hoje={getBrazilDate()} periodoSemana={rotuloSemana(currentWeekStart(), currentWeekEnd())} fimSemana={currentWeekEnd()}
@@ -401,6 +402,7 @@ export default function Ranking() {
             </div>
           ) : (
             <>
+              <ResultadoSemana hoje={getBrazilDate()} meuId={user?.id} />
               {weekly.hasParticipated && weekly.currentUserStats && (
                 <button
                   onClick={handleShare}

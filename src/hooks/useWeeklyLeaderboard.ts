@@ -10,16 +10,39 @@ import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 // dia a dia pelo valor verificado (sem extrato até o domingo seguinte, o dia zera).
 // Temporada oficial (semana domingo→sábado) abre dia 05/07 (domingo).
 const TEMPORADA_INICIO = "2026-07-05";
+// REGRA OFICIAL (Rick, 08/11/2026): a partir de 02/11 a semana de competição é
+// SEGUNDA 00:00 → DOMINGO 23:59:59 (Brasília), apurada na segunda seguinte às 06:00.
+// Calendário de novembro: 02–08, 09–15, 16–22, 23–29 (30/11 é "Semana 5", apurada 07/12).
+export const SEMANA_SEG_DOM_DESDE = "2026-11-02";
+// Semana de transição (Rick, 08/11 09:44): a primeira semana oficial vai de DOMINGO 01/11 a
+// DOMINGO 08/11 (8 dias), apurada 09/11 06:00. Daí em diante, sempre segunda → domingo.
+export const SEMANA_TRANSICAO = { inicio: "2026-11-01", fim: "2026-11-08" } as const;
 // Aquecimento (Fase 1): a janela do ranking começa FIXA no dia 01/07. Assim ele
 // arranca limpo no dia 1 — SEM contar o dia anterior (30/06) — e a temporada
 // oficial (segunda→domingo) assume no dia 06/07.
 const PRE_SEASON_START = "2026-07-01";
 
+const maisDias = (iso: string, n: number) => {
+  const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10);
+};
+/** Monday of the week that holds `iso` (Mon→Sun weeks). */
+export function segundaDaSemana(iso: string): string {
+  const dow = new Date(`${iso}T12:00:00Z`).getUTCDay(); // 0 = domingo
+  return maisDias(iso, dow === 0 ? -6 : 1 - dow);
+}
+/** The last closed week (Mon→Sun) before `todayISO`: what the result card shows. */
+export function semanaAnterior(todayISO: string = getBrazilDate()): { inicio: string; fim: string } {
+  const inicio = maisDias(segundaDaSemana(todayISO), -7);
+  if (inicio === SEMANA_SEG_DOM_DESDE) return { ...SEMANA_TRANSICAO }; // the week before 09/11 is the 8-day one
+  return { inicio, fim: maisDias(inicio, 6) };
+}
+
 // Início da janela do ranking (fuso BR).
 // - Fase 1 (01–04/07): janela começa FIXA em 01/07 (não conta o dia 30/06).
 // - A PARTIR DE 05/07 (domingo): semana DOMINGO→SÁBADO.
-export function currentWeekStart(): string {
-  const todayISO = getBrazilDate(); // "YYYY-MM-DD" no fuso BR
+export function currentWeekStart(todayISO: string = getBrazilDate()): string {
+  if (todayISO >= SEMANA_TRANSICAO.inicio && todayISO <= SEMANA_TRANSICAO.fim) return SEMANA_TRANSICAO.inicio;
+  if (todayISO >= SEMANA_SEG_DOM_DESDE) return segundaDaSemana(todayISO);
   if (todayISO < TEMPORADA_INICIO) {
     // Trava o começo no dia 01/07 (se por acaso for antes disso, usa o próprio dia).
     return todayISO < PRE_SEASON_START ? todayISO : PRE_SEASON_START;
@@ -34,8 +57,9 @@ export function currentWeekStart(): string {
 // Fim da janela do ranking (fuso BR).
 // - Fase 1 (01–04/07): termina HOJE (janela = 01/07 → hoje).
 // - A PARTIR DE 05/07: sábado da semana (domingo + 6).
-export function currentWeekEnd(): string {
-  const todayISO = getBrazilDate();
+export function currentWeekEnd(todayISO: string = getBrazilDate()): string {
+  if (todayISO >= SEMANA_TRANSICAO.inicio && todayISO <= SEMANA_TRANSICAO.fim) return SEMANA_TRANSICAO.fim;
+  if (todayISO >= SEMANA_SEG_DOM_DESDE) return maisDias(segundaDaSemana(todayISO), 6); // domingo
   if (todayISO < TEMPORADA_INICIO) return todayISO;
   const d = new Date(`${todayISO}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - d.getUTCDay() + 6); // domingo + 6 = sábado

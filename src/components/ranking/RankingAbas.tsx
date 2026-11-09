@@ -138,7 +138,7 @@ export function RankingAbas({ aba, onAba, hoje, periodoSemana, fimSemana, posica
     return (
       <div className="space-y-2.5">
         <Abas aba={aba} onAba={onAba} />
-        {aba === "semanal" && <p className="text-center text-[12px] font-bold" style={{ color: "#b9b3a6" }}>{periodoSemana} · fecha sábado 23:59</p>}
+        {aba === "semanal" && <p className="text-center text-[12px] font-bold" style={{ color: "#b9b3a6" }}>{periodoSemana} · fecha domingo 23:59 · resultado segunda 06h</p>}
       </div>
     );
   }
@@ -146,7 +146,7 @@ export function RankingAbas({ aba, onAba, hoje, periodoSemana, fimSemana, posica
   // "Semana 2 · 08/11 a 14/11" → "DESAFIO DA SEMANA 2" e as datas numa linha menor
   const [semanaNome, semanaDatas] = periodoSemana.includes(" · ") ? periodoSemana.split(" · ") : [periodoSemana, ""];
   const titulo = aba === "mensal" ? tema.titulo : `DESAFIO DA ${(semanaNome ?? "").toUpperCase()}`;
-  const linha = aba === "mensal" ? "01/11 a 30/11 · fecha dia 30, 23:59" : `${semanaDatas ? semanaDatas + " · " : ""}fecha sábado 23:59`;
+  const linha = aba === "mensal" ? "01/11 a 30/11 · fecha dia 30, 23:59" : `${semanaDatas ? semanaDatas + " · " : ""}fecha domingo 23:59 · resultado segunda 06h`;
   const pct = posicao && posicao > 1 && faltaPro1 && meuValor != null && meuValor + faltaPro1 > 0 ? Math.max(4, Math.min(100, (meuValor / (meuValor + faltaPro1)) * 100)) : null;
   return (
     <div className="space-y-2.5">
