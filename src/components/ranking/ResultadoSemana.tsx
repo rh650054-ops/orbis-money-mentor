@@ -50,7 +50,9 @@ export function ResultadoSemana({ hoje, meuId }: { hoje: string; meuId: string |
       )}
       <p className="mt-1 text-[12px] text-muted-foreground">
         {provisorio
-          ? `Conferindo os bancos: ${data.pendencias} ${data.pendencias === 1 ? "pendência" : "pendências"} que ainda podem mudar o vencedor. O prêmio sai quando tudo bater.`
+          ? data.pendencias > 0
+            ? `Conferindo os bancos: ${data.pendencias} ${data.pendencias === 1 ? "pendência" : "pendências"} que ainda podem mudar o vencedor. O prêmio sai quando tudo bater.`
+            : "Bancos conferidos. Falta a homologação da VANT para o prêmio sair."
           : "Conferido no banco. Dinheiro em espécie não entra na disputa."}
       </p>
     </section>
