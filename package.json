@@ -13,6 +13,8 @@
     "test:run": "vitest run",
     "test:cov": "vitest run --coverage",
     "preflight": "npm run lint && npm run typecheck && npm run test:run",
+    "test:sql": "node supabase/tests/rodar.mjs",
+    "drift": "node scripts/drift-producao.mjs",
     "preview": "vite preview",
     "android": "npm run build && npx cap sync android && npx cap run android",
     "android:dev": "npx cap run android --livereload --external",

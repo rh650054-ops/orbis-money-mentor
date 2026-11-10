@@ -1,0 +1,363 @@
+{
+ "capturado_em": "2026-11-10",
+ "projeto": "producao (Supabase)",
+ "como_ler": "funcoes: nome -> md5 (10 primeiros caracteres) do corpo da funcao em minusculas e sem espacos, como esta em producao. md5_exato: md5 completo do corpo sem \\r, para as funcoes copiadas em supabase/baseline. Mais de um hash = funcao com mais de uma assinatura.",
+ "consulta_para_atualizar": "select p.proname, left(md5(regexp_replace(lower(p.prosrc), '\\s+', '', 'g')), 10) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' order by 1;",
+ "funcoes": {
+  "banco_conceder_selo": [
+   "e4e17f7865"
+  ],
+  "banco_conferencia": [
+   "28d6f8bf38"
+  ],
+  "banco_conta_de_venda": [
+   "a19e48671a"
+  ],
+  "banco_eh_maquininha": [
+   "80cdfb19c5"
+  ],
+  "banco_entradas_classificadas": [
+   "c0d0abe460"
+  ],
+  "banco_entradas_detalhe": [
+   "f1280c7795"
+  ],
+  "banco_entradas_por_dia": [
+   "ff81cb27dc"
+  ],
+  "banco_entrou_do_dia": [
+   "8abeacafa2"
+  ],
+  "banco_excessos": [
+   "daa34ac407"
+  ],
+  "banco_extra_registrar": [
+   "cfef5bec44"
+  ],
+  "banco_lancado_dia": [
+   "d935cbb78d"
+  ],
+  "banco_ligou_em": [
+   "3585714a96"
+  ],
+  "banco_mesma_pessoa": [
+   "12acceff02"
+  ],
+  "banco_nao_e_venda": [
+   "238c1a2f00"
+  ],
+  "banco_pagador": [
+   "8164a77e85"
+  ],
+  "banco_pausar_sem_acesso": [
+   "88bd739bf2"
+  ],
+  "banco_pix_do_dia": [
+   "f2e542b2ec"
+  ],
+  "banco_pix_por_dia": [
+   "9639520c05"
+  ],
+  "banco_pode_ler": [
+   "6e5f8b8ad2"
+  ],
+  "banco_reconciliar": [
+   "22d5aafbe3"
+  ],
+  "banco_reconciliar_me": [
+   "87a8ae08e2"
+  ],
+  "banco_revisao_registrar": [
+   "f87a7f065b"
+  ],
+  "bank_connections_papel_guarda": [
+   "dfd8229ced"
+  ],
+  "bank_connections_papel_inicial": [
+   "5d6ef8f84b"
+  ],
+  "bank_connections_so_servidor": [
+   "3d94d28066"
+  ],
+  "cartao_sincronizar_conta": [
+   "016621cd2c"
+  ],
+  "comprovante_renda": [
+   "8cce934fec"
+  ],
+  "emprestimo_sincronizar_conta": [
+   "2aeeb68dde"
+  ],
+  "extrato_analisar_padroes": [
+   "868bc98d68"
+  ],
+  "extrato_apagar_arquivo": [
+   "8e43f92c41"
+  ],
+  "extrato_apagar_manual": [
+   "f02f4438c4"
+  ],
+  "extrato_base": [
+   "bc0719d627"
+  ],
+  "extrato_categoria_criar": [
+   "c70b124022"
+  ],
+  "extrato_chave": [
+   "7c90060eb2"
+  ],
+  "extrato_conferir_contas": [
+   "e635259b03"
+  ],
+  "extrato_conta_uso": [
+   "d3261d45d8"
+  ],
+  "extrato_dicionario_fixo": [
+   "6b4a8f88d8"
+  ],
+  "extrato_eh_titular": [
+   "87d8b0a9b1"
+  ],
+  "extrato_fora_analise": [
+   "3ae44e634a"
+  ],
+  "extrato_gerar_perguntas": [
+   "c67eea9a8d"
+  ],
+  "extrato_lancamento_trava": [
+   "9b2a1f693c"
+  ],
+  "extrato_lancar_manual": [
+   "89470f3144"
+  ],
+  "extrato_limpa_desc": [
+   "19081a6a42"
+  ],
+  "extrato_lista": [
+   "5822df7376"
+  ],
+  "extrato_meses": [
+   "448b5a3aec"
+  ],
+  "extrato_mover": [
+   "94974747eb"
+  ],
+  "extrato_mover_um": [
+   "0674734074"
+  ],
+  "extrato_norm": [
+   "64f5f88972"
+  ],
+  "extrato_reanalisar": [
+   "7e614aa897"
+  ],
+  "extrato_renomear": [
+   "802b40626a"
+  ],
+  "extrato_responder": [
+   "7ee90a47b7"
+  ],
+  "extrato_resumo": [
+   "7c959cc887"
+  ],
+  "extrato_tokens": [
+   "c28a574ac4"
+  ],
+  "financas_guardar_dia_touch": [
+   "fa6e76dbdc"
+  ],
+  "financas_home": [
+   "df2b17039a"
+  ],
+  "financas_limite_essencial": [
+   "0f2a7ea2d8"
+  ],
+  "financas_painel": [
+   "0912c45236"
+  ],
+  "financas_rastreador": [
+   "3e8aa1bf99"
+  ],
+  "financas_teto_definir": [
+   "869ea2a828"
+  ],
+  "financas_tetos_lista": [
+   "41304014c9"
+  ],
+  "get_weekly_ranking": [
+   "16ec83ab99",
+   "2ae0667fbe"
+  ],
+  "get_weekly_ranking_verified": [
+   "7c339338d3"
+  ],
+  "leaderboard_faturamento_do_servidor": [
+   "17743435da"
+  ],
+  "mp_comprovado": [
+   "4e1495beb9"
+  ],
+  "mp_conciliacao_dia": [
+   "dcb2784df2"
+  ],
+  "mp_conciliacao_mes": [
+   "49de588e6e"
+  ],
+  "mp_conexoes_lista": [
+   "c5dc2a30f2"
+  ],
+  "mp_desconectar": [
+   "5f06d24a78"
+  ],
+  "mp_fila": [
+   "ba7c87dba2"
+  ],
+  "mp_ignorar_venda": [
+   "63f5364d75"
+  ],
+  "mp_lancar_vendas": [
+   "12fb4e03f0"
+  ],
+  "mp_quero": [
+   "99662209b7"
+  ],
+  "mp_status": [
+   "e8dc5eb0f6"
+  ],
+  "mp_vendas_pendentes": [
+   "d10395f78d"
+  ],
+  "objetivo_lucro_base": [
+   "fae8ed523c"
+  ],
+  "open_finance_caixinhas": [
+   "a5ef751f85"
+  ],
+  "open_finance_contas": [
+   "afb1c51e93"
+  ],
+  "open_finance_definir_papel": [
+   "fdceaf86df"
+  ],
+  "open_finance_limite": [
+   "0c9fbcebc2"
+  ],
+  "open_finance_marcar_reserva": [
+   "f28fd5f91b"
+  ],
+  "open_finance_sugestao": [
+   "c4aed49731"
+  ],
+  "open_finance_teste": [
+   "2c8256a80b"
+  ],
+  "orbis_pro_ativo": [
+   "0bca1afef2"
+  ],
+  "orbis_pro_status": [
+   "42fd3773ab"
+  ],
+  "premio_congelar": [
+   "1359061977"
+  ],
+  "premio_congelar_agora": [
+   "b18b2e4c7f"
+  ],
+  "premio_homologar_manual": [
+   "9aa1b279fc"
+  ],
+  "premio_pendencias": [
+   "895579dd30"
+  ],
+  "premio_reavaliar": [
+   "4d4065a55b"
+  ],
+  "premio_resultado": [
+   "8a13d7633a"
+  ],
+  "ranking_atualizar": [
+   "b9318a8af0"
+  ],
+  "ranking_banco_desde": [
+   "678e8f5d5d"
+  ],
+  "ranking_cache_atualizar": [
+   "3dbe6e095f"
+  ],
+  "ranking_congelado_ate": [
+   "5ccc6cb178"
+  ],
+  "ranking_definir_oculto": [
+   "ddcbbff574"
+  ],
+  "ranking_meu_total_mes": [
+   "bb9bcf6675"
+  ],
+  "ranking_pode_verificar": [
+   "de5aaa2e63"
+  ],
+  "ranking_suspeitos": [
+   "9742a00385"
+  ],
+  "ranking_total_mes": [
+   "738977b8b9"
+  ],
+  "ranking_valor_dias": [
+   "3401fc432c"
+  ],
+  "ranking_virada": [
+   "cb51556bd1"
+  ],
+  "ranking_whatsapp_lead": [
+   "41c02fc356"
+  ],
+  "recalculate_competition_scores": [
+   "cafd887282"
+  ],
+  "recalculate_ranking_positions": [
+   "9576d2ce51"
+  ],
+  "relatorio_bloco": [
+   "1b251125dd"
+  ],
+  "relatorio_calote_banco": [
+   "5a61101f28"
+  ],
+  "relatorio_gastos_banco": [
+   "ad249e276f"
+  ],
+  "relatorio_periodo": [
+   "b17c1bb8b6"
+  ],
+  "selo_revisar": [
+   "3a702ec8b0"
+  ],
+  "usuario_verificado": [
+   "f34ccea088"
+  ],
+  "vant_pro_hoje": [
+   "f649c8e2fa"
+  ],
+  "vant_pro_pleno": [
+   "ebb3e5b5e9"
+  ],
+  "vender_conciliacao": [
+   "ed79e438ab"
+  ],
+  "vender_fez_caiu": [
+   "06f0647fbb"
+  ]
+ },
+ "md5_exato": {
+  "banco_conferencia": "d75fe43b3e585f9f3c739b7a1bc2d0fa",
+  "banco_eh_maquininha": "7a80d6a0fa42f2f66ddd931eef5fc85d",
+  "banco_entradas_classificadas": "0bed42a121d49bf8297777f967dfd2af",
+  "banco_ligou_em": "7b02e91850353ef0696255504e2f2e7a",
+  "banco_mesma_pessoa": "cd2c46ba963c37424a3bfbb8fe3e2425",
+  "banco_nao_e_venda": "1873dceead42d8b5d99d9310744c82f9",
+  "banco_pagador": "c85aac3a235e0d50eb5604feb8677d8e",
+  "banco_reconciliar": "c683d6fbc070b2e40a1abd38519191df",
+  "ranking_atualizar": "3bec8afe7f579d17f5193bf368402606",
+  "ranking_total_mes": "df6304f60630183144c34b3a3a2af6f6"
+ }
+}
