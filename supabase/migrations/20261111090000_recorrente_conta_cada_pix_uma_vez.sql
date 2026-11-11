@@ -8,8 +8,9 @@
 -- from Dia de Vendas, reconciliation and ranking. One vendor (Cora, 3 connections with entries)
 -- had 353 of 355 "recurrent" payers created this way.
 --
--- After: the rule counts each real Pix once. Copies are paired across connections exactly like
--- banco_entradas_detalhe already does. Thresholds, the other 7 exclusion reasons, their order and
+-- After: the rule counts each real Pix once. A copy is the same entry (amount, day, description,
+-- order) seen by another connection of the SAME bank; entries of different banks are never
+-- paired. Thresholds (who is really recurrent), the other 7 exclusion reasons, their order and
 -- the returned columns are untouched. No row is deleted or rewritten by this migration.
 --
 -- Changes exactly one CTE (por_dia, now fed by copias) of banco_entradas_classificadas.
@@ -47,11 +48,13 @@ language sql stable security definer set search_path = public as $$
        and coalesce(a.status, 'pending') <> 'ignored'
   ),
   -- F-01: every reconnection of a bank is a new connection that stores the same Pix again under
-  -- another id. Number each entry inside its own connection and keep ONE row per real Pix, the
-  -- same pairing banco_entradas_detalhe already uses (amount, day, description, order).
+  -- another id. Number each entry inside its own connection and keep ONE row per real Pix: same
+  -- BANK, amount, day, description and order. Entries of different banks are never paired, they
+  -- are different sales even when everything else matches.
   copias as (
     select public.banco_pagador(a.pagador_nome, a.description) as pagador, a.transaction_date as d, a.amount,
            lower(coalesce(a.description, '')) as chave_desc,
+           coalesce((select lower(bc.institution_name) from public.bank_connections bc where bc.id = a.bank_connection_id), '') as banco,
            row_number() over (partition by a.bank_connection_id, a.amount, a.transaction_date, lower(coalesce(a.description, ''))
                               order by a.transacted_at nulls last, a.transaction_id) as rn
       from public.auto_detected_sales a
@@ -62,9 +65,9 @@ language sql stable security definer set search_path = public as $$
   ),
   por_dia as (
     select u.pagador, u.d, count(*) as cnt, sum(u.amount) as total
-      from (select distinct on (c.d, c.amount, c.chave_desc, c.rn) c.pagador, c.d, c.amount
+      from (select distinct on (c.banco, c.d, c.amount, c.chave_desc, c.rn) c.pagador, c.d, c.amount
               from copias c
-             order by c.d, c.amount, c.chave_desc, c.rn, c.pagador) u
+             order by c.banco, c.d, c.amount, c.chave_desc, c.rn, c.pagador) u
      group by 1, 2
   ),
   recorrentes as (
