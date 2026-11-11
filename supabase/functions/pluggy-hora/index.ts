@@ -18,7 +18,7 @@ import { pluggyKey, importarEntradas, pedirAtualizacao } from "../_shared/pluggy
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { limparRepetidas } from "../_shared/pluggy-duplicadas.ts";
 import { desligarPausadas } from "../_shared/pluggy-pausa.ts";
-import { buscarItem, carimboDeLeitura } from "../_shared/pluggy-cobertura.ts";
+import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
 import {
   precisaDoVendedor, motivoDeLeitura, contarLeitura, leiturasDeHoje, relogioBRT, orcamentoDaConexao, contarPedido,
   podePedir, diasParaImportar, MAX_POR_RODADA, PEDIDO_MIN_PADRAO_MIN, PRIORIDADE, type Motivo, bancoLento,
@@ -113,15 +113,20 @@ Deno.serve(async (req) => {
     for (const { c, motivo, orc } of rodada) {
       porMotivo[motivo] = (porMotivo[motivo] ?? 0) + 1;
       const ultimaLeitura = c.last_synced_at ? new Date(c.last_synced_at) : null;
-      let leituraOk = false;
+      // F-02: "bank read" = Pluggy's last real sync, seen identical before and after our read
+      let carimbo: string | null = null;
       try {
         // 05/11: the window starts at the last GOOD read, so a failed one is read again
         const desdeOk = c.leitura_ok_em ? new Date(c.leitura_ok_em) : ultimaLeitura;
         const dias = diasParaImportar(desdeOk, new Date(), motivo === "fechamento" ? 2 : 1);
-        const r = await importarEntradas(admin, apiKey, c.item_id, c.user_id, c.id, dias);
-        lidas += r.gravadas;
-        pix += r.pix;
-        leituraOk = r.completa;
+        const lido = await importarComCarimbo({
+          buscar: () => buscarItem(apiKey, c.item_id),
+          importar: () => importarEntradas(admin, apiKey, c.item_id, c.user_id, c.id, dias),
+          atual: c.leitura_ok_em, rotulo: c.id,
+        });
+        lidas += lido.r.gravadas;
+        pix += lido.r.pix;
+        carimbo = lido.carimbo;
       } catch (e) {
         falhas++;
         console.error("pluggy-hora: importar", c.id, (e as Error)?.message);
@@ -144,10 +149,6 @@ Deno.serve(async (req) => {
         leituras_qtd: contarLeitura(c.leituras_dia, c.leituras_qtd, hoje),
       };
       // 05/11 (audit #2): only a complete read proves "no Pix that day"
-      // F-02: and only up to the last time Pluggy really synced with the bank, not up to "now"
-      const carimbo = leituraOk
-        ? carimboDeLeitura({ completa: true, item: await buscarItem(apiKey, c.item_id), atual: c.leitura_ok_em })
-        : null;
       if (carimbo) mudar.leitura_ok_em = carimbo;
       const ultimoPedido = c.pluggy_pedido_em ? new Date(c.pluggy_pedido_em) : null;
       if (podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN, { motivo, restanteMes: orc.restanteMes }) && await pedirAtualizacao(apiKey, c.item_id)) {

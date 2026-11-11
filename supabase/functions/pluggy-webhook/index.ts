@@ -17,7 +17,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { apagarTransacoes, diasDoPrimeiroImporte, importarEntradas } from "../_shared/pluggy-entradas.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
-import { carimboDeLeitura } from "../_shared/pluggy-cobertura.ts";
+import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -159,8 +159,13 @@ Deno.serve(async (req) => {
 
     // 04/11 (audit OF1): a deletion re-reads 7 days first, so a re-issued twin is in before anything goes
     const apagou = evento.toLowerCase() === "transactions/deleted";
-    const r = await importarEntradas(admin, apiKey, itemId, con.user_id, con.id,
-      evento === "item/created" ? diasDoPrimeiroImporte() : apagou ? 7 : 2);
+    // F-02: the item fetched above is the "before"; it is looked at again after the read
+    const { r, carimbo } = await importarComCarimbo({
+      buscar: () => buscarItem(apiKey, itemId),
+      importar: () => importarEntradas(admin, apiKey, itemId, con.user_id, con.id,
+        evento === "item/created" ? diasDoPrimeiroImporte() : apagou ? 7 : 2),
+      atual: con.leitura_ok_em, antes: item, rotulo: con.id,
+    });
 
     // 21/10/2026: Pluggy removed these transactions (Mercado Pago re-issues Pix with new ids).
     // 04/11: only the ones with a twin already stored go (apagarTransacoes).
@@ -190,7 +195,6 @@ Deno.serve(async (req) => {
     const agoraLeitura = new Date().toISOString();
     // 05/11 (audit #2): only a complete read proves "no Pix that day"
     // F-02: stamped with Pluggy's own sync time for this item, not with our clock
-    const carimbo = carimboDeLeitura({ completa: r.completa, item, atual: con.leitura_ok_em });
     await admin.from("bank_connections").update({
       last_synced_at: agoraLeitura,
       updated_at: agoraLeitura,

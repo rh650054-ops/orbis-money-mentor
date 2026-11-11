@@ -15,7 +15,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { diasDoPrimeiroImporte, importarEntradas } from "../_shared/pluggy-entradas.ts";
-import { carimboDeLeitura } from "../_shared/pluggy-cobertura.ts";
+import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -116,12 +116,15 @@ Deno.serve(async (req) => {
     const conId = String((con as any)?.id ?? "");
     if (conId && status === "UPDATED") {
       try {
-        const r = await importarEntradas(admin, apiKey, itemId, uid, conId, diasDoPrimeiroImporte());
-        entradas = r.gravadas;
         // 05/11 (audit #2): only a complete read proves "no Pix that day"
-        // F-02: up to Pluggy's sync time for this item, not our clock
-        // deno-lint-ignore no-explicit-any
-        const carimbo = carimboDeLeitura({ completa: r.completa, item, atual: (con as any)?.leitura_ok_em ?? null });
+        // F-02: up to Pluggy's sync time for this item (same before and after the read), not our clock
+        const { r, carimbo } = await importarComCarimbo({
+          buscar: () => buscarItem(apiKey, itemId),
+          importar: () => importarEntradas(admin, apiKey, itemId, uid, conId, diasDoPrimeiroImporte()),
+          // deno-lint-ignore no-explicit-any
+          atual: (con as any)?.leitura_ok_em ?? null, antes: item, rotulo: conId,
+        });
+        entradas = r.gravadas;
         if (carimbo) await admin.from("bank_connections").update({ leitura_ok_em: carimbo }).eq("id", conId);
         console.log(`pluggy-item: ${r.contas} contas, ${r.gravadas} entradas para ${uid}`);
       } catch (e) {
