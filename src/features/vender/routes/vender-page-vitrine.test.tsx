@@ -14,6 +14,7 @@ vi.mock("@/shared/lib/checkout", async (orig) => ({ ...(await orig<typeof import
 vi.mock("@/components/ranking/AvatarRanking", () => ({ SeloVerificado: () => null }));
 vi.mock("@/components/conectar/PapelContas", () => ({ BancoExtra: () => null, avisoPapel: () => true }));
 vi.mock("../api/use-leitura-ao-abrir", () => ({ useLeituraAoAbrir: () => undefined }));
+vi.mock("../api/use-retorno-do-banco", () => ({ useRetornoDoBanco: () => undefined }));
 vi.mock("../api/use-ligar-banco", () => ({ useLigarBanco: () => ({ ligar: vi.fn(), ligando: false, precisaExtra: false, fecharExtra: vi.fn() }) }));
 const { mutacao } = vi.hoisted(() => ({ mutacao: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }) }));
 vi.mock("../api/use-vender-mutations", () => ({ useAtualizarAgoraMutation: mutacao, usePapelMutation: mutacao, useDesligarMutation: mutacao }));
