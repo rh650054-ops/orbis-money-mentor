@@ -2,12 +2,16 @@
 --
 -- ADDITIVE ONLY. This file creates new tables and new functions and nothing else:
 --   * no existing table, function, trigger or policy is altered;
---   * no foreign key points at an existing table (a foreign key would add internal triggers to
---     bank_connections / auth.users and could block deletes that work today), so the origin of
---     every mirrored row is kept as a plain id column instead;
+--   * no foreign key points at bank_connections or bank_saldos (it could block deletes that
+--     work today), so the origin of every mirrored row is kept as a plain id column instead;
+--   * the ONE link to something that already exists is the same one bank_connections and 68
+--     other tables have: user_id references auth.users ON DELETE CASCADE. It changes nothing in
+--     auth.users (Postgres keeps its own internal triggers for the key) and it is what makes the
+--     vendor's rows disappear, in the same transaction, whenever the account is deleted;
 --   * nothing here writes to daily_sales, auto_detected_sales, extrato_lancamentos, ranking,
 --     prizes, goals, badges or charges;
---   * nothing here deletes or merges anything, in the new tables or in the old ones.
+--   * the mirror deletes and merges nothing, in the new tables or in the old ones. Rows of the
+--     new tables are deleted only when the vendor's account is deleted (see "Account deletion").
 --
 -- What the model separates (contract: provider, Item, bank account, consent, purpose, history):
 --   of_provedores      who reads the bank for us (Pluggy is the only bank-connection provider)
@@ -18,7 +22,9 @@
 --   of_finalidades     purpose (trabalho / pessoal / misto / nao_definida) with validity dates
 --   of_eventos         raw provider events (empty in A-PR1; A-PR2 starts filling it)
 --   of_mudancas        every state change, with its reason
---   of_espelho_execucoes  one row per mirror run
+--   of_espelho_execucoes  one row per mirror run (numbers only, no identifier)
+--   of_retencoes       explicit, dated orders to keep a vendor's records after deletion
+--   of_retidos         the copies kept under such an order, and nothing else
 --
 -- The mirror (of_espelho_atualizar) copies what bank_connections and bank_saldos say today into
 -- these records. It runs only when somebody calls it: this migration schedules nothing.
@@ -36,7 +42,7 @@ insert into public.of_provedores (codigo, nome) values ('pluggy', 'Pluggy');
 
 create table public.of_vinculos (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null,
+  user_id uuid not null references auth.users (id) on delete cascade,
   provedor text not null default 'pluggy' references public.of_provedores (codigo),
   item_id text not null,
   instituicao text,
@@ -48,13 +54,15 @@ create table public.of_vinculos (
   criado_em timestamptz not null default now(),
   espelhado_em timestamptz not null default now(),
   unique (provedor, item_id),
-  unique (origem_conexao_id)
+  unique (origem_conexao_id),
+  -- lets every child row prove it belongs to the same vendor as its link (see the foreign keys)
+  unique (id, user_id)
 );
 create index of_vinculos_user on public.of_vinculos (user_id);
 
 create table public.of_contas (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null,
+  user_id uuid not null references auth.users (id) on delete cascade,
   instituicao text,
   -- Only a deposit account may ever receive sales. A-PR1 cannot know the type yet.
   tipo text not null default 'desconhecido'
@@ -68,7 +76,8 @@ create table public.of_contas (
   origem_conta_id text unique,
   criado_em timestamptz not null default now(),
   espelhado_em timestamptz not null default now(),
-  check ((identidade = 'nao_identificada') = (identidade_chave is null))
+  check ((identidade = 'nao_identificada') = (identidade_chave is null)),
+  unique (id, user_id)
 );
 create index of_contas_user on public.of_contas (user_id);
 -- Two rows may claim the same proven identity only by mistake: make that impossible.
@@ -77,19 +86,23 @@ create unique index of_contas_identidade_provada
   where identidade <> 'nao_identificada';
 
 create table public.of_vinculo_contas (
-  vinculo_id uuid not null references public.of_vinculos (id),
-  conta_id uuid not null references public.of_contas (id),
-  user_id uuid not null,
+  vinculo_id uuid not null,
+  conta_id uuid not null,
+  user_id uuid not null references auth.users (id) on delete cascade,
   conta_no_provedor text,
   desde timestamptz not null default now(),
   ate timestamptz,
-  primary key (vinculo_id, conta_id)
+  primary key (vinculo_id, conta_id),
+  -- The vendor is part of both keys: the database itself refuses to tie one vendor's Item to
+  -- another vendor's account, whatever the code does.
+  foreign key (vinculo_id, user_id) references public.of_vinculos (id, user_id) on delete cascade,
+  foreign key (conta_id, user_id) references public.of_contas (id, user_id) on delete cascade
 );
 create index of_vinculo_contas_conta on public.of_vinculo_contas (conta_id);
 
 create table public.of_consentimentos (
-  vinculo_id uuid primary key references public.of_vinculos (id),
-  user_id uuid not null,
+  vinculo_id uuid primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
   -- 'nao_informado': the provider told us nothing explicit about the authorisation.
   -- 'desconhecido':  the provider told us something we do not recognise (raw value kept).
   estado text not null default 'nao_informado'
@@ -99,21 +112,24 @@ create table public.of_consentimentos (
   valido_ate timestamptz,
   produtos text[],
   confirmado_em timestamptz,
-  atualizado_em timestamptz not null default now()
+  atualizado_em timestamptz not null default now(),
+  foreign key (vinculo_id, user_id) references public.of_vinculos (id, user_id) on delete cascade
 );
 
 create table public.of_finalidades (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null,
-  vinculo_id uuid not null references public.of_vinculos (id),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  vinculo_id uuid not null,
   -- null = the purpose the accounts of this Item inherit until one is set per account.
   -- A-PR1 only writes this inherited row, translated from bank_connections.papel.
-  conta_id uuid references public.of_contas (id),
+  conta_id uuid,
   finalidade text not null check (finalidade in ('trabalho', 'pessoal', 'misto', 'nao_definida')),
   vale_desde timestamptz,
   vale_ate timestamptz,
   origem text not null check (origem in ('papel_legado', 'vendedor', 'automatica')),
-  registrado_em timestamptz not null default now()
+  registrado_em timestamptz not null default now(),
+  foreign key (vinculo_id, user_id) references public.of_vinculos (id, user_id) on delete cascade,
+  foreign key (conta_id, user_id) references public.of_contas (id, user_id) on delete cascade
 );
 create index of_finalidades_vinculo on public.of_finalidades (vinculo_id);
 -- At most one purpose in force per Item (inherited) and per account.
@@ -124,6 +140,8 @@ create unique index of_finalidades_vigente
 create table public.of_eventos (
   id bigint generated always as identity primary key,
   provedor text not null references public.of_provedores (codigo),
+  -- The vendor the event belongs to, once known. Events are erased with the vendor.
+  user_id uuid references auth.users (id) on delete cascade,
   evento_id text,
   item_id text,
   tipo text,
@@ -135,22 +153,29 @@ create table public.of_eventos (
 );
 create unique index of_eventos_unico on public.of_eventos (provedor, evento_id) where evento_id is not null;
 create index of_eventos_item on public.of_eventos (item_id);
+create index of_eventos_user on public.of_eventos (user_id);
 
 create table public.of_mudancas (
   id bigint generated always as identity primary key,
-  user_id uuid not null,
-  vinculo_id uuid references public.of_vinculos (id),
-  conta_id uuid references public.of_contas (id),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  vinculo_id uuid,
+  conta_id uuid,
   campo text not null,
   de text,
   para text,
   motivo text not null,
   fonte text not null check (fonte in ('espelho', 'provedor', 'vendedor', 'sistema')),
-  evento_id bigint references public.of_eventos (id),
+  evento_id bigint references public.of_eventos (id) on delete set null,
   provedor_em timestamptz,
-  registrado_em timestamptz not null default now()
+  registrado_em timestamptz not null default now(),
+  foreign key (vinculo_id, user_id) references public.of_vinculos (id, user_id) on delete cascade,
+  foreign key (conta_id, user_id) references public.of_contas (id, user_id) on delete cascade
 );
 create index of_mudancas_vinculo on public.of_mudancas (vinculo_id);
+create index of_mudancas_user on public.of_mudancas (user_id);
+create index of_vinculo_contas_user on public.of_vinculo_contas (user_id);
+create index of_consentimentos_user on public.of_consentimentos (user_id);
+create index of_finalidades_user on public.of_finalidades (user_id);
 
 create table public.of_espelho_execucoes (
   id bigint generated always as identity primary key,
@@ -162,6 +187,108 @@ create table public.of_espelho_execucoes (
 );
 
 -- ---------------------------------------------------------------------------------------------
+-- Account deletion and retention.
+--
+-- Default: when a vendor's account is deleted, every row of theirs in the tables above is
+-- deleted with it, whichever path deleted the account:
+--   * the self-service routine (apagar_dados_do_usuario) sweeps every public table that has a
+--     user_id column, in no particular order. Deletes cascade between the new tables, so no
+--     order can fail;
+--   * the admin routine and the dashboard remove the auth user: the foreign keys cascade.
+--
+-- Exception: a RETENTION, registered beforehand by the server, with a reason, a legal basis and
+-- an end date. While one is in force for that vendor, each row is copied to of_retidos just
+-- before it is deleted. Nothing is retained without such an order, and the copies are removed
+-- when the order is closed or expires.
+--
+-- The two tables below name the vendor "titular_id", NOT "user_id", and carry no foreign key,
+-- on purpose: the self-service routine deletes from any table with a user_id column, and a
+-- foreign key would cascade. Either would erase the very records an obligation says to keep.
+-- ---------------------------------------------------------------------------------------------
+create table public.of_retencoes (
+  id bigint generated always as identity primary key,
+  titular_id uuid not null,
+  motivo text not null check (length(btrim(motivo)) >= 10),
+  base_legal text not null check (length(btrim(base_legal)) >= 5),
+  registrada_por text not null check (length(btrim(registrada_por)) >= 3),
+  registrada_em timestamptz not null default now(),
+  valida_ate timestamptz not null,
+  encerrada_em timestamptz,
+  encerrada_motivo text,
+  check (valida_ate > registrada_em),
+  check ((encerrada_em is null) = (encerrada_motivo is null))
+);
+create index of_retencoes_titular on public.of_retencoes (titular_id);
+
+create table public.of_retidos (
+  id bigint generated always as identity primary key,
+  retencao_id bigint not null references public.of_retencoes (id),
+  titular_id uuid not null,
+  tabela text not null,
+  registro jsonb not null,
+  guardado_em timestamptz not null default now()
+);
+create index of_retidos_retencao on public.of_retidos (retencao_id);
+
+-- Runs just before a row of the vendor's records is deleted. Copies it only under a retention
+-- in force; otherwise does nothing and the row is simply gone.
+create function public.of_guardar_se_retido()
+returns trigger language plpgsql security definer set search_path = public, pg_temp as $$
+declare v_ret bigint;
+begin
+  if old.user_id is null then return old; end if;
+  select r.id into v_ret from public.of_retencoes r
+   where r.titular_id = old.user_id and r.encerrada_em is null and r.valida_ate > now()
+   order by r.valida_ate desc limit 1;
+  if found then
+    insert into public.of_retidos (retencao_id, titular_id, tabela, registro)
+    values (v_ret, old.user_id, tg_table_name, to_jsonb(old));
+  end if;
+  return old;
+end $$;
+
+do $$
+declare t text;
+begin
+  foreach t in array array['of_vinculos', 'of_contas', 'of_vinculo_contas', 'of_consentimentos',
+                           'of_finalidades', 'of_mudancas', 'of_eventos'] loop
+    execute format('create trigger %I before delete on public.%I for each row execute function public.of_guardar_se_retido()',
+                   t || '_guardar_se_retido', t);
+  end loop;
+end $$;
+
+-- Registers a retention. p_valida_ate is mandatory: no retention is open-ended.
+create function public.of_retencao_registrar(p_titular uuid, p_motivo text, p_base_legal text, p_valida_ate timestamptz, p_por text)
+returns bigint language sql set search_path = public, pg_temp as $$
+  insert into public.of_retencoes (titular_id, motivo, base_legal, valida_ate, registrada_por)
+  values (p_titular, p_motivo, p_base_legal, p_valida_ate, p_por) returning id
+$$;
+
+-- Closes a retention and erases everything kept under it. Returns how many copies were erased.
+create function public.of_retencao_encerrar(p_retencao bigint, p_motivo text)
+returns integer language plpgsql set search_path = public, pg_temp as $$
+declare v_n integer;
+begin
+  if p_motivo is null or length(btrim(p_motivo)) < 3 then raise exception 'motivo obrigatorio'; end if;
+  delete from public.of_retidos where retencao_id = p_retencao;
+  get diagnostics v_n = row_count;
+  update public.of_retencoes set encerrada_em = now(), encerrada_motivo = p_motivo
+   where id = p_retencao and encerrada_em is null;
+  return v_n;
+end $$;
+
+-- Closes every retention whose end date has passed and erases what was kept under them.
+create function public.of_retencao_expurgar_vencidas()
+returns integer language plpgsql set search_path = public, pg_temp as $$
+declare r record; v_total integer := 0;
+begin
+  for r in select id from public.of_retencoes where encerrada_em is null and valida_ate <= now() loop
+    v_total := v_total + public.of_retencao_encerrar(r.id, 'prazo_vencido');
+  end loop;
+  return v_total;
+end $$;
+
+-- ---------------------------------------------------------------------------------------------
 -- Access: server only. No vendor, logged in or not, reads or writes these tables.
 -- (Supabase grants new public tables to anon/authenticated by default: take that back, and
 -- enable row level security with no policy as a second lock.)
@@ -170,12 +297,14 @@ do $$
 declare t text;
 begin
   foreach t in array array['of_provedores', 'of_vinculos', 'of_contas', 'of_vinculo_contas', 'of_consentimentos',
-                           'of_finalidades', 'of_eventos', 'of_mudancas', 'of_espelho_execucoes'] loop
+                           'of_finalidades', 'of_eventos', 'of_mudancas', 'of_espelho_execucoes',
+                           'of_retencoes', 'of_retidos'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('revoke all on table public.%I from public, anon, authenticated', t);
     execute format('grant all on table public.%I to service_role', t);
   end loop;
-  foreach t in array array['of_eventos_id_seq', 'of_mudancas_id_seq', 'of_espelho_execucoes_id_seq'] loop
+  foreach t in array array['of_eventos_id_seq', 'of_mudancas_id_seq', 'of_espelho_execucoes_id_seq',
+                           'of_retencoes_id_seq', 'of_retidos_id_seq'] loop
     execute format('revoke all on sequence public.%I from public, anon, authenticated', t);
     execute format('grant usage, select on sequence public.%I to service_role', t);
   end loop;
@@ -278,14 +407,7 @@ $$;
 -- ---------------------------------------------------------------------------------------------
 create function public.of_espelho_relatorio()
 returns jsonb language plpgsql stable set search_path = public, pg_temp as $$
-declare
-  v_sem_cadastro integer;
 begin
-  -- Vendors that no longer have an account (auth.users does not exist in the test database).
-  if to_regclass('auth.users') is not null then
-    execute 'select count(distinct v.user_id) from public.of_vinculos v
-              where not exists (select 1 from auth.users a where a.id = v.user_id)' into v_sem_cadastro;
-  end if;
   return jsonb_build_object(
     'vinculos', (select count(*) from public.of_vinculos),
     'vinculos_por_estado', (select coalesce(jsonb_object_agg(estado, n), '{}'::jsonb)
@@ -313,7 +435,9 @@ begin
     'conexoes_de_origem_incompletas', (select count(*) from public.bank_connections
                                         where user_id is null or item_id is null or btrim(item_id) = ''),
     'contas_de_origem', (select count(*) from public.bank_saldos),
-    'vendedores_sem_cadastro', v_sem_cadastro
+    'retencoes_em_vigor', (select count(*) from public.of_retencoes where encerrada_em is null and valida_ate > now()),
+    'retencoes_vencidas_a_expurgar', (select count(*) from public.of_retencoes where encerrada_em is null and valida_ate <= now()),
+    'registros_retidos', (select count(*) from public.of_retidos)
   );
 end $$;
 
@@ -322,7 +446,8 @@ end $$;
 -- One run at a time (transaction-level advisory lock). One bad row never stops the others: it
 -- is counted, described in the run row and skipped.
 -- It only INSERTS and UPDATES rows of the of_* tables. It never deletes, never merges two
--- accounts and never touches a table that existed before this migration.
+-- accounts and never touches a table that existed before this migration. The run row keeps
+-- numbers and problem kinds only: no vendor, connection, Item or account identifier.
 -- ---------------------------------------------------------------------------------------------
 create function public.of_espelho_atualizar()
 returns jsonb language plpgsql set search_path = public, pg_temp as $$
@@ -336,6 +461,7 @@ declare
   v_fin text;
   v_desde timestamptz;
   v_n integer;
+  v_restricao text;
   n_vinc_novos integer := 0;      n_vinc_estado integer := 0;   n_vinc_reapontados integer := 0;
   n_vinc_sem_origem integer := 0; n_fin_novas integer := 0;     n_fin_trocadas integer := 0;
   n_contas_novas integer := 0;    n_elos_novos integer := 0;    n_elos_fechados integer := 0;
@@ -373,7 +499,7 @@ begin
         if found then
           if v.user_id <> r.user_id then
             n_conflitos := n_conflitos + 1;
-            v_problemas := v_problemas || jsonb_build_object('conexao', r.id, 'problema', 'item_de_outro_vendedor');
+            v_problemas := v_problemas || jsonb_build_object('onde', 'conexao', 'problema', 'item_de_outro_vendedor');
             continue;
           end if;
           insert into public.of_mudancas (user_id, vinculo_id, campo, de, para, motivo, fonte)
@@ -394,7 +520,7 @@ begin
       else
         if v.user_id <> r.user_id then
           n_conflitos := n_conflitos + 1;
-          v_problemas := v_problemas || jsonb_build_object('conexao', r.id, 'problema', 'vendedor_mudou');
+          v_problemas := v_problemas || jsonb_build_object('onde', 'conexao', 'problema', 'vendedor_mudou');
           continue;
         end if;
         -- States this mirror does not own (set by later steps) are left alone, except removal.
@@ -443,7 +569,9 @@ begin
         n_fin_trocadas := n_fin_trocadas + 1;
       end if;
     exception when others then
-      v_problemas := v_problemas || jsonb_build_object('conexao', r.id, 'problema', sqlstate, 'detalhe', left(sqlerrm, 160));
+      -- Never the error text: it can quote the row's values. Only the code and the constraint.
+      get stacked diagnostics v_restricao = constraint_name;
+      v_problemas := v_problemas || jsonb_build_object('onde', 'conexao', 'problema', sqlstate, 'restricao', nullif(v_restricao, ''));
     end;
   end loop;
 
@@ -476,7 +604,7 @@ begin
         n_contas_novas := n_contas_novas + 1;
       elsif c.user_id <> r.user_id then
         n_conflitos := n_conflitos + 1;
-        v_problemas := v_problemas || jsonb_build_object('conta', c.id, 'problema', 'vendedor_mudou');
+        v_problemas := v_problemas || jsonb_build_object('onde', 'conta', 'problema', 'vendedor_mudou');
         continue;
       end if;
 
@@ -487,7 +615,7 @@ begin
       end if;
       if v.user_id <> r.user_id then
         n_conflitos := n_conflitos + 1;
-        v_problemas := v_problemas || jsonb_build_object('conta', c.id, 'problema', 'conta_e_conexao_de_vendedores_diferentes');
+        v_problemas := v_problemas || jsonb_build_object('onde', 'conta', 'problema', 'conta_e_conexao_de_vendedores_diferentes');
         continue;
       end if;
 
@@ -504,7 +632,8 @@ begin
       get diagnostics v_n = row_count;
       n_elos_novos := n_elos_novos + v_n;
     exception when others then
-      v_problemas := v_problemas || jsonb_build_object('conta_de_origem', r.conta_id, 'problema', sqlstate, 'detalhe', left(sqlerrm, 160));
+      get stacked diagnostics v_restricao = constraint_name;
+      v_problemas := v_problemas || jsonb_build_object('onde', 'conta', 'problema', sqlstate, 'restricao', nullif(v_restricao, ''));
     end;
   end loop;
 
@@ -543,7 +672,9 @@ declare f text;
 begin
   foreach f in array array[
     'public.of_vinculo_conta_de_venda(uuid, timestamptz)', 'public.of_espelho_conferir(timestamptz)',
-    'public.of_espelho_duplicadas()', 'public.of_espelho_relatorio()', 'public.of_espelho_atualizar()'] loop
+    'public.of_espelho_duplicadas()', 'public.of_espelho_relatorio()', 'public.of_espelho_atualizar()',
+    'public.of_guardar_se_retido()', 'public.of_retencao_registrar(uuid, text, text, timestamptz, text)',
+    'public.of_retencao_encerrar(bigint, text)', 'public.of_retencao_expurgar_vencidas()'] loop
     execute format('revoke all on function %s from public, anon, authenticated', f);
     execute format('grant execute on function %s to service_role', f);
   end loop;
