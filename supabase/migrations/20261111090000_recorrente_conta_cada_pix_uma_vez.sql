@@ -9,8 +9,8 @@
 -- had 353 of 355 "recurrent" payers created this way.
 --
 -- After: the rule counts each real Pix once. A copy is the same entry (amount, day, description,
--- order) seen by another connection of the SAME bank; entries of different banks are never
--- paired. Thresholds (who is really recurrent), the other 7 exclusion reasons, their order and
+-- order) seen by another connection of the SAME ACCOUNT (same bank, holder and accounts); entries
+-- of another bank or of another account in the same bank are never paired. Thresholds (who is really recurrent), the other 7 exclusion reasons, their order and
 -- the returned columns are untouched. No row is deleted or rewritten by this migration.
 --
 -- Changes exactly one CTE (por_dia, now fed by copias) of banco_entradas_classificadas.
@@ -48,13 +48,25 @@ language sql stable security definer set search_path = public as $$
        and coalesce(a.status, 'pending') <> 'ignored'
   ),
   -- F-01: every reconnection of a bank is a new connection that stores the same Pix again under
-  -- another id. Number each entry inside its own connection and keep ONE row per real Pix: same
-  -- BANK, amount, day, description and order. Entries of different banks are never paired, they
-  -- are different sales even when everything else matches.
+  -- another id. A copy is the same entry seen by another connection of the SAME ACCOUNT: same
+  -- bank, same holder and same accounts (the definition pluggy-hora already uses to remove
+  -- repeated connections). Entries of another bank, or of another account in the same bank, are
+  -- never paired: they are different sales even when amount, day and description match.
+  conexoes as (
+    select bc.id, lower(bc.institution_name) || '|' || lower(coalesce(bc.dono_nome, '')) as titular,
+           (select string_agg(lower(coalesce(s.nome, '')), ',' order by lower(coalesce(s.nome, '')))
+              from public.bank_saldos s where s.bank_connection_id = bc.id) as contas
+      from public.bank_connections bc where bc.user_id = p_user
+  ),
+  conta_de as (
+    -- accounts not listed yet (first minutes of a connection): borrow the sibling's list
+    select c.id, c.titular || '|' || coalesce(c.contas, (select max(o.contas) from conexoes o where o.titular = c.titular), '') as conta
+      from conexoes c
+  ),
   copias as (
     select public.banco_pagador(a.pagador_nome, a.description) as pagador, a.transaction_date as d, a.amount,
            lower(coalesce(a.description, '')) as chave_desc,
-           coalesce((select lower(bc.institution_name) from public.bank_connections bc where bc.id = a.bank_connection_id), '') as banco,
+           coalesce((select cd.conta from conta_de cd where cd.id = a.bank_connection_id), '') as conta,
            row_number() over (partition by a.bank_connection_id, a.amount, a.transaction_date, lower(coalesce(a.description, ''))
                               order by a.transacted_at nulls last, a.transaction_id) as rn
       from public.auto_detected_sales a
@@ -65,9 +77,9 @@ language sql stable security definer set search_path = public as $$
   ),
   por_dia as (
     select u.pagador, u.d, count(*) as cnt, sum(u.amount) as total
-      from (select distinct on (c.banco, c.d, c.amount, c.chave_desc, c.rn) c.pagador, c.d, c.amount
+      from (select distinct on (c.conta, c.d, c.amount, c.chave_desc, c.rn) c.pagador, c.d, c.amount
               from copias c
-             order by c.banco, c.d, c.amount, c.chave_desc, c.rn, c.pagador) u
+             order by c.conta, c.d, c.amount, c.chave_desc, c.rn, c.pagador) u
      group by 1, 2
   ),
   recorrentes as (
