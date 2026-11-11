@@ -1,0 +1,89 @@
+# Edge Functions: compare what is PUBLISHED with a commit, byte by byte, and publish ONE function
+# at a time. Started by hand (Actions → edge-functions → Run workflow). Every run waits for an
+# approval in the "producao" environment before it can read the Supabase token.
+#
+# Why this exists (audit 10/11/2026, F-05): functions were published by pasting their files
+# through a connector. Nothing proved that production ran what the repository says.
+#
+#   comparar   downloads each published function and compares every file with the chosen commit.
+#              Read-only. Fails on any difference.
+#   publicar   compares first with `base` (what production is supposed to be running). If they
+#              differ it STOPS. Otherwise publishes ONE function from `ref`, downloads it again
+#              and proves the published bytes are the ones in `ref`.
+#
+# One-time setup, by the owner (never paste the token anywhere else):
+#   Settings → Environments → producao → required reviewer = owner
+#   Settings → Environments → producao → secret SUPABASE_ACCESS_TOKEN (supabase.com → Account → Access Tokens)
+name: edge-functions
+on:
+  workflow_dispatch:
+    inputs:
+      acao:
+        description: "comparar (somente leitura) ou publicar (uma função)"
+        type: choice
+        options: [comparar, publicar]
+        default: comparar
+      funcoes:
+        description: "Funções, separadas por espaço (publicar aceita UMA)"
+        default: "pluggy-hora pluggy-sync pluggy-webhook pluggy-item"
+      ref:
+        description: "Commit/branch a comparar ou publicar"
+        default: main
+      base:
+        description: "Só para publicar: o que produção deveria estar rodando hoje"
+        default: main
+permissions:
+  contents: read
+concurrency:
+  group: edge-functions-producao
+  cancel-in-progress: false
+env:
+  # inputs go through the environment, never straight into a shell line
+  ACAO: ${{ inputs.acao }}
+  FUNCOES: ${{ inputs.funcoes }}
+  PROJETO: qbcsjsdwjjpybvzbxszi
+  # Functions called by cron or by Pluggy do their own authentication and run WITHOUT the JWT
+  # gate. Publishing them with the gate on would silently stop the bank robot and the webhook.
+  SEM_JWT: "pluggy-hora pluggy-webhook"
+jobs:
+  executar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: producao
+    steps:
+      - name: Validar pedido
+        run: |
+          set -euo pipefail
+          [[ "$FUNCOES" =~ ^[a-z0-9-]+(\ [a-z0-9-]+)*$ ]] || { echo "lista de funções inválida"; exit 2; }
+          if [ "$ACAO" = "publicar" ] && [ "$(echo $FUNCOES | wc -w)" != "1" ]; then
+            echo "publicar aceita exatamente UMA função por execução"; exit 2
+          fi
+      - uses: actions/checkout@v4
+        with: { ref: "${{ inputs.ref }}", path: alvo }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ inputs.base }}", path: base }
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - name: Comparar publicado × repositório
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          contra="alvo"; [ "$ACAO" = "publicar" ] && contra="base"
+          bash alvo/scripts/edge-comparar.sh "$contra" $FUNCOES
+      - name: Publicar UMA função
+        if: inputs.acao == 'publicar'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        working-directory: alvo
+        run: |
+          set -euo pipefail
+          f="$FUNCOES"
+          jwt=""; for s in $SEM_JWT; do [ "$s" = "$f" ] && jwt="--no-verify-jwt"; done
+          echo "Publicando $f de $(git rev-parse --short HEAD) ${jwt:-(com verificação de JWT)}"
+          supabase functions deploy "$f" --project-ref "$PROJETO" $jwt
+      - name: Provar que o publicado é o commit pedido
+        if: inputs.acao == 'publicar'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: bash alvo/scripts/edge-comparar.sh alvo $FUNCOES
