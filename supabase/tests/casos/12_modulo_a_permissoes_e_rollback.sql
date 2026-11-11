@@ -50,8 +50,8 @@ select pg_temp.dados_antigos() as dados \gset
 select public.banco_conta_de_venda(:'c1', now()) as resposta_antes \gset
 
 -- ---------------------------------------------------------------- 1) rollback rehearsal
-select t.igual('antes do rollback: 11 tabelas of_ existem', (select count(*) from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r' and relname like 'of\_%')::numeric, 11);
-select t.igual('...e 9 funcoes', (select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname like 'of\_%')::numeric, 9);
+select t.igual('antes do rollback: 9 tabelas of_ existem', (select count(*) from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r' and relname like 'of\_%')::numeric, 9);
+select t.igual('...e 5 funcoes', (select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname like 'of\_%')::numeric, 5);
 select t.igual('...com chaves para o cadastro do usuario, todas em cascata', (select count(*) from pg_constraint where contype = 'f' and confrelid = 'auth.users'::regclass and confdeltype = 'c' and conrelid::regclass::text like '%of\_%')::numeric, 7);
 \ir ../../modulo-a/rollback-a-pr1.sql
 select t.igual('rollback: nao sobra nenhum objeto of_', pg_temp.objetos_of()::numeric, 0);
@@ -67,12 +67,14 @@ alter default privileges in schema public grant execute on functions to anon, au
 \ir ../../migrations/20261111170000_modulo_a_conexoes_espelho.sql
 select t.verdade('reaplicar: nada do que ja existia mudou', pg_temp.objetos_antigos() = :'objetos');
 select t.igual('reaplicar: nenhum gatilho de usuario e criado no cadastro (so os internos das chaves)', (select count(*) from pg_trigger where tgrelid = 'auth.users'::regclass and not tgisinternal)::numeric, 0);
+select t.igual('reaplicar: nenhum gatilho de usuario nas tabelas novas', (select count(*) from pg_trigger g join pg_class c on c.oid = g.tgrelid where c.relnamespace = 'public'::regnamespace and c.relname like 'of\_%' and not g.tgisinternal)::numeric, 0);
+select t.igual('reaplicar: as 14 chaves entre cadastro, vinculos e contas estao validadas e em cascata', (select count(*) from pg_constraint k join pg_class f on f.oid = k.conrelid where k.contype = 'f' and f.relname like 'of\_%' and k.confrelid in ('auth.users'::regclass, 'public.of_vinculos'::regclass, 'public.of_contas'::regclass) and k.convalidated and k.confdeltype = 'c')::numeric, 14);
 select public.of_espelho_atualizar() as r \gset
 select t.igual('o espelho e reconstruido do zero a partir da origem', (select count(*) from public.of_vinculos)::numeric, 2);
 select t.igual('...com divergencia zero', (:'r'::jsonb ->> 'divergencias')::numeric, 0);
 select t.verdade('...sem tocar no que ja existia', pg_temp.dados_antigos() = :'dados');
 
-select t.igual('toda tabela nova tem RLS ligado', (select count(*) from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r' and relname like 'of\_%' and relrowsecurity)::numeric, 11);
+select t.igual('toda tabela nova tem RLS ligado', (select count(*) from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r' and relname like 'of\_%' and relrowsecurity)::numeric, 9);
 select t.igual('nenhuma tabela nova tem policy', (select count(*) from pg_policies where schemaname = 'public' and tablename like 'of\_%')::numeric, 0);
 select t.igual('anon e authenticated: nenhum privilegio em nenhuma tabela nova',
   (select count(*) from pg_class c cross join (values ('anon'), ('authenticated')) r(papel) cross join (values ('select'), ('insert'), ('update'), ('delete'), ('truncate')) p(priv)
@@ -83,8 +85,8 @@ select t.igual('...nem nas sequencias',
 select t.igual('...nem para executar as funcoes novas',
   (select count(*) from pg_proc p cross join (values ('anon'), ('authenticated')) r(papel)
     where p.pronamespace = 'public'::regnamespace and p.proname like 'of\_%' and has_function_privilege(r.papel, p.oid, 'execute'))::numeric, 0);
-select t.igual('service_role executa as nove',
-  (select count(*) from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname like 'of\_%' and has_function_privilege('service_role', p.oid, 'execute'))::numeric, 9);
+select t.igual('service_role executa as cinco',
+  (select count(*) from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname like 'of\_%' and has_function_privilege('service_role', p.oid, 'execute'))::numeric, 5);
 
 select t.logar(:'u');
 select t.igual('vendedor logado tenta ler os proprios vinculos: recusado', t.linhas_como('authenticated', :'u', 'select * from public.of_vinculos')::numeric, -1);
@@ -93,10 +95,6 @@ select t.igual('...finalidades: recusado', t.linhas_como('authenticated', :'u', 
 select t.igual('...consentimentos: recusado', t.linhas_como('authenticated', :'u', 'select * from public.of_consentimentos')::numeric, -1);
 select t.igual('...eventos: recusado', t.linhas_como('authenticated', :'u', 'select * from public.of_eventos')::numeric, -1);
 select t.igual('...mudancas: recusado', t.linhas_como('authenticated', :'u', 'select * from public.of_mudancas')::numeric, -1);
-select t.igual('...retencoes: recusado', t.linhas_como('authenticated', :'u', 'select * from public.of_retencoes')::numeric, -1);
-select t.igual('...registros retidos: recusado', t.linhas_como('authenticated', :'u', 'select * from public.of_retidos')::numeric, -1);
-select t.verdade('...nao consegue registrar nem encerrar uma retencao', pg_temp.barrado('authenticated', format('select public.of_retencao_registrar(%L, ''motivo de teste longo'', ''base de teste'', now() + interval ''1 day'', ''alguem'')', :'u')) and pg_temp.barrado('authenticated', 'select public.of_retencao_encerrar(1, ''motivo'')'));
-select t.igual('visitante sem login: recusado', t.linhas_como('anon', :'u', 'select * from public.of_vinculos')::numeric, -1);
 select t.verdade('vendedor logado nao consegue gravar', pg_temp.barrado('authenticated', 'update public.of_finalidades set finalidade = ''trabalho'''));
 select t.verdade('...nem rodar o espelho', pg_temp.barrado('authenticated', 'select public.of_espelho_atualizar()'));
 select t.verdade('...nem ver o relatorio de duplicadas', pg_temp.barrado('authenticated', 'select * from public.of_espelho_duplicadas()'));

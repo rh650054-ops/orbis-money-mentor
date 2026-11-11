@@ -3,8 +3,8 @@
 -- id) anywhere, logs included. Checked for the two routines that delete accounts today:
 --   * self-service: apagar_dados_do_usuario (sweeps every table with user_id), then the login;
 --   * admin: a fixed list of tables that does NOT include the new ones, then the login.
--- The only exception is a retention registered beforehand, with a reason, a legal basis and an
--- end date: then a copy is kept apart, for that vendor only, until the retention ends.
+-- There is no exception: A-PR1 has no retention mechanism. And the database itself must keep
+-- vendors apart, so deleting one can never touch another.
 
 -- Verbatim copy of the production function (read on 11/11/2026). It exists only in production.
 create or replace function public.apagar_dados_do_usuario(p_user uuid)
@@ -65,11 +65,10 @@ create function pg_temp.agulhas(p_user uuid) returns text[] language sql as $$
     union select item_id from public.bank_connections where user_id = p_user
     union select conta_id from public.bank_saldos where user_id = p_user) z(x) $$;
 -- How many rows of the of_* tables still mention any of those identifiers, in any column.
-create function pg_temp.restos(p_agulhas text[], p_com_retencao boolean default false) returns bigint language plpgsql as $$
+create function pg_temp.restos(p_agulhas text[]) returns bigint language plpgsql as $$
 declare r record; a text; n bigint; total bigint := 0;
 begin
-  for r in select tablename from pg_tables where schemaname = 'public' and tablename like 'of\_%'
-              and (p_com_retencao or tablename not in ('of_retencoes', 'of_retidos')) loop
+  for r in select tablename from pg_tables where schemaname = 'public' and tablename like 'of\_%' loop
     foreach a in array p_agulhas loop
       execute format('select count(*) from public.%I x where x::text like %L', r.tablename, '%' || a || '%') into n;
       total := total + n;
@@ -88,24 +87,14 @@ begin
   end loop;
   return md5(tudo);
 end $$;
-create function pg_temp.linhas_de(p_user uuid) returns bigint language plpgsql as $$
-declare r record; n bigint; total bigint := 0;
-begin
-  for r in select c.table_name from information_schema.columns c
-            where c.table_schema = 'public' and c.column_name = 'user_id' and c.table_name like 'of\_%' loop
-    execute format('select count(*) from public.%I x where x.user_id = $1', r.table_name) into n using p_user;
-    total := total + n;
-  end loop;
-  return total;
-end $$;
 create function pg_temp.recusa(p_sql text) returns boolean language plpgsql as $$
 begin execute p_sql; return false; exception when others then return true; end $$;
 
 begin;
 select t.vendedor('Sai pelo app') as a \gset
 select t.vendedor('Fica') as b \gset
-select t.vendedor('Sai com retencao') as c \gset
-select t.vendedor('Sai com retencao vencida') as d \gset
+select t.vendedor('Dono de outra conta') as c \gset
+select t.vendedor('Login some antes dos dados') as d \gset
 select t.vendedor('Admin apaga') as e \gset
 select pg_temp.con(:'a', 'Nubank') as ca1 \gset
 select pg_temp.conta(:'ca1', 'Conta corrente');
@@ -132,10 +121,8 @@ insert into public.of_eventos (provedor, user_id, evento_id, item_id, tipo, brut
 select 'pluggy', b.user_id, 'ev-' || b.id, b.item_id, 'item/updated', jsonb_build_object('itemId', b.item_id) from public.bank_connections b;
 
 select pg_temp.agulhas(:'a') as ag_a \gset
-select pg_temp.agulhas(:'c') as ag_c \gset
 select pg_temp.agulhas(:'d') as ag_d \gset
 select pg_temp.agulhas(:'e') as ag_e \gset
-select array_agg(x) as ag_bancarias_c from unnest(:'ag_c'::text[]) x where x <> :'c' \gset
 select pg_temp.foto_de(:'b') as foto_b \gset
 
 select t.verdade('ponto de partida: o vendedor tem registros em todas as tabelas novas dele', pg_temp.restos(:'ag_a'::text[]) > 20);
@@ -158,8 +145,7 @@ select t.verdade('...nem registros de um vendedor que nao existe', pg_temp.recus
 select public.apagar_dados_do_usuario(:'a');
 select t.igual('exclusao pelo app: a rotina atual ja limpa as tabelas novas, em qualquer ordem', pg_temp.restos(:'ag_a'::text[])::numeric, 0);
 delete from auth.users where id = :'a';
-select t.igual('...e depois de remover o login nao sobra nenhum identificador', pg_temp.restos(:'ag_a'::text[], true)::numeric, 0);
-select t.igual('...nada foi retido (nao havia retencao)', (select count(*) from public.of_retidos)::numeric, 0);
+select t.igual('...e depois de remover o login nao sobra nenhum identificador', pg_temp.restos(:'ag_a'::text[])::numeric, 0);
 select t.verdade('isolamento: os registros do outro vendedor ficam identicos', pg_temp.foto_de(:'b') = :'foto_b');
 
 -- ---------------------------------------------------------------- 2) admin deletion
@@ -169,58 +155,35 @@ delete from public.bank_connections where user_id = :'e';
 delete from public.profiles where user_id = :'e';
 select t.verdade('exclusao pelo admin: antes de remover o login as tabelas novas ainda tem os registros', pg_temp.restos(:'ag_e'::text[]) > 0);
 delete from auth.users where id = :'e';
-select t.igual('...ao remover o login, somem todos, sem a rotina conhecer as tabelas novas', pg_temp.restos(:'ag_e'::text[], true)::numeric, 0);
+select t.igual('...ao remover o login, somem todos, sem a rotina conhecer as tabelas novas', pg_temp.restos(:'ag_e'::text[])::numeric, 0);
 select t.verdade('isolamento de novo', pg_temp.foto_de(:'b') = :'foto_b');
 
--- ---------------------------------------------------------------- 3) retention in force
-select t.verdade('retencao sem data de fim e recusada', pg_temp.recusa(format('select public.of_retencao_registrar(%L, ''motivo de teste bem descrito'', ''base de teste'', null, ''servidor'')', :'c')));
-select t.verdade('retencao sem motivo de verdade e recusada', pg_temp.recusa(format('select public.of_retencao_registrar(%L, ''x'', ''base de teste'', now() + interval ''30 days'', ''servidor'')', :'c')));
-select t.verdade('retencao com fim no passado e recusada', pg_temp.recusa(format('select public.of_retencao_registrar(%L, ''motivo de teste bem descrito'', ''base de teste'', now() - interval ''1 day'', ''servidor'')', :'c')));
-select public.of_retencao_registrar(:'c', 'Contestacao de resultado em analise (dado de teste)', 'Base legal informada pelo responsavel (dado de teste)', now() + interval '90 days', 'servidor') as ret_c \gset
-select pg_temp.linhas_de(:'c') as linhas_c \gset
-select public.apagar_dados_do_usuario(:'c');
-delete from auth.users where id = :'c';
-select t.igual('com retencao: os registros vivos somem do mesmo jeito', pg_temp.restos(:'ag_c'::text[])::numeric, 0);
-select t.igual('...e uma copia de cada um fica guardada a parte', (select count(*) from public.of_retidos where retencao_id = :ret_c)::numeric, :linhas_c);
-select t.igual('...so desse vendedor', (select count(*) from public.of_retidos where titular_id <> :'c')::numeric, 0);
-select t.igual('...a rotina de exclusao nao apaga a retencao nem o que ela guarda', (select count(*) from public.of_retencoes where id = :ret_c and encerrada_em is null)::numeric, 1);
-select t.verdade('...a copia guarda o registro inteiro, de qual tabela veio e quando',
-  (select count(distinct tabela) >= 6 and bool_and(registro ? 'user_id') and bool_and(guardado_em is not null) from public.of_retidos where retencao_id = :ret_c));
-select t.verdade('isolamento: a retencao de um vendedor nao segura nada de outro', pg_temp.foto_de(:'b') = :'foto_b' and pg_temp.restos(pg_temp.agulhas(:'b'), true) = pg_temp.restos(pg_temp.agulhas(:'b')));
-select t.igual('relatorio: uma retencao em vigor', (public.of_espelho_relatorio() ->> 'retencoes_em_vigor')::numeric, 1);
-select public.of_retencao_encerrar(:ret_c, 'analise concluida') as apagados_c \gset
-select t.igual('encerrar a retencao apaga tudo o que ela guardava', :apagados_c::numeric, :linhas_c);
-select t.igual('...nenhum identificador bancario do vendedor sobra em lugar nenhum', pg_temp.restos(:'ag_bancarias_c'::text[], true)::numeric, 0);
-select t.verdade('...e fica so o registro de que a retencao existiu, com motivo e encerramento',
-  (select encerrada_em is not null and encerrada_motivo = 'analise concluida' from public.of_retencoes where id = :ret_c));
-
--- ---------------------------------------------------------------- 4) retention that already expired
-select public.of_retencao_registrar(:'d', 'Retencao antiga ja vencida (dado de teste)', 'Base legal informada pelo responsavel (dado de teste)', now() + interval '1 day', 'servidor') as ret_d \gset
-update public.of_retencoes set registrada_em = now() - interval '40 days', valida_ate = now() - interval '10 days' where id = :ret_d;
-select public.apagar_dados_do_usuario(:'d');
+-- ---------------------------------------------------------------- 3) the login goes first (dashboard)
+-- nobody ran any routine: only the auth user is removed
+select pg_temp.foto_de(:'c') as foto_c \gset
 delete from auth.users where id = :'d';
-select t.igual('retencao vencida nao segura nada: exclusao completa', pg_temp.restos(:'ag_d'::text[])::numeric + (select count(*) from public.of_retidos)::numeric, 0);
-select t.igual('relatorio aponta a retencao vencida que falta fechar', (public.of_espelho_relatorio() ->> 'retencoes_vencidas_a_expurgar')::numeric, 1);
-select public.of_retencao_expurgar_vencidas();
-select t.verdade('o expurgo fecha a retencao vencida', (select encerrada_motivo = 'prazo_vencido' from public.of_retencoes where id = :ret_d));
+select t.igual('exclusao so do login (painel): os registros novos somem pela cascata', pg_temp.restos(array[:'d'])::numeric, 0);
+select t.igual('...junto com os identificadores de conexao, Item e conta', pg_temp.restos(:'ag_d'::text[])::numeric, 0);
+select t.verdade('isolamento: os outros dois vendedores ficam identicos', pg_temp.foto_de(:'b') = :'foto_b' and pg_temp.foto_de(:'c') = :'foto_c');
 
--- ---------------------------------------------------------------- 5) retention that expires AFTER the deletion
-select t.vendedor('Retencao vence depois') as f \gset
-select pg_temp.con(:'f', 'Santander') as cf \gset
-select pg_temp.conta(:'cf', 'Conta corrente');
-select public.of_espelho_atualizar();
-select pg_temp.agulhas(:'f') as ag_f \gset
-select array_agg(x) as ag_bancarias_f from unnest(:'ag_f'::text[]) x where x <> :'f' \gset
-select public.of_retencao_registrar(:'f', 'Prazo curto de conservacao (dado de teste)', 'Base legal informada pelo responsavel (dado de teste)', now() + interval '1 day', 'servidor') as ret_f \gset
-select public.apagar_dados_do_usuario(:'f');
-delete from auth.users where id = :'f';
-select t.verdade('retido enquanto a retencao vale', (select count(*) > 0 from public.of_retidos where retencao_id = :ret_f));
-update public.of_retencoes set registrada_em = now() - interval '40 days', valida_ate = now() - interval '1 minute' where id = :ret_f;
-select t.verdade('o expurgo apaga o que ficou retido alem do prazo', public.of_retencao_expurgar_vencidas() > 0);
-select t.igual('...sem sobrar identificador bancario', pg_temp.restos(:'ag_bancarias_f'::text[], true)::numeric + (select count(*) from public.of_retidos)::numeric, 0);
+-- The test schema has no foreign key on bank_connections, so that vendor's origin rows are still
+-- here. That is exactly the race "the mirror runs while an account is being deleted".
+select public.of_espelho_atualizar() as rd \gset
+select t.igual('corrida com a exclusao: o espelho nao recria nada de quem ja nao existe', pg_temp.restos(:'ag_d'::text[])::numeric, 0);
+select t.verdade('...e registra o problema so pelo codigo e pela restricao',
+  (select jsonb_array_length(problemas) = 2 and problemas -> 0 ->> 'problema' = '23503' and problemas -> 0 ->> 'restricao' = 'of_vinculos_user_id_fkey'
+          and problemas -> 1 ->> 'restricao' = 'of_contas_user_id_fkey' from public.of_espelho_execucoes order by id desc limit 1));
+-- in production these two go by their own foreign keys, together with the login
+delete from public.bank_saldos where user_id = :'d';
+delete from public.bank_connections where user_id = :'d';
 
--- ---------------------------------------------------------------- 6) afterwards
+-- ---------------------------------------------------------------- 4) nothing is kept anywhere
+select t.igual('nao existe tabela nem gatilho de retencao neste PR',
+  (select count(*) from pg_class where relnamespace = 'public'::regnamespace and relname ~ '^of_(retenc|retid)')::numeric
+  + (select count(*) from pg_trigger g join pg_class k on k.oid = g.tgrelid where k.relnamespace = 'public'::regnamespace and k.relname like 'of\_%' and not g.tgisinternal)::numeric, 0);
+
+-- ---------------------------------------------------------------- 5) afterwards
 select public.of_espelho_atualizar() as rf \gset
-select t.igual('rodar o espelho depois nao ressuscita ninguem: so o vendedor que ficou', (select count(distinct user_id) from public.of_vinculos)::numeric, 1);
-select t.verdade('...com os registros dele intactos', pg_temp.foto_de(:'b') = :'foto_b');
+select t.igual('rodar o espelho depois nao ressuscita ninguem: so os dois vendedores que ficaram', (select count(distinct user_id) from public.of_vinculos)::numeric, 2);
+select t.verdade('...com os registros deles intactos', pg_temp.foto_de(:'b') = :'foto_b' and pg_temp.foto_de(:'c') = :'foto_c');
 select t.igual('...e divergencia zero', (:'rf'::jsonb ->> 'divergencias')::numeric, 0);

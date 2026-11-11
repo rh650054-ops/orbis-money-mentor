@@ -11,7 +11,9 @@
 --   * nothing here writes to daily_sales, auto_detected_sales, extrato_lancamentos, ranking,
 --     prizes, goals, badges or charges;
 --   * the mirror deletes and merges nothing, in the new tables or in the old ones. Rows of the
---     new tables are deleted only when the vendor's account is deleted (see "Account deletion").
+--     new tables are deleted only when the vendor's account is deleted: the foreign keys cascade,
+--     and they cascade between the new tables too, so the self-service routine (which deletes
+--     from every table that has a user_id column, in no fixed order) can never fail on order.
 --
 -- What the model separates (contract: provider, Item, bank account, consent, purpose, history):
 --   of_provedores      who reads the bank for us (Pluggy is the only bank-connection provider)
@@ -23,12 +25,22 @@
 --   of_eventos         raw provider events (empty in A-PR1; A-PR2 starts filling it)
 --   of_mudancas        every state change, with its reason
 --   of_espelho_execucoes  one row per mirror run (numbers only, no identifier)
---   of_retencoes       explicit, dated orders to keep a vendor's records after deletion
---   of_retidos         the copies kept under such an order, and nothing else
+--
+-- There is no retention mechanism here on purpose: when the account is deleted, everything goes.
 --
 -- The mirror (of_espelho_atualizar) copies what bank_connections and bank_saldos say today into
 -- these records. It runs only when somebody calls it: this migration schedules nothing.
 -- Rollback: supabase/modulo-a/rollback-a-pr1.sql. Procedure: supabase/modulo-a/A-PR1.md.
+--
+-- ALL OR NOTHING, AND IT GIVES UP INSTEAD OF WAITING. The whole file is one transaction.
+-- Creating the foreign keys to auth.users needs a lock on that table that conflicts with any
+-- write in progress there (a sign-up, a login updating its timestamp). If the lock is not free
+-- within 3 seconds, or any statement runs longer than 30 seconds, the migration fails, the
+-- transaction rolls back and nothing is created. It never queues behind a long transaction
+-- while holding sign-ups and logins behind itself.
+begin;
+set local lock_timeout = '3s';
+set local statement_timeout = '30s';
 
 -- ---------------------------------------------------------------------------------------------
 -- Tables
@@ -187,108 +199,6 @@ create table public.of_espelho_execucoes (
 );
 
 -- ---------------------------------------------------------------------------------------------
--- Account deletion and retention.
---
--- Default: when a vendor's account is deleted, every row of theirs in the tables above is
--- deleted with it, whichever path deleted the account:
---   * the self-service routine (apagar_dados_do_usuario) sweeps every public table that has a
---     user_id column, in no particular order. Deletes cascade between the new tables, so no
---     order can fail;
---   * the admin routine and the dashboard remove the auth user: the foreign keys cascade.
---
--- Exception: a RETENTION, registered beforehand by the server, with a reason, a legal basis and
--- an end date. While one is in force for that vendor, each row is copied to of_retidos just
--- before it is deleted. Nothing is retained without such an order, and the copies are removed
--- when the order is closed or expires.
---
--- The two tables below name the vendor "titular_id", NOT "user_id", and carry no foreign key,
--- on purpose: the self-service routine deletes from any table with a user_id column, and a
--- foreign key would cascade. Either would erase the very records an obligation says to keep.
--- ---------------------------------------------------------------------------------------------
-create table public.of_retencoes (
-  id bigint generated always as identity primary key,
-  titular_id uuid not null,
-  motivo text not null check (length(btrim(motivo)) >= 10),
-  base_legal text not null check (length(btrim(base_legal)) >= 5),
-  registrada_por text not null check (length(btrim(registrada_por)) >= 3),
-  registrada_em timestamptz not null default now(),
-  valida_ate timestamptz not null,
-  encerrada_em timestamptz,
-  encerrada_motivo text,
-  check (valida_ate > registrada_em),
-  check ((encerrada_em is null) = (encerrada_motivo is null))
-);
-create index of_retencoes_titular on public.of_retencoes (titular_id);
-
-create table public.of_retidos (
-  id bigint generated always as identity primary key,
-  retencao_id bigint not null references public.of_retencoes (id),
-  titular_id uuid not null,
-  tabela text not null,
-  registro jsonb not null,
-  guardado_em timestamptz not null default now()
-);
-create index of_retidos_retencao on public.of_retidos (retencao_id);
-
--- Runs just before a row of the vendor's records is deleted. Copies it only under a retention
--- in force; otherwise does nothing and the row is simply gone.
-create function public.of_guardar_se_retido()
-returns trigger language plpgsql security definer set search_path = public, pg_temp as $$
-declare v_ret bigint;
-begin
-  if old.user_id is null then return old; end if;
-  select r.id into v_ret from public.of_retencoes r
-   where r.titular_id = old.user_id and r.encerrada_em is null and r.valida_ate > now()
-   order by r.valida_ate desc limit 1;
-  if found then
-    insert into public.of_retidos (retencao_id, titular_id, tabela, registro)
-    values (v_ret, old.user_id, tg_table_name, to_jsonb(old));
-  end if;
-  return old;
-end $$;
-
-do $$
-declare t text;
-begin
-  foreach t in array array['of_vinculos', 'of_contas', 'of_vinculo_contas', 'of_consentimentos',
-                           'of_finalidades', 'of_mudancas', 'of_eventos'] loop
-    execute format('create trigger %I before delete on public.%I for each row execute function public.of_guardar_se_retido()',
-                   t || '_guardar_se_retido', t);
-  end loop;
-end $$;
-
--- Registers a retention. p_valida_ate is mandatory: no retention is open-ended.
-create function public.of_retencao_registrar(p_titular uuid, p_motivo text, p_base_legal text, p_valida_ate timestamptz, p_por text)
-returns bigint language sql set search_path = public, pg_temp as $$
-  insert into public.of_retencoes (titular_id, motivo, base_legal, valida_ate, registrada_por)
-  values (p_titular, p_motivo, p_base_legal, p_valida_ate, p_por) returning id
-$$;
-
--- Closes a retention and erases everything kept under it. Returns how many copies were erased.
-create function public.of_retencao_encerrar(p_retencao bigint, p_motivo text)
-returns integer language plpgsql set search_path = public, pg_temp as $$
-declare v_n integer;
-begin
-  if p_motivo is null or length(btrim(p_motivo)) < 3 then raise exception 'motivo obrigatorio'; end if;
-  delete from public.of_retidos where retencao_id = p_retencao;
-  get diagnostics v_n = row_count;
-  update public.of_retencoes set encerrada_em = now(), encerrada_motivo = p_motivo
-   where id = p_retencao and encerrada_em is null;
-  return v_n;
-end $$;
-
--- Closes every retention whose end date has passed and erases what was kept under them.
-create function public.of_retencao_expurgar_vencidas()
-returns integer language plpgsql set search_path = public, pg_temp as $$
-declare r record; v_total integer := 0;
-begin
-  for r in select id from public.of_retencoes where encerrada_em is null and valida_ate <= now() loop
-    v_total := v_total + public.of_retencao_encerrar(r.id, 'prazo_vencido');
-  end loop;
-  return v_total;
-end $$;
-
--- ---------------------------------------------------------------------------------------------
 -- Access: server only. No vendor, logged in or not, reads or writes these tables.
 -- (Supabase grants new public tables to anon/authenticated by default: take that back, and
 -- enable row level security with no policy as a second lock.)
@@ -297,14 +207,12 @@ do $$
 declare t text;
 begin
   foreach t in array array['of_provedores', 'of_vinculos', 'of_contas', 'of_vinculo_contas', 'of_consentimentos',
-                           'of_finalidades', 'of_eventos', 'of_mudancas', 'of_espelho_execucoes',
-                           'of_retencoes', 'of_retidos'] loop
+                           'of_finalidades', 'of_eventos', 'of_mudancas', 'of_espelho_execucoes'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('revoke all on table public.%I from public, anon, authenticated', t);
     execute format('grant all on table public.%I to service_role', t);
   end loop;
-  foreach t in array array['of_eventos_id_seq', 'of_mudancas_id_seq', 'of_espelho_execucoes_id_seq',
-                           'of_retencoes_id_seq', 'of_retidos_id_seq'] loop
+  foreach t in array array['of_eventos_id_seq', 'of_mudancas_id_seq', 'of_espelho_execucoes_id_seq'] loop
     execute format('revoke all on sequence public.%I from public, anon, authenticated', t);
     execute format('grant usage, select on sequence public.%I to service_role', t);
   end loop;
@@ -434,10 +342,7 @@ begin
     'conexoes_de_origem', (select count(*) from public.bank_connections),
     'conexoes_de_origem_incompletas', (select count(*) from public.bank_connections
                                         where user_id is null or item_id is null or btrim(item_id) = ''),
-    'contas_de_origem', (select count(*) from public.bank_saldos),
-    'retencoes_em_vigor', (select count(*) from public.of_retencoes where encerrada_em is null and valida_ate > now()),
-    'retencoes_vencidas_a_expurgar', (select count(*) from public.of_retencoes where encerrada_em is null and valida_ate <= now()),
-    'registros_retidos', (select count(*) from public.of_retidos)
+    'contas_de_origem', (select count(*) from public.bank_saldos)
   );
 end $$;
 
@@ -672,10 +577,27 @@ declare f text;
 begin
   foreach f in array array[
     'public.of_vinculo_conta_de_venda(uuid, timestamptz)', 'public.of_espelho_conferir(timestamptz)',
-    'public.of_espelho_duplicadas()', 'public.of_espelho_relatorio()', 'public.of_espelho_atualizar()',
-    'public.of_guardar_se_retido()', 'public.of_retencao_registrar(uuid, text, text, timestamptz, text)',
-    'public.of_retencao_encerrar(bigint, text)', 'public.of_retencao_expurgar_vencidas()'] loop
+    'public.of_espelho_duplicadas()', 'public.of_espelho_relatorio()', 'public.of_espelho_atualizar()'] loop
     execute format('revoke all on function %s from public, anon, authenticated', f);
     execute format('grant execute on function %s to service_role', f);
   end loop;
 end $$;
+
+-- Last line of defence before committing: the 14 foreign keys that tie the vendor's records to
+-- the account and to each other must exist, be validated and cascade. If anything is off, raise,
+-- and the whole transaction rolls back.
+do $$
+declare v_fk integer; v_ruins integer;
+begin
+  select count(*), count(*) filter (where not k.convalidated or k.confdeltype <> 'c')
+    into v_fk, v_ruins
+    from pg_constraint k
+    join pg_class filho on filho.oid = k.conrelid and filho.relnamespace = 'public'::regnamespace
+   where k.contype = 'f' and filho.relname like 'of\_%'
+     and k.confrelid in ('auth.users'::regclass, 'public.of_vinculos'::regclass, 'public.of_contas'::regclass);
+  if v_fk <> 14 or v_ruins <> 0 then
+    raise exception 'A-PR1: foreign keys not as expected (found %, not validated or not cascading %)', v_fk, v_ruins;
+  end if;
+end $$;
+
+commit;
