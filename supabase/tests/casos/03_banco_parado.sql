@@ -42,3 +42,25 @@ select t.verdade('controle: o dia dela é conferido pelo banco',
                (select pelo_banco from public.ranking_valor_dias(t.dia(1), t.dia(1), :'d')));
 select t.igual('por que o carimbo precisa ser verdadeiro: carimbo falso de "lido agora" vira calote de R$ 36',
                (select total_debt from public.daily_sales where user_id = :'e'), 36);
+
+-- OLD FALSE STAMPS (owner's review, 10/11). PR 2 never moves leitura_ok_em backwards, so a stamp
+-- written before the deploy by a read of stale data stays. Vendor E is exactly that: OUTDATED and
+-- already stamped after the day closed. F-02 is NOT closed while these two stay open.
+select t.pendente('F-02', 'carimbo falso antigo: o reconciliador ainda GERA calote no dia que o banco não cobriu',
+               (select total_debt from public.daily_sales where user_id = :'e'), 0);
+select t.pendente('F-02', 'carimbo falso antigo: o dia ainda aparece como conferido pelo banco',
+               (select pelo_banco::int from public.ranking_valor_dias(t.dia(1), t.dia(1), :'e'))::numeric, 0);
+select t.igual('rodar de novo não muda nada: o calote falso é PRESERVADO (R$ 36)',
+               (select public.banco_reconciliar(:'e') * 0 + total_debt from public.daily_sales where user_id = :'e'), 36);
+
+-- What a correction has to do. Putting the stamp back to the real sync time is not enough:
+update public.bank_connections set leitura_ok_em = t.hora(1, '08:57') where id = :'ce';
+select public.banco_reconciliar(:'e');
+select t.igual('corrigir só o carimbo NÃO desfaz o calote já gravado (R$ 36 continua)',
+               (select total_debt from public.daily_sales where user_id = :'e'), 36);
+select t.igual('e o Pix do dia continua reduzido ao que o banco parado mostrou (R$ 12, não os R$ 48 lançados)',
+               (select pix_sales from public.daily_sales where user_id = :'e'), 12);
+select t.igual('o dia deixa de ser conferido, mas o ranking fica com os R$ 12 gravados',
+               (select valor from public.ranking_valor_dias(t.dia(1), t.dia(1), :'e')), 12);
+select t.igual('o valor original ainda existe: o que ele lançou no Foco (R$ 48) permite restaurar o dia',
+               public.banco_lancado_dia(:'e', t.dia(1)), 48);
