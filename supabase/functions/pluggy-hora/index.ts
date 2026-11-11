@@ -18,6 +18,7 @@ import { pluggyKey, importarEntradas, pedirAtualizacao } from "../_shared/pluggy
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { limparRepetidas } from "../_shared/pluggy-duplicadas.ts";
 import { desligarPausadas } from "../_shared/pluggy-pausa.ts";
+import { buscarItem, carimboDeLeitura } from "../_shared/pluggy-cobertura.ts";
 import {
   precisaDoVendedor, motivoDeLeitura, contarLeitura, leiturasDeHoje, relogioBRT, orcamentoDaConexao, contarPedido,
   podePedir, diasParaImportar, MAX_POR_RODADA, PEDIDO_MIN_PADRAO_MIN, PRIORIDADE, type Motivo, bancoLento,
@@ -143,7 +144,11 @@ Deno.serve(async (req) => {
         leituras_qtd: contarLeitura(c.leituras_dia, c.leituras_qtd, hoje),
       };
       // 05/11 (audit #2): only a complete read proves "no Pix that day"
-      if (leituraOk) mudar.leitura_ok_em = agoraIso;
+      // F-02: and only up to the last time Pluggy really synced with the bank, not up to "now"
+      const carimbo = leituraOk
+        ? carimboDeLeitura({ completa: true, item: await buscarItem(apiKey, c.item_id), atual: c.leitura_ok_em })
+        : null;
+      if (carimbo) mudar.leitura_ok_em = carimbo;
       const ultimoPedido = c.pluggy_pedido_em ? new Date(c.pluggy_pedido_em) : null;
       if (podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN, { motivo, restanteMes: orc.restanteMes }) && await pedirAtualizacao(apiKey, c.item_id)) {
         pedidos++;

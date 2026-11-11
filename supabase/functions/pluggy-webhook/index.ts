@@ -17,6 +17,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { apagarTransacoes, diasDoPrimeiroImporte, importarEntradas } from "../_shared/pluggy-entradas.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
+import { carimboDeLeitura } from "../_shared/pluggy-cobertura.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -91,7 +92,7 @@ Deno.serve(async (req) => {
     let con: any = null;
     {
       const { data } = await admin.from("bank_connections")
-        .select("id, user_id, institution_name, pausado_em").eq("item_id", itemId).maybeSingle();
+        .select("id, user_id, institution_name, pausado_em, leitura_ok_em").eq("item_id", itemId).maybeSingle();
       con = data;
     }
 
@@ -187,15 +188,18 @@ Deno.serve(async (req) => {
     }
 
     const agoraLeitura = new Date().toISOString();
+    // 05/11 (audit #2): only a complete read proves "no Pix that day"
+    // F-02: stamped with Pluggy's own sync time for this item, not with our clock
+    const carimbo = carimboDeLeitura({ completa: r.completa, item, atual: con.leitura_ok_em });
     await admin.from("bank_connections").update({
       last_synced_at: agoraLeitura,
       updated_at: agoraLeitura,
-      // 05/11 (audit #2): only a complete read proves "no Pix that day"
-      ...(r.completa ? { leitura_ok_em: agoraLeitura } : {}),
+      ...(carimbo ? { leitura_ok_em: carimbo } : {}),
     }).eq("id", con.id);
 
     // Pix novo pode ter caído num dia já fechado: refaz Pix/cartão/calote desses dias.
-    if (r.gravadas > 0) {
+    // F-02: also when the bank is now known to cover a closed day (even with no new entry)
+    if (r.gravadas > 0 || carimbo) {
       const { error: eRec } = await admin.rpc("banco_reconciliar", { p_user: con.user_id });
       if (eRec) console.error("pluggy-webhook: reconciliar", eRec.message);
     }

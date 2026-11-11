@@ -17,6 +17,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { pluggyKey, importarEntradas, pedirAtualizacao } from "../_shared/pluggy-entradas.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
+import { buscarItem, carimboDeLeitura } from "../_shared/pluggy-cobertura.ts";
 import {
   precisaDoVendedor, podePuxarAgora, contarLeitura, leiturasDeHoje, relogioBRT, orcamentoDaConexao, contarPedido, podePedir,
   diasParaImportar, PEDIDO_MIN_PADRAO_MIN,
@@ -87,8 +88,12 @@ Deno.serve(async (req) => {
         piloto += p.gravadas;
       } catch (e) { console.error("pluggy-sync: piloto", (e as Error)?.message); }
       const agora = new Date().toISOString();
+      // F-02: "bank read" goes only as far as Pluggy's last real sync with the bank
+      const carimbo = leituraOk
+        ? carimboDeLeitura({ completa: true, item: await buscarItem(apiKey, c.item_id), atual: c.leitura_ok_em })
+        : null;
       const leitura = { last_synced_at: agora, updated_at: agora, leituras_dia: hoje, leituras_qtd: contarLeitura(c.leituras_dia, c.leituras_qtd, hoje),
-        ...(leituraOk ? { leitura_ok_em: agora } : {}) };
+        ...(carimbo ? { leitura_ok_em: carimbo } : {}) };
       await admin.from("bank_connections")
         .update(pediuEste ? { ...leitura, pluggy_pedido_em: agora, ...contarPedido(orc) } : leitura)
         .eq("id", c.id);
