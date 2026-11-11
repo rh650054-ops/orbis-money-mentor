@@ -1,0 +1,177 @@
+# Edge Functions: compare what is PUBLISHED with a commit (both directions, byte by byte) and
+# publish ONE function at a time. Started by hand: Actions → edge-functions → Run workflow.
+# Procedure, limits and rollback: scripts/edge-functions.md
+#
+#   comparar   read-only. Confirms the project, records the published versions, downloads each
+#              function and compares it with commit `sha`. Fails on any difference.
+#   publicar   job 1 does the same against `base_sha` (what production must be running now) and
+#              STOPS on any difference. Job 2 waits for a second approval, publishes ONE function
+#              from `sha`, downloads it again and proves the published bytes are that commit.
+#
+# Commits are given as full SHAs, never as branch names: a branch can move after the review.
+# The Supabase token exists only in the "producao" environment; every job waits for its approval.
+name: edge-functions
+on:
+  workflow_dispatch:
+    inputs:
+      acao:
+        description: "comparar (somente leitura) ou publicar (uma função)"
+        type: choice
+        options: [comparar, publicar]
+        default: comparar
+      funcoes:
+        description: "Funções, separadas por espaço (publicar aceita UMA)"
+        default: "pluggy-hora pluggy-sync pluggy-webhook pluggy-item"
+      sha:
+        description: "Commit COMPLETO (40 caracteres) a comparar ou a publicar"
+        required: true
+      base_sha:
+        description: "Só publicar: commit COMPLETO que produção deve estar rodando agora"
+        default: ""
+      versao_atual:
+        description: "Só publicar: versão atual da função em produção (número visto no último comparar)"
+        default: ""
+permissions:
+  contents: read
+concurrency:
+  group: edge-functions-producao
+  cancel-in-progress: false
+env:
+  # inputs go through the environment, never straight into a shell line
+  ACAO: ${{ inputs.acao }}
+  FUNCOES: ${{ inputs.funcoes }}
+  SHA: ${{ inputs.sha }}
+  BASE_SHA: ${{ inputs.base_sha }}
+  VERSAO_ATUAL: ${{ inputs.versao_atual }}
+  # Production, by every identifier we know. The run stops unless the token sees exactly this.
+  PROJETO_REF: qbcsjsdwjjpybvzbxszi
+  PROJETO_NOME: Orbis Milion
+  PROJETO_ORG: zyfvmqascjclxrpcvibf
+  PROJETO_REGIAO: sa-east-1
+  SUPABASE_CLI: 2.122.1
+  # Called by cron / by Pluggy, they authenticate by their own secret and run WITHOUT the JWT
+  # gate. Publishing them with the gate on would silently stop the bank robot and the webhook.
+  SEM_JWT: "pluggy-hora pluggy-webhook"
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: producao
+    outputs:
+      antes: ${{ steps.estado.outputs.antes }}
+    steps:
+      - name: Validar pedido
+        run: |
+          set -euo pipefail
+          [[ "$FUNCOES" =~ ^[a-z0-9-]+(\ [a-z0-9-]+)*$ ]] || { echo "lista de funções inválida"; exit 2; }
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "sha precisa ser o commit completo (40 caracteres), não um branch"; exit 2; }
+          if [ "$ACAO" = "publicar" ]; then
+            [ "$(echo $FUNCOES | wc -w)" = "1" ] || { echo "publicar aceita exatamente UMA função por execução"; exit 2; }
+            [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "publicar exige base_sha completo (40 caracteres)"; exit 2; }
+            [[ "$VERSAO_ATUAL" =~ ^[0-9]+$ ]] || { echo "publicar exige versao_atual (número)"; exit 2; }
+          fi
+      # actions/checkout v4.4.0 — the comparison tools always come from the workflow's own commit
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { path: ferramenta }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.sha }}", path: alvo }
+      - if: inputs.acao == 'publicar'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.base_sha }}", path: base }
+      - name: Confirmar commits
+        run: |
+          set -euo pipefail
+          [ "$(git -C alvo rev-parse HEAD)" = "$SHA" ] || { echo "o checkout não é o commit pedido"; exit 2; }
+          { echo "### edge-functions · $ACAO · $FUNCOES"; echo "- commit: \`$SHA\` ($(git -C alvo log -1 --format='%cI %s' | cut -c1-110))"; } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$ACAO" = "publicar" ]; then
+            [ "$(git -C base rev-parse HEAD)" = "$BASE_SHA" ] || { echo "o checkout da base não é o commit pedido"; exit 2; }
+            echo "- base (produção deve ser igual a): \`$BASE_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Instalar Supabase CLI (versão fixa)
+        run: bash ferramenta/scripts/edge-ci.sh instalar_cli
+      - name: Confirmar que o projeto é produção
+        env: { SUPABASE_ACCESS_TOKEN: "${{ secrets.SUPABASE_ACCESS_TOKEN }}" }
+        run: bash ferramenta/scripts/edge-ci.sh validar_projeto
+      - name: Registrar a versão publicada agora
+        id: estado
+        env: { SUPABASE_ACCESS_TOKEN: "${{ secrets.SUPABASE_ACCESS_TOKEN }}" }
+        run: |
+          set -euo pipefail
+          bash ferramenta/scripts/edge-ci.sh estado "$RUNNER_TEMP/antes.json" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "antes=$(cat "$RUNNER_TEMP/antes.json")" >> "$GITHUB_OUTPUT"
+          if [ "$ACAO" = "publicar" ]; then
+            visto="$(node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1]));console.log(r[process.argv[2]].versao)' "$RUNNER_TEMP/antes.json" "$FUNCOES")"
+            [ "$visto" = "$VERSAO_ATUAL" ] || { echo "produção está na versão $visto, o pedido esperava $VERSAO_ATUAL: alguém publicou depois do último comparar"; exit 3; }
+          fi
+      - name: Comparar publicado × commit (nos dois sentidos)
+        env: { SUPABASE_ACCESS_TOKEN: "${{ secrets.SUPABASE_ACCESS_TOKEN }}" }
+        run: |
+          set -euo pipefail
+          contra="alvo"; [ "$ACAO" = "publicar" ] && contra="base"
+          bash ferramenta/scripts/edge-ci.sh baixar_e_comparar "$contra"
+      # actions/upload-artifact v4.6.2 — hashes and versions only, never the code or the token
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: edge-registro-antes-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/antes.json
+            ${{ runner.temp }}/edge/comparacao/*.json
+          if-no-files-found: ignore
+          retention-days: 90
+
+  publicar:
+    needs: verificar
+    if: inputs.acao == 'publicar'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: producao
+    env:
+      ANTES: ${{ needs.verificar.outputs.antes }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { path: ferramenta }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.sha }}", path: alvo }
+      - name: Instalar Supabase CLI (versão fixa)
+        run: bash ferramenta/scripts/edge-ci.sh instalar_cli
+      - name: Confirmar de novo o projeto e que nada mudou desde a verificação
+        env: { SUPABASE_ACCESS_TOKEN: "${{ secrets.SUPABASE_ACCESS_TOKEN }}" }
+        run: |
+          set -euo pipefail
+          [ "$(git -C alvo rev-parse HEAD)" = "$SHA" ] || { echo "o checkout não é o commit pedido"; exit 2; }
+          bash ferramenta/scripts/edge-ci.sh validar_projeto
+          bash ferramenta/scripts/edge-ci.sh estado "$RUNNER_TEMP/agora.json"
+          printf '%s' "$ANTES" > "$RUNNER_TEMP/antes.json"
+          node -e 'const fs=require("fs");const a=JSON.parse(fs.readFileSync(process.argv[1]))[process.argv[3]],b=JSON.parse(fs.readFileSync(process.argv[2]))[process.argv[3]];if(!a||!b||a.versao!==b.versao||a.ezbr_sha256!==b.ezbr_sha256){console.log("produção mudou entre a verificação e a publicação");process.exit(3)}' "$RUNNER_TEMP/antes.json" "$RUNNER_TEMP/agora.json" "$FUNCOES"
+      - name: Publicar UMA função
+        env: { SUPABASE_ACCESS_TOKEN: "${{ secrets.SUPABASE_ACCESS_TOKEN }}" }
+        working-directory: alvo
+        run: |
+          set -euo pipefail
+          jwt=""; for s in $SEM_JWT; do [ "$s" = "$FUNCOES" ] && jwt="--no-verify-jwt"; done
+          echo "Publicando $FUNCOES do commit $SHA em $PROJETO_REF ${jwt:-(com verificação de JWT)}"
+          supabase functions deploy "$FUNCOES" --project-ref "$PROJETO_REF" $jwt
+      - name: Provar que o publicado é o commit pedido
+        env: { SUPABASE_ACCESS_TOKEN: "${{ secrets.SUPABASE_ACCESS_TOKEN }}" }
+        run: |
+          set -euo pipefail
+          bash ferramenta/scripts/edge-ci.sh estado "$RUNNER_TEMP/depois.json" | tee -a "$GITHUB_STEP_SUMMARY"
+          nova="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1]))[process.argv[2]].versao)' "$RUNNER_TEMP/depois.json" "$FUNCOES")"
+          {
+            echo "### Registro da publicação"
+            echo "- função: \`$FUNCOES\` · versão anterior **$VERSAO_ATUAL** (commit \`$BASE_SHA\`) → versão nova **$nova** (commit \`$SHA\`)"
+            echo "- **Rollback:** rodar este workflow com acao=publicar, funcoes=$FUNCOES, sha=$BASE_SHA, base_sha=$SHA, versao_atual=$nova"
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$nova" -gt "$VERSAO_ATUAL" ] || { echo "a versão não avançou: a publicação não aconteceu"; exit 3; }
+          bash ferramenta/scripts/edge-ci.sh baixar_e_comparar alvo || { echo "O PUBLICADO DIFERE DO COMMIT PEDIDO — fazer o rollback indicado no resumo"; exit 1; }
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: edge-registro-publicacao-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/antes.json
+            ${{ runner.temp }}/depois.json
+            ${{ runner.temp }}/edge/comparacao/*.json
+          if-no-files-found: ignore
+          retention-days: 90
