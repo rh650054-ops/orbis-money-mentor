@@ -3,7 +3,7 @@
 // of each function found in this repo (migrations + baseline), then runs every file in casos/.
 // Needs only Node and psql. Connection: PGHOST / PGPORT / PGUSER / PGPASSWORD (never production).
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,6 +26,8 @@ const CADEIA = [
   "premio_pendencias", "premio_congelar", "premio_congelar_agora", "premio_reavaliar", "premio_homologar_manual", "premio_resultado",
 ];
 const OPCIONAIS = ["premio_homologacao_automatica"]; // exist only after their fix lands
+// Migrations that change grants or policies (not functions) and must be applied whole, in order.
+const APLICAR_INTEIRAS = ["20261110121000_premio_fechamento_sem_leitura_direta.sql"];
 
 const manifesto = JSON.parse(readFileSync(join(raiz, "supabase/baseline/manifesto-producao.json"), "utf8"));
 const defs = ultimasDefinicoes(raiz);
@@ -49,6 +51,10 @@ for (const nome of [...CADEIA, ...OPCIONAIS]) {
 const arq = join(tmp, "funcoes.sql");
 writeFileSync(arq, sql);
 psql(BASE, ["-f", arq]);
+for (const m of APLICAR_INTEIRAS) {
+  const caminho = join(raiz, "supabase/migrations", m);
+  if (existsSync(caminho)) { psql(BASE, ["-f", caminho]); console.log(`   migration aplicada inteira: ${m}`); }
+}
 console.log(`   ${iguais.length} funcoes identicas a producao (${manifesto.capturado_em})`);
 if (mudadas.length) { console.log(`   ${mudadas.length} alteradas neste branch:`); mudadas.forEach((m) => console.log(`     - ${m}`)); }
 
