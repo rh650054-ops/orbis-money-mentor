@@ -58,6 +58,9 @@ jobs:
           if [ "$ACAO" = "publicar" ] && [ "$(echo $FUNCOES | wc -w)" != "1" ]; then
             echo "publicar aceita exatamente UMA função por execução"; exit 2
           fi
+      # the comparison script always comes from the workflow's own commit, not from the code under test
+      - uses: actions/checkout@v4
+        with: { path: ferramenta }
       - uses: actions/checkout@v4
         with: { ref: "${{ inputs.ref }}", path: alvo }
       - uses: actions/checkout@v4
@@ -70,7 +73,7 @@ jobs:
         run: |
           set -euo pipefail
           contra="alvo"; [ "$ACAO" = "publicar" ] && contra="base"
-          bash alvo/scripts/edge-comparar.sh "$contra" $FUNCOES
+          bash ferramenta/scripts/edge-comparar.sh "$contra" $FUNCOES
       - name: Publicar UMA função
         if: inputs.acao == 'publicar'
         env:
@@ -86,4 +89,4 @@ jobs:
         if: inputs.acao == 'publicar'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: bash alvo/scripts/edge-comparar.sh alvo $FUNCOES
+        run: bash ferramenta/scripts/edge-comparar.sh alvo $FUNCOES
