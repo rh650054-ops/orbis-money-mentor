@@ -7,20 +7,19 @@ import { decidirVaga, type Ativa } from "../../supabase/functions/_shared/pluggy
 
 const ANA = "ana-uid";
 
-function cena(o: { pro?: boolean; ativas?: Ativa[] | null; limite?: number | null | undefined; naoGrava?: boolean; umPorBancoFalha?: boolean } = {}) {
-  const feito = { vagas: 0, apagados: [] as string[], gravadas: [] as LinhaDaCura[], umPorBanco: 0, registros: [] as string[] };
+function cena(o: { pro?: boolean; ativas?: Ativa[] | null; limite?: number | null | undefined; naoGrava?: boolean } = {}) {
+  const feito = { vagas: 0, apagados: [] as string[], gravadas: [] as LinhaDaCura[], registros: [] as string[] };
   const portas: PortasDaCura = {
     ehPro: async () => o.pro ?? true,
-    vaga: async (_dono, banco, itemId) => {
+    vaga: async (_dono, _banco, itemId) => {
       feito.vagas++;
-      return decidirVaga({ ativas: o.ativas === undefined ? [] : o.ativas, limite: "limite" in o ? o.limite : 1, banco, itemId });
+      return decidirVaga({ ativas: o.ativas === undefined ? [] : o.ativas, limite: "limite" in o ? o.limite : 1, itemId });
     },
     apagarNaPluggy: async (itemId) => { feito.apagados.push(itemId); },
     gravar: async (linha) => {
       feito.gravadas.push(linha);
       return o.naoGrava ? null : ({ id: "con-nova", user_id: linha.user_id, institution_name: linha.institution_name } satisfies Curada);
     },
-    umPorBanco: async () => { feito.umPorBanco++; if (o.umPorBancoFalha) throw new Error("pluggy fora"); },
     agora: () => new Date("2026-11-12T12:30:00Z"),
     registrar: (msg) => { feito.registros.push(msg); },
   };
@@ -30,7 +29,7 @@ const item = (banco: string, status: string | null = "UPDATED"): ItemDaCura => (
 const nubank: Ativa[] = [{ id: "1", item_id: "it-nu", institution_name: "Nubank", created_at: "2026-10-01T00:00:00Z" }];
 
 describe("pluggy-webhook auto-cura", () => {
-  it("free slot: creates the connection for the Item's owner and applies 'one per bank'", async () => {
+  it("free slot: creates the connection for the Item's owner and deletes nothing", async () => {
     const c = cena();
     const r = await autoCura(c.portas, { itemId: "it-1", item: item("Nubank"), dono: ANA });
     expect(r).toEqual({ con: { id: "con-nova", user_id: ANA, institution_name: "Nubank" } });
@@ -38,7 +37,6 @@ describe("pluggy-webhook auto-cura", () => {
       user_id: ANA, item_id: "it-1", institution_name: "Nubank", institution_logo: "https://logo/Nubank",
       status: "UPDATED", updated_at: "2026-11-12T12:30:00.000Z",
     }]);
-    expect(c.feito.umPorBanco).toBe(1);
     expect(c.feito.apagados).toEqual([]);
   });
   it("an Item with no status is created as UPDATING (as before)", async () => {
@@ -62,7 +60,6 @@ describe("pluggy-webhook auto-cura", () => {
     expect(await autoCura(c.portas, { itemId: "it-itau", item: item("Itaú"), dono: ANA })).toEqual({ recusa: "limite_indisponivel" });
     expect(c.feito.apagados).toEqual([]);
     expect(c.feito.gravadas).toEqual([]);
-    expect(c.feito.umPorBanco).toBe(0);
     expect(c.feito.registros).toContain("pluggy-webhook: limite indisponivel, conexao nao criada e item mantido");
   });
   it("the seller's connections cannot be read: no connection and the Item is NOT deleted", async () => {
@@ -94,14 +91,20 @@ describe("pluggy-webhook auto-cura", () => {
       expect(c.feito).toMatchObject({ vagas: 0, apagados: [], gravadas: [] });
     }
   });
-  it("the row was not saved: no connection is reported and 'one per bank' does not run", async () => {
+  it("the row was not saved: no connection is reported", async () => {
     const c = cena({ naoGrava: true });
     expect(await autoCura(c.portas, { itemId: "it-1", item: item("Nubank"), dono: ANA })).toEqual({ recusa: "nao_gravou" });
-    expect(c.feito.umPorBanco).toBe(0);
     expect(c.feito.apagados).toEqual([]);
   });
-  it("a failure in 'one per bank' does not undo the connection", async () => {
-    const c = cena({ umPorBancoFalha: true });
-    expect(await autoCura(c.portas, { itemId: "it-1", item: item("Nubank"), dono: ANA })).toHaveProperty("con");
+  it("A4: the same bank again with a free slot is another connection — created, nothing deleted", async () => {
+    const c = cena({ ativas: nubank, limite: 2 });
+    expect(await autoCura(c.portas, { itemId: "it-nu-pj", item: item("Nubank"), dono: ANA })).toHaveProperty("con");
+    expect(c.feito.apagados).toEqual([]);
+  });
+  it("A4: the same bank again past the limit is refused like any other bank", async () => {
+    const c = cena({ ativas: nubank, limite: 1 });
+    expect(await autoCura(c.portas, { itemId: "it-nu-2", item: item("Nubank"), dono: ANA })).toEqual({ recusa: "sem_vaga" });
+    expect(c.feito.apagados).toEqual(["it-nu-2"]);
+    expect(c.feito.gravadas).toEqual([]);
   });
 });

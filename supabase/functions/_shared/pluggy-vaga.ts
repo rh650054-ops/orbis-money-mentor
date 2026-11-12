@@ -6,48 +6,42 @@
 // items (Mercado Pago OAuth loop: 4 items in 34 s on 09/11), and the webhook's auto-heal created a
 // connection for each one, with no limit and no bank check. Each copy imported the same week again.
 //
-// Two rules, applied wherever a connection is created (pluggy-item and the webhook's auto-heal):
-//   1. one connection per bank per seller: connecting the same bank again REPLACES the old one
-//      (the newest stays, so reconnecting a broken bank still works);
-//   2. a different bank only fits while the seller is under the plan's limit; otherwise the
-//      new Pluggy item is deleted and no connection is created.
+// 09/11 answered with two rules: "same bank again REPLACES the old connection" and "a different
+// bank only fits under the plan's limit".
 //
 // 12/11/2026 (Rick, A2): a limit that could not be read no longer lets a new connection in.
 // The answer has three values: "cabe", "sem_vaga" (the limit is known and exceeded) and
 // "indisponivel" (the limit or the seller's connections could not be read — a temporary failure).
 // Only "sem_vaga" may delete the new Item on Pluggy; "indisponivel" creates nothing and deletes
 // nothing. An Item that is already the seller's live connection always fits (reauthorisation).
+//
+// 12/11/2026 (Rick, A4): "contas distintas da mesma instituição não são automaticamente
+// duplicadas. Não exclua conexões com base apenas no nome do banco." A personal and a business
+// account at the same bank have the same institution name and are two accounts. So:
+//   - nothing is deleted here any more because of the bank's name (umPorBanco is gone);
+//   - every live connection takes a slot, same bank or not — the same count the database's
+//     open_finance_limite and the connect token already use. That is also what stops one widget
+//     session from leaving several Items behind: past the limit, the extra Item is refused;
+//   - real copies of the SAME account are removed only with proof, by the robot
+//     (pluggy-duplicadas.ts).
 // deno-lint-ignore-file no-explicit-any
 
 export type Ativa = { id: string; item_id: string | null; institution_name: string | null; created_at: string };
 
 const chaveBanco = (nome: string | null) => String(nome ?? "").trim().toLowerCase();
 
-/** Pure: ids to drop so each bank keeps only its newest connection. */
-export function repetidasDoMesmoBanco(ativas: Ativa[]): string[] {
-  const grupos = new Map<string, Ativa[]>();
-  for (const a of ativas) {
-    const k = chaveBanco(a.institution_name);
-    if (!k) continue;
-    grupos.set(k, [...(grupos.get(k) ?? []), a]);
-  }
-  const fora: string[] = [];
-  for (const g of grupos.values()) {
-    if (g.length < 2) continue;
-    g.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || (a.id < b.id ? 1 : -1));
-    fora.push(...g.slice(1).map((a) => a.id));
-  }
-  return fora;
+/** Pure: the seller's other live connections at the same institution (for the log only). */
+export function doMesmoBanco(ativas: Ativa[], banco: string | null, itemId: string): Ativa[] {
+  const k = chaveBanco(banco);
+  if (!k) return [];
+  return ativas.filter((a) => a.item_id !== itemId && chaveBanco(a.institution_name) === k);
 }
 
-/** Pure: does a connection to `banco` (item `itemId`) fit in the plan? Same bank never counts
- *  against the limit (it replaces the old one). `limite` null = exempt. */
-export function cabeNoPlano(ativas: Ativa[], banco: string | null, itemId: string, limite: number | null): boolean {
+/** Pure: does one more connection (item `itemId`) fit in the plan? Every other live connection
+ *  takes a slot, whatever its bank. `limite` null = exempt. */
+export function cabeNoPlano(ativas: Ativa[], itemId: string, limite: number | null): boolean {
   if (limite === null) return true;
-  const k = chaveBanco(banco);
-  const outros = new Set(ativas.filter((a) => a.item_id !== itemId && chaveBanco(a.institution_name) !== k)
-    .map((a) => chaveBanco(a.institution_name)));
-  return outros.size < limite;
+  return ativas.filter((a) => a.item_id !== itemId).length < limite;
 }
 
 export async function apagarItemNaPluggy(apiKey: string, itemId: string): Promise<boolean> {
@@ -69,11 +63,11 @@ export function limiteDoPlano(resposta: unknown): number | null | undefined {
 }
 
 /** Pure: the decision. `ativas` null = the seller's connections could not be read. */
-export function decidirVaga(p: { ativas: Ativa[] | null; limite: number | null | undefined; banco: string | null; itemId: string }): Vaga {
+export function decidirVaga(p: { ativas: Ativa[] | null; limite: number | null | undefined; itemId: string }): Vaga {
   if (!p.ativas) return "indisponivel";
   if (p.ativas.some((a) => a.item_id === p.itemId)) return "cabe"; // already ours: takes no slot
   if (p.limite === undefined) return "indisponivel";
-  return cabeNoPlano(p.ativas, p.banco, p.itemId, p.limite) ? "cabe" : "sem_vaga";
+  return cabeNoPlano(p.ativas, p.itemId, p.limite) ? "cabe" : "sem_vaga";
 }
 
 const esperar = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
@@ -101,7 +95,7 @@ export async function vagaParaBanco(
 ): Promise<Vaga> {
   const esperaMs = opcoes.esperaMs ?? 300;
   const ativas = (await lerDuasVezes(async () => (await ativasDo(admin, userId)) ?? undefined, esperaMs)) ?? null;
-  const semLimite = decidirVaga({ ativas, limite: undefined, banco, itemId });
+  const semLimite = decidirVaga({ ativas, limite: undefined, itemId });
   if (semLimite === "cabe" || !ativas) {
     if (!ativas) console.error("pluggy vaga: conexoes ativas nao puderam ser lidas", userId);
     return semLimite; // already ours, or nothing can be said
@@ -112,23 +106,9 @@ export async function vagaParaBanco(
     return error ? undefined : limiteDoPlano(data);
   }, esperaMs);
   if (limite === undefined) console.error("pluggy vaga: limite do plano nao pode ser lido", userId);
-  return decidirVaga({ ativas, limite, banco, itemId });
-}
-
-/** After creating a connection: the older connections of the same bank go (Pluggy item + row). */
-export async function umPorBanco(admin: any, apiKey: string, userId: string): Promise<number> {
-  const ativas = await ativasDo(admin, userId);
-  if (!ativas) return 0; // could not read: nothing is replaced this time
-  const fora = repetidasDoMesmoBanco(ativas);
-  let n = 0;
-  for (const id of fora) {
-    const c = ativas.find((a) => a.id === id);
-    if (!c) continue;
-    if (c.item_id && !(await apagarItemNaPluggy(apiKey, c.item_id))) continue; // try again next time
-    const { error } = await admin.from("bank_connections")
-      .update({ status: "deleted", updated_at: new Date().toISOString() }).eq("id", id);
-    if (!error) n++;
-  }
-  if (n > 0) console.log("pluggy: mesmo banco, conexao antiga trocada pela nova", userId, n);
-  return n;
+  const vaga = decidirVaga({ ativas, limite, itemId });
+  // A4: same institution again is another connection — it takes a slot and nothing is deleted
+  const iguais = doMesmoBanco(ativas, banco, itemId).length;
+  if (iguais > 0) console.log("pluggy vaga: mesmo banco ja conectado, nada e apagado", JSON.stringify({ usuario: userId, outras: iguais, vaga }));
+  return vaga;
 }

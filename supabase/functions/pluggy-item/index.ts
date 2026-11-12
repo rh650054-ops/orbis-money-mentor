@@ -19,7 +19,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { diasDoPrimeiroImporte, importarEntradas } from "../_shared/pluggy-entradas.ts";
 import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
-import { apagarItemNaPluggy, umPorBanco, vagaParaBanco } from "../_shared/pluggy-vaga.ts";
+import { apagarItemNaPluggy, vagaParaBanco } from "../_shared/pluggy-vaga.ts";
 import { type Portas, registrarItem } from "./registro.ts";
 
 const cors = {
@@ -108,8 +108,6 @@ Deno.serve(async (req) => {
         const c = data as any;
         return c?.id ? { id: String(c.id), leitura_ok_em: c.leitura_ok_em ?? null } : null;
       },
-
-      umPorBanco: async (id) => { await umPorBanco(admin, apiKey, id); },
 
       concederSelo: async (id) => {
         const { error: eSelo } = await admin.rpc("banco_conceder_selo", { p_user: id });

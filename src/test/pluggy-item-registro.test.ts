@@ -1,11 +1,11 @@
 // A2 — validating and registering the bank Item (pluggy-item).
 // The whole flow runs here against a small fake world: Pluggy's items, our bank_connections rows
-// and the plan's limit. The slot rule is the real one (decidirVaga / repetidasDoMesmoBanco).
+// and the plan's limit. The slot rule is the real one (decidirVaga).
 import { describe, expect, it } from "vitest";
 import {
   donoDoItem, estadoParaGravar, registrarItem, type Gravacao, type ItemPluggy, type Linha, type Portas,
 } from "../../supabase/functions/pluggy-item/registro";
-import { decidirVaga, repetidasDoMesmoBanco, type Ativa } from "../../supabase/functions/_shared/pluggy-vaga";
+import { decidirVaga, type Ativa } from "../../supabase/functions/_shared/pluggy-vaga";
 
 type LinhaDoBanco = Linha & { item_id: string; institution_name: string; created_at: string; last_synced_at: string | null };
 
@@ -22,7 +22,6 @@ function mundo() {
     bancoFora: false,
     falhaAoGravar: false,
     falhaAoImportar: false,
-    falhaUmPorBanco: false,
     limiteFora: false, // open_finance_limite did not answer
     ativasFora: false, // the seller's connections could not be read
     consultasDeVaga: 0,
@@ -52,10 +51,10 @@ function mundo() {
       const l = m.linhas.find((x) => x.item_id === itemId);
       return l ? { id: l.id, user_id: l.user_id, status: l.status, leitura_ok_em: l.leitura_ok_em } : null;
     },
-    vaga: async (uid, banco, itemId) => {
+    vaga: async (uid, _banco, itemId) => {
       m.consultasDeVaga++;
       return decidirVaga({
-        ativas: m.ativasFora ? null : vivas(uid), limite: m.limiteFora ? undefined : m.limite.get(uid) ?? null, banco, itemId,
+        ativas: m.ativasFora ? null : vivas(uid), limite: m.limiteFora ? undefined : m.limite.get(uid) ?? null, itemId,
       });
     },
     apagarNaPluggy: async (itemId) => { m.apagadosNaPluggy.push(itemId); m.pluggy.delete(itemId); },
@@ -73,13 +72,6 @@ function mundo() {
       };
       m.linhas.push(nova);
       return { id: nova.id, leitura_ok_em: null };
-    },
-    umPorBanco: async (uid) => {
-      if (m.falhaUmPorBanco) throw new Error("pluggy fora");
-      for (const id of repetidasDoMesmoBanco(vivas(uid))) {
-        const l = m.linhas.find((x) => x.id === id);
-        if (l) { l.status = "deleted"; m.apagadosNaPluggy.push(l.item_id); m.pluggy.delete(l.item_id); }
-      }
     },
     concederSelo: async (uid) => { m.selos.push(uid); return true; },
     lerEntradas: async ({ conId, uid, itemId }) => {
@@ -465,21 +457,57 @@ describe("A2.8 — the connection's state is what Pluggy said", () => {
     expect(w.m.contas).toHaveLength(1);
     expect(w.m.avisos).toContain("pluggy-item: importar falhou");
   });
-  it("the same bank connected again replaces the old connection (rule of 09/11 kept)", async () => {
+});
+
+describe("A4 — distinct accounts of the same institution are never deleted by the bank's name", () => {
+  it("personal + business at the same bank, plan with two slots: both stay, nothing is deleted", async () => {
     const w = mundo();
-    w.linha("con-velha", ANA, "it-velho", "Nubank", "LOGIN_ERROR");
-    w.item("it-novo", ANA, "Nubank");
-    expect((await w.registrar(ANA, "it-novo")).corpo).toMatchObject({ ok: true });
-    expect(w.linhaDe("it-velho")?.status).toBe("deleted");
-    expect(w.linhaDe("it-novo")?.status).toBe("UPDATED");
-    expect(w.m.apagadosNaPluggy).toEqual(["it-velho"]);
+    w.m.limite.set(ANA, 2);
+    const pf = w.linha("con-pf", ANA, "it-pf", "Nubank");
+    w.item("it-pj", ANA, "Nubank");
+    expect((await w.registrar(ANA, "it-pj")).corpo).toMatchObject({ ok: true, banco: "Nubank" });
+    expect(w.m.apagadosNaPluggy).toHaveLength(0);
+    expect(pf).toMatchObject({ id: "con-pf", status: "UPDATED", item_id: "it-pf" });
+    expect(w.m.linhas.filter((l) => l.status !== "deleted").map((l) => l.item_id).sort()).toEqual(["it-pf", "it-pj"]);
   });
-  it("a failure in that replacement does not break the registration", async () => {
+  it("same bank again past the plan's limit: the NEW Item is refused; the connected one is untouched", async () => {
+    const w = mundo(); // limit 1
+    const antiga = w.linha("con-1", ANA, "it-velho", "Nubank", "LOGIN_ERROR");
+    w.item("it-novo", ANA, "Nubank");
+    expect(await w.registrar(ANA, "it-novo")).toEqual({ corpo: { error: "precisa_banco_extra" }, http: 200 });
+    expect(w.m.apagadosNaPluggy).toEqual(["it-novo"]); // the limit is known and exceeded
+    expect(antiga).toMatchObject({ status: "LOGIN_ERROR", item_id: "it-velho" });
+    expect(w.m.linhas).toHaveLength(1);
+  });
+  it("an exempt seller connecting the same bank three times keeps the three", async () => {
     const w = mundo();
-    w.item("it-1", ANA, "Nubank");
-    w.m.falhaUmPorBanco = true;
-    expect((await w.registrar(ANA, "it-1")).corpo).toMatchObject({ ok: true });
-    expect(w.m.avisos).toContain("pluggy-item: um por banco");
+    w.m.limite.set(ANA, null);
+    for (const it of ["it-1", "it-2", "it-3"]) {
+      w.item(it, ANA, "Mercado Pago");
+      expect((await w.registrar(ANA, it)).corpo).toMatchObject({ ok: true });
+    }
+    expect(w.m.linhas.filter((l) => l.status !== "deleted")).toHaveLength(3);
+    expect(w.m.apagadosNaPluggy).toHaveLength(0);
+  });
+  it("one widget session leaving several Items behind (Pro monthly): only the first is registered", async () => {
+    const w = mundo(); // limit 1
+    for (const it of ["it-1", "it-2", "it-3", "it-4"]) w.item(it, ANA, "Mercado Pago");
+    const respostas = [];
+    for (const it of ["it-1", "it-2", "it-3", "it-4"]) respostas.push((await w.registrar(ANA, it)).corpo);
+    expect(respostas.map((r) => r.ok === true ? "ok" : r.error)).toEqual(["ok", "precisa_banco_extra", "precisa_banco_extra", "precisa_banco_extra"]);
+    expect(w.m.linhas).toHaveLength(1);
+    expect(w.m.apagadosNaPluggy).toEqual(["it-2", "it-3", "it-4"]);
+  });
+  it("reauthorising one of two accounts of the same bank touches only that one", async () => {
+    const w = mundo();
+    w.m.limite.set(ANA, 2);
+    const pf = w.linha("con-pf", ANA, "it-pf", "Nubank");
+    w.linha("con-pj", ANA, "it-pj", "Nubank", "USER_INPUT_TIMEOUT");
+    w.item("it-pj", ANA, "Nubank", "UPDATED");
+    expect((await w.registrar(ANA, "it-pj")).corpo).toMatchObject({ ok: true, status: "UPDATED" });
+    expect(pf.status).toBe("UPDATED");
+    expect(w.linhaDe("it-pj")).toMatchObject({ id: "con-pj", status: "UPDATED" });
+    expect(w.m.apagadosNaPluggy).toHaveLength(0);
   });
 });
 

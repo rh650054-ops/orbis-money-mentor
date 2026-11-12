@@ -52,7 +52,6 @@ export interface Portas {
   apagarNaPluggy(itemId: string): Promise<void>;
   /** null when the row was not saved. */
   gravar(linha: Gravacao): Promise<{ id: string; leitura_ok_em: string | null } | null>;
-  umPorBanco(uid: string): Promise<void>;
   concederSelo(uid: string): Promise<boolean>;
   lerEntradas(p: { conId: string; uid: string; itemId: string; item: ItemPluggy; leituraOk: string | null }): Promise<{ gravadas: number; carimbo: string | null }>;
   marcarLeitura(conId: string, p: { lidoEm: string; carimbo: string | null }): Promise<void>;
@@ -126,8 +125,8 @@ export async function registrarItem(p: Portas, uid: string, itemBruto: unknown):
   });
   if (!con) return r({ error: "erro_ao_salvar" }, 500); // no badge and no import for a connection that does not exist
 
-  // same bank again = this connection replaces the old one
-  await p.umPorBanco(uid).catch((e) => p.avisar("pluggy-item: um por banco", e));
+  // A4: the same bank again is another connection. Nothing is deleted here because of the bank's
+  // name: a personal and a business account at one bank are two accounts.
 
   // ---- SELO: conectou banco, virou verificado
   const selo = COM_SELO.has(statusPluggy) ? await p.concederSelo(uid) : false;

@@ -16,7 +16,7 @@
 // O item e conferido NA PLUGGY antes: o clientUserId tem que bater.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { apagarTransacoes, diasDoPrimeiroImporte, importarEntradas } from "../_shared/pluggy-entradas.ts";
-import { apagarItemNaPluggy, umPorBanco, vagaParaBanco } from "../_shared/pluggy-vaga.ts";
+import { apagarItemNaPluggy, vagaParaBanco } from "../_shared/pluggy-vaga.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
 import { autoCura } from "./auto-cura.ts";
@@ -128,7 +128,6 @@ Deno.serve(async (req) => {
           if (error) console.error("pluggy-webhook: auto-cura nao gravou", error.message);
           return nova ?? null;
         },
-        umPorBanco: async (id) => { await umPorBanco(admin, apiKey, id); },
         agora: () => new Date(),
         registrar: (msg, ...detalhes) => console.log(msg, ...detalhes),
       }, { itemId, item, dono });
