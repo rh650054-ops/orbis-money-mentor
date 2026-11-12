@@ -26,8 +26,9 @@ const CADEIA = [
   "premio_pendencias", "premio_congelar", "premio_congelar_agora", "premio_reavaliar", "premio_homologar_manual", "premio_resultado",
 ];
 const OPCIONAIS = ["premio_homologacao_automatica"]; // exist only after their fix lands
-// Migrations that change grants or policies (not functions) and must be applied whole, in order.
-const APLICAR_INTEIRAS = ["20261110121000_premio_fechamento_sem_leitura_direta.sql"];
+// Migrations that change grants or policies, or create tables (not chain functions), and must be
+// applied whole, in order.
+const APLICAR_INTEIRAS = ["20261110121000_premio_fechamento_sem_leitura_direta.sql", "20261111170000_modulo_a_conexoes_espelho.sql"];
 
 const manifesto = JSON.parse(readFileSync(join(raiz, "supabase/baseline/manifesto-producao.json"), "utf8"));
 const defs = ultimasDefinicoes(raiz);
