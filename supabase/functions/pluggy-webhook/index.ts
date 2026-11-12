@@ -22,6 +22,10 @@ import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
 import { autoCura } from "./auto-cura.ts";
 import { resumoDoEstado } from "../_shared/pluggy-estado.ts";
 import { confirmarViva, manterEstadoSeViva, type PortasDaConexao, tratoDoEvento } from "./conexao.ts";
+import {
+  abrirRegistro, fecharRegistro, horaDeLimpar, limparVencidos, resultadoDe,
+  type NotaDoEvento, type PortasDosEventos,
+} from "./eventos.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -29,10 +33,13 @@ const cors = {
 };
 
 // sempre 200 depois da porta: a Pluggy reenvia sem parar se receber erro
-const respond = (body: Record<string, unknown> = {}) =>
+const responder = (body: Record<string, unknown> = {}) =>
   new Response(JSON.stringify({ received: true, ...body }), {
     headers: { ...cors, "Content-Type": "application/json" },
   });
+
+// A-PR2: when this instance last looked for expired vendor-less events (at most once an hour)
+let ultimaLimpezaDosEventos = 0;
 
 async function pluggyKey() {
   const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
@@ -57,6 +64,8 @@ async function pluggyKey() {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
+  // A-PR2: set once the event is accepted; closes its record whatever the exit
+  let fecharEvento: ((resposta: Record<string, unknown>, dito?: string) => Promise<void>) | null = null;
   try {
     const admin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -83,10 +92,53 @@ Deno.serve(async (req) => {
     const payload = await req.json().catch(() => ({} as any));
     console.log("pluggy-webhook", JSON.stringify(payload).slice(0, 300));
 
+    // ---- A-PR2 (shadow): the event is stored as received, before anything is done with it.
+    // Nothing reads of_eventos; a failure here is logged and changes nothing below.
+    const portasDosEventos: PortasDosEventos = {
+      inserir: async (linha) => {
+        const { data, error } = await admin.from("of_eventos").insert(linha).select("id")
+          .abortSignal(AbortSignal.timeout(3000)).maybeSingle();
+        if (error) {
+          if (error.code === "23505") return "repetido";
+          console.error("pluggy-webhook: of_eventos insert", error.code ?? "", error.message);
+          return null;
+        }
+        // deno-lint-ignore no-explicit-any
+        const id = Number((data as any)?.id);
+        return Number.isFinite(id) ? id : null;
+      },
+      fechar: async (id, campos) => {
+        const { data, error } = await admin.from("of_eventos").update(campos).eq("id", id).select("id")
+          .abortSignal(AbortSignal.timeout(3000));
+        if (error) console.error("pluggy-webhook: of_eventos update", error.code ?? "", error.message);
+        return !error && Array.isArray(data) && data.length > 0;
+      },
+      limparSemVendedor: async (antesDe) => {
+        const { data, error } = await admin.from("of_eventos").delete()
+          .is("user_id", null).lt("chegou_em", antesDe).select("id").abortSignal(AbortSignal.timeout(3000));
+        if (error) throw new Error(error.message);
+        return Array.isArray(data) ? data.length : 0;
+      },
+      registrar: (nivel, texto, dados) =>
+        (nivel === "erro" ? console.error : console.log)(texto, dados ? JSON.stringify(dados) : ""),
+    };
+    const registro = await abrirRegistro(portasDosEventos, payload);
+    const nota: NotaDoEvento = {};
+    fecharEvento = (resposta, dito) => fecharRegistro(portasDosEventos, registro, nota, resultadoDe(resposta, dito));
+    // every exit below answers Pluggy exactly as before; `dito` only names the exit in the record
+    const respond = async (body: Record<string, unknown> = {}, dito?: string) => {
+      await fecharEvento?.(body, dito);
+      return responder(body);
+    };
+    if (horaDeLimpar(Date.now(), ultimaLimpezaDosEventos)) {
+      ultimaLimpezaDosEventos = Date.now();
+      await limparVencidos(portasDosEventos, new Date());
+    }
+
     const evento = String(payload?.event ?? "");
     const itemId = String(payload?.itemId ?? payload?.item?.id ?? "");
     const clientUserId = String(payload?.clientUserId ?? "");
-    if (!evento || !itemId) return respond();
+    if (!evento || !itemId) return respond({}, "sem_evento_ou_item");
 
     const eDeItem = evento.startsWith("item/");
     const eDeTransacao = evento.toLowerCase().startsWith("transactions");
@@ -103,6 +155,7 @@ Deno.serve(async (req) => {
       if (!error) { con = data; consultou = true; }
       else console.error("pluggy-webhook: consulta da conexao falhou", error.message);
     }
+    nota.userId = con?.user_id ?? null; // A-PR2: the record belongs to the connection's vendor
     const trato = tratoDoEvento({ consultou, con });
     if (trato === "nao_consultada") {
       console.error("pluggy-webhook: conexao nao pode ser consultada, aviso nao tratado", evento);
@@ -112,15 +165,18 @@ Deno.serve(async (req) => {
     const apiKey = await pluggyKey();
     if (!apiKey) {
       console.error("pluggy-webhook: auth falhou");
-      return respond();
+      return respond({}, "pluggy_sem_chave");
     }
 
     // ---- o item, direto da Pluggy (status, banco, dono)
+    nota.item = null; // A-PR2: from here on the consultation was attempted; a failure stays recorded as such
     const itRes = await fetch(`https://api.pluggy.ai/items/${encodeURIComponent(itemId)}`, {
       headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(20000),
     });
     // deno-lint-ignore no-explicit-any
     const item: any = itRes.ok ? await itRes.json().catch(() => null) : null;
+    nota.item = item; // A-PR2: the state consulted goes into the record (null + the HTTP status when there is none)
+    nota.httpDaConsulta = itRes.status;
     const status = String(item?.status ?? "");
     const dono = String(item?.clientUserId ?? clientUserId);
     // A3: what Pluggy says about the connection and the consent, and what we make of it (no personal data)
@@ -170,8 +226,11 @@ Deno.serve(async (req) => {
         agora: () => new Date(),
         registrar: (msg, ...detalhes) => console.log(msg, ...detalhes),
       }, { itemId, item, dono });
-      if ("recusa" in cura) return respond(cura.recusa === "limite_indisponivel" ? { adiado: cura.recusa } : {});
+      if ("recusa" in cura) {
+        return respond(cura.recusa === "limite_indisponivel" ? { adiado: cura.recusa } : {}, `recusa:${cura.recusa}`);
+      }
       con = cura.con;
+      nota.userId = con?.user_id ?? null; // A-PR2
     } else {
       // conexao existe: so mantem o status honesto (LOGIN_ERROR, OUTDATED, UPDATED...)
       // A3: when Pluggy's reason depends on the seller (USER_INPUT_TIMEOUT, revoked consent...), that
@@ -254,6 +313,7 @@ Deno.serve(async (req) => {
     return respond({ gravadas: r.gravadas });
   } catch (e) {
     console.error("pluggy-webhook", e);
-    return respond();
+    await fecharEvento?.({}, "erro"); // A-PR2: never throws
+    return responder();
   }
 });
