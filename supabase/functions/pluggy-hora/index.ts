@@ -19,6 +19,7 @@ import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { limparRepetidas } from "../_shared/pluggy-duplicadas.ts";
 import { desligarPausadas } from "../_shared/pluggy-pausa.ts";
 import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
+import { conferirEstado } from "../_shared/pluggy-estado.ts";
 import {
   precisaDoVendedor, motivoDeLeitura, contarLeitura, leiturasDeHoje, relogioBRT, orcamentoDaConexao, contarPedido,
   podePedir, diasParaImportar, MAX_POR_RODADA, PEDIDO_MIN_PADRAO_MIN, PRIORIDADE, type Motivo, bancoLento,
@@ -113,6 +114,9 @@ Deno.serve(async (req) => {
     for (const { c, motivo, orc } of rodada) {
       porMotivo[motivo] = (porMotivo[motivo] ?? 0) + 1;
       const ultimaLeitura = c.last_synced_at ? new Date(c.last_synced_at) : null;
+      // A5: the Item as Pluggy has it now — the "before" of the F-02 stamp and the state check
+      const itemAgora = await buscarItem(apiKey, c.item_id);
+      const estado = conferirEstado(c.status, itemAgora);
       // F-02: "bank read" = Pluggy's last real sync, seen identical before and after our read
       let carimbo: string | null = null;
       try {
@@ -122,7 +126,7 @@ Deno.serve(async (req) => {
         const lido = await importarComCarimbo({
           buscar: () => buscarItem(apiKey, c.item_id),
           importar: () => importarEntradas(admin, apiKey, c.item_id, c.user_id, c.id, dias),
-          atual: c.leitura_ok_em, rotulo: c.id,
+          atual: c.leitura_ok_em, antes: itemAgora, rotulo: c.id,
         });
         lidas += lido.r.gravadas;
         pix += lido.r.pix;
@@ -150,8 +154,16 @@ Deno.serve(async (req) => {
       };
       // 05/11 (audit #2): only a complete read proves "no Pix that day"
       if (carimbo) mudar.leitura_ok_em = carimbo;
+      // A5: a lost or late event no longer leaves the state wrong until the next one
+      if (estado.gravar) {
+        mudar.status = estado.gravar;
+        console.log("pluggy-hora: estado corrigido", JSON.stringify({ conexao: c.id, de: c.status ?? null, para: estado.gravar }));
+      } else if (!estado.conferido) {
+        console.log("pluggy-hora: estado nao conferido, a Pluggy nao respondeu", c.id);
+      }
       const ultimoPedido = c.pluggy_pedido_em ? new Date(c.pluggy_pedido_em) : null;
-      if (podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN, { motivo, restanteMes: orc.restanteMes }) && await pedirAtualizacao(apiKey, c.item_id)) {
+      // A5: no refresh request while Pluggy says, right now, that the bank waits for the seller
+      if (estado.podePedir && podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN, { motivo, restanteMes: orc.restanteMes }) && await pedirAtualizacao(apiKey, c.item_id)) {
         pedidos++;
         mudar.pluggy_pedido_em = agoraIso;
         Object.assign(mudar, contarPedido(orc));

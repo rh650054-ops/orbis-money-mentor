@@ -15,7 +15,8 @@
 //   - "UPDATED" is never replaced, and never proves the consent is valid (A12);
 //   - a value we do not know is "desconhecido": kept as it came and never shown as success (A13);
 //   - a bank that is down is late data, not a consent state;
-//   - every state that depends on the seller leads to reauthorising the SAME Item (A8).
+//   - every state that depends on the seller leads to reauthorising the SAME Item (A8);
+//   - A5: whoever reads the bank checks the state against what Pluggy says at that moment.
 //
 // Pluggy's values come from its documentation (item lifecycle; errors & validations, Open Finance
 // subset; webhooks). No Deno and no imports here: the app uses this same file.
@@ -98,6 +99,24 @@ export function statusParaGravar(item: ItemDoEstado | null | undefined): string 
   const motivo = motivoDoItem(item);
   if (motivo in DO_VENDEDOR) return motivo; // the reason says more than "OUTDATED" / "UPDATING"
   return bruto;
+}
+
+/** A5 — periodic check (contract section 4, event order 4 and 5). A reader that has just asked
+ *  Pluggy for the Item uses the answer for the state too, so a lost or late event cannot leave the
+ *  connection wrong until the next one:
+ *   - `gravar`: the status to store now, or null to leave it as it is;
+ *   - `podePedir`: whether Pluggy may be asked to refresh this bank — never while what Pluggy
+ *     says NOW depends on the seller, whatever is stored.
+ *  `item` null = Pluggy did not answer: the stored state does not change (and decides alone). */
+export function conferirEstado(
+  gravado: string | null | undefined, item: ItemDoEstado | null | undefined,
+): { gravar: string | null; podePedir: boolean; conferido: boolean } {
+  const atual = typeof gravado === "string" ? gravado : "";
+  // a removed connection is never brought back by a check, whatever Pluggy still says
+  if (grupoDoStatus(atual) === "removido") return { gravar: null, podePedir: false, conferido: false };
+  const novo = statusParaGravar(item);
+  if (!novo) return { gravar: null, podePedir: !precisaDoVendedor(atual), conferido: false };
+  return { gravar: novo !== atual ? novo : null, podePedir: !precisaDoVendedor(novo), conferido: true };
 }
 
 const dataValida = (v: unknown): number => {

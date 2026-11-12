@@ -18,6 +18,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { pluggyKey, importarEntradas, pedirAtualizacao } from "../_shared/pluggy-entradas.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
+import { conferirEstado } from "../_shared/pluggy-estado.ts";
 import {
   precisaDoVendedor, podePuxarAgora, contarLeitura, leiturasDeHoje, relogioBRT, orcamentoDaConexao, contarPedido, podePedir,
   diasParaImportar, PEDIDO_MIN_PADRAO_MIN,
@@ -73,8 +74,14 @@ Deno.serve(async (req) => {
       const orc = orcamentoDaConexao(c, new Date());
       const ultimoPedido = c.pluggy_pedido_em ? new Date(c.pluggy_pedido_em) : null;
       let pediuEste = false;
+      // A5: what Pluggy says about this bank right now. The stored state is corrected with it and
+      // no refresh is asked while the bank waits for the seller. (The F-02 stamp below keeps
+      // looking at the Item on its own, before and after the read.)
+      const estado = conferirEstado(c.status, await buscarItem(apiKey, c.item_id));
+      if (estado.gravar) console.log("pluggy-sync: estado corrigido", JSON.stringify({ conexao: c.id, de: c.status ?? null, para: estado.gravar }));
+      else if (!estado.conferido) console.log("pluggy-sync: estado nao conferido, a Pluggy nao respondeu", c.id);
       // called at the end of the Foco / day closing → spends the reserve, like the after-Foco read
-      if (podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN, { motivo: abrir ? "calma" : "pos_foco", restanteMes: orc.restanteMes }) && await pedirAtualizacao(apiKey, c.item_id)) { pediu++; pediuEste = true; }
+      if (estado.podePedir && podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN, { motivo: abrir ? "calma" : "pos_foco", restanteMes: orc.restanteMes }) && await pedirAtualizacao(apiKey, c.item_id)) { pediu++; pediuEste = true; }
       // F-02: "bank read" = Pluggy's last real sync, seen identical before and after our read
       let carimbo: string | null = null;
       try {
@@ -94,7 +101,7 @@ Deno.serve(async (req) => {
       } catch (e) { console.error("pluggy-sync: piloto", (e as Error)?.message); }
       const agora = new Date().toISOString();
       const leitura = { last_synced_at: agora, updated_at: agora, leituras_dia: hoje, leituras_qtd: contarLeitura(c.leituras_dia, c.leituras_qtd, hoje),
-        ...(carimbo ? { leitura_ok_em: carimbo } : {}) };
+        ...(carimbo ? { leitura_ok_em: carimbo } : {}), ...(estado.gravar ? { status: estado.gravar } : {}) };
       await admin.from("bank_connections")
         .update(pediuEste ? { ...leitura, pluggy_pedido_em: agora, ...contarPedido(orc) } : leitura)
         .eq("id", c.id);
