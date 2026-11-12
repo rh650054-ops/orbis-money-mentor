@@ -12,6 +12,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { ehAppDaLoja } from "@/shared/lib/platform";
+import { grupoDoStatus } from "../../../supabase/functions/_shared/pluggy-estado";
 
 const CDN = "https://cdn.pluggy.ai/pluggy-connect/latest/pluggy-connect.js";
 
@@ -269,20 +270,20 @@ export async function carregarPro(): Promise<StatusPro> {
   };
 }
 
-/** Estado do banco em português de gente, não de API. */
-export function saudeDoBanco(status: string | null, ultimaSync: string | null) {
-  const s = String(status ?? "").toUpperCase();
-  if (s === "UPDATED") return { texto: "em dia", cor: "#3DD68C", alerta: false };
+/** Estado do banco em português de gente, não de API.
+ *  A3 (12/11): a lista de estados é a mesma do robô e do webhook (pluggy-estado.ts). Estado que a
+ *  gente não conhece nunca aparece como sucesso. */
+export function saudeDoBanco(status: string | null, _ultimaSync: string | null) {
+  const grupo = grupoDoStatus(status);
+  if (grupo === "em_dia") return { texto: "em dia", cor: "#3DD68C", alerta: false };
   // 09/10: WAITING_USER_INPUT aparecia como "atualizando…" pra sempre. É o banco
   // esperando o VENDEDOR aprovar no app do banco (André: nunca aprovou, 0 entradas).
-  if (s === "WAITING_USER_INPUT" || s === "LOGIN_ERROR" || s === "INVALID_CREDENTIALS" || s === "USER_INPUT_TIMEOUT")
+  if (grupo === "precisa_vendedor")
     return { texto: "falta autorizar no app do banco", cor: "#F2465A", alerta: true, autorizar: true };
-  if (s === "UPDATING" || s === "LOGIN_IN_PROGRESS")
-    return { texto: "atualizando…", cor: "#F5B800", alerta: false };
-  if (s === "OUTDATED" || s === "ERROR")
+  if (grupo === "lendo") return { texto: "atualizando…", cor: "#F5B800", alerta: false };
+  if (grupo === "provedor_atrasado")
     return { texto: "o banco está fora — não é você", cor: "#ff7a1a", alerta: true };
-  if (!ultimaSync) return { texto: "aguardando o banco", cor: "#7b766e", alerta: false };
-  return { texto: "conectado", cor: "#3DD68C", alerta: false };
+  return { texto: "aguardando o banco", cor: "#7b766e", alerta: true };
 }
 
 export const horaBR = (iso: string | null) => {

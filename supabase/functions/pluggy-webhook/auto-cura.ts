@@ -6,10 +6,14 @@
 // ("sem_vaga") deletes the Item on Pluggy. When the limit could not be checked ("indisponivel")
 // nothing is created and nothing is deleted: Pluggy's next event for the same Item tries again.
 
+import { statusParaGravar } from "../_shared/pluggy-estado.ts";
+
 export type Vaga = "cabe" | "sem_vaga" | "indisponivel";
 
 export type ItemDaCura = {
   status?: string | null;
+  executionStatus?: string | null;
+  error?: { code?: string | null } | null;
   connector?: { name?: string | null; imageUrl?: string | null } | null;
 };
 
@@ -62,7 +66,7 @@ export async function autoCura(
     item_id: c.itemId,
     institution_name: banco,
     institution_logo: c.item.connector?.imageUrl ?? null,
-    status: String(c.item.status ?? "") || "UPDATING",
+    status: statusParaGravar(c.item) || "UPDATING", // A3: the seller's pending action is not lost
     updated_at: p.agora().toISOString(),
   });
   if (!con) return { recusa: "nao_gravou" };

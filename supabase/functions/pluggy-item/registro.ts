@@ -14,10 +14,16 @@
 //   6. repeated calls end in the same single row (item_id is unique);
 //   7. entries and accounts are read only for the verified owner and only into that connection;
 //   8. the stored state is what Pluggy said — never a guessed "UPDATED" — and "last read" is
-//      written only after a read really happened.
+//      written only after a read really happened. A3: when Pluggy's reason depends on the seller
+//      (authorisation not finished, revoked, credentials), that reason is what is stored.
+
+import { statusParaGravar } from "../_shared/pluggy-estado.ts";
 
 export type ItemPluggy = {
   status?: string | null;
+  executionStatus?: string | null;
+  error?: { code?: string | null } | null;
+  consentExpiresAt?: string | null;
   clientUserId?: string | null;
   connector?: { name?: string | null; imageUrl?: string | null } | null;
 };
@@ -67,9 +73,10 @@ export function donoDoItem(p: { uid: string; clientUserId: string | null | undef
   return { ok: true, nova: !p.existente || p.existente.status === "deleted" };
 }
 
-/** State to store: what Pluggy said. Without it, what we already had; a new connection is "UPDATING". */
-export function estadoParaGravar(statusPluggy: string | null | undefined, existente: Linha | null): string {
-  const s = texto(statusPluggy);
+/** State to store: what Pluggy said (pluggy-estado.ts). Without it, what we already had; a new
+ *  connection is "UPDATING". */
+export function estadoParaGravar(item: ItemPluggy, existente: Linha | null): string {
+  const s = statusParaGravar(item);
   if (s) return s;
   const antigo = texto(existente?.status);
   return antigo && antigo !== "deleted" ? antigo : "UPDATING";
@@ -112,7 +119,7 @@ export async function registrarItem(p: Portas, uid: string, itemBruto: unknown):
     }
   }
 
-  const estado = estadoParaGravar(statusPluggy, existente);
+  const estado = estadoParaGravar(item, existente);
   const con = await p.gravar({
     user_id: uid, item_id: itemId, institution_name: banco, institution_logo: logo,
     status: estado, updated_at: p.agora().toISOString(),

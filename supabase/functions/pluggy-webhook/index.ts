@@ -20,6 +20,7 @@ import { apagarItemNaPluggy, umPorBanco, vagaParaBanco } from "../_shared/pluggy
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
 import { autoCura } from "./auto-cura.ts";
+import { resumoDoEstado, statusParaGravar } from "../_shared/pluggy-estado.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -112,6 +113,8 @@ Deno.serve(async (req) => {
     const item: any = itRes.ok ? await itRes.json().catch(() => null) : null;
     const status = String(item?.status ?? "");
     const dono = String(item?.clientUserId ?? clientUserId);
+    // A3: what Pluggy says about the connection and the consent, and what we make of it (no personal data)
+    if (item) console.log("pluggy estado", JSON.stringify({ conexao: con?.id ?? null, evento, ...resumoDoEstado(item) }));
 
     // ---- AUTO-CURA: item sem conexao na Vant, mas com dono conhecido e Pro
     if (!con) {
@@ -133,8 +136,10 @@ Deno.serve(async (req) => {
       con = cura.con;
     } else if (item) {
       // conexao existe: so mantem o status honesto (LOGIN_ERROR, OUTDATED, UPDATED...)
+      // A3: when Pluggy's reason depends on the seller (USER_INPUT_TIMEOUT, revoked consent...), that
+      // reason is stored instead of "OUTDATED": the app offers "Autorizar" and the robot stops pulling
       await admin.from("bank_connections").update({
-        status: status || undefined,
+        status: statusParaGravar(item) || undefined,
         institution_name: item?.connector?.name ?? undefined,
         institution_logo: item?.connector?.imageUrl ?? undefined,
         updated_at: new Date().toISOString(),
