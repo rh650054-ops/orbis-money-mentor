@@ -16,6 +16,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { diasDoPrimeiroImporte, importarEntradas } from "../_shared/pluggy-entradas.ts";
 import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
+import { apagarItemNaPluggy, umPorBanco, vagaParaBanco } from "../_shared/pluggy-vaga.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -92,6 +93,12 @@ Deno.serve(async (req) => {
 
     const admin = createClient(URL_SUPA, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
 
+    // 09/11: a different bank only fits under the plan's limit (Pro monthly = 1 bank)
+    if (!(await vagaParaBanco(admin, uid, banco, itemId))) {
+      await apagarItemNaPluggy(apiKey, itemId);
+      return json({ error: "precisa_banco_extra" });
+    }
+
     const { data: con } = await admin.from("bank_connections").upsert({
       user_id: uid,
       item_id: itemId,
@@ -101,6 +108,9 @@ Deno.serve(async (req) => {
       last_synced_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }, { onConflict: "item_id" }).select("id, leitura_ok_em").maybeSingle();
+
+    // 09/11: same bank again = this connection replaces the old one
+    await umPorBanco(admin, apiKey, uid).catch((e) => console.error("pluggy-item: um por banco", e));
 
     // ---- SELO: conectou banco, virou verificado
     let selo = false;

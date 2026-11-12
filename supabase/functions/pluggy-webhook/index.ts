@@ -16,6 +16,7 @@
 // O item e conferido NA PLUGGY antes: o clientUserId tem que bater.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { apagarTransacoes, diasDoPrimeiroImporte, importarEntradas } from "../_shared/pluggy-entradas.ts";
+import { apagarItemNaPluggy, umPorBanco, vagaParaBanco } from "../_shared/pluggy-vaga.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
 
@@ -122,6 +123,13 @@ Deno.serve(async (req) => {
         console.log("pluggy-webhook: dono sem Pro, nao cria conexao", dono);
         return respond();
       }
+      // 09/11: a different bank only fits under the plan's limit (Pro monthly = 1 bank)
+      const nomeBanco = String(item?.connector?.name ?? "Banco");
+      if (!(await vagaParaBanco(admin, dono, nomeBanco, itemId))) {
+        await apagarItemNaPluggy(apiKey, itemId);
+        console.log("pluggy-webhook: banco a mais sem vaga no plano, item apagado", itemId, dono);
+        return respond();
+      }
       const { data: nova } = await admin.from("bank_connections").upsert({
         user_id: dono,
         item_id: itemId,
@@ -132,6 +140,8 @@ Deno.serve(async (req) => {
       }, { onConflict: "item_id" }).select("id, user_id, institution_name").maybeSingle();
       con = nova;
       console.log("pluggy-webhook: conexao criada pela auto-cura", itemId, dono);
+      // 09/11: same bank again = the new connection replaces the old one
+      if (con) await umPorBanco(admin, apiKey, dono).catch((e) => console.error("pluggy-webhook: um por banco", e));
       if (!con) return respond();
     } else if (item) {
       // conexao existe: so mantem o status honesto (LOGIN_ERROR, OUTDATED, UPDATED...)

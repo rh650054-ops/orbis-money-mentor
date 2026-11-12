@@ -48,6 +48,8 @@ export function useLigarBanco(jaTemBanco: boolean) {
     const salvo = await salvarBanco(r.itemId).catch(() => ({ ok: false as const }));
     setLigando(false);
     await recarregar(); // the Pluggy webhook may have saved it on its own
+    // 09/11: a different bank past the plan's limit is refused by the server too
+    if (!salvo.ok && "erro" in salvo && salvo.erro === "precisa_banco_extra") { setPrecisaExtra(true); return; }
     if (!salvo.ok) { toast({ title: "Não deu pra salvar", description: "Tenta de novo.", variant: "destructive" }); return; }
     toast({
       title: reautorizar ? `${salvo.banco} autorizado de novo` : jaTemBanco ? `${salvo.banco} conectado · diga pra que serve` : `${salvo.banco} conectado`,

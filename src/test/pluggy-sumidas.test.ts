@@ -30,7 +30,48 @@ describe("idsSumidos", () => {
   });
 });
 
-import { apagarTransacoes } from "../../supabase/functions/_shared/pluggy-entradas";
+import { apagarTransacoes, idsSubstituidos } from "../../supabase/functions/_shared/pluggy-entradas";
+
+describe("idsSubstituidos (09/11: Mercado Pago re-issues every id on every read)", () => {
+  it("drops the old twin even though the new one is already stored (the real order: upsert, then clean)", () => {
+    // one real Pix of 35.34; read 1 stored "r1", read 2 returned it as "r2" and upserted it before cleaning
+    const vistos = new Set(["r2"]);
+    const porChave = new Map([[k("2026-11-08", 35.34), 1]]);
+    expect(idsSubstituidos([g("r1", "2026-11-08", 35.34), g("r2", "2026-11-08", 35.34)], vistos, porChave)).toEqual(["r1"]);
+  });
+
+  it("after 7 reads, keeps only the id of the last read", () => {
+    const velhos = ["a", "b", "c", "d", "e", "f"].map((id) => g(id, "2026-11-08", 35.34));
+    const vistos = new Set(["g7"]);
+    const porChave = new Map([[k("2026-11-08", 35.34), 1]]);
+    expect(idsSubstituidos([...velhos, g("g7", "2026-11-08", 35.34)], vistos, porChave)).toEqual(["a", "b", "c", "d", "e", "f"]);
+  });
+
+  it("two real Pix of the same amount on the same day: both new ids stay, both old ids go", () => {
+    const vistos = new Set(["n1", "n2"]);
+    const porChave = new Map([[k("2026-11-08", 15), 2]]);
+    const guardados = [g("v1", "2026-11-08", 15), g("v2", "2026-11-08", 15), g("n1", "2026-11-08", 15), g("n2", "2026-11-08", 15)];
+    expect(idsSubstituidos(guardados, vistos, porChave)).toEqual(["v1", "v2"]);
+  });
+
+  it("keeps a day+amount Pluggy did not return at all (partial list must not wipe the day)", () => {
+    const vistos = new Set(["hoje"]);
+    const porChave = new Map([[k("2026-11-03", 25), 1]]);
+    const guardados = [g("a", "2026-11-01", 30), g("b", "2026-11-01", 30), g("hoje", "2026-11-03", 25)];
+    expect(idsSubstituidos(guardados, vistos, porChave)).toEqual([]);
+  });
+
+  it("when a returned entry is not stored yet (upsert failed), an old id stays in its place", () => {
+    const vistos = new Set<string>(); // the new id never reached the table
+    const porChave = new Map([[k("2026-11-08", 20), 1]]);
+    expect(idsSubstituidos([g("v1", "2026-11-08", 20), g("v2", "2026-11-08", 20)], vistos, porChave)).toEqual(["v2"]);
+  });
+
+  it("keeps everything when every stored id came back", () => {
+    const porChave = new Map([[k("2026-11-01", 5), 2]]);
+    expect(idsSubstituidos([g("a", "2026-11-01", 5), g("b", "2026-11-01", 5)], new Set(["a", "b"]), porChave)).toEqual([]);
+  });
+});
 
 describe("apagarTransacoes: only with a re-issued twin (audit OF1, 04/11)", () => {
   type Row = { transaction_id: string; amount: number; transaction_date: string; created_at: string };

@@ -238,7 +238,7 @@ export async function tirarSumidas(
   if (error || !data) return 0;
   const guardados = (data as { transaction_id: string; transaction_date: string; amount: number | string }[])
     .map((r) => ({ id: r.transaction_id, chave: chaveSumida(r.transaction_date, Number(r.amount)) }));
-  const sumidas = idsSumidos(guardados, vistos, vistosPorChave);
+  const sumidas = idsSubstituidos(guardados, vistos, vistosPorChave);
   let n = 0;
   for (let i = 0; i < sumidas.length; i += 100) {
     const lote = sumidas.slice(i, i + 100);
@@ -252,7 +252,36 @@ export async function tirarSumidas(
 
 export const chaveSumida = (dia: string, valor: number) => `${dia}|${valor.toFixed(2)}`;
 
-/** Pure part: stored entries that did not come back AND were replaced by a re-issued twin.
+/** Pure part of tirarSumidas: after a COMPLETE read, stored entries Pluggy no longer returns,
+ *  for every day+amount Pluggy DID return (re-issued with a new id).
+ *
+ *  09/11/2026 (Rick: "o banco está lendo errado"): Mercado Pago gives every transaction a new id
+ *  on every read. The old twin of each entry was never removed, because idsSumidos counted the new
+ *  twin — already upserted by the time it runs — as "one of this day+amount came back", so it saw
+ *  nothing to replace. One Pix of R$ 35,34 was stored 7 times, one per read; a seller's Sunday of
+ *  R$ 435 showed R$ 2.283. Rule now: for each day+amount Pluggy returned, keep what it returned and
+ *  drop the stored ids it did not (only as many as the returned ones already cover).
+ *  A day+amount Pluggy did not return at all is still kept (03/11: partial lists must not wipe days). */
+export function idsSubstituidos(guardados: { id: string; chave: string }[], vistos: Set<string>, vistosPorChave: Map<string, number>): string[] {
+  // stored entries Pluggy returned in this read, per day+amount
+  const cobertas = new Map<string, number>();
+  for (const g of guardados) if (vistos.has(g.id)) cobertas.set(g.chave, (cobertas.get(g.chave) ?? 0) + 1);
+  // returned entries not stored yet (an upsert that failed): that many old ids may stay in their place
+  const folga = new Map<string, number>();
+  for (const [k, n] of vistosPorChave) folga.set(k, Math.max(n - (cobertas.get(k) ?? 0), 0));
+  const out: string[] = [];
+  for (const g of guardados) {
+    if (vistos.has(g.id)) continue;
+    if (!vistosPorChave.has(g.chave)) continue; // nothing of this day+amount came back: keep
+    const sobra = folga.get(g.chave) ?? 0;
+    if (sobra > 0) { folga.set(g.chave, sobra - 1); continue; }
+    out.push(g.id);
+  }
+  return out;
+}
+
+/** Pure part of apagarTransacoes: ids Pluggy declared gone, removed only while a newer twin
+ *  (same day, same amount, stored after them) exists to take their place.
  *  03/11/2026: Mercado Pago sometimes returns only part of the list; removing every entry that
  *  did not come back wiped whole days (a seller's 01/11 went from R$ 295 to zero). Now an entry
  *  is removed only while there is a new id with the same day and amount to take its place. */
