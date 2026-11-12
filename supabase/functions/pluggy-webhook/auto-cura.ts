@@ -33,7 +33,6 @@ export interface PortasDaCura {
   apagarNaPluggy(itemId: string): Promise<void>;
   /** null when the row was not saved. */
   gravar(linha: LinhaDaCura): Promise<Curada | null>;
-  umPorBanco(dono: string): Promise<void>;
   agora(): Date;
   registrar(msg: string, ...detalhes: unknown[]): void;
 }
@@ -49,7 +48,7 @@ export async function autoCura(
     p.registrar("pluggy-webhook: dono sem Pro, nao cria conexao", c.dono);
     return { recusa: "sem_pro" };
   }
-  // 09/11: a different bank only fits under the plan's limit (Pro monthly = 1 bank)
+  // every connection takes a slot of the plan (Pro monthly = 1 bank)
   const banco = String(c.item.connector?.name ?? "Banco");
   const vaga = await p.vaga(c.dono, banco, c.itemId);
   if (vaga === "sem_vaga") {
@@ -71,7 +70,6 @@ export async function autoCura(
   });
   if (!con) return { recusa: "nao_gravou" };
   p.registrar("pluggy-webhook: conexao criada pela auto-cura", c.itemId, c.dono);
-  // 09/11: same bank again = the new connection replaces the old one
-  await p.umPorBanco(c.dono).catch((e) => p.registrar("pluggy-webhook: um por banco", e));
+  // A4: nothing is deleted because of the bank's name (pluggy-vaga.ts)
   return { con };
 }
