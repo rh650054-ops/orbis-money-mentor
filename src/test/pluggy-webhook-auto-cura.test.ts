@@ -46,6 +46,11 @@ describe("pluggy-webhook auto-cura", () => {
     await autoCura(c.portas, { itemId: "it-1", item: item("Nubank", null), dono: ANA });
     expect(c.feito.gravadas[0]?.status).toBe("UPDATING");
   });
+  it("A3: an Item whose authorisation the seller never finished is created waiting for the seller", async () => {
+    const c = cena();
+    await autoCura(c.portas, { itemId: "it-1", item: { status: "OUTDATED", executionStatus: "USER_INPUT_TIMEOUT", connector: { name: "Inter" } }, dono: ANA });
+    expect(c.feito.gravadas[0]?.status).toBe("USER_INPUT_TIMEOUT");
+  });
   it("limit known and exceeded: no connection, the Item is deleted on Pluggy (as before)", async () => {
     const c = cena({ ativas: nubank, limite: 1 });
     expect(await autoCura(c.portas, { itemId: "it-itau", item: item("Itaú"), dono: ANA })).toEqual({ recusa: "sem_vaga" });

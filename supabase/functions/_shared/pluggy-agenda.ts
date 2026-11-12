@@ -178,14 +178,9 @@ export function podePedir(
 
 const minutosEntre = (a: Date, b: Date) => (a.getTime() - b.getTime()) / 60_000;
 
-/** The bank is waiting for the VENDOR (consent not finished / password changed).
- *  Asking Pluggy to refresh it only re-opens the consent and expires again
- *  (André 09/10: 4 USER_INPUT_TIMEOUT overnight, 0 transactions). Don't read it
- *  until the vendor authorizes again in the app. */
-export function precisaDoVendedor(status: string | null | undefined): boolean {
-  const s = String(status ?? "").toUpperCase();
-  return s === "WAITING_USER_INPUT" || s === "LOGIN_ERROR" || s === "INVALID_CREDENTIALS" || s === "USER_INPUT_TIMEOUT";
-}
+// A3 (12/11): the list of states that wait for the seller lives in pluggy-estado.ts, shared with
+// the app, the webhook and pluggy-item. Re-exported here so the robot's imports stay the same.
+export { precisaDoVendedor } from "./pluggy-estado.ts";
 
 /** Why this bank should be read now — or null (most of the time). */
 export function motivoDeLeitura(c: Contexto): Motivo | null {

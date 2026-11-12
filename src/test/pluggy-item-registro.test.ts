@@ -408,6 +408,23 @@ describe("A2.8 — the connection's state is what Pluggy said", () => {
     await w.registrar(ANA, "it-1");
     expect(w.linhaDe("it-1")?.status).toBe("LOGIN_ERROR");
   });
+  it("A3: the seller left the authorisation unfinished — stored as that, no badge, nothing read", async () => {
+    const w = mundo();
+    w.m.pluggy.set("it-1", { status: "OUTDATED", executionStatus: "USER_INPUT_TIMEOUT", clientUserId: ANA, connector: { name: "Inter" } });
+    expect((await w.registrar(ANA, "it-1")).corpo).toMatchObject({ ok: true, status: "USER_INPUT_TIMEOUT", verificado: false, entradas: 0 });
+    expect(w.linhaDe("it-1")?.status).toBe("USER_INPUT_TIMEOUT");
+    expect(w.m.leituras).toHaveLength(0);
+  });
+  it("A3: reauthorising that same Item brings it back to what Pluggy says, in the same row", async () => {
+    const w = mundo();
+    w.linha("con-1", ANA, "it-1", "Inter", "USER_INPUT_TIMEOUT");
+    w.item("it-1", ANA, "Inter", "UPDATED");
+    expect((await w.registrar(ANA, "it-1")).corpo).toMatchObject({ ok: true, status: "UPDATED", verificado: true });
+    expect(w.m.linhas).toHaveLength(1);
+    expect(w.linhaDe("it-1")).toMatchObject({ id: "con-1", status: "UPDATED" });
+    expect(w.m.consultasDeVaga).toBe(0);
+    expect(w.m.apagadosNaPluggy).toHaveLength(0);
+  });
   it("registering never writes 'last read'", async () => {
     const w = mundo();
     w.item("it-1", ANA, "Nubank", "UPDATING");
@@ -478,10 +495,13 @@ describe("donoDoItem / estadoParaGravar (pure rules)", () => {
     expect(donoDoItem({ uid: ANA, clientUserId: ANA, existente: { ...minha, user_id: BIA } })).toEqual({ ok: false });
   });
   it("state table", () => {
-    expect(estadoParaGravar("OUTDATED", minha)).toBe("OUTDATED");
-    expect(estadoParaGravar(" UPDATED ", null)).toBe("UPDATED");
-    expect(estadoParaGravar(null, null)).toBe("UPDATING");
-    expect(estadoParaGravar("", { ...minha, status: "WAITING_USER_INPUT" })).toBe("WAITING_USER_INPUT");
-    expect(estadoParaGravar(undefined, { ...minha, status: "deleted" })).toBe("UPDATING");
+    expect(estadoParaGravar({ status: "OUTDATED" }, minha)).toBe("OUTDATED");
+    expect(estadoParaGravar({ status: " UPDATED " }, null)).toBe("UPDATED");
+    expect(estadoParaGravar({ status: null }, null)).toBe("UPDATING");
+    expect(estadoParaGravar({ status: "" }, { ...minha, status: "WAITING_USER_INPUT" })).toBe("WAITING_USER_INPUT");
+    expect(estadoParaGravar({}, { ...minha, status: "deleted" })).toBe("UPDATING");
+    // A3: the seller's pending action is what gets stored
+    expect(estadoParaGravar({ status: "OUTDATED", executionStatus: "USER_INPUT_TIMEOUT" }, minha)).toBe("USER_INPUT_TIMEOUT");
+    expect(estadoParaGravar({ status: "UPDATED", executionStatus: "PARTIAL_SUCCESS" }, minha)).toBe("UPDATED");
   });
 });
