@@ -23,7 +23,7 @@ import { autoCura } from "./auto-cura.ts";
 import { resumoDoEstado } from "../_shared/pluggy-estado.ts";
 import { confirmarViva, manterEstadoSeViva, type PortasDaConexao, tratoDoEvento } from "./conexao.ts";
 import {
-  abrirRegistro, fecharRegistro, horaDeLimpar, limparVencidos, resultadoDe,
+  abrirRegistro, eventoParaOLog, fecharRegistro, horaDeLimpar, limparVencidos, resultadoDe,
   type NotaDoEvento, type PortasDosEventos,
 } from "./eventos.ts";
 
@@ -90,9 +90,8 @@ Deno.serve(async (req) => {
 
     // deno-lint-ignore no-explicit-any
     const payload = await req.json().catch(() => ({} as any));
-    console.log("pluggy-webhook", JSON.stringify(payload).slice(0, 300));
 
-    // ---- A-PR2 (shadow): the event is stored as received, before anything is done with it.
+    // ---- A-PR2 (shadow): the chosen fields of the event are stored before anything is done with it.
     // Nothing reads of_eventos; a failure here is logged and changes nothing below.
     const portasDosEventos: PortasDosEventos = {
       inserir: async (linha) => {
@@ -100,7 +99,7 @@ Deno.serve(async (req) => {
           .abortSignal(AbortSignal.timeout(3000)).maybeSingle();
         if (error) {
           if (error.code === "23505") return "repetido";
-          console.error("pluggy-webhook: of_eventos insert", error.code ?? "", error.message);
+          console.error("pluggy-webhook: of_eventos insert", error.code ?? "sem_codigo"); // the code only
           return null;
         }
         // deno-lint-ignore no-explicit-any
@@ -110,19 +109,22 @@ Deno.serve(async (req) => {
       fechar: async (id, campos) => {
         const { data, error } = await admin.from("of_eventos").update(campos).eq("id", id).select("id")
           .abortSignal(AbortSignal.timeout(3000));
-        if (error) console.error("pluggy-webhook: of_eventos update", error.code ?? "", error.message);
+        if (error) console.error("pluggy-webhook: of_eventos update", error.code ?? "sem_codigo");
         return !error && Array.isArray(data) && data.length > 0;
       },
       limparSemVendedor: async (antesDe) => {
         const { data, error } = await admin.from("of_eventos").delete()
           .is("user_id", null).lt("chegou_em", antesDe).select("id").abortSignal(AbortSignal.timeout(3000));
-        if (error) throw new Error(error.message);
+        if (error) throw new Error(error.code ?? "sem_codigo");
         return Array.isArray(data) ? data.length : 0;
       },
       registrar: (nivel, texto, dados) =>
         (nivel === "erro" ? console.error : console.log)(texto, dados ? JSON.stringify(dados) : ""),
     };
     const registro = await abrirRegistro(portasDosEventos, payload);
+    // A-PR2: the payload itself is no longer printed (it carried the vendor's and the bank's ids).
+    // Only technical facts: the event type and whether it came with an id and an Item.
+    console.log("pluggy-webhook evento", JSON.stringify(eventoParaOLog(registro.linha)));
     const nota: NotaDoEvento = {};
     fecharEvento = (resposta, dito) => fecharRegistro(portasDosEventos, registro, nota, resultadoDe(resposta, dito));
     // every exit below answers Pluggy exactly as before; `dito` only names the exit in the record
@@ -309,7 +311,7 @@ Deno.serve(async (req) => {
       if (eRec) console.error("pluggy-webhook: reconciliar", eRec.message);
     }
 
-    console.log(`pluggy-webhook: ${r.gravadas} entradas para ${con.user_id}`);
+    console.log(`pluggy-webhook: ${r.gravadas} entradas (conexao ${con.id})`); // A-PR2: no longer the vendor's id
     return respond({ gravadas: r.gravadas });
   } catch (e) {
     console.error("pluggy-webhook", e);
