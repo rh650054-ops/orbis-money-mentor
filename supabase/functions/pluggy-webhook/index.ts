@@ -19,6 +19,7 @@ import { apagarTransacoes, diasDoPrimeiroImporte, importarEntradas } from "../_s
 import { apagarItemNaPluggy, umPorBanco, vagaParaBanco } from "../_shared/pluggy-vaga.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
+import { autoCura } from "./auto-cura.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -114,35 +115,22 @@ Deno.serve(async (req) => {
 
     // ---- AUTO-CURA: item sem conexao na Vant, mas com dono conhecido e Pro
     if (!con) {
-      if (!item || !dono) {
-        console.log("pluggy-webhook: item sem conexao e sem dono", itemId);
-        return respond();
-      }
-      const { data: ehPro } = await admin.rpc("orbis_pro_ativo", { p_user: dono });
-      if (ehPro !== true) {
-        console.log("pluggy-webhook: dono sem Pro, nao cria conexao", dono);
-        return respond();
-      }
-      // 09/11: a different bank only fits under the plan's limit (Pro monthly = 1 bank)
-      const nomeBanco = String(item?.connector?.name ?? "Banco");
-      if (!(await vagaParaBanco(admin, dono, nomeBanco, itemId))) {
-        await apagarItemNaPluggy(apiKey, itemId);
-        console.log("pluggy-webhook: banco a mais sem vaga no plano, item apagado", itemId, dono);
-        return respond();
-      }
-      const { data: nova } = await admin.from("bank_connections").upsert({
-        user_id: dono,
-        item_id: itemId,
-        institution_name: String(item?.connector?.name ?? "Banco"),
-        institution_logo: item?.connector?.imageUrl ?? null,
-        status: status || "UPDATING",
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "item_id" }).select("id, user_id, institution_name").maybeSingle();
-      con = nova;
-      console.log("pluggy-webhook: conexao criada pela auto-cura", itemId, dono);
-      // 09/11: same bank again = the new connection replaces the old one
-      if (con) await umPorBanco(admin, apiKey, dono).catch((e) => console.error("pluggy-webhook: um por banco", e));
-      if (!con) return respond();
+      const cura = await autoCura({
+        ehPro: async (id) => (await admin.rpc("orbis_pro_ativo", { p_user: id })).data === true,
+        vaga: (id, banco, it) => vagaParaBanco(admin, id, banco, it),
+        apagarNaPluggy: async (it) => { await apagarItemNaPluggy(apiKey, it); },
+        gravar: async (linha) => {
+          const { data: nova, error } = await admin.from("bank_connections")
+            .upsert(linha, { onConflict: "item_id" }).select("id, user_id, institution_name").maybeSingle();
+          if (error) console.error("pluggy-webhook: auto-cura nao gravou", error.message);
+          return nova ?? null;
+        },
+        umPorBanco: async (id) => { await umPorBanco(admin, apiKey, id); },
+        agora: () => new Date(),
+        registrar: (msg, ...detalhes) => console.log(msg, ...detalhes),
+      }, { itemId, item, dono });
+      if ("recusa" in cura) return respond(cura.recusa === "limite_indisponivel" ? { adiado: cura.recusa } : {});
+      con = cura.con;
     } else if (item) {
       // conexao existe: so mantem o status honesto (LOGIN_ERROR, OUTDATED, UPDATED...)
       await admin.from("bank_connections").update({
