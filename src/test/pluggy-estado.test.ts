@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 import {
-  acaoDoVendedor, consentimentoDoItem, grupoDoStatus, precisaDoVendedor, resumoDoEstado, statusParaGravar,
+  acaoDoVendedor, conferirEstado, consentimentoDoItem, grupoDoStatus, precisaDoVendedor, resumoDoEstado, statusParaGravar,
   STATUS_CONHECIDOS, type Consentimento,
 } from "../../supabase/functions/_shared/pluggy-estado";
 import { precisaDoVendedor as doRobo } from "../../supabase/functions/_shared/pluggy-agenda";
@@ -165,5 +165,66 @@ describe("resumoDoEstado — the log line", () => {
   });
   it("no Item: nothing said", () => {
     expect(resumoDoEstado(null, agora)).toMatchObject({ status: null, gravar: null, consentimento: "nao_informado", acao: "nenhuma" });
+  });
+});
+
+// ---- A5: whoever reads the bank checks the stored state against what Pluggy says at that moment
+describe("conferirEstado — periodic check of the stored state", () => {
+  it("12/11 in production: stored OUTDATED, Pluggy says the seller never finished — corrected, and no refresh is asked", () => {
+    expect(conferirEstado("OUTDATED", { status: "OUTDATED", executionStatus: "USER_INPUT_TIMEOUT" }))
+      .toEqual({ gravar: "USER_INPUT_TIMEOUT", podePedir: false, conferido: true });
+  });
+  it("a lost 'updated' event: stored as waiting for the seller, Pluggy says UPDATED — corrected, the robot may ask again", () => {
+    for (const velho of ["USER_INPUT_TIMEOUT", "WAITING_USER_INPUT", "LOGIN_ERROR", "OUTDATED", "UPDATING"]) {
+      expect(conferirEstado(velho, { status: "UPDATED", executionStatus: "SUCCESS" })).toEqual({ gravar: "UPDATED", podePedir: true, conferido: true });
+    }
+  });
+  it("nothing changed: nothing is written", () => {
+    expect(conferirEstado("UPDATED", { status: "UPDATED", executionStatus: "SUCCESS" })).toEqual({ gravar: null, podePedir: true, conferido: true });
+    expect(conferirEstado("OUTDATED", { status: "OUTDATED", executionStatus: "SITE_NOT_AVAILABLE" })).toEqual({ gravar: null, podePedir: true, conferido: true });
+    expect(conferirEstado("USER_INPUT_TIMEOUT", { status: "OUTDATED", executionStatus: "USER_INPUT_TIMEOUT" })).toEqual({ gravar: null, podePedir: false, conferido: true });
+  });
+  it("the bank went down: stored as it is, the robot keeps trying", () => {
+    expect(conferirEstado("UPDATED", { status: "OUTDATED", executionStatus: "SITE_NOT_AVAILABLE" })).toEqual({ gravar: "OUTDATED", podePedir: true, conferido: true });
+  });
+  it("Pluggy is in the middle of a sync: stored as reading", () => {
+    expect(conferirEstado("UPDATED", { status: "UPDATING", executionStatus: "LOGIN_IN_PROGRESS" })).toEqual({ gravar: "UPDATING", podePedir: true, conferido: true });
+  });
+  it("the consent was revoked at the bank: stored as that, no refresh asked", () => {
+    expect(conferirEstado("UPDATED", { status: "LOGIN_ERROR", executionStatus: "USER_AUTHORIZATION_REVOKED" }))
+      .toEqual({ gravar: "USER_AUTHORIZATION_REVOKED", podePedir: false, conferido: true });
+  });
+  it("Pluggy did not answer, or sent no status: the stored state does not change and decides alone", () => {
+    for (const item of [null, undefined, {}, { status: "" }, { executionStatus: "USER_INPUT_TIMEOUT" }]) {
+      expect(conferirEstado("UPDATED", item)).toEqual({ gravar: null, podePedir: true, conferido: false });
+      expect(conferirEstado("OUTDATED", item)).toEqual({ gravar: null, podePedir: true, conferido: false });
+      expect(conferirEstado("USER_INPUT_TIMEOUT", item)).toEqual({ gravar: null, podePedir: false, conferido: false });
+      expect(conferirEstado("WAITING_USER_INPUT", item)).toEqual({ gravar: null, podePedir: false, conferido: false });
+    }
+  });
+  it("a status Pluggy sends that we do not know is stored as it came, never turned into success", () => {
+    expect(conferirEstado("UPDATED", { status: "ALGO_NOVO" })).toEqual({ gravar: "ALGO_NOVO", podePedir: true, conferido: true });
+    expect(grupoDoStatus("ALGO_NOVO")).toBe("desconhecido");
+  });
+  it("a removed connection is never brought back, and nothing is asked for it", () => {
+    for (const item of [{ status: "UPDATED", executionStatus: "SUCCESS" }, { status: "OUTDATED" }, null]) {
+      expect(conferirEstado("deleted", item)).toEqual({ gravar: null, podePedir: false, conferido: false });
+    }
+  });
+  it("UPDATED from Pluggy always wins over the reason field", () => {
+    expect(conferirEstado("USER_INPUT_TIMEOUT", { status: "UPDATED", executionStatus: "PARTIAL_SUCCESS", error: { code: "USER_INPUT_TIMEOUT" } }))
+      .toEqual({ gravar: "UPDATED", podePedir: true, conferido: true });
+  });
+  it("what the check stores is what the webhook would store for the same Item", () => {
+    const itens = [
+      { status: "OUTDATED", executionStatus: "USER_INPUT_TIMEOUT" }, { status: "UPDATED", executionStatus: "SUCCESS" },
+      { status: "LOGIN_ERROR", executionStatus: "INVALID_CREDENTIALS" }, { status: "OUTDATED", executionStatus: "CONNECTION_ERROR" },
+      { status: "WAITING_USER_INPUT", executionStatus: "WAITING_USER_INPUT" }, { status: "UPDATING" },
+    ];
+    for (const item of itens) {
+      const r = conferirEstado("__outro__", item);
+      expect(r.gravar).toBe(statusParaGravar(item));
+      expect(r.podePedir).toBe(!precisaDoVendedor(statusParaGravar(item)));
+    }
   });
 });
