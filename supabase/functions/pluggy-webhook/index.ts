@@ -21,6 +21,7 @@ import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
 import { autoCura } from "./auto-cura.ts";
 import { resumoDoEstado, statusParaGravar } from "../_shared/pluggy-estado.ts";
+import { tratoDoEvento } from "./conexao.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -93,10 +94,19 @@ Deno.serve(async (req) => {
 
     // deno-lint-ignore no-explicit-any
     let con: any = null;
-    {
-      const { data } = await admin.from("bank_connections")
-        .select("id, user_id, institution_name, pausado_em, leitura_ok_em").eq("item_id", itemId).maybeSingle();
-      con = data;
+    let consultou = false;
+    // A7: a lookup that fails is not "no connection" — it is asked once more, then the event is left alone
+    for (let tentativa = 0; tentativa < 2 && !consultou; tentativa++) {
+      if (tentativa > 0) await new Promise((ok) => setTimeout(ok, 300));
+      const { data, error } = await admin.from("bank_connections")
+        .select("id, user_id, institution_name, pausado_em, leitura_ok_em, status").eq("item_id", itemId).maybeSingle();
+      if (!error) { con = data; consultou = true; }
+      else console.error("pluggy-webhook: consulta da conexao falhou", error.message);
+    }
+    const trato = tratoDoEvento({ consultou, con });
+    if (trato === "nao_consultada") {
+      console.error("pluggy-webhook: conexao nao pode ser consultada, aviso nao tratado", evento);
+      return respond({ adiado: "conexao_nao_consultada" });
     }
 
     const apiKey = await pluggyKey();
@@ -117,6 +127,14 @@ Deno.serve(async (req) => {
     if (item) console.log("pluggy estado", JSON.stringify({ conexao: con?.id ?? null, evento, ...resumoDoEstado(item) }));
 
     // ---- AUTO-CURA: item sem conexao na Vant, mas com dono conhecido e Pro
+    // A7: a removed connection never comes back on its own. Nothing is written, no badge, no import.
+    // The Item is NOT deleted on Pluggy here: that it still exists is only reported.
+    if (trato === "removida") {
+      console.log("pluggy-webhook: evento para conexao removida, nada foi alterado",
+        JSON.stringify({ conexao: con.id, evento, item_existe_na_pluggy: !!item }));
+      return respond({ removida: true });
+    }
+
     if (!con) {
       const cura = await autoCura({
         ehPro: async (id) => (await admin.rpc("orbis_pro_ativo", { p_user: id })).data === true,
