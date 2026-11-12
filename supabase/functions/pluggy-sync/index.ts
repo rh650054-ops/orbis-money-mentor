@@ -17,6 +17,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { pluggyKey, importarEntradas, pedirAtualizacao } from "../_shared/pluggy-entradas.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
+import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
 import {
   precisaDoVendedor, podePuxarAgora, contarLeitura, leiturasDeHoje, relogioBRT, orcamentoDaConexao, contarPedido, podePedir,
   diasParaImportar, PEDIDO_MIN_PADRAO_MIN,
@@ -74,12 +75,17 @@ Deno.serve(async (req) => {
       let pediuEste = false;
       // called at the end of the Foco / day closing → spends the reserve, like the after-Foco read
       if (podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN, { motivo: abrir ? "calma" : "pos_foco", restanteMes: orc.restanteMes }) && await pedirAtualizacao(apiKey, c.item_id)) { pediu++; pediuEste = true; }
-      let leituraOk = false;
+      // F-02: "bank read" = Pluggy's last real sync, seen identical before and after our read
+      let carimbo: string | null = null;
       try {
         const dias = diasParaImportar(c.leitura_ok_em ? new Date(c.leitura_ok_em) : c.last_synced_at ? new Date(c.last_synced_at) : null, new Date(), 2);
-        const r = await importarEntradas(admin, apiKey, c.item_id, uid, c.id, dias);
-        entradas += r.gravadas;
-        leituraOk = r.completa;
+        const lido = await importarComCarimbo({
+          buscar: () => buscarItem(apiKey, c.item_id),
+          importar: () => importarEntradas(admin, apiKey, c.item_id, uid, c.id, dias),
+          atual: c.leitura_ok_em, rotulo: c.id,
+        });
+        entradas += lido.r.gravadas;
+        carimbo = lido.carimbo;
       } catch (e) { console.error("pluggy-sync: importar", (e as Error)?.message); }
       // 04/10: saldo + gastos (Raio-X) também na leitura pedida pelo app, não só no cron
       try {
@@ -88,7 +94,7 @@ Deno.serve(async (req) => {
       } catch (e) { console.error("pluggy-sync: piloto", (e as Error)?.message); }
       const agora = new Date().toISOString();
       const leitura = { last_synced_at: agora, updated_at: agora, leituras_dia: hoje, leituras_qtd: contarLeitura(c.leituras_dia, c.leituras_qtd, hoje),
-        ...(leituraOk ? { leitura_ok_em: agora } : {}) };
+        ...(carimbo ? { leitura_ok_em: carimbo } : {}) };
       await admin.from("bank_connections")
         .update(pediuEste ? { ...leitura, pluggy_pedido_em: agora, ...contarPedido(orc) } : leitura)
         .eq("id", c.id);

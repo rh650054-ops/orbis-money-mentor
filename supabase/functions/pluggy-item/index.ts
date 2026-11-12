@@ -15,6 +15,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { diasDoPrimeiroImporte, importarEntradas } from "../_shared/pluggy-entradas.ts";
+import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
 import { apagarItemNaPluggy, umPorBanco, vagaParaBanco } from "../_shared/pluggy-vaga.ts";
 
 const cors = {
@@ -106,7 +107,7 @@ Deno.serve(async (req) => {
       status: status || "UPDATED",
       last_synced_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    }, { onConflict: "item_id" }).select("id").maybeSingle();
+    }, { onConflict: "item_id" }).select("id, leitura_ok_em").maybeSingle();
 
     // 09/11: same bank again = this connection replaces the old one
     await umPorBanco(admin, apiKey, uid).catch((e) => console.error("pluggy-item: um por banco", e));
@@ -125,10 +126,16 @@ Deno.serve(async (req) => {
     const conId = String((con as any)?.id ?? "");
     if (conId && status === "UPDATED") {
       try {
-        const r = await importarEntradas(admin, apiKey, itemId, uid, conId, diasDoPrimeiroImporte());
-        entradas = r.gravadas;
         // 05/11 (audit #2): only a complete read proves "no Pix that day"
-        if (r.completa) await admin.from("bank_connections").update({ leitura_ok_em: new Date().toISOString() }).eq("id", conId);
+        // F-02: up to Pluggy's sync time for this item (same before and after the read), not our clock
+        const { r, carimbo } = await importarComCarimbo({
+          buscar: () => buscarItem(apiKey, itemId),
+          importar: () => importarEntradas(admin, apiKey, itemId, uid, conId, diasDoPrimeiroImporte()),
+          // deno-lint-ignore no-explicit-any
+          atual: (con as any)?.leitura_ok_em ?? null, antes: item, rotulo: conId,
+        });
+        entradas = r.gravadas;
+        if (carimbo) await admin.from("bank_connections").update({ leitura_ok_em: carimbo }).eq("id", conId);
         console.log(`pluggy-item: ${r.contas} contas, ${r.gravadas} entradas para ${uid}`);
       } catch (e) {
         console.error("pluggy-item: importar falhou", (e as Error)?.message);
