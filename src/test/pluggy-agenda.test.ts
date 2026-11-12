@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  motivoDeLeitura, deslocamento, relogioBRT, contarLeitura, podePuxarAgora, bancoLento,
+  motivoDeLeitura, deslocamento, relogioBRT, contarLeitura, podePuxarAgora, bancoLento, precisaDoVendedor,
   cotaDeHoje, diasRestantesNoMes, intervaloFocoMin, podePedir, orcamentoDaConexao, contarPedido, diasParaImportar,
   LIMITE_DIA, LIMITE_GLOBAL_DIA, ORCAMENTO_MES, LIMITE_OPEN_FINANCE_MES, FOCO_ALVO_MIN, TETO_DIA, CALMA_SE_SOBRAR, CALMA_MANHA_SE_SOBRAR,
   type Contexto,
@@ -70,6 +70,13 @@ describe("pluggy agenda — when the bank is read", () => {
     expect(motivoDeLeitura(ctx({ agora: brt("2026-10-16 18:10"), ultimoPedido: brt("2026-10-16 17:57"), ultimaLeitura: brt("2026-10-16 17:57") }))).toBeNull();
     // unknown last pull → the old rules only (no guessing)
     expect(motivoDeLeitura(ctx({ agora: brt("2026-10-16 17:57"), ultimoPedido: null }))).toBeNull();
+  });
+
+  it("bank waiting for the vendor's consent (Open Finance): the robot leaves it alone", () => {
+    expect(precisaDoVendedor("WAITING_USER_ACTION")).toBe(true);
+    expect(precisaDoVendedor("WAITING_USER_INPUT")).toBe(true);
+    expect(precisaDoVendedor("UPDATED")).toBe(false);
+    expect(precisaDoVendedor("OUTDATED")).toBe(false);
   });
 
   it("slow bank (C6/Itaú): one more read 3h30-5h30 after the Foco, when the Pix finally shows up", () => {
