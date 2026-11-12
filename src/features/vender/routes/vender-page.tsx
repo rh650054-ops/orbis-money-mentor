@@ -18,6 +18,7 @@ import { useBancosQuery } from "../api/use-bancos-query";
 import { useConciliacaoQuery } from "../api/use-conciliacao-query";
 import { useAtualizarAgoraMutation } from "../api/use-vender-mutations";
 import { useLigarBanco } from "../api/use-ligar-banco";
+import { useRetornoDoBanco } from "../api/use-retorno-do-banco";
 import { useLeituraAoAbrir } from "../api/use-leitura-ao-abrir";
 import { diaDoHeroi } from "../lib/conciliacao";
 import { dicasDoDia } from "../lib/dicas";
@@ -40,6 +41,7 @@ export default function VenderPage() {
   const concQ = useConciliacaoQuery(user?.id, !!bancosQ.data);
   const atualizar = useAtualizarAgoraMutation();
   const banco = useLigarBanco(temBanco);
+  useRetornoDoBanco(!!user?.id);
   const [gerenciar, setGerenciar] = useState(false);
   useLeituraAoAbrir(bancosQ.data?.bancos);
   const { status: assinatura } = useSubscription(user?.id);
@@ -94,6 +96,7 @@ export default function VenderPage() {
     return (
       <div className="max-w-md mx-auto flex flex-col gap-4" style={{ color: COR.texto }}>
         {cabecalho}
+        {banco.precisaExtra && <BancoExtra usados={d.bancos.length} email={user.email} onFechar={banco.fecharExtra} />}
         <PrimeiroBanco pro={pro.pro} ligando={banco.ligando} onLigar={() => void banco.ligar()} onConferir={() => void bancosQ.refetch()} />
       </div>
     );

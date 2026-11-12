@@ -27,50 +27,136 @@ interface PluggyConnectCtor {
     connectorIds?: number[];
     onSuccess?: (data: { item?: { id?: string } }) => void;
     onError?: (e: unknown) => void;
+    onOpen?: () => void;
     onClose?: () => void;
-  }): { init: () => void };
+  }): { init: () => unknown };
 }
 
 declare global {
   interface Window { PluggyConnect?: PluggyConnectCtor }
 }
 
+const ESPERA_SCRIPT_MS = 15_000;
+const ESPERA_TOKEN_MS = 45_000;
 let carregando: Promise<void> | null = null;
 
-/** baixa o script uma vez só; chamadas seguintes reaproveitam */
+/** Baixa o script uma vez só; chamadas seguintes reaproveitam. Qualquer falha (sem rede, script
+ *  que veio sem a Pluggy, demora) limpa tudo: a próxima tentativa começa do zero, em vez de
+ *  herdar a falha até a página ser recarregada. */
 function carregarScript(): Promise<void> {
   if (window.PluggyConnect) return Promise.resolve();
   if (carregando) return carregando;
   carregando = new Promise<void>((ok, falha) => {
     const s = document.createElement("script");
+    const desistir = (motivo: string) => { window.clearTimeout(relogio); carregando = null; s.remove(); falha(new Error(motivo)); };
+    const relogio = window.setTimeout(() => desistir("demorou"), ESPERA_SCRIPT_MS);
     s.src = CDN;
     s.async = true;
-    s.onload = () => (window.PluggyConnect ? ok() : falha(new Error("sem_pluggy")));
-    s.onerror = () => { carregando = null; falha(new Error("sem_internet")); };
+    s.onload = () => { if (window.PluggyConnect) { window.clearTimeout(relogio); ok(); } else desistir("sem_pluggy"); };
+    s.onerror = () => desistir("sem_internet");
     document.head.appendChild(s);
   });
   return carregando;
 }
 
-export type ErroPluggy = "precisa_pro" | "precisa_banco_extra" | "pluggy_nao_configurado" | "sem_internet" | "cancelou" | "erro";
+export type ErroPluggy =
+  | "precisa_pro" | "precisa_banco_extra" | "pluggy_nao_configurado"
+  /** sem rede, ou a tela do banco não baixou */
+  | "sem_internet"
+  /** a sessão da Vant venceu */
+  | "sem_login"
+  /** o servidor ou a Pluggy não conseguiram abrir a tela agora */
+  | "provedor_fora"
+  /** pediu pra autorizar um banco que não está mais ligado a este vendedor */
+  | "banco_nao_encontrado"
+  /** a tela abriu, o banco recusou e o vendedor fechou sem concluir */
+  | "nao_concluiu"
+  /** já existe uma tela da Pluggy aberta (toque repetido) */
+  | "ja_aberto"
+  | "cancelou" | "erro";
 
-/** Pede o token curto ao servidor (que confere o Pro), abre o widget e devolve
- *  o item_id do banco conectado, ou { erro: "cancelou" } quando o vendedor desiste.
+export type ResultadoLigar = { itemId: string } | { erro: ErroPluggy };
+
+/* ---- volta do app do banco (OAuth) --------------------------------------------------------
+   No celular o vendedor sai pra aprovar no app do banco. Na volta, o sistema pode ter
+   recarregado a Vant e a tela da Pluggy sumiu sem avisar nada. Esta marca diz "havia uma
+   conexão em andamento": quem abre a tela relê a lista de bancos (use-retorno-do-banco). */
+const MARCA = "vant:banco:tentativa";
+const MARCA_VALE_MS = 15 * 60_000;
+function marcarTentativa() { try { localStorage.setItem(MARCA, String(Date.now())); } catch { /* sem armazenamento: segue */ } }
+export function limparTentativa() { try { localStorage.removeItem(MARCA); } catch { /* idem */ } }
+/** true se uma conexão foi aberta há pouco e não terminou nesta página */
+export function tentativaPendente(agora = Date.now()): boolean {
+  try {
+    const em = Number(localStorage.getItem(MARCA));
+    if (!em) return false;
+    if (agora - em > MARCA_VALE_MS) { localStorage.removeItem(MARCA); return false; }
+    return true;
+  } catch { return false; }
+}
+
+const TOKEN_FALHOU: Record<string, ErroPluggy> = {
+  precisa_pro: "precisa_pro", precisa_banco_extra: "precisa_banco_extra", pluggy_nao_configurado: "pluggy_nao_configurado",
+  sem_login: "sem_login", item_nao_encontrado: "banco_nao_encontrado",
+  pluggy_auth: "provedor_fora", pluggy_token: "provedor_fora", erro_interno: "provedor_fora",
+};
+
+/** Pede o token curto ao servidor. Traduz cada recusa: sem plano, sem vaga, sessão vencida,
+ *  banco que não é dele, servidor/Pluggy fora, ou simplesmente sem rede. */
+async function pedirToken(reautorizarItem?: string): Promise<{ token: string; connectorIds: number[] | null } | { erro: ErroPluggy }> {
+  let data: any = null;
+  let error: any = null;
+  let relogio = 0;
+  try {
+    const pedido = (supabase as any).functions.invoke("pluggy-connect-token", reautorizarItem ? { body: { itemId: reautorizarItem } } : undefined);
+    const demora = new Promise<{ data: null; error: { demorou: true } }>((r) => { relogio = window.setTimeout(() => r({ data: null, error: { demorou: true } }), ESPERA_TOKEN_MS); });
+    ({ data, error } = await Promise.race([pedido, demora]));
+  } catch { return { erro: typeof navigator !== "undefined" && navigator.onLine === false ? "sem_internet" : "provedor_fora" }; }
+  finally { window.clearTimeout(relogio); }
+  if (error || data?.error) {
+    const codigo = String(data?.error ?? "");
+    if (TOKEN_FALHOU[codigo]) return { erro: TOKEN_FALHOU[codigo] };
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return { erro: "sem_internet" };
+    const status = Number(error?.context?.status ?? error?.status ?? 0);
+    if (status === 401) return { erro: "sem_login" };
+    // FunctionsFetchError = a chamada nem chegou ao servidor
+    if (error?.name === "FunctionsFetchError") return { erro: "sem_internet" };
+    return { erro: "provedor_fora" };
+  }
+  const token = String(data?.accessToken ?? "");
+  if (!token) return { erro: "provedor_fora" };
+  // 22/10/2026: o servidor diz quais bancos mostrar (tira o Inter direto, que exige QR Code)
+  const connectorIds = Array.isArray(data?.connectorIds) ? (data.connectorIds as unknown[]).map(Number).filter(Number.isFinite) : null;
+  return { token, connectorIds };
+}
+
+let pedindo = false; // token sendo pedido ou tela ainda abrindo
+let sessao = 0;
+
+/** Pede o token curto ao servidor (que confere o plano e a vaga), abre o widget e devolve o
+ *  item_id do banco conectado, ou { erro } dizendo por que não abriu ou não concluiu.
+ *
+ *  Uma abertura por vez: enquanto o token está sendo pedido ou a tela está abrindo, uma segunda
+ *  chamada volta na hora com "ja_aberto" e não cria token nem tela nova. Depois que a tela da
+ *  Pluggy está na frente ela cobre o app, então um novo toque só chega se ela sumiu sem avisar:
+ *  nesse caso a nova tentativa é aceita (nunca um botão morto até recarregar a página).
  *
  *  `aoAbrir` avisa que a tela da Pluggy está na frente. A partir daí o botão do
  *  Vant pode voltar ao normal: quem manda é o widget. (10/09/2026: o botão
  *  ficava preso em "ABRINDO…" pra sempre quando o widget não respondia — OAuth
  *  em outra aba no celular, init que falha, onClose que nunca dispara.) */
-export async function ligarBanco(aoAbrir?: () => void, reautorizarItem?: string): Promise<{ itemId: string } | { erro: ErroPluggy }> {
-  const { data, error } = await (supabase as any).functions.invoke("pluggy-connect-token", reautorizarItem ? { body: { itemId: reautorizarItem } } : undefined);
-  if (error || data?.error) {
-    const e = String(data?.error ?? "erro");
-    return { erro: (e === "precisa_pro" || e === "precisa_banco_extra" || e === "pluggy_nao_configurado" ? e : "erro") as ErroPluggy };
-  }
-  const token = String(data?.accessToken ?? "");
-  if (!token) return { erro: "erro" };
-  // 22/10/2026: o servidor diz quais bancos mostrar (tira o Inter direto, que exige QR Code)
-  const connectorIds = Array.isArray(data?.connectorIds) ? (data.connectorIds as unknown[]).map(Number).filter(Number.isFinite) : null;
+export async function ligarBanco(aoAbrir?: () => void, reautorizarItem?: string): Promise<ResultadoLigar> {
+  if (pedindo) return { erro: "ja_aberto" };
+  pedindo = true;
+  const minha = ++sessao;
+  const soltar = () => { if (minha === sessao) pedindo = false; };
+  try { return await abrirWidget(() => { soltar(); aoAbrir?.(); }, reautorizarItem); }
+  finally { soltar(); if (minha === sessao) limparTentativa(); }
+}
+
+async function abrirWidget(aoAbrir?: () => void, reautorizarItem?: string): Promise<ResultadoLigar> {
+  const t = await pedirToken(reautorizarItem);
+  if ("erro" in t) return t;
 
   try { await carregarScript(); } catch { return { erro: "sem_internet" }; }
   const Ctor = window.PluggyConnect;
@@ -78,29 +164,37 @@ export async function ligarBanco(aoAbrir?: () => void, reautorizarItem?: string)
 
   return new Promise((resolve) => {
     let respondeu = false;
-    const responder = (r: { itemId: string } | { erro: ErroPluggy }) => {
+    let aberto = false;       // a tela da Pluggy chegou a aparecer
+    let bancoRecusou = false; // a Pluggy avisou erro com a tela aberta (o vendedor ainda pode tentar de novo nela)
+    const responder = (r: ResultadoLigar) => {
       if (respondeu) return;
       respondeu = true;
       resolve(r);
     };
+    const abriu = () => { if (aberto) return; aberto = true; marcarTentativa(); aoAbrir?.(); };
     try {
       const widget = new Ctor({
-        connectToken: token,
+        connectToken: t.token,
         includeSandbox: false,
         // 03/11/2026: inside the store app the Mercado Pago login opened in the webview and
         // came back to the same "Conectar" screen forever. Pluggy: open OAuth in the system browser.
         forceOauthInBrowser: ehAppDaLoja(),
         ...(reautorizarItem ? { updateItem: reautorizarItem } : {}),
-        ...(connectorIds && !reautorizarItem ? { connectorIds } : {}),
+        ...(t.connectorIds && !reautorizarItem ? { connectorIds: t.connectorIds } : {}),
+        onOpen: abriu,
         onSuccess: (d) => {
           const id = String(d?.item?.id ?? "");
           responder(id ? { itemId: id } : { erro: "erro" });
         },
-        onError: () => responder({ erro: "erro" }),
-        onClose: () => responder({ erro: "cancelou" }),
+        // A Pluggy chama onError em dois momentos: quando a tela nem carrega, e quando o banco
+        // recusa algo COM a tela aberta (senha errada, banco fora). No segundo caso a tela
+        // continua na frente e o vendedor pode tentar de novo ali mesmo — encerrar aqui jogava
+        // fora o sucesso que vinha depois. Só encerra se a tela não chegou a abrir.
+        onError: () => { if (aberto) bancoRecusou = true; else responder({ erro: "erro" }); },
+        onClose: () => responder({ erro: bancoRecusou ? "nao_concluiu" : "cancelou" }),
       });
-      widget.init();
-      aoAbrir?.();
+      // init pode devolver uma promessa: a falha dela também tem que soltar o botão
+      Promise.resolve(widget.init()).then(abriu, () => responder({ erro: "erro" }));
     } catch {
       // o widget não abriu: o botão tem que voltar, nunca ficar "abrindo…"
       responder({ erro: "erro" });
