@@ -5,6 +5,8 @@ do $$ begin
   if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin bypassrls; end if;
 end $$;
 create schema if not exists auth;
+-- The table every user-owned row points at. Only the key matters here.
+create table if not exists auth.users (id uuid primary key);
 -- Same contract as Supabase: the logged user comes from the request's JWT claim.
 create or replace function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid

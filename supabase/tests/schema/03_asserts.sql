@@ -35,6 +35,7 @@ create or replace function t.vendedor(p_apelido text, p_ticket numeric default 1
 returns uuid language plpgsql as $$
 declare u uuid := gen_random_uuid();
 begin
+  insert into auth.users (id) values (u);
   insert into public.profiles (user_id, nickname, verificado) values (u, p_apelido, p_verificado);
   insert into public.orbis_ficha (user_id, ticket) values (u, p_ticket);
   if p_pro then insert into public.teste_pro values (u); end if;

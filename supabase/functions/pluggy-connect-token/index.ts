@@ -11,6 +11,7 @@ const cors = {
 };
 
 import { filtrarConectores } from "./conectores.ts";
+import { decidirPedido, itemPedido } from "./pedido.ts";
 
 async function conectoresPermitidos(apiKey: string): Promise<number[] | null> {
   try {
@@ -44,18 +45,22 @@ Deno.serve(async (req) => {
 
     // ---- autorizar de novo um banco que já é dele (09/10): o consentimento expirou
     // (WAITING_USER_INPUT / LOGIN_ERROR). Abre o widget no MESMO item, sem gastar vaga.
+    // 11/11: se o banco nao e (mais) dele, responde isso. Antes virava um pedido de banco novo.
     let itemId: string | null = null;
-    try { const b = await req.clone().json(); itemId = typeof b?.itemId === "string" ? b.itemId : null; } catch { /* sem corpo */ }
+    try { itemId = itemPedido(await req.clone().json()); } catch { /* sem corpo */ }
+    let ehDele = false;
     if (itemId) {
-      const { data: meu } = await supa.from("bank_connections").select("id").eq("item_id", itemId).eq("user_id", uid).maybeSingle();
-      if (!meu) itemId = null;
+      const { data: meu } = await supa.from("bank_connections").select("id").eq("item_id", itemId).eq("user_id", uid)
+        .or("status.is.null,status.neq.deleted").maybeSingle();
+      ehDele = !!meu;
     }
 
     // ---- trava de quantos bancos (Rick, 03/10): o Pro liga 1 banco; cada um a mais
     // é +R$ 10/mês (bancos_extra). Rick e Mohamed são isentos. Sem vaga, nem abre o banco.
     const { data: lim } = await supa.rpc("open_finance_limite", {});
-    if (!itemId && lim && lim.pode_conectar === false) {
-      return json({ error: "precisa_banco_extra", usados: lim.usados, limite: lim.limite });
+    const pedido = decidirPedido({ uid, item: itemId, ehDele, limite: lim });
+    if ("erro" in pedido) {
+      return json(pedido.erro === "precisa_banco_extra" ? { error: pedido.erro, usados: pedido.usados, limite: pedido.limite } : { error: pedido.erro });
     }
 
     const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
@@ -79,8 +84,7 @@ Deno.serve(async (req) => {
     const ctRes = await fetch("https://api.pluggy.ai/connect_token", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-API-KEY": apiKey },
-      // 03/11: avoidDuplicates — tapping "Conectar" several times created the same bank 4–5 times
-      body: JSON.stringify(itemId ? { itemId, options: { clientUserId: uid } } : { options: { clientUserId: uid, avoidDuplicates: true } }),
+      body: JSON.stringify(pedido.corpo),
       signal: AbortSignal.timeout(20000),
     });
     if (!ctRes.ok) {
