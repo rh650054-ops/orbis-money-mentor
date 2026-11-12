@@ -11,7 +11,7 @@ const cors = {
 };
 
 import { filtrarConectores } from "./conectores.ts";
-import { decidirPedido, itemPedido } from "./pedido.ts";
+import { prepararPedido } from "./pedido.ts";
 
 async function conectoresPermitidos(apiKey: string): Promise<number[] | null> {
   try {
@@ -39,27 +39,33 @@ Deno.serve(async (req) => {
     const uid = u?.user?.id;
     if (!uid) return json({ error: "sem_login" }, 401);
 
-    // ---- trava do Pro
-    const { data: ehPro } = await supa.rpc("orbis_pro_ativo", { p_user: uid });
-    if (ehPro !== true) return json({ error: "precisa_pro" });
-
-    // ---- autorizar de novo um banco que já é dele (09/10): o consentimento expirou
-    // (WAITING_USER_INPUT / LOGIN_ERROR). Abre o widget no MESMO item, sem gastar vaga.
-    // 11/11: se o banco nao e (mais) dele, responde isso. Antes virava um pedido de banco novo.
-    let itemId: string | null = null;
-    try { itemId = itemPedido(await req.clone().json()); } catch { /* sem corpo */ }
-    let ehDele = false;
-    if (itemId) {
-      const { data: meu } = await supa.from("bank_connections").select("id").eq("item_id", itemId).eq("user_id", uid)
-        .or("status.is.null,status.neq.deleted").maybeSingle();
-      ehDele = !!meu;
-    }
-
-    // ---- trava de quantos bancos (Rick, 03/10): o Pro liga 1 banco; cada um a mais
-    // é +R$ 10/mês (bancos_extra). Rick e Mohamed são isentos. Sem vaga, nem abre o banco.
-    const { data: lim } = await supa.rpc("open_finance_limite", {});
-    const pedido = decidirPedido({ uid, item: itemId, ehDele, limite: lim });
+    // ---- trava do Pro; autorizar de novo um banco que já é dele (09/10: abre o widget no MESMO
+    // item, sem gastar vaga); trava de quantos bancos (Rick, 03/10: o Pro liga 1 banco; cada um a
+    // mais é +R$ 10/mês; Rick e Mohamed são isentos; sem vaga, nem abre o banco).
+    // A6 (12/11): as três perguntas e a decisão ficam em ./pedido.ts. Pergunta que falha não é
+    // resposta: não abre o banco, não manda assinar o Pro e não diz que o banco sumiu.
+    let corpo: unknown = null;
+    try { corpo = await req.clone().json(); } catch { /* sem corpo */ }
+    const pedido = await prepararPedido({
+      ehPro: async () => {
+        const { data, error } = await supa.rpc("orbis_pro_ativo", { p_user: uid });
+        return error || typeof data !== "boolean" ? undefined : data;
+      },
+      ehDele: async (itemId) => {
+        const { data: meu, error } = await supa.from("bank_connections").select("id").eq("item_id", itemId).eq("user_id", uid)
+          .or("status.is.null,status.neq.deleted").maybeSingle();
+        return error ? undefined : !!meu;
+      },
+      limite: async () => {
+        const { data, error } = await supa.rpc("open_finance_limite", {});
+        return error ? undefined : data;
+      },
+    }, uid, corpo);
     if ("erro" in pedido) {
+      if (pedido.erro === "consulta_indisponivel") {
+        console.error("pluggy-connect-token: plano, posse ou vaga nao puderam ser consultados", uid);
+        return json({ error: pedido.erro }, 503);
+      }
       return json(pedido.erro === "precisa_banco_extra" ? { error: pedido.erro, usados: pedido.usados, limite: pedido.limite } : { error: pedido.erro });
     }
 
