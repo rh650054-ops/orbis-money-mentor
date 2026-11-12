@@ -20,8 +20,8 @@ import { apagarItemNaPluggy, vagaParaBanco } from "../_shared/pluggy-vaga.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
 import { autoCura } from "./auto-cura.ts";
-import { resumoDoEstado, statusParaGravar } from "../_shared/pluggy-estado.ts";
-import { tratoDoEvento } from "./conexao.ts";
+import { resumoDoEstado } from "../_shared/pluggy-estado.ts";
+import { confirmarViva, manterEstadoSeViva, type PortasDaConexao, tratoDoEvento } from "./conexao.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -126,6 +126,27 @@ Deno.serve(async (req) => {
     // A3: what Pluggy says about the connection and the consent, and what we make of it (no personal data)
     if (item) console.log("pluggy estado", JSON.stringify({ conexao: con?.id ?? null, evento, ...resumoDoEstado(item) }));
 
+    // A7 (race): writes to an existing connection carry "and status <> 'deleted'" in the database
+    const portasDaConexao: PortasDaConexao = {
+      gravarSeViva: async (id, campos) => {
+        const { data, error } = await admin.from("bank_connections").update(campos)
+          .eq("id", id).neq("status", "deleted").select("id");
+        if (error) console.error("pluggy-webhook: estado nao gravado", error.message);
+        return !error && Array.isArray(data) && data.length > 0;
+      },
+      aindaViva: async (id) => {
+        const { data, error } = await admin.from("bank_connections").select("id")
+          .eq("id", id).neq("status", "deleted").maybeSingle();
+        if (error) console.error("pluggy-webhook: conexao nao confirmada", error.message);
+        return !error && !!data;
+      },
+    };
+    const encerrarRemovida = (etapa: string) => {
+      console.log("pluggy-webhook: conexao removida (ou nao confirmada) durante o processamento, nada foi reativado",
+        JSON.stringify({ conexao: con?.id ?? null, evento, etapa }));
+      return respond({ removida: true });
+    };
+
     // ---- AUTO-CURA: item sem conexao na Vant, mas com dono conhecido e Pro
     // A7: a removed connection never comes back on its own. Nothing is written, no badge, no import.
     // The Item is NOT deleted on Pluggy here: that it still exists is only reported.
@@ -151,16 +172,14 @@ Deno.serve(async (req) => {
       }, { itemId, item, dono });
       if ("recusa" in cura) return respond(cura.recusa === "limite_indisponivel" ? { adiado: cura.recusa } : {});
       con = cura.con;
-    } else if (item) {
+    } else {
       // conexao existe: so mantem o status honesto (LOGIN_ERROR, OUTDATED, UPDATED...)
       // A3: when Pluggy's reason depends on the seller (USER_INPUT_TIMEOUT, revoked consent...), that
       // reason is stored instead of "OUTDATED": the app offers "Autorizar" and the robot stops pulling
-      await admin.from("bank_connections").update({
-        status: statusParaGravar(item) || undefined,
-        institution_name: item?.connector?.name ?? undefined,
-        institution_logo: item?.connector?.imageUrl ?? undefined,
-        updated_at: new Date().toISOString(),
-      }).eq("id", con.id);
+      // A7 (race): the write itself refuses a connection removed since the lookup
+      if (await manterEstadoSeViva(portasDaConexao, { conId: con.id, item, agora: new Date() }) === "removida") {
+        return encerrarRemovida("estado");
+      }
     }
 
     // eventos de "esperando o usuario" / erro nao trazem extrato novo
@@ -172,6 +191,9 @@ Deno.serve(async (req) => {
 
     // 04/11: lost access → the bank is paused (removed after 7 days): nothing is imported
     if (con?.pausado_em) return respond({ status, pausado: true });
+
+    // A7 (race): the connection must still be valid right before the badge and the import
+    if (await confirmarViva(portasDaConexao, con.id) === "removida") return encerrarRemovida("antes_do_selo");
 
     // banco atualizou de verdade → o vendedor vira VERIFICADO
     const { error: eSelo } = await admin.rpc("banco_conceder_selo", { p_user: con.user_id });
@@ -219,7 +241,7 @@ Deno.serve(async (req) => {
       last_synced_at: agoraLeitura,
       updated_at: agoraLeitura,
       ...(carimbo ? { leitura_ok_em: carimbo } : {}),
-    }).eq("id", con.id);
+    }).eq("id", con.id).neq("status", "deleted"); // A7: never over a removal
 
     // Pix novo pode ter caído num dia já fechado: refaz Pix/cartão/calote desses dias.
     // F-02: also when the bank is now known to cover a closed day (even with no new entry)
