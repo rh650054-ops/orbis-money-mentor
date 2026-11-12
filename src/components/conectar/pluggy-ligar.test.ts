@@ -98,6 +98,13 @@ describe("ligarBanco: opening the Pluggy screen", () => {
     await expect(pluggy.ligarBanco()).resolves.toEqual({ erro: "sem_login" });
   });
 
+  it("A6: plan, ownership or slot could not be checked (503): the existing 'not you, try again' — never 'subscribe' or 'bank gone'", async () => {
+    invoke.mockResolvedValue({ data: null, error: { name: "FunctionsHttpError", context: { status: 503 } } });
+    await expect(pluggy.ligarBanco()).resolves.toEqual({ erro: "provedor_fora" });
+    invoke.mockResolvedValue({ data: { error: "consulta_indisponivel" }, error: null });
+    await expect(pluggy.ligarBanco()).resolves.toEqual({ erro: "provedor_fora" });
+  });
+
   it("server error (500): it is the provider's side, not the vendor's internet", async () => {
     invoke.mockResolvedValue({ data: null, error: { name: "FunctionsHttpError", context: { status: 500 } } });
     await expect(pluggy.ligarBanco()).resolves.toEqual({ erro: "provedor_fora" });
