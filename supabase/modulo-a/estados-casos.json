@@ -1,0 +1,461 @@
+{
+ "_": "One list of cases for the two implementations of the Module A state rules: supabase/functions/_shared/pluggy-estado.ts (app and edge functions) and the of_* SQL functions of A-PR3. Both test suites run every case. Change a rule in one place and this list fails the other.",
+ "grupos": [
+  {
+   "status": "UPDATED",
+   "grupo": "em_dia"
+  },
+  {
+   "status": "UPDATING",
+   "grupo": "lendo"
+  },
+  {
+   "status": "LOGIN_IN_PROGRESS",
+   "grupo": "lendo"
+  },
+  {
+   "status": "WAITING_USER_INPUT",
+   "grupo": "precisa_vendedor"
+  },
+  {
+   "status": "WAITING_USER_ACTION",
+   "grupo": "precisa_vendedor"
+  },
+  {
+   "status": "USER_INPUT_TIMEOUT",
+   "grupo": "precisa_vendedor"
+  },
+  {
+   "status": "USER_AUTHORIZATION_PENDING",
+   "grupo": "precisa_vendedor"
+  },
+  {
+   "status": "USER_AUTHORIZATION_NOT_GRANTED",
+   "grupo": "precisa_vendedor"
+  },
+  {
+   "status": "USER_AUTHORIZATION_REVOKED",
+   "grupo": "precisa_vendedor"
+  },
+  {
+   "status": "INVALID_CREDENTIALS",
+   "grupo": "precisa_vendedor"
+  },
+  {
+   "status": "INVALID_CREDENTIALS_MFA",
+   "grupo": "precisa_vendedor"
+  },
+  {
+   "status": "LOGIN_ERROR",
+   "grupo": "precisa_vendedor"
+  },
+  {
+   "status": "OUTDATED",
+   "grupo": "provedor_atrasado"
+  },
+  {
+   "status": "ERROR",
+   "grupo": "provedor_atrasado"
+  },
+  {
+   "status": "SITE_NOT_AVAILABLE",
+   "grupo": "provedor_atrasado"
+  },
+  {
+   "status": "CONNECTION_ERROR",
+   "grupo": "provedor_atrasado"
+  },
+  {
+   "status": "deleted",
+   "grupo": "removido"
+  },
+  {
+   "status": "DELETED",
+   "grupo": "removido"
+  },
+  {
+   "status": " updated ",
+   "grupo": "em_dia"
+  },
+  {
+   "status": "outdated",
+   "grupo": "provedor_atrasado"
+  },
+  {
+   "status": "\tUPDATING\n",
+   "grupo": "lendo"
+  },
+  {
+   "status": "ALGO_NOVO",
+   "grupo": "desconhecido"
+  },
+  {
+   "status": "",
+   "grupo": "desconhecido"
+  },
+  {
+   "status": null,
+   "grupo": "desconhecido"
+  },
+  {
+   "status": "SUCCESS",
+   "grupo": "desconhecido"
+  },
+  {
+   "status": "UPDATED_PARTIALLY",
+   "grupo": "desconhecido"
+  }
+ ],
+ "consentimentos": [
+  {
+   "nome": "UPDATED says nothing about the consent (A12)",
+   "status": "UPDATED",
+   "execucao": "SUCCESS",
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "nao_informado",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "UPDATED with a partial read",
+   "status": "UPDATED",
+   "execucao": "PARTIAL_SUCCESS",
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "nao_informado",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "being read",
+   "status": "UPDATING",
+   "execucao": "INVESTMENTS_IN_PROGRESS",
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "nao_informado",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "login in progress",
+   "status": "LOGIN_IN_PROGRESS",
+   "execucao": null,
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "nao_informado",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "the bank is down: late data, not a consent state",
+   "status": "OUTDATED",
+   "execucao": "CONNECTION_ERROR",
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "nao_informado",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "the site is down",
+   "status": "OUTDATED",
+   "execucao": "SITE_NOT_AVAILABLE",
+   "erro": "SITE_NOT_AVAILABLE",
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "nao_informado",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "never finished the authorisation",
+   "status": "OUTDATED",
+   "execucao": "USER_INPUT_TIMEOUT",
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "aguardando_vendedor",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "the reason comes only in the error code",
+   "status": "OUTDATED",
+   "execucao": null,
+   "erro": "USER_INPUT_TIMEOUT",
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "aguardando_vendedor",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "the execution wins over the error code",
+   "status": "OUTDATED",
+   "execucao": "USER_AUTHORIZATION_REVOKED",
+   "erro": "USER_INPUT_TIMEOUT",
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "revogado",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "waiting for the vendor in the status itself",
+   "status": "WAITING_USER_INPUT",
+   "execucao": null,
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "aguardando_vendedor",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "waiting for an action in the bank app",
+   "status": "WAITING_USER_ACTION",
+   "execucao": "WAITING_USER_ACTION",
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "aguardando_vendedor",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "authorisation pending",
+   "status": "UPDATING",
+   "execucao": "USER_AUTHORIZATION_PENDING",
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "aguardando_vendedor",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "consent rejected in the flow",
+   "status": "OUTDATED",
+   "execucao": "USER_AUTHORIZATION_NOT_GRANTED",
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "aguardando_vendedor",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "consent revoked at the bank",
+   "status": "OUTDATED",
+   "execucao": "USER_AUTHORIZATION_REVOKED",
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "revogado",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "credentials changed",
+   "status": "LOGIN_ERROR",
+   "execucao": "INVALID_CREDENTIALS",
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "credencial_invalida",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "credentials changed, MFA",
+   "status": "LOGIN_ERROR",
+   "execucao": "INVALID_CREDENTIALS_MFA",
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "credencial_invalida",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "login error with no reason",
+   "status": "LOGIN_ERROR",
+   "execucao": null,
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "credencial_invalida",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "login error with a reason we do not list",
+   "status": "LOGIN_ERROR",
+   "execucao": "ERROR",
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "credencial_invalida",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "UPDATED never becomes a vendor state, whatever the execution says",
+   "status": "UPDATED",
+   "execucao": "USER_INPUT_TIMEOUT",
+   "erro": "USER_INPUT_TIMEOUT",
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "nao_informado",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "a vendor reason wins over a valid expiry date",
+   "status": "OUTDATED",
+   "execucao": "USER_INPUT_TIMEOUT",
+   "erro": null,
+   "expira": "2027-01-01T00:00:00.000Z",
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "aguardando_vendedor",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "explicit expiry far ahead",
+   "status": "UPDATED",
+   "execucao": "SUCCESS",
+   "erro": null,
+   "expira": "2027-01-01T00:00:00.000Z",
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "autorizado",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "explicit expiry in three days",
+   "status": "UPDATED",
+   "execucao": "SUCCESS",
+   "erro": null,
+   "expira": "2026-11-15T12:00:00.000Z",
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "expirando",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "explicit expiry in exactly seven days",
+   "status": "UPDATED",
+   "execucao": "SUCCESS",
+   "erro": null,
+   "expira": "2026-11-19T12:00:00.000Z",
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "expirando",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "seven days and one second",
+   "status": "UPDATED",
+   "execucao": "SUCCESS",
+   "erro": null,
+   "expira": "2026-11-19T12:00:01.000Z",
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "autorizado",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "expires exactly now",
+   "status": "UPDATED",
+   "execucao": "SUCCESS",
+   "erro": null,
+   "expira": "2026-11-12T12:00:00.000Z",
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "expirado",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "expired yesterday",
+   "status": "UPDATED",
+   "execucao": "SUCCESS",
+   "erro": null,
+   "expira": "2026-11-11T12:00:00.000Z",
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "expirado",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "expired, while the bank is down",
+   "status": "OUTDATED",
+   "execucao": "CONNECTION_ERROR",
+   "erro": null,
+   "expira": "2026-11-01T00:00:00.000Z",
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "expirado",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "a status we do not know (A13)",
+   "status": "ALGO_NOVO",
+   "execucao": null,
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "desconhecido",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "a status we do not know, with a reason we do not know",
+   "status": "ALGO_NOVO",
+   "execucao": "OUTRA_COISA",
+   "erro": "CODIGO_NOVO",
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "desconhecido",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "a status we do not know, with a vendor reason: the reason is explicit",
+   "status": "ALGO_NOVO",
+   "execucao": "USER_INPUT_TIMEOUT",
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "aguardando_vendedor",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "a status we do not know, with an explicit expiry: the date is explicit",
+   "status": "ALGO_NOVO",
+   "execucao": null,
+   "erro": null,
+   "expira": "2027-01-01T00:00:00.000Z",
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "autorizado",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "no status at all",
+   "status": "",
+   "execucao": null,
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "desconhecido",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "status missing",
+   "status": null,
+   "execucao": null,
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "desconhecido",
+   "pede_vendedor": false
+  },
+  {
+   "nome": "written in small letters with spaces",
+   "status": " outdated ",
+   "execucao": " user_input_timeout ",
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "aguardando_vendedor",
+   "pede_vendedor": true
+  },
+  {
+   "nome": "a known status with an execution we do not know",
+   "status": "OUTDATED",
+   "execucao": "ALGUMA_FALHA_NOVA",
+   "erro": null,
+   "expira": null,
+   "quando": "2026-11-12T12:00:00.000Z",
+   "consentimento": "nao_informado",
+   "pede_vendedor": false
+  }
+ ]
+}

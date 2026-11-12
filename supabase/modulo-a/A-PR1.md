@@ -9,6 +9,28 @@ before.
 Merging this PR applies nothing. Applying the migration to production is a separate, explicit
 authorisation.
 
+## Status
+
+- **Applied to production on 12/11/2026, 17:47 (Brasília)**, once, through the SQL API, with a
+  guard that refused to run unless the text received was this file as on `main`. Validated: 9
+  tables, 5 functions, 14 cascading keys, no access for `anon` / `authenticated`, every older
+  object unchanged. The mirror was run once: 144 links, 113 accounts, zero divergences.
+- **Migrations history: pending.** The SQL API does not register the migration, so version
+  `20261111170000` is not in `supabase_migrations.schema_migrations`. Decision of 12/11: it is
+  reconciled **only** with the official CLI, on an authorised machine — never by a manual insert:
+  1. authenticate the CLI locally (no credential goes through a conversation);
+  2. link and confirm the production project `qbcsjsdwjjpybvzbxszi` (the `project_id` in
+     `supabase/config.toml` is another one);
+  3. check that `20261111170000` is not in the history;
+  4. `supabase migration repair 20261111170000 --status applied --remote`;
+  5. `supabase migration list --remote`.
+  No `db push`, no `db reset`, no other migration. Rehearsed against a local database with CLI
+  3.1.0: the command writes one history row (version, name, the file's statements) and runs
+  nothing. `migration list` will also show many older differences, because this project's
+  history uses the time of application as the version: only the `20261111170000` line matters.
+- A-PR2 (events) is published; A-PR3 (`A-PR3.md`) adds seven more `of_*` functions, so the
+  "5 functions" checks below are about this migration alone.
+
 ## What it creates
 
 | Table | What it holds |
