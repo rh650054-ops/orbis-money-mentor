@@ -25,7 +25,7 @@ const restrictedImports = {
 };
 
 export default tseslint.config(
-  { ignores: ["dist", "tailwind.config.ts", "supabase/functions/**"] },
+  { ignores: ["dist", "tailwind.config.ts", "supabase/functions/**", "supabase/producao-recuperado/**"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

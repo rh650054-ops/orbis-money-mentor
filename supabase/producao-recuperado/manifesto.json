@@ -1,0 +1,82 @@
+{
+  "lido_em": "2026-11-11",
+  "projeto": "qbcsjsdwjjpybvzbxszi",
+  "aviso": "Snapshot of code that exists only in production. Nothing here is deployed or applied from this folder.",
+  "edge_functions": [
+    {
+      "slug": "mp-criar-deposito",
+      "versao_publicada": 34,
+      "verify_jwt": true,
+      "ezbr_sha256_publicado": "0a2f0f0e2f6c98c8c9eecf35b9ef1a77c245bc874f07d1f07d36cbb474309752",
+      "publicada_em": "2026-10-16T07:43:52Z",
+      "arquivo": "functions/mp-criar-deposito/index.ts",
+      "sha256_do_arquivo": "c1791a7c289aa044634692ec136b486df6c828bb2488ec92392fb699b2679ff9",
+      "origem": "git",
+      "fidelidade": "byte-exact: the deployed entry file is one line importing this file from GitHub at commit 947dc1a4444d7ce761c8c61708cdd2c0ea3b9788 (head of branch feat/x1-pontos-e-nectar, not merged into main)",
+      "entrada_publicada": "import \"https://raw.githubusercontent.com/rh650054-ops/orbis-money-mentor/947dc1a4444d7ce761c8c61708cdd2c0ea3b9788/supabase/functions/mp-criar-deposito/index.ts\";"
+    },
+    {
+      "slug": "mp-connect",
+      "versao_publicada": 26,
+      "verify_jwt": true,
+      "ezbr_sha256_publicado": "50c560fa7d4da012e75e04354c5e3c595d4e179aec20479cf392168698e7be3b",
+      "publicada_em": "2026-09-08T22:26:52Z",
+      "arquivo": "functions/mp-connect/index.ts",
+      "sha256_do_arquivo": "78eaa454023ed602210e3eeba26371aeac1024255a508755cc12f727db7ce87c",
+      "origem": "supabase-connector",
+      "fidelidade": "transcribed from the deployed source; byte comparison pending (needs the Supabase CLI download)"
+    },
+    {
+      "slug": "mp-callback",
+      "versao_publicada": 28,
+      "verify_jwt": true,
+      "ezbr_sha256_publicado": "d3a9afc58a5087278027be65d50e38bf6d2be30215ce7bd0b687dc4a0775d624",
+      "publicada_em": "2026-09-09T00:52:21Z",
+      "arquivo": "functions/mp-callback/index.ts",
+      "sha256_do_arquivo": "426eefdb69389531479020ae5ea5190413b2f2061ffe0b9414c55726f9b5d06f",
+      "origem": "supabase-connector",
+      "fidelidade": "transcribed from the deployed source; byte comparison pending (needs the Supabase CLI download)"
+    },
+    {
+      "slug": "pb-connect",
+      "versao_publicada": 27,
+      "verify_jwt": true,
+      "ezbr_sha256_publicado": "d1c0e01b737283494a0bb57539c93e82a8c4651a7601597215b09291f037f2f5",
+      "publicada_em": "2026-09-09T02:34:22Z",
+      "arquivo": "functions/pb-connect/index.ts",
+      "sha256_do_arquivo": "450932ae5ca6f2ede7c9c707c9e0deddb4817e2c8812700ee60794594309871f",
+      "origem": "supabase-connector",
+      "fidelidade": "transcribed from the deployed source; byte comparison pending (needs the Supabase CLI download)"
+    },
+    {
+      "slug": "pb-callback",
+      "versao_publicada": 30,
+      "verify_jwt": true,
+      "ezbr_sha256_publicado": "32812e1a0c1a79b793081f187eabeb839a68c47b86386afac28ff4b1b458fdbf",
+      "publicada_em": "2026-09-09T03:06:27Z",
+      "arquivo": "functions/pb-callback/index.ts",
+      "sha256_do_arquivo": "b0a38cb457478131dc45be57ef060ad047ef9acf4464a0885fc45c579e95cdd5",
+      "origem": "supabase-connector",
+      "fidelidade": "transcribed from the deployed source; byte comparison pending (needs the Supabase CLI download)"
+    }
+  ],
+  "funcoes_sql": {
+    "arquivo": "sql/funcoes-integracoes-diretas.sql",
+    "fidelidade": "each function recreated in a scratch database and compared with production by md5(pg_get_functiondef): 13 of 13 identical",
+    "md5_em_producao": {
+      "apagar_dados_do_usuario": "45ac84884d644f8f9d5c932385299989",
+      "cobranca_registrar_paga": "d9bd581dfe8fa7fbafeabed93b4af972",
+      "conexao_conceder_selo": "4b10c4fceb99f33b2a01765ba6cdb46d",
+      "conexao_revisar_selo": "1fefd94189991d9790d78c3ad7ce7e99",
+      "mp_comprovado": "6db03fbc1cf3b46724b0fe30664ccf75",
+      "mp_conciliacao_dia": "99ea9296afa1918793aa76dd6c314d86",
+      "mp_conciliacao_mes": "8e800b2443b74aa6a7a2b98ad9bc00ae",
+      "mp_conexoes_lista": "a8fdc1578fb6e2978b4b9cf7f136256a",
+      "mp_desconectar": "d20a1f79de9d9f30fcfa241c19c780aa",
+      "mp_ignorar_venda": "70e1a38df427b7c273386febc4526193",
+      "mp_lancar_vendas": "a84bbace2158f87c53647a24f9278e4c",
+      "mp_status": "000df6f1f902005369fc4b588a1d8879",
+      "mp_vendas_pendentes": "314c4316fa7b33fbccbf2f282bc572cd"
+    }
+  }
+}
