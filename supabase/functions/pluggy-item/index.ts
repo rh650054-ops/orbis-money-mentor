@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
         return l ? { id: String(l.id), user_id: String(l.user_id), status: l.status ?? null, leitura_ok_em: l.leitura_ok_em ?? null } : null;
       },
 
-      temVaga: (id, banco, itemId) => vagaParaBanco(admin, id, banco, itemId),
+      vaga: (id, banco, itemId) => vagaParaBanco(admin, id, banco, itemId),
       apagarNaPluggy: async (itemId) => { await apagarItemNaPluggy(apiKey, itemId); },
 
       gravar: async (linha) => {

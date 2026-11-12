@@ -1,11 +1,11 @@
 // A2 — validating and registering the bank Item (pluggy-item).
 // The whole flow runs here against a small fake world: Pluggy's items, our bank_connections rows
-// and the plan's limit. The slot rule is the real one from PR #294 (cabeNoPlano / repetidasDoMesmoBanco).
+// and the plan's limit. The slot rule is the real one (decidirVaga / repetidasDoMesmoBanco).
 import { describe, expect, it } from "vitest";
 import {
   donoDoItem, estadoParaGravar, registrarItem, type Gravacao, type ItemPluggy, type Linha, type Portas,
 } from "../../supabase/functions/pluggy-item/registro";
-import { cabeNoPlano, repetidasDoMesmoBanco, type Ativa } from "../../supabase/functions/_shared/pluggy-vaga";
+import { decidirVaga, repetidasDoMesmoBanco, type Ativa } from "../../supabase/functions/_shared/pluggy-vaga";
 
 type LinhaDoBanco = Linha & { item_id: string; institution_name: string; created_at: string; last_synced_at: string | null };
 
@@ -23,6 +23,9 @@ function mundo() {
     falhaAoGravar: false,
     falhaAoImportar: false,
     falhaUmPorBanco: false,
+    limiteFora: false, // open_finance_limite did not answer
+    ativasFora: false, // the seller's connections could not be read
+    consultasDeVaga: 0,
     carimbo: null as string | null,
     relogio: Date.parse("2026-11-12T12:00:00Z"),
     // what happened
@@ -49,7 +52,12 @@ function mundo() {
       const l = m.linhas.find((x) => x.item_id === itemId);
       return l ? { id: l.id, user_id: l.user_id, status: l.status, leitura_ok_em: l.leitura_ok_em } : null;
     },
-    temVaga: async (uid, banco, itemId) => cabeNoPlano(vivas(uid), banco, itemId, m.limite.get(uid) ?? null),
+    vaga: async (uid, banco, itemId) => {
+      m.consultasDeVaga++;
+      return decidirVaga({
+        ativas: m.ativasFora ? null : vivas(uid), limite: m.limiteFora ? undefined : m.limite.get(uid) ?? null, banco, itemId,
+      });
+    },
     apagarNaPluggy: async (itemId) => { m.apagadosNaPluggy.push(itemId); m.pluggy.delete(itemId); },
     gravar: async (g) => {
       m.gravacoes.push(g);
@@ -236,6 +244,58 @@ describe("A2.4 — a new connection needs a free slot", () => {
     w.item("it-itau", ANA, "Itaú");
     expect((await w.registrar(ANA, "it-itau")).corpo).toEqual({ error: "precisa_banco_extra" });
     expect(w.linhaDe("it-itau")?.status).toBe("deleted");
+  });
+});
+
+describe("A2.4 — a slot that could not be checked is not a free slot", () => {
+  for (const [nome, quebra] of [["the plan's limit", "limiteFora"], ["the seller's connections", "ativasFora"]] as const) {
+    it(`${nome} cannot be read: 503, nothing registered, the Item stays on Pluggy`, async () => {
+      const w = mundo();
+      w.m[quebra] = true;
+      w.item("it-nu", ANA, "Nubank");
+      expect(await w.registrar(ANA, "it-nu")).toEqual({ corpo: { error: "limite_indisponivel" }, http: 503 });
+      expect(w.m.linhas).toHaveLength(0);
+      expect(w.m.gravacoes).toHaveLength(0);
+      expect(w.m.apagadosNaPluggy).toHaveLength(0);
+      expect(w.m.pluggy.has("it-nu")).toBe(true);
+      expect(w.m.selos).toHaveLength(0);
+      expect(w.m.leituras).toHaveLength(0);
+      expect(w.m.contas).toHaveLength(0);
+      expect(w.m.avisos).toContain("pluggy-item: limite indisponivel, conexao nao registrada");
+    });
+    it(`${nome} cannot be read: a seller who is really over the limit is not told "sem vaga" either`, async () => {
+      const w = mundo();
+      w.linha("con-1", ANA, "it-nu", "Nubank");
+      w.m[quebra] = true;
+      w.item("it-itau", ANA, "Itaú");
+      expect((await w.registrar(ANA, "it-itau")).corpo).toEqual({ error: "limite_indisponivel" });
+      expect(w.m.apagadosNaPluggy).toHaveLength(0);
+    });
+    it(`${nome} cannot be read: reauthorising a connected bank still works, and the slot is not even asked`, async () => {
+      const w = mundo();
+      w.linha("con-1", ANA, "it-nu", "Nubank", "LOGIN_ERROR");
+      w.m[quebra] = true;
+      w.item("it-nu", ANA, "Nubank");
+      expect((await w.registrar(ANA, "it-nu")).corpo).toMatchObject({ ok: true, status: "UPDATED" });
+      expect(w.m.consultasDeVaga).toBe(0);
+      expect(w.m.apagadosNaPluggy).toHaveLength(0);
+    });
+  }
+  it("the same call after the failure has passed registers the bank (same Item, one row)", async () => {
+    const w = mundo();
+    w.item("it-nu", ANA, "Nubank");
+    w.m.limiteFora = true;
+    expect((await w.registrar(ANA, "it-nu")).http).toBe(503);
+    w.m.limiteFora = false;
+    expect((await w.registrar(ANA, "it-nu")).corpo).toMatchObject({ ok: true, banco: "Nubank" });
+    expect(w.m.linhas).toHaveLength(1);
+  });
+  it("a limit that is known and exceeded is still refused and its Item deleted", async () => {
+    const w = mundo();
+    w.linha("con-1", ANA, "it-nu", "Nubank");
+    w.item("it-itau", ANA, "Itaú");
+    expect(await w.registrar(ANA, "it-itau")).toEqual({ corpo: { error: "precisa_banco_extra" }, http: 200 });
+    expect(w.m.apagadosNaPluggy).toEqual(["it-itau"]);
   });
 });
 

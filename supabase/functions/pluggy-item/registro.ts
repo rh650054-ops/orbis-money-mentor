@@ -7,7 +7,8 @@
 //      or, for an Item with no clientUserId, a connection of this same seller that already exists.
 //      A stored connection never changes owner;
 //   3. the seller has an active plan;
-//   4. a NEW connection needs a free slot in the plan;
+//   4. a NEW connection needs a free slot in the plan — and a slot that could not be checked is
+//      not a free slot: nothing is registered and nothing is deleted on Pluggy;
 //   5. an Item that is already this seller's connection (reauthorisation, repeated call) takes no
 //      slot and is never deleted on Pluggy;
 //   6. repeated calls end in the same single row (item_id is unique);
@@ -32,13 +33,16 @@ export type Gravacao = {
 
 export type Resposta = { corpo: Record<string, unknown>; http: number };
 
+/** Answer of the slot check (same values as _shared/pluggy-vaga.ts). */
+export type Vaga = "cabe" | "sem_vaga" | "indisponivel";
+
 export interface Portas {
   ehPro(uid: string): Promise<boolean>;
   /** The Item as Pluggy has it; null when Pluggy does not know it; "sem_chave" when Pluggy is not configured. */
   buscarItem(itemId: string): Promise<ItemPluggy | null | "sem_chave">;
   /** Throws when the database cannot answer: ownership must never be decided blind. */
   linhaDoItem(itemId: string): Promise<Linha | null>;
-  temVaga(uid: string, banco: string, itemId: string): Promise<boolean>;
+  vaga(uid: string, banco: string, itemId: string): Promise<Vaga>;
   apagarNaPluggy(itemId: string): Promise<void>;
   /** null when the row was not saved. */
   gravar(linha: Gravacao): Promise<{ id: string; leitura_ok_em: string | null } | null>;
@@ -96,9 +100,16 @@ export async function registrarItem(p: Portas, uid: string, itemBruto: unknown):
   const logo = item.connector?.imageUrl ?? null;
 
   // a different bank only fits under the plan's limit; an Item that is already ours takes no slot
-  if (dono.nova && !(await p.temVaga(uid, banco, itemId))) {
-    await p.apagarNaPluggy(itemId);
-    return r({ error: "precisa_banco_extra" });
+  if (dono.nova) {
+    const vaga = await p.vaga(uid, banco, itemId);
+    if (vaga === "sem_vaga") { // the limit is known and exceeded: the only case that deletes the Item
+      await p.apagarNaPluggy(itemId);
+      return r({ error: "precisa_banco_extra" });
+    }
+    if (vaga !== "cabe") { // the limit could not be checked: temporary, nothing is created or deleted
+      p.avisar("pluggy-item: limite indisponivel, conexao nao registrada", itemId);
+      return r({ error: "limite_indisponivel" }, 503);
+    }
   }
 
   const estado = estadoParaGravar(statusPluggy, existente);
