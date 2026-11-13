@@ -13,7 +13,8 @@
 // Upsert por transaction_id SEM mexer em `status`: se o vendedor marcou um
 // crédito como "ignorado", a próxima leitura não desfaz a escolha dele.
 
-import { linhasMudadas } from "./pluggy-linhas.ts";
+import { linhasMudadas, type LinhaEntrada } from "./pluggy-linhas.ts";
+import { type Existe, identidadeDoDia, MODO_DA_MARGEM, type ModoDaMargem, parearComSumidas, type TransacaoBruta, vereditoDoPar } from "./pluggy-margem.ts";
 
 const BRT = "America/Sao_Paulo";
 
@@ -135,7 +136,7 @@ export function mesmoDono(t: any, cpfDoVendedor: string): boolean {
 
 /** Puxa as ENTRADAS (CREDIT) das contas BANK do item, de `dias` dias atrás até hoje. */
 // deno-lint-ignore no-explicit-any
-export async function importarEntradas(admin: any, apiKey: string, itemId: string, userId: string, conexaoId: string, dias = 2) {
+export async function importarEntradas(admin: any, apiKey: string, itemId: string, userId: string, conexaoId: string, dias = 2, modo: ModoDaMargem = MODO_DA_MARGEM) {
   const contasRes = await fetch(`https://api.pluggy.ai/accounts?itemId=${encodeURIComponent(itemId)}`, {
     headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(25000),
   });
@@ -160,6 +161,11 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
   // 03/11: day|amount of what came back, so a vanished entry is only removed when a re-issued
   // twin (same day, same amount, new id) came in its place
   const vistosPorChave = new Map<string, number>();
+  // 13/11: entries of the window's oldest day wait for the whole read (see pluggy-margem.ts)
+  const daMargem = new Map<string, LinhaDoBanco>();
+  const brutasDaMargem: TransacaoBruta[] = []; // that day's transactions as Pluggy sent them (identity fields only are looked at)
+  // 13/11: false when something Pluggy returned could not be written or checked
+  let provada = true;
   let leituraCompleta = contasRes.ok && contas.length > 0;
   for (const conta of contas) {
     let cursor: string | null = null;
@@ -176,6 +182,7 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
       for (const t of txs) {
         if (t?.type !== "CREDIT" || !(Number(t?.amount) > 0) || !t?.id) continue;
         vistos.add(String(t.id));
+        if (quandoFoi(t, atraso).dia === dataDe) brutasDaMargem.push(t);
         const k = chaveSumida(quandoFoi(t, atraso).dia, Number(t.amount));
         vistosPorChave.set(k, (vistosPorChave.get(k) ?? 0) + 1);
       }
@@ -198,7 +205,11 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
           pagador_nome: quem.nome,
           pagador_doc: quem.doc,
         };
-      }).filter((l) => l.transaction_date >= dataDe);
+      }).filter((l) => l.transaction_date >= dataDe).filter((l) => {
+        if (l.transaction_date !== dataDe) return true;
+        daMargem.set(l.transaction_id, l);
+        return false;
+      });
       if (linhas.length > 0) {
         // 08/10/2026: write only what is NEW or CHANGED. Re-saving identical rows on every
         // read was ~50 rewrites per new entry, and each rewrite also fired a realtime event
@@ -207,11 +218,14 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
         const { data: existentes, error: eLer } = await admin.from("auto_detected_sales")
           .select("transaction_id, amount, description, transaction_date, transacted_at, is_pix, own_transfer, pagador_nome, pagador_doc")
           .in("transaction_id", ids);
-        // reading failed → fall back to the old full upsert (never lose an entry)
+        // reading failed → fall back to the old full upsert (never lose an entry). It writes by
+        // transaction_id, so it cannot store a copy; but it is not a proven read (13/11)
+        if (eLer) { provada = false; console.error("pluggy importar: existentes nao lidas", eLer.message); }
         const aGravar = eLer ? linhas : linhasMudadas(linhas, existentes ?? []);
         if (aGravar.length > 0) {
           const { error } = await admin.from("auto_detected_sales").upsert(aGravar, { onConflict: "transaction_id" });
-          if (error) console.error("pluggy importar: upsert", error.message);
+          // 13/11: an entry that was not written must never be followed by a read stamp
+          if (error) { provada = false; console.error("pluggy importar: upsert", error.message); }
           else gravadas += aGravar.length;
         }
       }
@@ -220,9 +234,133 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
     }
     if (!terminou) leituraCompleta = false;
   }
-  const removidas = leituraCompleta ? await tirarSumidas(admin, conexaoId, dataDe, vistos, vistosPorChave) : 0;
+  const margem = await gravarMargem(admin, {
+    conexaoId, dataDe, horasAtraso: atraso, linhas: [...daMargem.values()], vistos,
+    existe: (id) => existeNaPluggy(apiKey, id), modo,
+  });
+  // 13/11: does this bank send anything that identifies the payment itself? Counts and change
+  // detectors only — no id, amount, name or document.
+  if (brutasDaMargem.length > 0 && (/mercado\s*pago/i.test(conexao?.institution_name ?? "") || margem.pares > 0)) {
+    console.log("pluggy identidade", JSON.stringify({ conexao: conexaoId, dia: dataDe, ...identidadeDoDia(brutasDaMargem) }));
+  }
+  gravadas += margem.gravadas;
+  const removidas = leituraCompleta ? await tirarSumidas(admin, conexaoId, dataDe, vistos, vistosPorChave, () => { provada = false; }) : 0;
   // 05/11 (audit #2): completa = every account read to the end → the caller stamps leitura_ok_em
-  return { contas: contas.length, gravadas, pix, removidas, completa: leituraCompleta };
+  // 13/11: and nothing Pluggy returned was left unwritten or unchecked
+  // "observar": the stamp is decided exactly as before this change
+  const completa = modo === "aplicar" ? leituraCompleta && provada && margem.aConferir === 0 : leituraCompleta;
+  return {
+    contas: contas.length, gravadas, pix, removidas, completa,
+    margem: { legitimas: margem.legitimas, duplicadas: margem.duplicadas, aConferir: margem.aConferir },
+  };
+}
+
+type LinhaDoBanco = LinhaEntrada & { user_id: string; bank_connection_id: string };
+const CAMPOS_DA_LINHA = "transaction_id, amount, description, transaction_date, transacted_at, is_pix, own_transfer, pagador_nome, pagador_doc";
+/** At most this many old ids are asked of Pluggy in one read; the rest waits for the next read. */
+export const MAX_CONFERIR = 60;
+
+/** Does this transaction id still exist on Pluggy? Only an explicit answer counts:
+ *  200 with that same id = it exists; 404 = it does not; anything else = no answer. */
+export async function existeNaPluggy(apiKey: string, id: string): Promise<Existe> {
+  try {
+    const r = await fetch(`https://api.pluggy.ai/transactions/${encodeURIComponent(id)}`, {
+      headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(10000),
+    });
+    if (r.status === 404) return "nao_existe";
+    if (!r.ok) return "sem_resposta";
+    // deno-lint-ignore no-explicit-any
+    const corpo: any = await r.json().catch(() => null);
+    return String(corpo?.id ?? "") === id ? "existe" : "sem_resposta";
+  } catch { return "sem_resposta"; }
+}
+
+/** `legitimas`, `duplicadas`, `aConferir` are the verdicts; in "observar" they are what WOULD be
+ *  decided, while everything was written as before. `pares` = suspects asked of Pluggy or waiting. */
+export interface ResultadoDaMargem { gravadas: number; legitimas: number; duplicadas: number; aConferir: number; pares: number }
+
+/** Writes the entries of the window's OLDEST day (rules and reasons in pluggy-margem.ts).
+ *  Nothing is removed. A returned id that is not stored yet is written unless a stored entry with
+ *  the very same attributes is missing from this read AND Pluggy confirms that old id is gone.
+ *  Whatever cannot be decided, read or written counts in `aConferir`: the caller must not stamp
+ *  the read, and the next read tries again. */
+// deno-lint-ignore no-explicit-any
+type Banco = any;
+export async function gravarMargem(admin: Banco, p: {
+  conexaoId: string; dataDe: string; horasAtraso: number; linhas: LinhaDoBanco[]; vistos: Set<string>;
+  existe: (id: string) => Promise<Existe>; modo?: ModoDaMargem;
+}): Promise<ResultadoDaMargem> {
+  const fim: ResultadoDaMargem = { gravadas: 0, legitimas: 0, duplicadas: 0, aConferir: 0, pares: 0 };
+  const { linhas } = p;
+  if (linhas.length === 0) return fim;
+  const observar = (p.modo ?? MODO_DA_MARGEM) === "observar";
+  const gravar = async (aGravar: LinhaDoBanco[]) => {
+    for (let i = 0; i < aGravar.length; i += 100) {
+      const lote = aGravar.slice(i, i + 100);
+      const { error } = await admin.from("auto_detected_sales").upsert(lote, { onConflict: "transaction_id" });
+      if (error) { if (!observar) fim.aConferir += lote.length; console.error("pluggy importar: upsert (margem)", error.message); }
+      else fim.gravadas += lote.length;
+    }
+  };
+
+  // what is stored: the returned ids (wherever they are) and this connection's entries of that day
+  const porId: Partial<LinhaEntrada>[] = [];
+  let leu = true;
+  for (let i = 0; i < linhas.length && leu; i += 100) {
+    const { data, error } = await admin.from("auto_detected_sales").select(CAMPOS_DA_LINHA)
+      .in("transaction_id", linhas.slice(i, i + 100).map((l) => l.transaction_id));
+    if (error) leu = false; else porId.push(...((data ?? []) as Partial<LinhaEntrada>[]));
+  }
+  // "observar": first write exactly what was written before this change (new or changed rows;
+  // everything when the lookup failed). The verdicts below are then only counted.
+  if (observar) await gravar(leu ? linhasMudadas(linhas, porId) : linhas);
+  const doDia = leu
+    ? await admin.from("auto_detected_sales").select(CAMPOS_DA_LINHA).eq("bank_connection_id", p.conexaoId).eq("transaction_date", p.dataDe)
+    : { data: null, error: { message: "nao lido" } };
+  if (!leu || doDia.error) {
+    // Not knowing what is stored, writing could store a copy and skipping could lose a payment:
+    // nothing of this day is written now, and the read is not proven. The next read tries again.
+    console.error("pluggy margem: guardadas nao lidas, dia fica a conferir", JSON.stringify({ conexao: p.conexaoId, dia: p.dataDe, entradas: linhas.length }));
+    if (!observar) fim.aConferir = linhas.length;
+    return fim;
+  }
+
+  const ja = new Set(porId.map((e) => String(e.transaction_id)));
+  const novas = linhas.filter((l) => !ja.has(l.transaction_id));
+  const guardadas = ((doDia.data ?? []) as LinhaEntrada[]).map((g) => ({
+    ...g, transaction_id: String(g.transaction_id), amount: Number(g.amount), transaction_date: String(g.transaction_date).slice(0, 10), is_pix: !!g.is_pix,
+  }));
+  const { legitimas, pares } = parearComSumidas(novas, guardadas, p.vistos, p.dataDe, p.horasAtraso);
+
+  fim.pares = pares.length;
+  let existem = 0;
+  const escrever = new Set(legitimas);
+  for (let i = 0; i < pares.length; i += 6) {
+    const lote = pares.slice(i, i + 6);
+    const respostas: Existe[] = i < MAX_CONFERIR
+      ? await Promise.all(lote.map((par) => p.existe(par.antiga).catch((): Existe => "sem_resposta")))
+      : lote.map((): Existe => "sem_resposta");
+    lote.forEach((par, n) => {
+      const v = vereditoDoPar(respostas[n] ?? "sem_resposta");
+      if (v === "legitima") { escrever.add(par.nova); existem++; }
+      else if (v === "duplicada") fim.duplicadas++;
+      else fim.aConferir++;
+    });
+  }
+  fim.legitimas = escrever.size;
+
+  if (!observar) {
+    await gravar([...linhasMudadas(linhas.filter((l) => ja.has(l.transaction_id)), porId), ...novas.filter((l) => escrever.has(l.transaction_id))]);
+  }
+  if (pares.length > 0 || fim.aConferir > 0) {
+    // counts only: no id, amount, name or document. `antigas_*` = what Pluggy answered about the old ids
+    console.log("pluggy margem", JSON.stringify({
+      conexao: p.conexaoId, dia: p.dataDe, modo: observar ? "observar" : "aplicar", novas: novas.length, suspeitas: pares.length,
+      antigas_nao_existem: fim.duplicadas, antigas_existem: existem, sem_resposta: fim.aConferir,
+      legitimas: fim.legitimas, duplicadas: fim.duplicadas, a_conferir: fim.aConferir,
+    }));
+  }
+  return fim;
 }
 
 /** Entries of this connection, inside the window just read in full, that Pluggy no longer
@@ -231,11 +369,12 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
 // deno-lint-ignore no-explicit-any
 export async function tirarSumidas(
   admin: any, conexaoId: string, dataDe: string, vistos: Set<string>, vistosPorChave: Map<string, number>,
+  falhou?: () => void, // 13/11: a cleaning that could not be done is not a proven read
 ): Promise<number> {
   if (vistos.size === 0) return 0;
   const { data, error } = await admin.from("auto_detected_sales")
     .select("transaction_id, transaction_date, amount").eq("bank_connection_id", conexaoId).gt("transaction_date", dataDe).eq("status", "pending");
-  if (error || !data) return 0;
+  if (error || !data) { falhou?.(); return 0; }
   const guardados = (data as { transaction_id: string; transaction_date: string; amount: number | string }[])
     .map((r) => ({ id: r.transaction_id, chave: chaveSumida(r.transaction_date, Number(r.amount)) }));
   const sumidas = idsSubstituidos(guardados, vistos, vistosPorChave);
@@ -243,7 +382,7 @@ export async function tirarSumidas(
   for (let i = 0; i < sumidas.length; i += 100) {
     const lote = sumidas.slice(i, i + 100);
     const { error: eDel } = await admin.from("auto_detected_sales").delete().eq("bank_connection_id", conexaoId).in("transaction_id", lote);
-    if (eDel) { console.error("pluggy sumidas:", eDel.message); break; }
+    if (eDel) { falhou?.(); console.error("pluggy sumidas:", eDel.message); break; }
     n += lote.length;
   }
   if (n > 0) console.log("pluggy sumidas removidas", conexaoId, n);
