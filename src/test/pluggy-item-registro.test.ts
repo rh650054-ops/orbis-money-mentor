@@ -23,6 +23,9 @@ function mundo() {
     falhaAoGravar: false,
     falhaAoImportar: false,
     limiteFora: false, // open_finance_limite did not answer
+    planoFalha: 0, // how many times the plan query goes unanswered before it answers
+    planoLanca: false, // the plan query throws instead of answering
+    consultasDePlano: 0,
     ativasFora: false, // the seller's connections could not be read
     consultasDeVaga: 0,
     carimbo: null as string | null,
@@ -40,7 +43,12 @@ function mundo() {
   const vivas = (uid: string): Ativa[] => m.linhas.filter((l) => l.user_id === uid && l.status !== "deleted")
     .map((l) => ({ id: l.id, item_id: l.item_id, institution_name: l.institution_name, created_at: l.created_at }));
   const portas: Portas = {
-    ehPro: async (uid) => m.pro.has(uid),
+    ehPro: async (uid) => {
+      m.consultasDePlano++;
+      if (m.planoLanca) throw new Error("orbis_pro_ativo: timeout");
+      if (m.planoFalha > 0) { m.planoFalha--; return undefined; }
+      return m.pro.has(uid);
+    },
     buscarItem: async (itemId) => {
       if (m.semChave) return "sem_chave";
       m.pedidosAPluggy.push(itemId);
@@ -97,7 +105,7 @@ function mundo() {
     m.linhas.push(l);
     return l;
   };
-  const registrar = (uid: string, itemId: unknown) => registrarItem(portas, uid, itemId);
+  const registrar = (uid: string, itemId: unknown) => registrarItem(portas, uid, itemId, 0);
   const linhaDe = (itemId: string) => m.linhas.find((l) => l.item_id === itemId);
   return { m, item, linha, registrar, linhaDe };
 }
@@ -191,6 +199,53 @@ describe("A2.2 — the Item must belong to the signed-in seller", () => {
     w.m.bancoFora = true;
     await expect(w.registrar(ANA, "it-1")).rejects.toThrow("bank_connections");
     expect(w.m.gravacoes).toHaveLength(0);
+  });
+});
+
+describe("13/11 — a plan that could not be read is not \"no plan\"", () => {
+  it("no answer twice: temporarily unavailable, never precisa_pro, nothing asked of Pluggy, nothing written or deleted", async () => {
+    const w = mundo();
+    w.m.planoFalha = 2;
+    w.item("it-1", ANA, "Nubank");
+    expect(await w.registrar(ANA, "it-1")).toEqual({ corpo: { error: "plano_indisponivel" }, http: 503 });
+    expect(w.m.consultasDePlano).toBe(2);
+    expect(w.m.pedidosAPluggy).toHaveLength(0);
+    expect(w.m.linhas).toHaveLength(0);
+    expect(w.m.apagadosNaPluggy).toHaveLength(0);
+    expect(w.m.selos).toHaveLength(0);
+  });
+  it("the query throws: same answer", async () => {
+    const w = mundo();
+    w.m.planoLanca = true;
+    w.item("it-1", ANA, "Nubank");
+    expect(await w.registrar(ANA, "it-1")).toEqual({ corpo: { error: "plano_indisponivel" }, http: 503 });
+    expect(w.m.linhas).toHaveLength(0);
+  });
+  it("no answer once, then a subscriber: the bank is registered as usual", async () => {
+    const w = mundo();
+    w.m.planoFalha = 1;
+    w.item("it-1", ANA, "Nubank");
+    const r = await w.registrar(ANA, "it-1");
+    expect(r.http).toBe(200);
+    expect(r.corpo.error).toBeUndefined();
+    expect(w.m.linhas).toHaveLength(1);
+    expect(w.m.consultasDePlano).toBe(2);
+  });
+  it("no answer once, then really without a plan: precisa_pro", async () => {
+    const w = mundo();
+    w.m.planoFalha = 1;
+    w.m.pro.delete(ANA);
+    w.item("it-1", ANA, "Nubank");
+    expect(await w.registrar(ANA, "it-1")).toEqual({ corpo: { error: "precisa_pro" }, http: 200 });
+  });
+  it("the same unavailable answer on the next attempt leaves the Item ready to be registered later", async () => {
+    const w = mundo();
+    w.m.planoFalha = 2;
+    w.item("it-1", ANA, "Nubank");
+    await w.registrar(ANA, "it-1");
+    const depois = await w.registrar(ANA, "it-1"); // the plan answers now
+    expect(depois.http).toBe(200);
+    expect(w.m.linhas).toHaveLength(1);
   });
 });
 

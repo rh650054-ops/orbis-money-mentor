@@ -20,6 +20,7 @@ import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { diasDoPrimeiroImporte, importarEntradas } from "../_shared/pluggy-entradas.ts";
 import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
 import { apagarItemNaPluggy, vagaParaBanco } from "../_shared/pluggy-vaga.ts";
+import { respostaDoPlano } from "../_shared/pluggy-plano.ts";
 import { type Portas, registrarItem } from "./registro.ts";
 
 const cors = {
@@ -69,7 +70,7 @@ Deno.serve(async (req) => {
     let apiKey = ""; // filled by buscarItem, the first step that talks to Pluggy
 
     const portas: Portas = {
-      ehPro: async (id) => (await supa.rpc("orbis_pro_ativo", { p_user: id })).data === true,
+      ehPro: async (id) => respostaDoPlano(await supa.rpc("orbis_pro_ativo", { p_user: id })),
 
       // ---- confere o item NA PLUGGY (o front pode mentir; a Pluggy nao)
       buscarItem: async (itemId) => {
