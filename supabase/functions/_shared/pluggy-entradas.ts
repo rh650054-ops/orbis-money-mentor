@@ -13,7 +13,8 @@
 // Upsert por transaction_id SEM mexer em `status`: se o vendedor marcou um
 // crédito como "ignorado", a próxima leitura não desfaz a escolha dele.
 
-import { linhasMudadas } from "./pluggy-linhas.ts";
+import { linhasMudadas, type LinhaEntrada } from "./pluggy-linhas.ts";
+import { guardadasPorChave, novasQueCabem } from "./pluggy-margem.ts";
 
 const BRT = "America/Sao_Paulo";
 
@@ -160,6 +161,8 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
   // 03/11: day|amount of what came back, so a vanished entry is only removed when a re-issued
   // twin (same day, same amount, new id) came in its place
   const vistosPorChave = new Map<string, number>();
+  // 13/11: entries of the window's oldest day wait for the whole read (see pluggy-margem.ts)
+  const daMargem = new Map<string, LinhaDoBanco>();
   let leituraCompleta = contasRes.ok && contas.length > 0;
   for (const conta of contas) {
     let cursor: string | null = null;
@@ -198,7 +201,11 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
           pagador_nome: quem.nome,
           pagador_doc: quem.doc,
         };
-      }).filter((l) => l.transaction_date >= dataDe);
+      }).filter((l) => l.transaction_date >= dataDe).filter((l) => {
+        if (l.transaction_date !== dataDe) return true;
+        daMargem.set(l.transaction_id, l);
+        return false;
+      });
       if (linhas.length > 0) {
         // 08/10/2026: write only what is NEW or CHANGED. Re-saving identical rows on every
         // read was ~50 rewrites per new entry, and each rewrite also fired a realtime event
@@ -220,9 +227,61 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
     }
     if (!terminou) leituraCompleta = false;
   }
+  gravadas += await gravarMargem(admin, conexaoId, dataDe, atraso, [...daMargem.values()], vistosPorChave);
   const removidas = leituraCompleta ? await tirarSumidas(admin, conexaoId, dataDe, vistos, vistosPorChave) : 0;
   // 05/11 (audit #2): completa = every account read to the end → the caller stamps leitura_ok_em
   return { contas: contas.length, gravadas, pix, removidas, completa: leituraCompleta };
+}
+
+type LinhaDoBanco = LinhaEntrada & { user_id: string; bank_connection_id: string };
+const CAMPOS_DA_LINHA = "transaction_id, amount, description, transaction_date, transacted_at, is_pix, own_transfer, pagador_nome, pagador_doc";
+
+/** Writes the entries of the window's OLDEST day. Nothing is ever removed on that day, so an id
+ *  Pluggy re-issued must not be stored beside its old twin: a returned id that is not stored yet
+ *  is written only while that day+amount has fewer stored entries than Pluggy returned
+ *  (novasQueCabem). Stored ids that came back changed are updated as on any other day.
+ *  If what is stored cannot be read, everything is written, as before (never lose an entry). */
+// deno-lint-ignore no-explicit-any
+type Banco = any;
+export async function gravarMargem(
+  admin: Banco, conexaoId: string, dataDe: string, horasAtraso: number, linhas: LinhaDoBanco[], vistosPorChave: Map<string, number>,
+): Promise<number> {
+  if (linhas.length === 0) return 0;
+  const porId: Partial<LinhaEntrada>[] = [];
+  let leu = true;
+  for (let i = 0; i < linhas.length && leu; i += 100) {
+    const { data, error } = await admin.from("auto_detected_sales").select(CAMPOS_DA_LINHA)
+      .in("transaction_id", linhas.slice(i, i + 100).map((l) => l.transaction_id));
+    if (error) leu = false; else porId.push(...((data ?? []) as Partial<LinhaEntrada>[]));
+  }
+  const { data: doDia, error: eDia } = leu
+    ? await admin.from("auto_detected_sales").select("transaction_id, amount, transaction_date, transacted_at")
+      .eq("bank_connection_id", conexaoId).eq("transaction_date", dataDe)
+    : { data: null, error: null };
+  let aGravar = linhas;
+  if (leu && !eDia) {
+    const ja = new Set(porId.map((e) => String(e.transaction_id)));
+    const guardadas = guardadasPorChave(
+      ((doDia ?? []) as { amount: number | string; transaction_date: string; transacted_at: string | null }[])
+        .map((r) => ({ chave: chaveSumida(String(r.transaction_date).slice(0, 10), Number(r.amount)), transacted_at: r.transacted_at ?? null })),
+      dataDe, horasAtraso,
+    );
+    const novas = linhas.filter((l) => !ja.has(l.transaction_id));
+    const cabem = new Set(novasQueCabem(
+      novas.map((l) => ({ transaction_id: l.transaction_id, chave: chaveSumida(l.transaction_date, l.amount) })), guardadas, vistosPorChave,
+    ));
+    aGravar = [...linhasMudadas(linhas.filter((l) => ja.has(l.transaction_id)), porId), ...novas.filter((l) => cabem.has(l.transaction_id))];
+    const reemitidas = novas.length - cabem.size;
+    if (reemitidas > 0) console.log("pluggy margem: reemitidas nao gravadas", JSON.stringify({ conexao: conexaoId, dia: dataDe, reemitidas }));
+  }
+  let gravadas = 0;
+  for (let i = 0; i < aGravar.length; i += 100) {
+    const lote = aGravar.slice(i, i + 100);
+    const { error } = await admin.from("auto_detected_sales").upsert(lote, { onConflict: "transaction_id" });
+    if (error) console.error("pluggy importar: upsert (margem)", error.message);
+    else gravadas += lote.length;
+  }
+  return gravadas;
 }
 
 /** Entries of this connection, inside the window just read in full, that Pluggy no longer
