@@ -2,7 +2,7 @@
 // or — without an answer from Pluggy — a case to check again. Nothing is decided by day+amount.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { importarEntradas, MAX_CONFERIR } from "../../supabase/functions/_shared/pluggy-entradas";
-import { contaNaMargem, impressao, parearComSumidas, vereditoDoPar, type EntradaDaMargem } from "../../supabase/functions/_shared/pluggy-margem";
+import { contaNaMargem, identidadeDoDia, impressao, MODO_DA_MARGEM, parearComSumidas, resumoDeIds, vereditoDoPar, type EntradaDaMargem } from "../../supabase/functions/_shared/pluggy-margem";
 import { carimboDeLeitura } from "../../supabase/functions/_shared/pluggy-cobertura";
 
 const D = "2026-11-09";
@@ -126,7 +126,9 @@ function pluggy(lista: Tx[], o: { aindaExistem?: string[]; porIdFora?: boolean }
   }));
   return { perguntados };
 }
-const ler = (admin: unknown, con = "con-1", dias = 2) => importarEntradas(admin, "chave", "item-1", "vendedor-1", con, dias);
+// the rule being applied; the mode that ships first ("observar") is tested at the end
+const ler = (admin: unknown, con = "con-1", dias = 2) => importarEntradas(admin, "chave", "item-1", "vendedor-1", con, dias, "aplicar");
+const observar = (admin: unknown) => importarEntradas(admin, "chave", "item-1", "vendedor-1", "con-1", 2);
 const NA_JANELA = new Date("2026-11-11T15:00:00Z");  // window starts 08/11
 const NA_BORDA_09 = new Date("2026-11-13T01:10:00Z"); // 12/11 22:10 in Brasília: window starts 09/11
 const NA_BORDA_10 = new Date("2026-11-13T04:50:00Z"); // 13/11 01:50 in Brasília: window starts 10/11
@@ -415,5 +417,109 @@ describe("other accounts, other banks, the rest of the window", () => {
     const r = await ler(b.admin);
     expect(b.entradas).toHaveLength(3);
     expect(r.completa).toBe(true);
+  });
+});
+
+describe("the guarantee, whatever Pluggy answers: no entry is removed and no day holds fewer than Pluggy lists", () => {
+  // a small deterministic generator, so a failure can be replayed
+  const sorteio = (semente: number) => () => { semente = (semente * 1664525 + 1013904223) >>> 0; return semente / 4294967296; };
+  const VALORES = [10, 15, 20, 20, 20, 30];
+
+  it("300 random days: stable ids, re-issues, late payments and partial lists mixed", async () => {
+    for (let caso = 1; caso <= 300; caso++) {
+      const r = sorteio(caso);
+      const antes = Array.from({ length: 1 + Math.floor(r() * 8) }, (_, i) => mp(`c${caso}-o${i}`, VALORES[Math.floor(r() * VALORES.length)] ?? 20, "2026-11-09"));
+      const b = bancoFalso();
+      vi.setSystemTime(NA_JANELA);
+      pluggy(antes);
+      await ler(b.admin);
+
+      // each stored entry: comes back as it is, comes back re-issued, or is left out of the list
+      const lista: Tx[] = [];
+      const aindaExistem: string[] = [];
+      for (const t of antes) {
+        const x = r();
+        if (x < 0.4) lista.push(t);
+        else if (x < 0.75) lista.push({ ...t, id: `${t.id}-novo` });
+        else if (r() < 0.5) aindaExistem.push(t.id); // left out of a partial list, but it exists
+      }
+      const tardios = Math.floor(r() * 3); // really new payments, same day, same kind of amount
+      for (let i = 0; i < tardios; i++) lista.push(mp(`c${caso}-t${i}`, VALORES[Math.floor(r() * VALORES.length)] ?? 20, "2026-11-09"));
+      vi.setSystemTime(NA_BORDA_09);
+      pluggy(lista, { aindaExistem, porIdFora: r() < 0.15 });
+      await ler(b.admin);
+
+      const guardadas = b.doDia("2026-11-09");
+      for (const t of antes) expect(guardadas.some((g) => g.transaction_id === t.id), `caso ${caso}: ${t.id} foi removida`).toBe(true);
+      for (const valor of new Set(lista.map((t) => t.amount))) {
+        const naPluggy = lista.filter((t) => t.amount === valor).length;
+        const naVant = guardadas.filter((g) => g.amount === valor).length;
+        expect(naVant, `caso ${caso}: R$ ${valor} — Pluggy lista ${naPluggy}, a Vant guarda ${naVant}`).toBeGreaterThanOrEqual(naPluggy);
+      }
+    }
+  });
+});
+
+describe("what ships first: observe only", () => {
+  it("the default mode is 'observar'", () => { expect(MODO_DA_MARGEM).toBe("observar"); });
+
+  it("stores exactly what production stores today, and counts what the rule would decide", async () => {
+    const A = [14.99, ...Array(6).fill(15), ...Array(18).fill(20), 30, 30, 30] as number[];
+    const dia = (p: string) => A.map((v, i) => mp(`${p}${i}`, v, "2026-11-09"));
+    const b = bancoFalso();
+    vi.setSystemTime(NA_JANELA);
+    pluggy(dia("a"));
+    await observar(b.admin);
+    vi.setSystemTime(NA_BORDA_09);
+    const registro = vi.mocked(console.log);
+    registro.mockClear();
+    const p = pluggy(dia("b"));
+    const r = await observar(b.admin);
+    expect(b.doDia("2026-11-09")).toHaveLength(56);  // unchanged behaviour: the copy still comes in
+    expect(r.completa).toBe(true);                   // and the stamp is decided as before
+    expect(r.margem).toEqual({ legitimas: 0, duplicadas: 28, aConferir: 0 }); // what "aplicar" would do
+    expect(p.perguntados).toHaveLength(28);
+    const linha = registro.mock.calls.find((c) => c[0] === "pluggy margem");
+    expect(JSON.parse(String(linha?.[1]))).toMatchObject({ modo: "observar", suspeitas: 28, antigas_nao_existem: 28, antigas_existem: 0, sem_resposta: 0 });
+    expect(String(linha?.[1])).not.toMatch(/554|14\.99|a0|b0/); // counts only: no amount, no id
+    expect(registro.mock.calls.some((c) => c[0] === "pluggy identidade")).toBe(true);
+  });
+
+  it("Pluggy silent, stored rows unreadable or a failed write: nothing changes in what is stored or stamped", async () => {
+    const b = bancoFalso();
+    vi.setSystemTime(NA_JANELA);
+    pluggy([mp("o1", 20, "2026-11-09")]);
+    await observar(b.admin);
+    vi.setSystemTime(NA_BORDA_09);
+    pluggy([mp("n1", 20, "2026-11-09")], { porIdFora: true });
+    expect((await observar(b.admin)).completa).toBe(true);
+    expect(b.doDia("2026-11-09")).toHaveLength(2);
+    b.falhar.leituraDoDia = true;
+    pluggy([mp("n2", 20, "2026-11-09")]);
+    expect((await observar(b.admin)).completa).toBe(true);
+    expect(b.doDia("2026-11-09")).toHaveLength(3);
+  });
+});
+
+describe("identidadeDoDia: does the bank send anything that identifies the payment itself?", () => {
+  const t = (id: string, providerId?: string, referencia?: string) => ({ id, providerId, paymentData: referencia ? { referenceNumber: referencia } : null });
+
+  it("ids re-issued, providerId unchanged and one per transaction: that field survives the re-issue", () => {
+    const antes = identidadeDoDia([t("a1", "P-1"), t("a2", "P-2")]);
+    const depois = identidadeDoDia([t("b1", "P-1"), t("b2", "P-2")]);
+    expect(depois.ids).not.toBe(antes.ids);
+    expect(depois.provider_id).toBe(antes.provider_id);
+    expect(depois).toMatchObject({ n: 2, com_provider_id: 2, provider_id_distintos: 2 });
+  });
+  it("a field that is the same for every transaction identifies nothing (and shows as 1 distinct)", () => {
+    expect(identidadeDoDia([{ id: "a", providerCode: "PIX" }, { id: "b", providerCode: "PIX" }])).toMatchObject({ com_provider_code: 2, provider_code_distintos: 1 });
+  });
+  it("nothing sent: zeros and empty detectors", () => {
+    expect(identidadeDoDia([t("a"), t("b")])).toMatchObject({ com_provider_id: 0, provider_id: "", com_referencia: 0, referencia: "", com_saldo: 0 });
+  });
+  it("the detector does not depend on order and cannot be read back", () => {
+    expect(resumoDeIds(["x", "y"])).toBe(resumoDeIds(["y", "x"]));
+    expect(resumoDeIds(["x", "y"])).toMatch(/^[0-9a-f]{16}$/);
+    expect(resumoDeIds([])).toBe("");
   });
 });

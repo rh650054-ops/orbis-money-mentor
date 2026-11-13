@@ -96,3 +96,54 @@ export function vereditoDoPar(antiga: Existe): Veredito {
   if (antiga === "existe") return "legitima";
   return "a_conferir";
 }
+
+/* ---- 13/11 (second review): observe before applying ---------------------------------------
+   Two things are not known and cannot be assumed:
+     a) whether an id Pluggy re-issued really stops existing there (GET by id → 404);
+     b) whether Mercado Pago sends anything that identifies the original payment (providerId,
+        providerCode, paymentData.referenceNumber) and whether it survives a re-issue.
+   No authorised test account has Mercado Pago. So the rule is published first in "observar":
+   everything is written exactly as before, the read stamp is decided exactly as before, and only
+   COUNTS are logged. "aplicar" is a separate change, after the owner has seen those counts. */
+export type ModoDaMargem = "observar" | "aplicar";
+export const MODO_DA_MARGEM: ModoDaMargem = "observar";
+
+/** A change detector for a set of values — not a secret hash and never reversible to the values:
+ *  the same set gives the same 16 hex digits, whatever the order. "" for an empty set. */
+export function resumoDeIds(valores: string[]): string {
+  if (valores.length === 0) return "";
+  const texto = [...valores].sort().join("\n");
+  const fnv = (semente: number) => {
+    let h = semente >>> 0;
+    for (let i = 0; i < texto.length; i++) { h ^= texto.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return h.toString(16).padStart(8, "0");
+  };
+  return fnv(2166136261) + fnv(84696351);
+}
+
+export interface TransacaoBruta {
+  id?: unknown; providerId?: unknown; providerCode?: unknown; balance?: unknown;
+  paymentData?: { referenceNumber?: unknown } | null;
+}
+const preenchido = (v: unknown) => (typeof v === "string" && v.trim() !== "") || typeof v === "number";
+
+/** What one day's transactions carry that could identify a payment — counts and change detectors
+ *  only. If `ids` changes between two reads of the same day while `provider_id` (or `referencia`)
+ *  stays the same and has one distinct value per transaction, that field survives a re-issue. */
+export function identidadeDoDia(txs: TransacaoBruta[]) {
+  const campo = (ler: (t: TransacaoBruta) => unknown) => {
+    const valores = txs.map(ler).filter(preenchido).map(String);
+    return { com: valores.length, distintos: new Set(valores).size, resumo: resumoDeIds(valores) };
+  };
+  const providerId = campo((t) => t.providerId);
+  const providerCode = campo((t) => t.providerCode);
+  const referencia = campo((t) => t.paymentData?.referenceNumber);
+  return {
+    n: txs.length,
+    ids: resumoDeIds(txs.map((t) => String(t.id ?? ""))),
+    com_provider_id: providerId.com, provider_id_distintos: providerId.distintos, provider_id: providerId.resumo,
+    com_provider_code: providerCode.com, provider_code_distintos: providerCode.distintos, provider_code: providerCode.resumo,
+    com_referencia: referencia.com, referencia_distintas: referencia.distintos, referencia: referencia.resumo,
+    com_saldo: txs.filter((t) => typeof t.balance === "number").length,
+  };
+}
