@@ -17,6 +17,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { apagarTransacoes, diasDoPrimeiroImporte, importarEntradas } from "../_shared/pluggy-entradas.ts";
 import { apagarItemNaPluggy, vagaParaBanco } from "../_shared/pluggy-vaga.ts";
+import { respostaDoPlano } from "../_shared/pluggy-plano.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import { buscarItem, importarComCarimbo } from "../_shared/pluggy-cobertura.ts";
 import { autoCura } from "./auto-cura.ts";
@@ -216,7 +217,7 @@ Deno.serve(async (req) => {
 
     if (!con) {
       const cura = await autoCura({
-        ehPro: async (id) => (await admin.rpc("orbis_pro_ativo", { p_user: id })).data === true,
+        ehPro: async (id) => respostaDoPlano(await admin.rpc("orbis_pro_ativo", { p_user: id })),
         vaga: (id, banco, it) => vagaParaBanco(admin, id, banco, it),
         apagarNaPluggy: async (it) => { await apagarItemNaPluggy(apiKey, it); },
         gravar: async (linha) => {
@@ -229,7 +230,8 @@ Deno.serve(async (req) => {
         registrar: (msg, ...detalhes) => console.log(msg, ...detalhes),
       }, { itemId, item, dono });
       if ("recusa" in cura) {
-        return respond(cura.recusa === "limite_indisponivel" ? { adiado: cura.recusa } : {}, `recusa:${cura.recusa}`);
+        const adiado = cura.recusa === "limite_indisponivel" || cura.recusa === "plano_indisponivel";
+        return respond(adiado ? { adiado: cura.recusa } : {}, `recusa:${cura.recusa}`);
       }
       con = cura.con;
       nota.userId = con?.user_id ?? null; // A-PR2

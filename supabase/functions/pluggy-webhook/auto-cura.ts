@@ -5,8 +5,11 @@
 // 12/11/2026 (A2): the slot check has three answers. Only a limit that is KNOWN and exceeded
 // ("sem_vaga") deletes the Item on Pluggy. When the limit could not be checked ("indisponivel")
 // nothing is created and nothing is deleted: Pluggy's next event for the same Item tries again.
+// 13/11/2026: the same for the plan. A plan that could not be read is asked once more and, with
+// no answer, nothing is created ("plano_indisponivel"); it is no longer read as "has no plan".
 
 import { statusParaGravar } from "../_shared/pluggy-estado.ts";
+import { planoAtivo } from "../_shared/pluggy-plano.ts";
 
 export type Vaga = "cabe" | "sem_vaga" | "indisponivel";
 
@@ -25,10 +28,11 @@ export type LinhaDaCura = {
   status: string; updated_at: string;
 };
 
-export type Recusa = "sem_dono" | "sem_pro" | "sem_vaga" | "limite_indisponivel" | "nao_gravou";
+export type Recusa = "sem_dono" | "sem_pro" | "plano_indisponivel" | "sem_vaga" | "limite_indisponivel" | "nao_gravou";
 
 export interface PortasDaCura {
-  ehPro(dono: string): Promise<boolean>;
+  /** undefined (or a throw) when the plan could not be read. */
+  ehPro(dono: string): Promise<boolean | undefined>;
   vaga(dono: string, banco: string, itemId: string): Promise<Vaga>;
   apagarNaPluggy(itemId: string): Promise<void>;
   /** null when the row was not saved. */
@@ -38,13 +42,18 @@ export interface PortasDaCura {
 }
 
 export async function autoCura(
-  p: PortasDaCura, c: { itemId: string; item: ItemDaCura | null | undefined; dono: string },
+  p: PortasDaCura, c: { itemId: string; item: ItemDaCura | null | undefined; dono: string }, esperaMs = 300,
 ): Promise<{ con: Curada } | { recusa: Recusa }> {
   if (!c.item || !c.dono) {
     p.registrar("pluggy-webhook: item sem conexao e sem dono", c.itemId);
     return { recusa: "sem_dono" };
   }
-  if (!(await p.ehPro(c.dono))) {
+  const plano = await planoAtivo(() => p.ehPro(c.dono), esperaMs);
+  if (plano === "indisponivel") {
+    p.registrar("pluggy-webhook: plano indisponivel, conexao nao criada agora", c.dono);
+    return { recusa: "plano_indisponivel" };
+  }
+  if (plano === "nao") {
     p.registrar("pluggy-webhook: dono sem Pro, nao cria conexao", c.dono);
     return { recusa: "sem_pro" };
   }

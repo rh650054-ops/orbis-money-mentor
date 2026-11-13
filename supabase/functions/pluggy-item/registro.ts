@@ -6,7 +6,8 @@
 //   2. it belongs to the signed-in seller — Pluggy's clientUserId, stamped by our connect token,
 //      or, for an Item with no clientUserId, a connection of this same seller that already exists.
 //      A stored connection never changes owner;
-//   3. the seller has an active plan;
+//   3. the seller has an active plan — and a plan that could not be checked is neither "has" nor
+//      "has not": it is asked once more, then answered as temporarily unavailable (13/11);
 //   4. a NEW connection needs a free slot in the plan — and a slot that could not be checked is
 //      not a free slot: nothing is registered and nothing is deleted on Pluggy;
 //   5. an Item that is already this seller's connection (reauthorisation, repeated call) takes no
@@ -18,6 +19,7 @@
 //      (authorisation not finished, revoked, credentials), that reason is what is stored.
 
 import { statusParaGravar } from "../_shared/pluggy-estado.ts";
+import { planoAtivo } from "../_shared/pluggy-plano.ts";
 
 export type ItemPluggy = {
   status?: string | null;
@@ -43,7 +45,8 @@ export type Resposta = { corpo: Record<string, unknown>; http: number };
 export type Vaga = "cabe" | "sem_vaga" | "indisponivel";
 
 export interface Portas {
-  ehPro(uid: string): Promise<boolean>;
+  /** undefined (or a throw) when the plan could not be read. */
+  ehPro(uid: string): Promise<boolean | undefined>;
   /** The Item as Pluggy has it; null when Pluggy does not know it; "sem_chave" when Pluggy is not configured. */
   buscarItem(itemId: string): Promise<ItemPluggy | null | "sem_chave">;
   /** Throws when the database cannot answer: ownership must never be decided blind. */
@@ -84,8 +87,13 @@ export function estadoParaGravar(item: ItemPluggy, existente: Linha | null): str
 const COM_SELO = new Set(["UPDATED", "UPDATING", "LOGIN_IN_PROGRESS"]);
 const r = (corpo: Record<string, unknown>, http = 200): Resposta => ({ corpo, http });
 
-export async function registrarItem(p: Portas, uid: string, itemBruto: unknown): Promise<Resposta> {
-  if (!(await p.ehPro(uid))) return r({ error: "precisa_pro" });
+export async function registrarItem(p: Portas, uid: string, itemBruto: unknown, esperaMs = 300): Promise<Resposta> {
+  const plano = await planoAtivo(() => p.ehPro(uid), esperaMs);
+  if (plano === "indisponivel") { // not an answer: nothing is created, nothing is deleted, nobody is told to subscribe
+    p.avisar("pluggy-item: plano indisponivel, conexao nao registrada", uid);
+    return r({ error: "plano_indisponivel" }, 503);
+  }
+  if (plano === "nao") return r({ error: "precisa_pro" });
 
   const itemId = String(itemBruto ?? "").trim();
   if (!itemId) return r({ error: "faltou_item" }, 400);
