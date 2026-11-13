@@ -48,6 +48,14 @@ returns uuid language sql as $$
   values (p_user, 'item-' || gen_random_uuid(), p_banco, p_status, p_criada, 'trabalho', p_leitura_ok, p_leitura_ok)
   returning id
 $$;
+-- The holder and the accounts Pluggy lists for a connection (what tells one account from another).
+create or replace function t.titular(p_conexao uuid, p_dono text, variadic p_contas text[] default '{}')
+returns void language plpgsql as $$
+begin
+  update public.bank_connections set dono_nome = p_dono where id = p_conexao;
+  insert into public.bank_saldos (conta_id, user_id, bank_connection_id, nome)
+  select 'conta-' || gen_random_uuid(), bc.user_id, bc.id, n from public.bank_connections bc, unnest(p_contas) n where bc.id = p_conexao;
+end $$;
 -- One Pix credit as the importer stores it. Every call is a NEW transaction id, like a new Pluggy item.
 create or replace function t.pix(p_conexao uuid, p_quando timestamptz, p_valor numeric, p_pagador text)
 returns void language sql as $$

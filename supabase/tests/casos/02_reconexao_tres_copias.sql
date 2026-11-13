@@ -23,10 +23,14 @@ commit;
 select t.igual('são 8 linhas guardadas para 3 Pix reais (nada é apagado)',
                (select count(*) from public.auto_detected_sales where user_id = :'a')::numeric, 8);
 select t.verdade('o Pix importado por 3 conexões não é contado 3 vezes (dia ≤ R$ 60)', t.caiu(:'a', 3) <= 60);
-select t.pendente('F-01', 'vendas legítimas do vendedor com 3 conexões contam inteiras', t.caiu(:'a', 3), 60);
+select t.igual('F-01: vendas legítimas do vendedor com 3 conexões contam inteiras', t.caiu(:'a', 3), 60);
+select t.igual('F-01: nenhum cliente dele é excluído como recorrente',
+               (select count(*) from public.banco_entradas_classificadas(:'a', t.dia(3), t.dia(3)) where motivo = 'recorrente')::numeric, 0);
+select t.igual('as cópias das conexões apagadas continuam fora (conta_pessoal), sem somar',
+               (select count(*) from public.banco_entradas_classificadas(:'a', t.dia(3), t.dia(3)) where motivo = 'conta_pessoal')::numeric, 5);
 select public.banco_reconciliar(:'a');
-select t.pendente('F-01', 'o dia dele não vira calote', (select total_debt from public.daily_sales where user_id = :'a'), 0);
-select t.pendente('F-01', 'ranking do dia dele = R$ 60',
+select t.igual('F-01: o dia dele não vira calote', (select total_debt from public.daily_sales where user_id = :'a'), 0);
+select t.igual('F-01: ranking do dia dele = R$ 60',
                (select valor from public.ranking_valor_dias(t.dia(3), t.dia(3), :'a')), 60);
 select t.igual('a outra vendedora, sem cópias, continua com R$ 36', t.caiu(:'b', 3), 36);
 select public.banco_reconciliar(:'b');
