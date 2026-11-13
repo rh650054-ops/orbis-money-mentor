@@ -7,10 +7,15 @@ import { decidirVaga, type Ativa } from "../../supabase/functions/_shared/pluggy
 
 const ANA = "ana-uid";
 
-function cena(o: { pro?: boolean; ativas?: Ativa[] | null; limite?: number | null | undefined; naoGrava?: boolean } = {}) {
-  const feito = { vagas: 0, apagados: [] as string[], gravadas: [] as LinhaDaCura[], registros: [] as string[] };
+function cena(o: { pro?: boolean; planoFalha?: number; ativas?: Ativa[] | null; limite?: number | null | undefined; naoGrava?: boolean } = {}) {
+  const feito = { vagas: 0, planos: 0, apagados: [] as string[], gravadas: [] as LinhaDaCura[], registros: [] as string[] };
+  let semResposta = o.planoFalha ?? 0;
   const portas: PortasDaCura = {
-    ehPro: async () => o.pro ?? true,
+    ehPro: async () => {
+      feito.planos++;
+      if (semResposta > 0) { semResposta--; return undefined; }
+      return o.pro ?? true;
+    },
     vaga: async (_dono, _banco, itemId) => {
       feito.vagas++;
       return decidirVaga({ ativas: o.ativas === undefined ? [] : o.ativas, limite: "limite" in o ? o.limite : 1, itemId });
@@ -78,6 +83,16 @@ describe("pluggy-webhook auto-cura", () => {
     expect(await autoCura(falhou.portas, { itemId: "it-1", item: item("Nubank"), dono: ANA })).toEqual({ recusa: "limite_indisponivel" });
     const voltou = cena({ limite: 1 });
     expect(await autoCura(voltou.portas, { itemId: "it-1", item: item("Nubank"), dono: ANA })).toHaveProperty("con");
+  });
+  it("13/11 — plan not read twice: nothing is created or deleted, and it is not taken as \"without Pro\"", async () => {
+    const c = cena({ planoFalha: 2 });
+    expect(await autoCura(c.portas, { itemId: "it-1", item: item("Nubank"), dono: ANA }, 0)).toEqual({ recusa: "plano_indisponivel" });
+    expect(c.feito).toMatchObject({ vagas: 0, planos: 2, apagados: [], gravadas: [] });
+  });
+  it("13/11 — plan not read once, then a subscriber: the connection is created", async () => {
+    const c = cena({ planoFalha: 1 });
+    expect(await autoCura(c.portas, { itemId: "it-1", item: item("Nubank"), dono: ANA }, 0)).toHaveProperty("con");
+    expect(c.feito.planos).toBe(2);
   });
   it("owner without Pro: nothing is created, nothing deleted, the slot is not even asked", async () => {
     const c = cena({ pro: false });
