@@ -18,8 +18,39 @@
 //   - anything about other banks. Only a bank listed in bancoComReferencia gets a reference.
 
 export type ModoDaIdentidade = "observar" | "aplicar";
-/** "aplicar": a re-issued id is pointed back to the entry already stored. "observar": only counted. */
-export const MODO_DA_IDENTIDADE: ModoDaIdentidade = "aplicar";
+/** One mode per kind of reference (15/11, owner's review):
+ *   code (providerCode, Mercado Pago personal accounts) — its stability WAS observed: "aplicar";
+ *   id   (providerId, Mercado Pago business accounts)   — never seen through a re-issue: "observar",
+ *        i.e. stored and counted, while everything is written exactly as before. */
+export interface ModosDaIdentidade {
+  code: ModoDaIdentidade; id: ModoDaIdentidade;
+  /** false = phase 1: the columns are used when they exist, and their absence means "migration not
+   *  applied" (behaviour before it). true = phase 2, set once the objects were verified in
+   *  production: from then on the columns MUST be there, and not finding them is a failure like any
+   *  other — the read writes nothing and gets no stamp, instead of quietly losing the protection. */
+  exigida?: boolean;
+}
+export const MODOS_DA_IDENTIDADE: ModosDaIdentidade = { code: "aplicar", id: "observar", exigida: false };
+export const referenciaDeCodigo = (ref: string | null | undefined) => !!ref && ref.startsWith("code:");
+export function modoDaReferencia(ref: string | null | undefined, modos: ModosDaIdentidade = MODOS_DA_IDENTIDADE): ModoDaIdentidade {
+  return referenciaDeCodigo(ref) ? modos.code : modos.id;
+}
+
+/** Whether the identity columns can be used. A missing column means the migration was not applied
+ *  (the importer then behaves as before it). ANY other failure — timeout, network, permission —
+ *  is "indisponivel": the protection may exist, so nothing may be written or stamped without it. */
+export type EstadoDaIdentidade = "ativa" | "sem_migration" | "indisponivel";
+export function estadoPeloErro(erro: { code?: unknown; message?: unknown } | null | undefined, exigida = false): EstadoDaIdentidade {
+  const semColuna = estadoSemExigir(erro);
+  return exigida && semColuna === "sem_migration" ? "indisponivel" : semColuna;
+}
+function estadoSemExigir(erro: { code?: unknown; message?: unknown } | null | undefined): EstadoDaIdentidade {
+  if (!erro) return "ativa";
+  const codigo = String(erro.code ?? "");
+  const texto = String(erro.message ?? "");
+  if (codigo === "42703" || codigo === "PGRST204" || /column .* does not exist|could not find the .* column/i.test(texto)) return "sem_migration";
+  return "indisponivel";
+}
 
 /** Banks whose reference was proven, in production, to survive a re-issue. */
 export function bancoComReferencia(instituicao: string | null | undefined): boolean {
@@ -56,13 +87,18 @@ export interface ComIdentidade {
   transaction_date: string; amount: number | string; ids_anteriores?: string[] | null;
 }
 export interface Reapontamento { de: string; para: string; anteriores: string[] }
+export interface Divergencia { novo: ComIdentidade; guardado: ComIdentidade }
 
-/** Returned entries whose Pluggy id is not stored, against stored entries with the same reference:
- *   - same account, day and amount under another id → the SAME payment re-issued: `reapontar`
+/** Returned entries whose Pluggy id is not stored, against stored entries with the same reference
+ *  in the same account:
+ *   - same day and amount under another id → the SAME payment re-issued: `reapontar`
  *     (the stored row takes the new id and remembers the old one);
- *   - same reference but another day or amount → `divergentes`: not merged, to be looked at.
- *  `vistos` = every id Pluggy returned: a stored id that came back is itself, never a twin. */
-export function reapontamentos(novas: ComIdentidade[], guardadas: ComIdentidade[], vistos: Set<string>): { reapontar: Reapontamento[]; divergentes: string[] } {
+ *   - another day or amount → `divergentes`: the provider now shows that reference differently.
+ *     It is neither assumed to be the same payment corrected nor a new one: the caller records it
+ *     and does NOT add it to the money.
+ *  `vistos` = every id Pluggy returned in the WHOLE read: a stored id that came back is itself,
+ *  never a twin. */
+export function reapontamentos(novas: ComIdentidade[], guardadas: ComIdentidade[], vistos: Set<string>): { reapontar: Reapontamento[]; divergentes: Divergencia[] } {
   const chave = (e: ComIdentidade) => `${e.conta_id ?? ""}|${e.provedor_ref ?? ""}`;
   const porRef = new Map<string, ComIdentidade[]>();
   for (const g of guardadas) {
@@ -70,13 +106,13 @@ export function reapontamentos(novas: ComIdentidade[], guardadas: ComIdentidade[
     porRef.set(chave(g), [...(porRef.get(chave(g)) ?? []), g]);
   }
   const reapontar: Reapontamento[] = [];
-  const divergentes: string[] = [];
+  const divergentes: Divergencia[] = [];
   for (const n of novas) {
     if (!n.provedor_ref || !n.conta_id) continue;
     const candidatas = porRef.get(chave(n)) ?? [];
     if (candidatas.length === 0) continue;
     const igual = candidatas.findIndex((g) => String(g.transaction_date).slice(0, 10) === n.transaction_date && Number(g.amount) === Number(n.amount));
-    if (igual < 0) { divergentes.push(n.transaction_id); continue; }
+    if (igual < 0) { const g = candidatas[0]; if (g) divergentes.push({ novo: n, guardado: g }); continue; }
     const g = candidatas.splice(igual, 1)[0];
     if (g) reapontar.push({ de: g.transaction_id, para: n.transaction_id, anteriores: [...(g.ids_anteriores ?? []), g.transaction_id] });
   }

@@ -52,4 +52,22 @@ begin
   update public.auto_detected_sales set transaction_id = 'b1', ids_anteriores = array_append(ids_anteriores, 'a1') where transaction_id = 'a1';
   perform t.verdade('identity: the stored row can take the new id and remember the old one',
     (select ids_anteriores = array['a1'] from public.auto_detected_sales where transaction_id = 'b1'));
+  -- the table of divergences: server only, and tied to the seller so deleting the account empties it
+  perform t.verdade('divergences: row level security is on',
+    (select relrowsecurity from pg_class where oid = 'public.banco_entradas_divergencias'::regclass));
+  perform t.igual('divergences: the app roles have no privilege on it',
+    (select count(*) from information_schema.role_table_grants where table_schema = 'public' and table_name = 'banco_entradas_divergencias'
+      and grantee in ('anon', 'authenticated'))::numeric, 0);
+  insert into public.banco_entradas_divergencias (user_id, bank_connection_id, conta_id, provedor_ref, transaction_id_guardado, transaction_id_novo, data_guardada, valor_guardado, data_nova, valor_novo)
+    values (ana, con1, 'conta-1', 'code:C1', 'b1', 'd1', date '2026-11-09', 20, date '2026-11-09', 25);
+  insert into public.banco_entradas_divergencias (user_id, bank_connection_id, conta_id, provedor_ref, transaction_id_guardado, transaction_id_novo, data_guardada, valor_guardado, data_nova, valor_novo)
+    values (ana, con1, 'conta-1', 'code:C1', 'b1', 'd2', date '2026-11-09', 20, date '2026-11-09', 25)
+    on conflict (bank_connection_id, conta_id, provedor_ref, data_nova, valor_novo) do nothing;
+  perform t.igual('divergences: the same one seen again (even under a re-issued id) is one row',
+    (select count(*) from public.banco_entradas_divergencias where bank_connection_id = con1)::numeric, 1);
+  perform t.igual('divergences: recording one adds nothing to the entries',
+    (select count(*) from public.auto_detected_sales where transaction_id in ('d1', 'd2'))::numeric, 0);
+  delete from public.bank_connections where id = con1;
+  perform t.igual('divergences: removing the connection removes its divergences',
+    (select count(*) from public.banco_entradas_divergencias where bank_connection_id = con1)::numeric, 0);
 end $$;

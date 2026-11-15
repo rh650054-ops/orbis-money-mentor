@@ -91,7 +91,7 @@ function bancoFalso() {
       },
       then(res: (r: { data: unknown; error: unknown }) => unknown) {
         if (tabela !== "auto_detected_sales") return Promise.resolve({ data: null, error: null }).then(res);
-        if (semColuna) return Promise.resolve({ data: null, error: { message: "column does not exist" } }).then(res);
+        if (semColuna) return Promise.resolve({ data: null, error: { code: "42703", message: "column auto_detected_sales.conta_id does not exist" } }).then(res);
         if (op === "select" && leuDia && falhar.leituraDoDia) return Promise.resolve({ data: null, error: { message: "timeout" } }).then(res);
         const alvo = entradas.filter((r) => filtros.every((f) => f(r)));
         if (op === "delete") for (const a of alvo) entradas.splice(entradas.indexOf(a), 1);
