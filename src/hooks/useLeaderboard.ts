@@ -26,6 +26,10 @@ export function useLeaderboard(userId: string | undefined) {
   const [constanciaRanking, setConstanciaRanking] = useState<LeaderboardEntry[]>([]);
   const [currentUserStats, setCurrentUserStats] = useState<LeaderboardEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // 15/11: the position AFTER the live value arrived (or failed). The screen opens with the stored
+  // value and then swaps to the live one; comparing leagues on the first number made the league
+  // jump down and back up on every visit (16th stored → 22nd live), with confetti each time.
+  const [posicaoFinal, setPosicaoFinal] = useState<number | null>(null);
   const [hasParticipated, setHasParticipated] = useState(false);
 
   const getCurrentMonth = () => {
@@ -38,7 +42,7 @@ export function useLeaderboard(userId: string | undefined) {
     const currentMonth = getCurrentMonth();
 
     // Ordena e publica o ranking na tela (faturamento + constancia + posicao do usuario).
-    const applyAndSet = (entries: any[]) => {
+    const applyAndSet = (entries: any[]): number | null => {
       // Faturamento = só quem tem valor VERIFICADO > 0 (anti-fraude, igual ao semanal).
       const faturamentoSorted = [...entries]
         .filter((e) => (e.faturamento_total_mes || 0) > 0)
@@ -62,8 +66,10 @@ export function useLeaderboard(userId: string | undefined) {
             posicao_constancia: cIdx >= 0 ? cIdx + 1 : null,
           });
           setHasParticipated(true);
+          return fIdx >= 0 ? fIdx + 1 : null;
         }
       }
+      return null;
     };
 
     try {
@@ -110,7 +116,7 @@ export function useLeaderboard(userId: string | undefined) {
       }
 
       // 1) Abre JA com nome/foto do proprio leaderboard_stats — nao espera mais nada.
-      applyAndSet(entries);
+      setPosicaoFinal(applyAndSet(entries));
 
       // Usuario sem entrada na lista (0 dias): busca a linha dele a parte.
       if (userId && !entries.find((e) => e.user_id === userId)) {
@@ -343,6 +349,7 @@ export function useLeaderboard(userId: string | undefined) {
     faturamentoRanking,
     constanciaRanking,
     currentUserStats,
+    posicaoFinal,
     isLoading,
     hasParticipated,
     updateUserStats,
