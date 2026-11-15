@@ -27,8 +27,15 @@ describe("derivar — o que cada card mostra", () => {
     expect(passado.dinheiro.caiu).toBe(3892 - 537 + 637); // 37 + 600 > 637 vendido → vira o novo vendido, não 5.937
     expect(diaComBanco({ dia: "2099-01-01", lancou: 100, pix_cartao: 80, dinheiro: 20, caiu: 900, maquininha: 0, conta_ranking: 100, faltou: 0 }, 100, "2099-01-01"))
       .toEqual({ caiu: 100, faltou: 0 });
+    // 14/11: hoje o banco ainda não leu tudo — o que não apareceu NÃO vira calote (antes: faltou 30)
     expect(diaComBanco({ dia: "2099-01-01", lancou: 100, pix_cartao: 80, dinheiro: 20, caiu: 50, maquininha: 0, conta_ranking: 100, faltou: 30 }, 100, "2099-01-01"))
-      .toEqual({ caiu: 70, faltou: 30 });
+      .toEqual({ caiu: 100, faltou: 0 });
+    // hoje vale o calote que ele marcou no Foco
+    expect(diaComBanco({ dia: "2099-01-01", lancou: 100, pix_cartao: 80, dinheiro: 20, caiu: 50, maquininha: 0, conta_ranking: 100, faltou: 30 }, 100, "2099-01-01", 15))
+      .toEqual({ caiu: 85, faltou: 15 });
+    // caso real (Rick 14/11): vendeu 948,01, banco leu 477,70 até 18h → calote do dia 0, não 300,30
+    expect(diaComBanco({ dia: "2026-11-14", lancou: 948.01, pix_cartao: 778, dinheiro: 170.01, caiu: 477.7, maquininha: 45.7, conta_ranking: 948.01, faltou: 300.3 }, 948.01, "2026-11-14"))
+      .toEqual({ caiu: 948.01, faltou: 0 });
     // passado com a folga de R$ 500 do ranking: no relatório não passa do vendido
     expect(diaComBanco({ dia: "2026-10-01", lancou: 500, pix_cartao: 400, dinheiro: 100, caiu: 750, maquininha: 0, conta_ranking: 750, faltou: 0 }, 500, "2026-10-27"))
       .toEqual({ caiu: 500, faltou: 0 });
