@@ -5,12 +5,15 @@ can be read, reviewed and diffed. **Nothing in this folder is deployed or applie
 
 ## Why it is not under `supabase/functions/`
 
-Functions merged under `supabase/functions/` have been published to production shortly after the
-merge without anyone running a deploy (observed on 08/11/2026: four functions published 36 seconds
-after a merge). Putting these files there would republish them. In particular it would replace
-what is deployed today as `mp-criar-deposito`, and the instruction is not to touch the X1.
-Moving a function from here into `supabase/functions/` is a separate, authorised step, to be done
-with the controlled workflow (`.github/workflows/edge-functions.yml`, `comparar` first).
+Corrected on 12/11/2026. An earlier version of this file said functions are published
+automatically after a merge. They are not. Functions in this project are published by hand
+through the Supabase connector, usually as a one-line file that imports `index.ts` from GitHub at
+a merge commit (that is what `pluggy-connect-token` v22 and `mp-criar-deposito` are today). The
+only apps acting on `main` commits are `claude`, `github-actions` (preflight) and `vercel`.
+
+These files stay outside `supabase/functions/` so that nobody publishes them by mistake when
+shipping something else: none of them is meant to be redeployed, and the instruction is not to
+touch the X1. Moving one into `supabase/functions/` is a separate, authorised step.
 
 ## What is here
 
