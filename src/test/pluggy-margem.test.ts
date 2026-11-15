@@ -71,8 +71,10 @@ function bancoFalso() {
     const filtros: ((r: Linha) => boolean)[] = [];
     let op: "select" | "delete" | "update" = "select";
     let leuDia = false;
+    let semColuna = false; // this table is the one before the identity migration
     const q = {
-      select: () => q,
+      select: (c?: string) => { if (c?.includes("provedor_ref")) semColuna = true; return q; },
+      limit: () => q,
       update: () => { op = "update"; return q; },
       delete: () => { op = "delete"; return q; },
       eq: (c: string, v: unknown) => { if (c === "transaction_date") leuDia = true; filtros.push((r) => String(r[c] ?? (c === "status" ? "pending" : "")) === String(v)); return q; },
@@ -89,6 +91,7 @@ function bancoFalso() {
       },
       then(res: (r: { data: unknown; error: unknown }) => unknown) {
         if (tabela !== "auto_detected_sales") return Promise.resolve({ data: null, error: null }).then(res);
+        if (semColuna) return Promise.resolve({ data: null, error: { message: "column does not exist" } }).then(res);
         if (op === "select" && leuDia && falhar.leituraDoDia) return Promise.resolve({ data: null, error: { message: "timeout" } }).then(res);
         const alvo = entradas.filter((r) => filtros.every((f) => f(r)));
         if (op === "delete") for (const a of alvo) entradas.splice(entradas.indexOf(a), 1);
