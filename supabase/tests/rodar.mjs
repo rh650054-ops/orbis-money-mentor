@@ -14,7 +14,7 @@ const raiz = join(aqui, "../..");
 const host = process.env.PGHOST ?? "127.0.0.1";
 if (/supabase\.(co|com)/i.test(host)) { console.error("Recusado: estes testes nunca rodam contra o Supabase."); process.exit(2); }
 const env = { ...process.env, PGHOST: host, PGPORT: process.env.PGPORT ?? "54329", PGUSER: process.env.PGUSER ?? "postgres" };
-const psql = (db, args, opt = {}) => execFileSync("psql", ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-d", db, ...args], { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...opt });
+const psql = (db, args, opt = {}) => execFileSync("psql", ["-X", "-q", "-v", "ON_ERROR_STOP=1", "-d", db, ...args], { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], cwd: raiz, ...opt }); // cwd: a case may read a file of the repo
 
 // The chain under test. Everything else these functions call is a double (schema/02_dubles.sql).
 const CADEIA = [
