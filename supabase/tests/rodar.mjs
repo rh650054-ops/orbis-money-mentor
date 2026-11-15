@@ -20,7 +20,7 @@ const psql = (db, args, opt = {}) => execFileSync("psql", ["-X", "-q", "-v", "ON
 const CADEIA = [
   "banco_eh_maquininha", "banco_nao_e_venda", "banco_pagador", "banco_mesma_pessoa", "banco_conta_de_venda",
   "banco_entradas_classificadas", "banco_entradas_detalhe", "banco_entradas_por_dia", "banco_pix_por_dia",
-  "banco_lancado_dia", "banco_ligou_em", "banco_reconciliar", "banco_conferencia",
+  "banco_vendas_a_parte", "banco_lancado_dia", "banco_ligou_em", "banco_reconciliar", "banco_conferencia",
   "ranking_banco_desde", "ranking_pode_verificar", "ranking_valor_dias", "ranking_total_mes", "ranking_atualizar",
   "ranking_congelado_ate", "ranking_cache_atualizar", "get_weekly_ranking_verified",
   "premio_pendencias", "premio_congelar", "premio_congelar_agora", "premio_reavaliar", "premio_homologar_manual", "premio_resultado",
