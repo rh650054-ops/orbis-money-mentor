@@ -12,6 +12,11 @@ export const reais = (n: number) => `R$ ${brl2(n)}`;
 /** Texto do campo de dinheiro: mostra o que ele digitou, arruma no blur. */
 export function useTextoDinheiro(valor: number, onChange: (n: number) => void) {
   const [texto, setTexto] = useState(textoDeReais(valor));
+  // 12/11: valor mudou por fora (receita carregada, sugestão, linha trocada) → o campo mostra o
+  // valor de verdade. Enquanto ele digita, o texto já vale o mesmo número e fica como está.
+  useEffect(() => {
+    setTexto((t) => (Math.abs(reaisDeTexto(t) - valor) < 0.005 ? t : textoDeReais(valor)));
+  }, [valor]);
   return {
     value: texto,
     onChange: (e: { target: { value: string } }) => {

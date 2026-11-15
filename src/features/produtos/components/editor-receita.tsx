@@ -155,6 +155,10 @@ export function LinhaIngrediente({ it, rende, nomeProduto = "unidades", estoque,
 /** Número que aceita apagar tudo e meio ("0,5"). */
 function MiniNumero({ valor, onChange, rotulo }: { valor: number; onChange: (n: number) => void; rotulo: string }) {
   const [t, setT] = useState(valor > 0 ? fmt(valor) : "");
+  // 12/11: o que aparece é o que entra na conta (o texto antigo ficava quando o valor mudava por fora)
+  useEffect(() => {
+    setT((x) => (Math.abs(reaisDeTexto(x) - valor) < 0.0005 ? x : valor > 0 ? fmt(valor) : ""));
+  }, [valor]);
   return (
     <input type="text" inputMode="decimal" placeholder="1" value={t} aria-label={rotulo}
       onFocus={(e) => e.currentTarget.select()}
