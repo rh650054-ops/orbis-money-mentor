@@ -95,7 +95,7 @@ export function derivar(rel: Relatorio, banco: DiaBanco[], periodo: Periodo, rot
   const diasAjustados = a.dias.map((d) => {
     const b = porDiaBanco.get(d.dia);
     if (!b) return d;
-    const novo = diaComBanco(b, d.caiu + d.faltou, hoje);
+    const novo = diaComBanco(b, d.caiu + d.faltou, hoje, d.faltou);
     return { ...d, caiu: novo.caiu, faltou: novo.faltou };
   });
   const ajuste = diasAjustados.reduce((t, d, i) => ({ caiu: t.caiu + d.caiu - a.dias[i]!.caiu, faltou: t.faltou + d.faltou - a.dias[i]!.faltou }), { caiu: 0, faltou: 0 });
@@ -269,11 +269,18 @@ export const ehFimDeSemana = (iso: string) => [0, 6].includes(diaDaSemana(iso));
  *  the ranking's +R$ 500 tolerance — only a day the seller confirmed as sales
  *  (banco_excesso_ok, which the ranking leaves uncapped, so it shows above teto + 500)
  *  may go above what was sold. Today: at most what was sold minus cash. */
-export function diaComBanco(b: DiaBanco, vendidoDia: number, hoje: string): { caiu: number; faltou: number } {
+export function diaComBanco(b: DiaBanco, vendidoDia: number, hoje: string, faltouLancado = 0): { caiu: number; faltou: number } {
+  // 14/11 (Rick: "1.331 de calote não faz sentido"): hoje o banco ainda está lendo — os Pix caem
+  // horas depois (C6, InfinitePay). O que ainda não apareceu não é calote: hoje vale o calote que
+  // ele marcou; o banco confere o dia depois que ele fecha (madrugada).
+  if (b.dia >= hoje) {
+    const f = Math.max(0, Math.min(faltouLancado, vendidoDia));
+    return { caiu: Math.round((vendidoDia - f) * 100) / 100, faltou: Math.round(f * 100) / 100 };
+  }
   const teto = Math.max(0, vendidoDia - b.dinheiro);
   const ranking = Math.max(0, b.conta_ranking);
   const confirmado = ranking > teto + 500.005;
-  const peloBanco = b.dia < hoje ? (confirmado ? ranking : Math.min(ranking, teto)) : Math.min(Math.max(0, b.caiu), teto);
+  const peloBanco = confirmado ? ranking : Math.min(ranking, teto);
   const caiu = Math.round((b.dinheiro + peloBanco) * 100) / 100;
   const vendido = Math.max(vendidoDia, caiu);
   return { caiu, faltou: Math.round((vendido - caiu) * 100) / 100 };
