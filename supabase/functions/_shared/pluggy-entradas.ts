@@ -299,7 +299,7 @@ type LinhaDoBanco = LinhaEntrada & { user_id: string; bank_connection_id: string
 const CAMPOS_DA_LINHA = "transaction_id, amount, description, transaction_date, transacted_at, is_pix, own_transfer, pagador_nome, pagador_doc";
 const CAMPOS_COM_IDENTIDADE = `${CAMPOS_DA_LINHA}, conta_id, provedor_ref`;
 
-/** Can the identity columns of 20261115190000_entradas_identidade_do_provedor.sql be used?
+/** Can the identity columns of 20261115220000_entradas_identidade_do_provedor.sql be used?
  *  A missing column and a failed query are different answers (estadoPeloErro). */
 // deno-lint-ignore no-explicit-any
 async function estadoDaIdentidade(admin: any, exigida: boolean): Promise<EstadoDaIdentidade> {

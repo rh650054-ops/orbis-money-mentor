@@ -1,5 +1,5 @@
 -- 15/11/2026 · the provider's own reference of a bank entry
--- (20261115190000_entradas_identidade_do_provedor.sql, applied whole by the runner).
+-- (20261115220000_entradas_identidade_do_provedor.sql, applied whole by the runner).
 -- The migration is additive. What its unique index may and may not refuse is the whole point:
 -- it must stop the same payment being stored twice, and it must never refuse a real payment.
 do $$
