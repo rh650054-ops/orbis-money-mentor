@@ -86,7 +86,7 @@ export default function Ranking() {
   }, [user]);
 
   const {
-    faturamentoRanking, constanciaRanking, currentUserStats,
+    faturamentoRanking, constanciaRanking, currentUserStats, posicaoFinal,
     isLoading, hasParticipated, loadLeaderboard
   } = useLeaderboard(user?.id);
 
@@ -136,15 +136,17 @@ export default function Ranking() {
     setPerfilCarregado(true);
   };
 
+  // only the final position (after the live value) counts — see useLeaderboard.posicaoFinal
   useEffect(() => {
-    if (!currentUserStats) return;
-    const cf = currentUserStats.posicao_faturamento;
+    if (!currentUserStats || posicaoFinal === null) return;
+    const cf = posicaoFinal;
     const cc = currentUserStats.posicao_constancia;
     if (prevFaturamentoPosition.current !== null && cf !== null && cf < prevFaturamentoPosition.current) triggerConfetti();
     if (prevConstanciaPosition.current !== null && cc !== null && cc < prevConstanciaPosition.current) triggerConfetti();
     prevFaturamentoPosition.current = cf;
     prevConstanciaPosition.current = cc;
-  }, [currentUserStats?.posicao_faturamento, currentUserStats?.posicao_constancia]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posicaoFinal, currentUserStats?.posicao_constancia]);
 
   const triggerConfetti = async () => {
     const confetti = (await import("canvas-confetti")).default;
@@ -165,7 +167,7 @@ export default function Ranking() {
 
   // Anima quando o vendedor SOBE ou CAI de liga (compara com a ultima liga vista)
   useEffect(() => {
-    const pos = currentUserStats?.posicao_faturamento;
+    const pos = posicaoFinal;
     if (!user?.id || !pos) return;
     const rank = leagueRank(pos);
     const key = `orbis_last_league_${user.id}`;
@@ -175,7 +177,7 @@ export default function Ranking() {
       setLeagueTransition({ type: rank > stored ? "up" : "down", position: pos });
     }
     try { localStorage.setItem(key, String(rank)); } catch (e) { avisar.silencioso("Ranking: guardar liga", e); }
-  }, [currentUserStats?.posicao_faturamento, user?.id]);
+  }, [posicaoFinal, user?.id]);
 
   // Recarrega ranking e perfil ao voltar o foco (ex.: retorno do DEFCON 4)
   useRefetchOnFocus(() => {
@@ -455,6 +457,7 @@ export default function Ranking() {
 
       {leagueTransition && (
         <LeagueTransition
+          key={`${leagueTransition.type}-${leagueTransition.position}`}
           type={leagueTransition.type}
           position={leagueTransition.position}
           onClose={() => setLeagueTransition(null)}
