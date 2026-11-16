@@ -1,50 +1,102 @@
-# Reconciliation of the Mercado Pago copies (prepared 15/11/2026 — nothing here has been run)
+# Reconciliation of the Mercado Pago copies — nothing here has been run
 
-Until the provider-reference rule (#319) is live, a re-issued Pluggy id is stored as a new
-entry on the oldest day of the read window. On 15/11/2026 19:30 BRT the read-only detector
-below found **288 copies, R$ 5,768.26, 6 sellers, 12 connection-days (09–12/11)**, plus
-5 isolated identical rows (R$ 372.91) that are **ambiguous** and are not to be touched.
-None of the 288 had been used by a seller (`status = 'pending'`, no linked sale).
+Until the provider-reference rule (#319) is live, a re-issued Pluggy id is stored as a new entry
+on the oldest day of the read window. This folder holds what is needed to take the proven copies
+out **reversibly and with evidence**. It is separate from any code publication, and every step
+needs the owner's explicit approval.
 
-This document is the procedure to take the proven ones out **reversibly**. It is separate from
-any code publication and each step needs the owner's explicit approval.
+| piece | what it is | state |
+|---|---|---|
+| `pluggy-conferir` (`supabase/functions`) | read-only check of stored entries against Pluggy; produces the evidence, pair by pair | written and tested; **not published** |
+| `quarentena-de-entradas.sql` | moves approved pairs, whole and with their evidence, to a quarantine table; can put a batch back identical | written and tested; **not run** |
+
+State on 16/11/2026 09:40 BRT (read-only detector at the end): **220 candidate copies,
+R$ 4,955.26, 6 sellers, 10 connection-days (09–12/11)**. None is approvable yet: the evidence from
+Pluggy does not exist until the checker runs.
 
 ## What this does not do
-
 It does not change `daily_sales`, calotes, ranking caches or prizes. Taking an entry out changes
-what the next reconciliation computes; recomputing is step 6, with its own approval. The
-automatic reconciliation only reaches the last 6 days, so days already outside it need an
-approved manual recomputation.
+what the next reconciliation computes; recomputing is the last step, with its own approval. The
+automatic reconciliation only reaches the last 6 days, so days already outside it need an approved
+manual recomputation.
 
-## Three classes
+## The six conditions (per pair: the entry that goes out, the entry that stays)
 
-| class | rule | action |
+| # | condition | who proves it |
 |---|---|---|
-| proven copy | every condition of "Proof" below holds for the pair | quarantine |
-| legitimate | its Pluggy id still exists, or any stored attribute differs from every other row | none |
-| ambiguous | identical to another row but a condition of "Proof" is missing | none; listed in the report |
+| 1 | connection and account of both entries known and equal | checker (`conta_identificada`); routine re-checks the connection |
+| 2 | every stored attribute equal: day, amount, description, Pix flag, instant, payer | checker (`atributos_iguais`); routine compares column by column |
+| 3 | one of the two was created on/after day + 3 (Brasília) — the copy | checker (`copia_tardia`); routine re-checks |
+| 4 | Pluggy does not have the id that goes out (404) **and** has the id that stays | checker (`sai_nao_existe`, `fica_existe`) |
+| 5 | the whole statement was read, and it lists fewer payments like this than are stored | checker (`contagem_confere`); routine never leaves fewer than the statement listed |
+| 6 | the entry that goes out was not used: status pending, no linked sale, no review decision | checker (`nao_usada`); routine re-checks |
 
-Same day and same amount is never enough. Mercado Pago personal accounts send no time and no
-payer, so two real Pix of R$ 20 are identical in every stored attribute.
+Same day and same amount is never enough: Mercado Pago personal accounts send no time and no
+payer, so two real Pix of R$ 20 are identical in every stored attribute. A 404 is never enough
+either: without the count (5) it proves nothing about which rows are in excess.
 
-## Proof (per pair: the entry that goes out, the entry that stays)
+### Three classes
+| class | meaning | may be quarantined |
+|---|---|---|
+| `comprovada_por_id` | all six | yes, on approval of the list |
+| `comprovada_por_contagem` | all but 4b: the id that stays is gone too (Pluggy re-issued again after the day left the window). Only the statement's count says how many are in excess; the oldest stay, the late ones go | only if the owner approves **this standard by name** (`p_por_contagem => true`) |
+| `ambigua` | any condition missing, with the reason | never |
 
-1. Same connection, seller, day, amount, description, Pix flag, instant and payer.
-2. The entry that goes out was created on or after day + 3 (Brasília), i.e. when that day was
-   the oldest of the read window, in a batch that repeats entries already stored.
-3. The batch repeats at least 3 entries of that connection-day.
-4. Pluggy does not have the id that goes out (`GET /transactions/{id}` → 404) **and** lists the id
-   that stays. A 404 alone proves nothing; with 1–3 it shows which of two identical rows is dead.
-5. The number of entries left for that connection-day equals what Pluggy lists for it.
-6. The entry that goes out was not used (`status = 'pending'`, `daily_sale_id is null`).
+For 09–12/11 the second class is the likely one: those ids have been re-issued several times since.
 
-Conditions 4 and 5 need a read at Pluggy. Inside the read window they come for free once #319 is
-live: a stored row whose id came back carries `provedor_ref`. For the days already outside the
-window (09–12/11) there is no authorised tool yet; a read-only checker has to be built and
-approved first. Until then those pairs satisfy 1, 2, 3 and 6 only and are **not** proven.
+## The checker (`pluggy-conferir`)
+Read-only by construction: it selects from the database and sends only GET to Pluggy (plus the
+usual key request); a test fails if either file gains a write. Gated by the cron token.
+One connection and at most 7 days per call. For each pair it returns: connection and account
+(8 characters), day, amount, both Pluggy ids with their creation time and what Pluggy says of each
+(`listada` / `existe` / `nao_existe` / `sem_resposta`), the provider's reference of the entry that
+stays as kind + change detector (never the value), stored vs listed count, the seven flags, the
+class and the reasons. Per day it also reports payments the statement lists that are **not**
+stored (`faltando`). Its log line has counts only.
 
-## Detector (read-only)
+Call (after approval to publish it; the token never leaves the database):
+```sql
+select net.http_post(
+  url := 'https://qbcsjsdwjjpybvzbxszi.supabase.co/functions/v1/pluggy-conferir',
+  headers := jsonb_build_object('Content-Type', 'application/json', 'x-orbis-cron', (select token from painel_tokens where nome = 'cron')),
+  body := jsonb_build_object('conexao', '<connection uuid>', 'de', '2026-11-09', 'ate', '2026-11-12'),
+  timeout_milliseconds := 120000);
+-- then: select status_code, content::jsonb from net._http_response where id = <returned id>;
+```
 
+## Procedure
+1. Publish #319, so nothing new is copied while this runs.
+2. Publish `pluggy-conferir` (`verify_jwt = false`) and run it for each affected connection.
+3. Owner receives the report: pairs by class, totals per seller and day, before and after.
+4. Owner approves a list (and, separately, whether `comprovada_por_contagem` is accepted).
+5. Rehearsal: `begin;` load `quarentena-de-entradas.sql`, call
+   `pg_temp.quarentena_mover(lote, motivo, reports cut down to the approved pairs)`, read the
+   summary, `rollback;`.
+6. Same call, `commit`. All or nothing: the routine refuses the whole batch if any pair lacks a
+   documented condition, comes from a report older than 24 h or from a partial statement, no
+   longer matches the database, was used meanwhile, or would leave fewer entries than the
+   statement listed.
+7. Separate approval: recompute sales, calotes and ranking for the affected sellers and days, with
+   a before/after report. Prizes of the affected periods stay provisional until then.
+
+## Reversal
+`pg_temp.quarentena_restaurar(lote)` puts every row of a batch back exactly as it was (same id,
+same `created_at`, every column) and marks the quarantine rows as restored. All or nothing.
+
+## Rehearsed on 16/11 (isolated local database, synthetic rows in production's shape, simulated evidence)
+220 pairs, 6 sellers, 10 connection-days. With the one pair whose entry has a review decision the
+whole batch was refused; without it 219 entries (R$ 4,433.97) moved and every seller-day was left
+with exactly its real payments; `rollback` left the table byte-identical; a committed batch
+followed by `quarentena_restaurar` left it byte-identical too.
+
+## Known hazard, seen in production
+When Pluggy sends `transactions/deleted`, the importer re-reads 7 days and removes vanished rows
+that have a same-day, same-amount twin — by day and amount, with no record. Between 15/11 19:30
+and 16/11 09:40 this removed 68 of the copies counted the day before (two connection-days) on its
+own. The numbers above therefore move without anyone acting, and the checker must be run close to
+the approval.
+
+## Detector (read-only, database only — candidates, not proof)
 ```sql
 with mp as (select id from bank_connections where institution_name ilike 'mercado pago%' and status <> 'deleted'),
 r as (select s.bank_connection_id con, s.transaction_date d, s.amount,
@@ -59,28 +111,3 @@ select con, d, sum(copias) filter (where copias >= 3) copias, sum(valor) filter 
        sum(copias) filter (where copias < 3) ambiguas
 from w where copias > 0 group by 1, 2 order by 1, 2;
 ```
-
-## Procedure
-
-1. Publish #319 first, so nothing new is copied while this runs.
-2. Build the list of pairs `{sai, fica}` and the evidence for each (the six conditions).
-3. Owner approves the list (ids, totals before and after per seller and day).
-4. Rehearsal: in one transaction, load `supabase/reconciliacao/quarentena-de-entradas.sql`,
-   call `pg_temp.quarentena_mover(lote, motivo, pares)`, read its summary, `rollback`.
-5. Same call, `commit`. The routine refuses the whole batch if any pair fails conditions 1 or 6,
-   if an id is missing or listed twice, or if one kept entry is used for two removals. It moves
-   each row whole (as JSON) to `auto_detected_sales_quarentena` and deletes it from the entries.
-6. Separate approval: recompute sales, calotes and ranking for the affected sellers and days,
-   with a before/after report. Prizes of the affected periods stay provisional until then.
-
-## Reversal
-
-`pg_temp.quarentena_restaurar(lote)` puts every row of a batch back exactly as it was (same id,
-same `created_at`, every column) and marks the quarantine rows as restored. All or nothing.
-Tested in `supabase/tests/casos/16_quarentena_de_entradas.sql`.
-
-## Known hazard, independent of this procedure
-
-When Pluggy sends `transactions/deleted`, the importer re-reads 7 days and removes vanished rows
-that have a same-day, same-amount twin. That can remove some of these copies on its own, by day
-and amount, with no record. The totals above can therefore change without anyone acting.
