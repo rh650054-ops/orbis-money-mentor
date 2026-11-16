@@ -13,6 +13,9 @@ export interface LinhaEntrada {
   /** quem pagou, como a Pluggy informa (11/10/2026: pra barrar Pix da própria conta e do pagador repetido) */
   pagador_nome?: string | null;
   pagador_doc?: string | null;
+  /** 15/11/2026: only present for a bank whose own reference identifies the payment (pluggy-identidade.ts) */
+  conta_id?: string | null;
+  provedor_ref?: string | null;
 }
 
 const mesmoInstante = (a: string | null | undefined, b: string | null | undefined) =>
@@ -31,7 +34,10 @@ export function linhasMudadas<T extends LinhaEntrada>(linhas: T[], existentes: P
       !!e.is_pix !== l.is_pix ||
       !!e.own_transfer !== l.own_transfer ||
       (e.pagador_nome ?? null) !== (l.pagador_nome ?? null) ||
-      (e.pagador_doc ?? null) !== (l.pagador_doc ?? null);
+      (e.pagador_doc ?? null) !== (l.pagador_doc ?? null) ||
+      // a stored row gains its account and reference the first time its id comes back with them
+      (l.conta_id !== undefined && (e.conta_id ?? null) !== (l.conta_id ?? null)) ||
+      (l.provedor_ref != null && (e.provedor_ref ?? null) !== l.provedor_ref);
   });
 }
 
