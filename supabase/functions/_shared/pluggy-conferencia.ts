@@ -42,8 +42,42 @@ export interface ParConferido {
   contagem: { guardadas: number; no_extrato: number };
   condicoes: Condicoes; classe: Classe; motivos: string[];
 }
+/** One movement of the account (credit or debit) with the balance the provider reports after it. */
+export interface Movimento { dia: string; valor: number; saldo: number | null }
+export type EstadoDoSaldo = "ok" | "quebrada" | "indisponivel";
+
+/** Is the statement whole? "The request ended well" does not say so: Pluggy has returned lists that
+ *  end normally and lack payments. When the provider reports the balance after each movement, the
+ *  movements must chain: each one starts from a balance another one ended on. A missing movement
+ *  leaves a gap, whatever the order (Mercado Pago sends no time of day, so order is unknown).
+ *  `quebras` = gaps; the one movement nothing precedes (the start of the window) is not a gap.
+ *  Fewer than 90% of the movements with a balance: "indisponivel" — completeness NOT proven. */
+export function cadeiaDeSaldo(movs: Movimento[]): { estado: EstadoDoSaldo; total: number; com_saldo: number; quebras: number; quebrasPorDia: Map<string, number> } {
+  const com = movs.filter((m) => typeof m.saldo === "number" && Number.isFinite(m.saldo) && m.valor !== 0);
+  const fim = { estado: "indisponivel" as EstadoDoSaldo, total: movs.length, com_saldo: com.length, quebras: 0, quebrasPorDia: new Map<string, number>() };
+  if (movs.length === 0 || com.length < movs.length * 0.9) return fim;
+  const c = (n: number) => Math.round(n * 100);
+  const chegadas = new Map<number, number>(); // balance after a movement → how many movements ended there
+  for (const m of com) chegadas.set(c(m.saldo as number), (chegadas.get(c(m.saldo as number)) ?? 0) + 1);
+  const soltas: Movimento[] = []; // movements that start from a balance no other one ended on
+  for (const m of [...com].sort((a, b) => a.dia.localeCompare(b.dia))) {
+    const antes = c((m.saldo as number) - m.valor);
+    const n = chegadas.get(antes) ?? 0;
+    if (n > 0) chegadas.set(antes, n - 1); else soltas.push(m);
+  }
+  soltas.shift(); // the earliest one is where the window starts
+  for (const m of soltas) fim.quebrasPorDia.set(m.dia, (fim.quebrasPorDia.get(m.dia) ?? 0) + 1);
+  fim.quebras = soltas.length;
+  fim.estado = soltas.length === 0 ? "ok" : "quebrada";
+  return fim;
+}
+
 export interface ResumoDoDia {
   dia: string; guardadas: number; no_extrato: number; extrato_completo: boolean;
+  valor_guardado: number; valor_no_extrato: number;
+  extrato_ids: string;            // change detector of the ids Pluggy listed for the day (compare two runs)
+  guardadas_listadas: number; guardadas_inexistentes: number; guardadas_sem_resposta: number;
+  saldo: EstadoDoSaldo; quebras_de_saldo: number; // gaps in the balance chain on this day or the next
   comprovadas_por_id: number; comprovadas_por_contagem: number; ambiguas: number;
   valor_por_id: number; valor_por_contagem: number; valor_ambiguo: number;
   sem_extrato: number;   // stored entries like which the statement lists none: nothing to compare with
@@ -72,6 +106,8 @@ const maisDias = (dia: string, n: number) => new Date(Date.parse(`${dia}T12:00:0
 export function conferirDia(p: {
   conexao: string; dia: string; guardadas: Guardada[]; extrato: DoExtrato[]; extratoCompleto: boolean;
   contas: string[]; existe: Map<string, Existe>; comRevisao: Set<string> | null;
+  /** the balance chain of the window, and whether the count may be trusted without it */
+  saldo?: { estado: EstadoDoSaldo; quebras: number }; exigirSaldo?: boolean;
 }): { pares: ParConferido[]; resumo: ResumoDoDia } {
   const doDia = p.extrato.filter((e) => e.transaction_date === p.dia);
   const listadas = new Map(p.extrato.map((e) => [e.id, e]));
@@ -87,9 +123,19 @@ export function conferirDia(p: {
   const usada = (g: Guardada) => (g.status ?? "pending") !== "pending" || g.daily_sale_id != null || p.comRevisao === null || p.comRevisao.has(g.transaction_id);
   const contaDe = (g: Guardada) => listadas.get(g.transaction_id)?.conta ?? g.conta_id ?? (p.contas.length === 1 ? p.contas[0] ?? null : null);
 
+  const saldo = p.saldo ?? { estado: "indisponivel" as EstadoDoSaldo, quebras: 0 };
+  // the count is evidence only from a statement proven whole: every page read AND the balance chain
+  // without a gap around this day (or, by explicit choice, without that second proof)
+  const extratoProvado = p.extratoCompleto && (p.exigirSaldo === false || (saldo.estado !== "indisponivel" && saldo.quebras === 0));
+  const soma = (xs: { amount: number }[]) => Math.round(xs.reduce((t, x) => t + Number(x.amount), 0) * 100) / 100;
   const pares: ParConferido[] = [];
   const r: ResumoDoDia = {
     dia: p.dia, guardadas: guardadas.length, no_extrato: doDia.length, extrato_completo: p.extratoCompleto,
+    valor_guardado: soma(guardadas), valor_no_extrato: soma(doDia), extrato_ids: resumoDeIds(doDia.map((e) => e.id)),
+    guardadas_listadas: guardadas.filter((g) => naPluggy(g) === "listada").length,
+    guardadas_inexistentes: guardadas.filter((g) => naPluggy(g) === "nao_existe").length,
+    guardadas_sem_resposta: guardadas.filter((g) => naPluggy(g) === "sem_resposta").length,
+    saldo: saldo.estado === "indisponivel" ? "indisponivel" : saldo.quebras === 0 ? "ok" : "quebrada", quebras_de_saldo: saldo.quebras,
     comprovadas_por_id: 0, comprovadas_por_contagem: 0, ambiguas: 0, valor_por_id: 0, valor_por_contagem: 0, valor_ambiguo: 0, sem_extrato: 0, faltando: 0,
   };
   for (const { g, e } of grupos.values()) {
@@ -109,7 +155,7 @@ export function conferirDia(p: {
         copia_tardia: [sai, fica].some((x) => diaBRT(x.created_at) >= maisDias(p.dia, 3)),
         sai_nao_existe: naPluggy(sai) === "nao_existe",
         fica_existe: viva(fica),
-        contagem_confere: p.extratoCompleto,
+        contagem_confere: extratoProvado,
         nao_usada: !usada(sai),
       };
       const motivos = (Object.keys(c) as (keyof Condicoes)[]).filter((k) => !c[k] && k !== "fica_existe");
@@ -138,7 +184,8 @@ export function conferirDia(p: {
 export interface Portas {
   conexao(id: string): Promise<{ id: string; item_id: string; institution_name: string | null } | null>;
   contas(itemId: string): Promise<string[] | null>;                                       // BANK accounts; null = could not be read
-  extrato(conta: string, de: string, ate: string, horasAtraso: number): Promise<{ txs: DoExtrato[]; completo: boolean }>;
+  /** credits of the window as entries, plus EVERY movement (credits and debits) with its balance */
+  extrato(conta: string, de: string, ate: string, horasAtraso: number): Promise<{ txs: DoExtrato[]; completo: boolean; movimentos?: Movimento[] }>;
   guardadas(conexaoId: string, de: string, ate: string): Promise<Guardada[] | null>;
   comRevisao(ids: string[]): Promise<Set<string> | null>;                                 // ids that have a review decision
   existe(id: string): Promise<Existe>;
@@ -149,7 +196,7 @@ export const MAX_PERGUNTAS = 400; // ids asked of Pluggy one by one in a call; t
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DIA = /^\d{4}-\d{2}-\d{2}$/;
 
-export async function conferirConexao(portas: Portas, pedido: { conexao?: unknown; de?: unknown; ate?: unknown }) {
+export async function conferirConexao(portas: Portas, pedido: { conexao?: unknown; de?: unknown; ate?: unknown; exigir_saldo?: unknown }) {
   const conexaoId = String(pedido.conexao ?? ""); const de = String(pedido.de ?? ""); const ate = String(pedido.ate ?? "");
   if (!UUID.test(conexaoId) || !DIA.test(de) || !DIA.test(ate) || de > ate || maisDias(de, MAX_DIAS - 1) < ate) {
     return { erro: "pedido_invalido" as const, detalhe: `conexao (uuid), de e ate (AAAA-MM-DD), no maximo ${MAX_DIAS} dias` };
@@ -163,11 +210,21 @@ export async function conferirConexao(portas: Portas, pedido: { conexao?: unknow
   const atraso = horasAtrasoDoBanco(con.institution_name);
   const extrato: DoExtrato[] = [];
   let completo = contas.length > 0;
+  // the balance chain, account by account; any account without it leaves the whole check without it
+  const saldoGeral = { estado: "ok" as EstadoDoSaldo, total: 0, com_saldo: 0, quebras: 0 };
+  const quebrasPorDia = new Map<string, number>();
   for (const conta of contas) { // a day before and after: Pluggy filters in UTC, the days here are Brasília's
     const e = await portas.extrato(conta, maisDias(de, -1), maisDias(ate, 1), atraso);
     extrato.push(...e.txs);
     if (!e.completo) completo = false;
+    const cadeia = cadeiaDeSaldo(e.movimentos ?? []);
+    saldoGeral.total += cadeia.total; saldoGeral.com_saldo += cadeia.com_saldo; saldoGeral.quebras += cadeia.quebras;
+    if (cadeia.estado === "indisponivel") saldoGeral.estado = "indisponivel";
+    else if (cadeia.estado === "quebrada" && saldoGeral.estado === "ok") saldoGeral.estado = "quebrada";
+    for (const [d, n] of cadeia.quebrasPorDia) quebrasPorDia.set(d, (quebrasPorDia.get(d) ?? 0) + n);
   }
+  if (contas.length === 0) saldoGeral.estado = "indisponivel";
+  const exigirSaldo = pedido.exigir_saldo !== false;
   const listadas = new Set(extrato.map((e) => e.id));
   const aPerguntar = guardadas.filter((g) => !listadas.has(g.transaction_id)).map((g) => g.transaction_id);
   const existe = new Map<string, Existe>();
@@ -181,12 +238,14 @@ export async function conferirConexao(portas: Portas, pedido: { conexao?: unknow
   const dias: ResumoDoDia[] = [];
   const pares: ParConferido[] = [];
   for (let dia = de; dia <= ate; dia = maisDias(dia, 1)) {
-    const d = conferirDia({ conexao: conexaoId, dia, guardadas, extrato, extratoCompleto: completo, contas, existe, comRevisao });
+    // a gap on the next day may be a movement missing at the end of this one
+    const quebras = (quebrasPorDia.get(dia) ?? 0) + (quebrasPorDia.get(maisDias(dia, 1)) ?? 0);
+    const d = conferirDia({ conexao: conexaoId, dia, guardadas, extrato, extratoCompleto: completo, contas, existe, comRevisao, saldo: { estado: saldoGeral.estado, quebras }, exigirSaldo });
     dias.push(d.resumo); pares.push(...d.pares);
   }
   return {
     conexao: conexaoId.slice(0, 8), banco: con.institution_name, contas: contas.length, de, ate,
-    extrato_completo: completo, perguntadas_por_id: existe.size, limite_de_perguntas_atingido: aPerguntar.length > MAX_PERGUNTAS,
+    extrato_completo: completo, saldo: saldoGeral, exigiu_saldo: exigirSaldo, perguntadas_por_id: existe.size, limite_de_perguntas_atingido: aPerguntar.length > MAX_PERGUNTAS,
     revisoes_lidas: comRevisao !== null, gerado_em: new Date().toISOString(), dias, pares,
   };
 }

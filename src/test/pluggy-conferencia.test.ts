@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { conferirConexao, conferirDia, type DoExtrato, type Guardada, linhaDoExtrato, MAX_PERGUNTAS, type Portas } from "../../supabase/functions/_shared/pluggy-conferencia";
+import { cadeiaDeSaldo, conferirConexao, conferirDia, type DoExtrato, type Guardada, linhaDoExtrato, MAX_PERGUNTAS, type Movimento, type Portas } from "../../supabase/functions/_shared/pluggy-conferencia";
 import { importarEntradas } from "../../supabase/functions/_shared/pluggy-entradas";
 import { type Existe, impressao } from "../../supabase/functions/_shared/pluggy-margem";
 
@@ -20,10 +20,12 @@ const e = (id: string, amount: number, code: string, extra: Partial<DoExtrato> =
   id, conta: CONTA, ref: { tipo: "providerCode", valor: code }, amount, description: "Transferência PIX recebida", transaction_date: DIA,
   transacted_at: `${DIA}T03:00:00.000Z`, is_pix: true, pagador_nome: null, pagador_doc: null, ...extra,
 });
-const dia = (guardadas: Guardada[], extrato: DoExtrato[], o: { existe?: Record<string, Existe>; completo?: boolean; contas?: string[]; revisao?: string[] | null } = {}) =>
+type Saldo = { estado: "ok" | "quebrada" | "indisponivel"; quebras: number };
+const dia = (guardadas: Guardada[], extrato: DoExtrato[], o: { existe?: Record<string, Existe>; completo?: boolean; contas?: string[]; revisao?: string[] | null; saldo?: Saldo; exigirSaldo?: boolean } = {}) =>
   conferirDia({
     conexao: CON, dia: DIA, guardadas, extrato, extratoCompleto: o.completo ?? true, contas: o.contas ?? [CONTA],
     existe: new Map(Object.entries(o.existe ?? {})), comRevisao: o.revisao === null ? null : new Set(o.revisao ?? []),
+    saldo: o.saldo ?? { estado: "ok", quebras: 0 }, exigirSaldo: o.exigirSaldo,
   });
 const mortos = (...ids: string[]) => Object.fromEntries(ids.map((id) => [id, "nao_existe" as Existe]));
 
@@ -78,6 +80,44 @@ describe("a 404 alone approves nothing", () => {
   it("gone and in excess, but no entry of the pair was created late: not the known mechanism, ambiguous", () => {
     const r = dia([g("a1", 20, CEDO), g("b1", 20, "2026-11-10T02:00:00.000Z")], [e("b1", 20, "X1")], { existe: mortos("a1") });
     expect(r.pares[0]).toMatchObject({ classe: "ambigua", motivos: ["copia_tardia"] });
+  });
+});
+
+describe("a statement is not whole just because the request ended well", () => {
+  const m = (dia: string, valor: number, saldo: number | null): Movimento => ({ dia, valor, saldo });
+  // 100 → +20 → 120 → +30 → 150 → -50 → 100 → +20 → 120   (dateless, so given out of order)
+  const cadeia = [m("2026-11-09", 30, 150), m("2026-11-09", 20, 120), m("2026-11-10", 20, 120), m("2026-11-09", -50, 100)];
+
+  it("every movement starts from a balance another one ended on: whole", () => {
+    expect(cadeiaDeSaldo(cadeia)).toMatchObject({ estado: "ok", quebras: 0, total: 4, com_saldo: 4 });
+  });
+  it("one movement missing from the list leaves a gap, on the day of the movement that follows it", () => {
+    const semUm = cadeia.filter((x) => x.valor !== -50); // the debit of 09/11 is not in the list
+    const r = cadeiaDeSaldo(semUm);
+    expect(r).toMatchObject({ estado: "quebrada", quebras: 1 });
+    expect([...r.quebrasPorDia]).toEqual([["2026-11-10", 1]]);
+  });
+  it("two identical Pix one after the other chain as well (same amounts, different balances)", () => {
+    expect(cadeiaDeSaldo([m(DIA, 20, 40), m(DIA, 20, 20), m(DIA, 20, 60)]).estado).toBe("ok");
+  });
+  it("the provider sends no balance: completeness is NOT proven", () => {
+    expect(cadeiaDeSaldo([m(DIA, 20, null), m(DIA, 20, null)]).estado).toBe("indisponivel");
+    expect(cadeiaDeSaldo([]).estado).toBe("indisponivel");
+  });
+  const guardadas = [g("a1", 20, CEDO), g("b1", 20, TARDE)];
+  it("a gap around the day: the count proves nothing, the pair is ambiguous", () => {
+    const r = dia(guardadas, [e("b1", 20, "X1")], { existe: mortos("a1"), saldo: { estado: "quebrada", quebras: 1 } });
+    expect(r.pares[0]).toMatchObject({ classe: "ambigua", motivos: ["contagem_confere"] });
+    expect(r.resumo).toMatchObject({ saldo: "quebrada", quebras_de_saldo: 1 });
+  });
+  it("no balance to chain: ambiguous too, unless the owner chooses to accept the statement without that proof", () => {
+    expect(dia(guardadas, [e("b1", 20, "X1")], { existe: mortos("a1"), saldo: { estado: "indisponivel", quebras: 0 } }).pares[0]?.classe).toBe("ambigua");
+    expect(dia(guardadas, [e("b1", 20, "X1")], { existe: mortos("a1"), saldo: { estado: "indisponivel", quebras: 0 }, exigirSaldo: false }).pares[0]?.classe).toBe("comprovada_por_id");
+  });
+  it("the day's summary carries what is needed to compare two runs and the two sides in money", () => {
+    const r = dia([...guardadas, g("c1", 30, CEDO)], [e("b1", 20, "X1"), e("c1", 30, "X2")], { existe: mortos("a1") }).resumo;
+    expect(r).toMatchObject({ guardadas: 3, valor_guardado: 70, no_extrato: 2, valor_no_extrato: 50, guardadas_listadas: 2, guardadas_inexistentes: 1, guardadas_sem_resposta: 0 });
+    expect(r.extrato_ids).toMatch(/^[0-9a-f]{16}$/);
   });
 });
 
@@ -151,7 +191,7 @@ describe("the whole call", () => {
   const portas = (o: Partial<Portas> & { perguntas?: string[]; janelas?: string[] } = {}): Portas => ({
     conexao: async () => ({ id: CON, item_id: "item-1", institution_name: "Mercado Pago" }),
     contas: async () => [CONTA],
-    extrato: async (_c, de, ate) => { o.janelas?.push(`${de}..${ate}`); return { txs: [e("b1", 20, "X1")], completo: true }; },
+    extrato: async (_c, de, ate) => { o.janelas?.push(`${de}..${ate}`); return { txs: [e("b1", 20, "X1")], completo: true, movimentos: [{ dia: DIA, valor: 20, saldo: 120 }] }; },
     guardadas: async () => [g("a1", 20, CEDO), g("b1", 20, TARDE)],
     comRevisao: async () => new Set<string>(),
     existe: async (id) => { o.perguntas?.push(id); return "nao_existe"; },

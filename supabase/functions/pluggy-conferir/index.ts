@@ -10,7 +10,8 @@
 // (nome='cron'), same as pluggy-hora. Without it: 401. Deploy with verify_jwt = false.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { existeNaPluggy, pluggyKey, urlTransacoes } from "../_shared/pluggy-entradas.ts";
-import { conferirConexao, type DoExtrato, type Guardada, linhaDoExtrato, type Portas } from "../_shared/pluggy-conferencia.ts";
+import { quandoFoi } from "../_shared/pluggy-entradas.ts";
+import { conferirConexao, type DoExtrato, type Guardada, linhaDoExtrato, type Movimento, type Portas } from "../_shared/pluggy-conferencia.ts";
 
 const MAX_PAGINAS = 20;
 const CAMPOS = "transaction_id, amount, description, transaction_date, transacted_at, is_pix, pagador_nome, pagador_doc, status, daily_sale_id, created_at";
@@ -42,21 +43,24 @@ Deno.serve(async (req) => {
       },
       async extrato(conta, de, ate, horasAtraso) {
         const txs: DoExtrato[] = [];
+        const movimentos: Movimento[] = []; // credits AND debits, for the balance chain
         let cursor: string | null = null;
         for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
           const u = cursor ? urlTransacoes(conta, de, cursor) : `${urlTransacoes(conta, de, null)}&dateTo=${ate}`;
           const r = await fetch(u, { headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(25000) });
-          if (!r.ok) return { txs, completo: false };
+          if (!r.ok) return { txs, completo: false, movimentos };
           // deno-lint-ignore no-explicit-any
           const corpo: any = await r.json().catch(() => ({}));
           for (const t of corpo?.results ?? []) {
-            if (t?.type !== "CREDIT" || !(Number(t?.amount) > 0) || !t?.id) continue;
-            txs.push(linhaDoExtrato(t, conta, horasAtraso));
+            const valor = Math.abs(Number(t?.amount));
+            if (!t?.id || !(valor > 0)) continue;
+            movimentos.push({ dia: quandoFoi(t, horasAtraso).dia, valor: t?.type === "DEBIT" ? -valor : valor, saldo: typeof t?.balance === "number" ? t.balance : null });
+            if (t?.type === "CREDIT") txs.push(linhaDoExtrato(t, conta, horasAtraso));
           }
           cursor = corpo?.next ? String(corpo.next) : null;
-          if (!cursor) return { txs, completo: true };
+          if (!cursor) return { txs, completo: true, movimentos };
         }
-        return { txs, completo: false };
+        return { txs, completo: false, movimentos };
       },
       async guardadas(conexaoId, de, ate) {
         // conta_id / provedor_ref exist only after the identity migration; without them the check still works
@@ -81,7 +85,7 @@ Deno.serve(async (req) => {
     const r = await conferirConexao(portas, pedido);
     if ("erro" in r) return json(r, r.erro === "pedido_invalido" ? 400 : r.erro === "conexao_nao_encontrada" ? 404 : 502);
     console.log("pluggy conferir", JSON.stringify({
-      conexao: r.conexao, dias: r.dias.length, extrato_completo: r.extrato_completo, perguntadas: r.perguntadas_por_id,
+      conexao: r.conexao, dias: r.dias.length, extrato_completo: r.extrato_completo, saldo: r.saldo.estado, quebras: r.saldo.quebras, perguntadas: r.perguntadas_por_id,
       por_id: r.dias.reduce((s, d) => s + d.comprovadas_por_id, 0), por_contagem: r.dias.reduce((s, d) => s + d.comprovadas_por_contagem, 0),
       ambiguas: r.dias.reduce((s, d) => s + d.ambiguas, 0), faltando: r.dias.reduce((s, d) => s + d.faltando, 0),
     }));
