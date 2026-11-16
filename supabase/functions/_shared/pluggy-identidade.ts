@@ -21,7 +21,10 @@ export type ModoDaIdentidade = "observar" | "aplicar";
 /** One mode per kind of reference (15/11, owner's review):
  *   code (providerCode, Mercado Pago personal accounts) — its stability WAS observed: "aplicar";
  *   id   (providerId, Mercado Pago business accounts)   — never seen through a re-issue: "observar",
- *        i.e. stored and counted, while everything is written exactly as before. */
+ *        i.e. stored and counted, while everything is written exactly as before.
+ *  16/11 (owner's decision): the mode is decided PER TRANSACTION, by the kind of reference that
+ *  transaction carries, inside its own account. One transaction with a providerCode says nothing
+ *  about the others of the same connection. */
 export interface ModosDaIdentidade {
   code: ModoDaIdentidade; id: ModoDaIdentidade;
   /** false = phase 1: the columns are used when they exist, and their absence means "migration not
@@ -66,17 +69,23 @@ export function referenciaDe(t: { providerCode?: unknown; providerId?: unknown }
   return null;
 }
 
-/** Pluggy id → reference, for one account's returned transactions. A reference that appears on
- *  two transactions of the same read identifies neither: those are left without one. */
-export function referenciasDaLeitura(txs: { id?: unknown; providerCode?: unknown; providerId?: unknown }[]): { porId: Map<string, string>; repetidas: number } {
+/** Pluggy id → reference, for one account's returned transactions.
+ *  The identity is reference + day + amount (`chaveDe` gives day|amount): when two transactions of
+ *  the same read share all three, the reference identifies neither and both are left without one.
+ *  The same reference on another day or with another amount is a different identity. */
+export function referenciasDaLeitura(
+  txs: { id?: unknown; providerCode?: unknown; providerId?: unknown }[],
+  chaveDe: (t: { id?: unknown }) => string = () => "",
+): { porId: Map<string, string>; repetidas: number } {
+  const k = (t: { id?: unknown; providerCode?: unknown; providerId?: unknown }) => { const r = referenciaDe(t); return r ? `${r}|${chaveDe(t)}` : null; };
   const vezes = new Map<string, number>();
-  for (const t of txs) { const r = referenciaDe(t); if (r) vezes.set(r, (vezes.get(r) ?? 0) + 1); }
+  for (const t of txs) { const c = k(t); if (c) vezes.set(c, (vezes.get(c) ?? 0) + 1); }
   const porId = new Map<string, string>();
   let repetidas = 0;
   for (const t of txs) {
-    const r = referenciaDe(t);
-    if (!r || !t?.id) continue;
-    if ((vezes.get(r) ?? 0) > 1) { repetidas++; continue; }
+    const r = referenciaDe(t); const c = k(t);
+    if (!r || !c || !t?.id) continue;
+    if ((vezes.get(c) ?? 0) > 1) { repetidas++; continue; }
     porId.set(String(t.id), r);
   }
   return { porId, repetidas };
@@ -97,12 +106,15 @@ export interface Divergencia { novo: ComIdentidade; guardado: ComIdentidade }
  *     It is neither assumed to be the same payment corrected nor a new one: the caller records it
  *     and does NOT add it to the money.
  *  `vistos` = every id Pluggy returned in the WHOLE read: a stored id that came back is itself,
- *  never a twin. */
-export function reapontamentos(novas: ComIdentidade[], guardadas: ComIdentidade[], vistos: Set<string>): { reapontar: Reapontamento[]; divergentes: Divergencia[] } {
+ *  never a twin.
+ *  `dataDe` = first day of the window that was read. A stored entry of an earlier day was not
+ *  asked for, so its absence means nothing and it is never a candidate. */
+export function reapontamentos(novas: ComIdentidade[], guardadas: ComIdentidade[], vistos: Set<string>, dataDe = ""): { reapontar: Reapontamento[]; divergentes: Divergencia[] } {
   const chave = (e: ComIdentidade) => `${e.conta_id ?? ""}|${e.provedor_ref ?? ""}`;
   const porRef = new Map<string, ComIdentidade[]>();
   for (const g of guardadas) {
     if (!g.provedor_ref || !g.conta_id || vistos.has(g.transaction_id)) continue;
+    if (String(g.transaction_date).slice(0, 10) < dataDe) continue;
     porRef.set(chave(g), [...(porRef.get(chave(g)) ?? []), g]);
   }
   const reapontar: Reapontamento[] = [];

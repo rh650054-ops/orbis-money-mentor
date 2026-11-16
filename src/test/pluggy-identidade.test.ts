@@ -10,8 +10,9 @@ type Linha = Record<string, unknown> & { transaction_id: string; transaction_dat
 function banco(instituicao = "Mercado Pago") {
   const entradas: Linha[] = [];
   const divergencias: Record<string, unknown>[] = [];
+  const revisoes: { transaction_id: string; status: string }[] = []; // banco_entradas_revisao (PR #320)
   const cfg = {
-    falharLerRef: false, estado: "ativa" as "ativa" | "sem_migration" | "indisponivel",
+    falharLerRef: false, falharRevisao: false, estado: "ativa" as "ativa" | "sem_migration" | "indisponivel",
     antesDeGravar: null as null | (() => void), antesDeReapontar: null as null | (() => void),
   };
   const identidade = (r: Linha) => r.provedor_ref && r.conta_id ? `${r.bank_connection_id}|${r.conta_id}|${r.provedor_ref}|${r.transaction_date}|${Number(r.amount).toFixed(2)}` : null;
@@ -29,6 +30,7 @@ function banco(instituicao = "Mercado Pago") {
       eq: (c: string, v: unknown) => { filtros.push((r) => String(r[c] ?? (c === "status" ? "pending" : "")) === String(v)); return q; },
       gt: (c: string, v: string) => { filtros.push((r) => String(r[c]) > v); return q; },
       in: (c: string, v: string[]) => { if (c === "provedor_ref") porRef = true; filtros.push((r) => v.includes(String(r[c]))); return q; },
+      like: (c: string, padrao: string) => { filtros.push((r) => String(r[c] ?? "").startsWith(padrao.replace("%", ""))); return q; },
       maybeSingle: () => Promise.resolve({ data: tabela === "bank_connections" ? { institution_name: instituicao } : { cpf: "" }, error: null }),
       upsert: (linhas: Linha[]) => {
         if (tabela === "banco_entradas_divergencias") {
@@ -51,6 +53,12 @@ function banco(instituicao = "Mercado Pago") {
       },
       then(res: (r: { data: unknown; error: unknown }) => unknown) {
         const responder = (data: unknown, error: unknown = null) => Promise.resolve({ data, error }).then(res);
+        if (tabela === "banco_entradas_revisao" && op === "update") {
+          if (cfg.falharRevisao) return responder(null, { message: "timeout" });
+          const alvo = revisoes.filter((r) => filtros.every((f) => f(r as unknown as Linha)));
+          for (const a of alvo) Object.assign(a, novo);
+          return responder(alvo.map((a) => ({ ...a })));
+        }
         if (tabela !== "auto_detected_sales") return responder(null);
         if (sonda && cfg.estado === "sem_migration") return responder(null, { code: "42703", message: "column auto_detected_sales.conta_id does not exist" });
         if (sonda && cfg.estado === "indisponivel") return responder(null, { message: "canceling statement due to statement timeout" });
@@ -72,21 +80,23 @@ function banco(instituicao = "Mercado Pago") {
   const doDia = (dia: string, con = "con-1") => entradas.filter((e) => e.transaction_date === dia && e.bank_connection_id === con);
   const total = (dia: string) => Math.round(doDia(dia).reduce((s, e) => s + e.amount, 0) * 100) / 100;
   const ids = () => entradas.map((e) => e.transaction_id).sort();
-  return { admin: { from }, entradas, divergencias, cfg, doDia, total, ids };
+  return { admin: { from }, entradas, divergencias, revisoes, cfg, doDia, total, ids };
 }
 
-type Tx = { id: string; amount: number; date: string; description?: string; providerCode?: string; providerId?: string; conta?: string; pagina?: number };
+type Tx = { id: string; amount: number; date: string; description?: string; providerCode?: string | null; providerId?: string; conta?: string; pagina?: number };
+const semCodigo = (id: string, amount: number, dia: string, extra: Partial<Tx> = {}): Tx => ({ id, amount, date: `${dia}T03:00:00.000Z`, description: "Transferência PIX recebida", ...extra });
 const pix = (id: string, code: string, amount: number, dia: string, extra: Partial<Tx> = {}): Tx =>
   ({ id, amount, date: `${dia}T03:00:00.000Z`, description: "Transferência PIX recebida", providerCode: code, ...extra });
 const pj = (id: string, providerId: string, amount: number, quando: string): Tx => ({ id, amount, date: quando, description: "Liberação de dinheiro", providerId });
 
 /** The list may come in two pages (`pagina: 1` on a transaction); `paginaFora` makes that page fail. */
-function pluggy(lista: Tx[], o: { contas?: string[]; paginaFora?: number } = {}) {
+function pluggy(lista: Tx[], o: { contas?: string[]; paginaFora?: number; existem?: string[] } = {}) {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     const u = String(url);
     const ok = (corpo: unknown, status = 200) => ({ ok: status < 300, status, json: async () => corpo, text: async () => "" }) as unknown as Response;
     if (u.includes("/accounts")) return ok({ results: (o.contas ?? ["conta-1"]).map((id) => ({ id, type: "BANK" })) });
-    if (/\/transactions\/[^/?]+$/.test(u)) return ok({}, 404);
+    const umId = u.match(/\/transactions\/([^/?]+)$/)?.[1];
+    if (umId) return (o.existem ?? []).includes(umId) ? ok({ id: umId }) : ok({}, 404);
     const q = new URL(u).searchParams;
     const pagina = q.get("after") === "p1" ? 1 : 0;
     if (o.paginaFora === pagina) return ok({}, 500);
@@ -121,7 +131,7 @@ describe("A — the same Pix under a new Pluggy id is counted once", () => {
     expect(b.ids()).toEqual(["b1", "b2", "b3"]);
     expect(b.total(DIA)).toBe(54.99);
     expect(b.entradas.find((e) => e.transaction_id === "b2")).toMatchObject({ status: "ignored", daily_sale_id: "venda-7", ids_anteriores: ["a2"] });
-    expect(r.identidade).toEqual({ reapontadas: 3, observadas: 0, divergentes: 0, adiadas: 0 });
+    expect(r.identidade).toEqual({ reapontadas: 3, observadas: 0, divergentes: 0, adiadas: 0, semReferencia: 0, suprimidas: 0 });
     expect(r.completa).toBe(true);
   });
 
@@ -347,7 +357,7 @@ describe("scope: providerCode is applied, providerId is only observed", () => {
   it("a reference on two transactions of one read identifies neither: both stored, neither constrained", async () => {
     const b = banco();
     pluggy([pix("a1", "X", 20, DIA), pix("a2", "X", 20, DIA)]); await ler(b.admin);
-    expect(b.entradas.map((e) => e.provedor_ref)).toEqual([null, null]);
+    expect(b.entradas.map((e) => e.provedor_ref ?? null)).toEqual([null, null]);
     expect(b.total(DIA)).toBe(40);
   });
 });
@@ -400,6 +410,182 @@ describe("the first reads after the migration (rows stored before it have no ref
     await ler(b.admin);
     expect(b.doDia(DIA)).toHaveLength(8);
     expect(b.entradas.filter((e) => e.provedor_ref).length).toBe(0);
+  });
+});
+
+describe("16/11 — the rule is decided per transaction, by its own reference, inside its own account", () => {
+  const contas = ["conta-pf", "conta-outra"];
+
+  it("one connection, two accounts: the providerCode account follows the evidence rule; the account without reference is written exactly as today", async () => {
+    const b = banco();
+    b.entradas.push(semRef("a1"), semRef("a2", 30), semRef("x1", 50)); // stored before the migration: no account, no reference
+    vi.setSystemTime(NA_BORDA_09);
+    pluggy([
+      pix("b1", "C1", 20, DIA, { conta: "conta-pf" }), pix("b2", "C2", 30, DIA, { conta: "conta-pf" }),
+      semCodigo("y1", 50, DIA, { conta: "conta-outra" }),
+    ], { contas });
+    const r = await ler(b.admin);
+    // b1/b2 carry a providerCode: their old ids are gone (404) and identical rows are stored → not copied
+    // y1 carries nothing and its account never sent a providerCode: today's behaviour on the oldest day
+    expect(b.ids()).toEqual(["a1", "a2", "x1", "y1"]);
+    expect(r.identidade).toMatchObject({ suprimidas: 2, semReferencia: 0 });
+    expect(r.completa).toBe(true);
+  });
+
+  it("the same, with the providerId account of a business: observed only, even next to a providerCode account", async () => {
+    const b = banco();
+    b.entradas.push(semRef("a1"), { ...semRef("p1", 19.85), description: "Liberação de dinheiro", transacted_at: `${DIA}T21:28:14.000Z`, is_pix: false });
+    vi.setSystemTime(NA_BORDA_09);
+    pluggy([pix("b1", "C1", 20, DIA, { conta: "conta-pf" }), { ...pj("q1", "900", 19.85, `${DIA}T21:28:14.000Z`), conta: "conta-outra" }], { contas });
+    const r = await ler(b.admin);
+    expect(b.ids()).toEqual(["a1", "p1", "q1"]); // q1 written as today; b1 not copied
+    expect(r.completa).toBe(true);
+  });
+
+  it("two providerCode accounts, different references, one old row without account: it justifies ONE suppression — the other Pix is stored", async () => {
+    const b = banco();
+    b.entradas.push(semRef("a1")); // R$ 20, id gone
+    vi.setSystemTime(NA_BORDA_09);
+    pluggy([pix("n1", "C1", 20, DIA, { conta: "conta-pf" }), pix("m1", "K7", 20, DIA, { conta: "conta-outra" })], { contas });
+    await ler(b.admin);
+    expect(b.doDia(DIA)).toHaveLength(2); // never 1: a real Pix of the same amount in the other account is not dropped
+    expect(b.total(DIA)).toBe(40);
+  });
+
+  it("a stored row of ANOTHER account is never the twin of a providerCode transaction", async () => {
+    const b = banco();
+    b.entradas.push({ ...semRef("z1"), conta_id: "conta-outra" }); // stored after the migration, account known, no reference
+    vi.setSystemTime(NA_BORDA_09);
+    pluggy([pix("n1", "C1", 20, DIA, { conta: "conta-pf" })], { contas }); // z1 not listed and gone (404)
+    await ler(b.admin);
+    expect(b.ids()).toEqual(["n1", "z1"]);
+  });
+
+  it("in a providerCode account, a transaction WITHOUT the field: written as today, counted, and the read is not stamped", async () => {
+    const b = banco();
+    pluggy([pix("a1", "C1", 20, DIA), semCodigo("s1", 35, DIA)]);
+    const r = await ler(b.admin);
+    expect(b.ids()).toEqual(["a1", "s1"]);
+    expect(b.entradas.find((e) => e.transaction_id === "s1")?.provedor_ref ?? null).toBeNull();
+    expect(r.identidade).toMatchObject({ semReferencia: 1 });
+    expect(r.completa).toBe(false);
+  });
+
+  it("an account that never sent a providerCode: transactions without the field are no anomaly", async () => {
+    const b = banco();
+    pluggy([semCodigo("s1", 35, DIA), semCodigo("s2", 35, DIA)]);
+    const r = await ler(b.admin);
+    expect(b.total(DIA)).toBe(70);
+    expect(r.identidade).toMatchObject({ semReferencia: 0 });
+    expect(r.completa).toBe(true);
+  });
+});
+
+describe("16/11 — the field disappears in one read", () => {
+  it("same id, no providerCode this time: the stored reference is NOT erased, even when the row is rewritten", async () => {
+    const b = banco();
+    pluggy([pix("a1", "C1", 20, DIA), pix("a2", "C2", 30, DIA)]); await ler(b.admin);
+    pluggy([semCodigo("a1", 20, DIA, { description: "Venda: Produto" }), pix("a2", "C2", 30, DIA)]);
+    const r = await ler(b.admin);
+    expect(b.entradas.find((e) => e.transaction_id === "a1")).toMatchObject({ description: "Venda: Produto", provedor_ref: "code:C1" });
+    expect(r.completa).toBe(false); // not stamped while it lasts
+    pluggy([pix("b1", "C1", 20, DIA), pix("a2", "C2", 30, DIA)]); // the field is back, with a re-issued id: still recognised
+    const depois = await ler(b.admin);
+    expect(b.ids()).toEqual(["a2", "b1"]);
+    expect(depois.identidade).toMatchObject({ reapontadas: 1, semReferencia: 0 });
+    expect(depois.completa).toBe(true);
+  });
+
+  it("the whole read comes without the field: nothing stored is removed or loses its reference; no stamp", async () => {
+    const b = banco();
+    pluggy([pix("a1", "C1", 20, DIA), pix("a2", "C2", 20, DIA), pix("a3", "C3", 30, DIA)]); await ler(b.admin);
+    pluggy([semCodigo("a1", 20, DIA), semCodigo("a3", 30, DIA)]); // a2 missing from the list as well
+    const r = await ler(b.admin);
+    expect(b.ids()).toEqual(["a1", "a2", "a3"]); // the day+amount rule alone would have removed a2
+    expect(b.entradas.map((e) => e.provedor_ref)).toEqual(["code:C1", "code:C2", "code:C3"]);
+    expect(r.identidade).toMatchObject({ semReferencia: 2 });
+    expect(r.completa).toBe(false);
+  });
+
+  it("known cost: a RE-ISSUED id that comes without the field is stored next to the row it replaces (visible, never a silent removal)", async () => {
+    const b = banco();
+    pluggy([pix("a1", "C1", 20, DIA)]); await ler(b.admin);
+    pluggy([semCodigo("b1", 20, DIA)]);
+    const r = await ler(b.admin);
+    expect(b.ids()).toEqual(["a1", "b1"]);
+    expect(r.identidade).toMatchObject({ semReferencia: 1 });
+    expect(r.completa).toBe(false);
+  });
+});
+
+describe("16/11 — the same reference on other days", () => {
+  it("two transactions of one read share a reference but not the day: both keep it, and both are recognised when re-issued", async () => {
+    const b = banco();
+    pluggy([pix("a1", "R", 20, DIA), pix("a2", "R", 20, "2026-11-10")]); await ler(b.admin);
+    expect(b.entradas.map((e) => e.provedor_ref)).toEqual(["code:R", "code:R"]);
+    pluggy([pix("b1", "R", 20, DIA), pix("b2", "R", 20, "2026-11-10")]);
+    const r = await ler(b.admin);
+    expect(b.ids()).toEqual(["b1", "b2"]);
+    expect(r.identidade).toMatchObject({ reapontadas: 2, divergentes: 0 });
+  });
+
+  it("a stored entry OLDER than the window has the reference of a new one: not asked for, so not a divergence — the new one is written", async () => {
+    const b = banco();
+    b.entradas.push({ ...semRef("velha"), transaction_date: "2026-11-01", transacted_at: "2026-11-01T03:00:00.000Z", conta_id: "conta-1", provedor_ref: "code:R", ids_anteriores: [] });
+    pluggy([pix("n1", "R", 20, DIA)]);
+    const r = await ler(b.admin);
+    expect(b.ids()).toEqual(["n1", "velha"]);
+    expect(b.divergencias).toHaveLength(0);
+    expect(r.completa).toBe(true);
+  });
+});
+
+describe("16/11 — against main: the decision on a Pix (banco_entradas_revisao, PR #320) is keyed by the Pluggy id", () => {
+  it("a re-issue moves the decision together with the entry", async () => {
+    const b = banco();
+    pluggy([pix("a1", "C1", 501, DIA), pix("a2", "C2", 20, DIA)]); await ler(b.admin);
+    b.revisoes.push({ transaction_id: "a1", status: "aprovada" });
+    pluggy([pix("b1", "C1", 501, DIA), pix("b2", "C2", 20, DIA)]);
+    await ler(b.admin);
+    expect(b.ids()).toEqual(["b1", "b2"]);
+    expect(b.revisoes).toEqual([{ transaction_id: "b1", status: "aprovada" }]); // before: left on an id that no longer exists
+  });
+
+  it("the decision cannot be moved: the entry is not moved either, nothing is written for it, no stamp; the next read does both", async () => {
+    const b = banco();
+    pluggy([pix("a1", "C1", 501, DIA)]); await ler(b.admin);
+    b.revisoes.push({ transaction_id: "a1", status: "pendente" });
+    b.cfg.falharRevisao = true;
+    pluggy([pix("b1", "C1", 501, DIA)]);
+    const r = await ler(b.admin);
+    expect(b.ids()).toEqual(["a1"]);
+    expect(b.revisoes[0]?.transaction_id).toBe("a1");
+    expect(r.completa).toBe(false);
+    b.cfg.falharRevisao = false;
+    expect((await ler(b.admin)).completa).toBe(true);
+    expect([b.ids(), b.revisoes[0]?.transaction_id]).toEqual([["b1"], "b1"]);
+  });
+});
+
+describe("16/11 — an incomplete list is never proof that a transaction is gone", () => {
+  it("oldest day, half list: the stored twin is absent from the list but Pluggy still has it → both are payments; nothing removed", async () => {
+    const b = banco();
+    b.entradas.push(semRef("a1"), semRef("a2"));
+    vi.setSystemTime(NA_BORDA_09);
+    pluggy([pix("n1", "C9", 20, DIA), pix("zz", "C8", 5, DIA, { pagina: 1 })], { paginaFora: 1, existem: ["a1", "a2"] });
+    const r = await ler(b.admin);
+    expect(b.ids()).toEqual(["a1", "a2", "n1"]);
+    expect(r).toMatchObject({ removidas: 0, completa: false });
+  });
+
+  it("days inside the window, half list: no stored entry is removed for being absent", async () => {
+    const b = banco();
+    pluggy([pix("a1", "C1", 20, DIA), pix("a2", "C2", 20, DIA), pix("a3", "C3", 20, DIA)]); await ler(b.admin);
+    b.entradas.push(semRef("legado")); // a row without reference too
+    pluggy([pix("a1", "C1", 20, DIA), pix("zz", "C8", 5, DIA, { pagina: 1 })], { paginaFora: 1 });
+    const r = await ler(b.admin);
+    expect(b.ids()).toEqual(["a1", "a2", "a3", "legado"]);
+    expect(r.removidas).toBe(0);
   });
 });
 

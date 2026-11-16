@@ -14,7 +14,7 @@
 // crédito como "ignorado", a próxima leitura não desfaz a escolha dele.
 
 import { linhasMudadas, type LinhaEntrada } from "./pluggy-linhas.ts";
-import { bancoComReferencia, type EstadoDaIdentidade, estadoPeloErro, modoDaReferencia, MODOS_DA_IDENTIDADE, type ModosDaIdentidade, reapontamentos, referenciaDeCodigo, referenciasDaLeitura } from "./pluggy-identidade.ts";
+import { bancoComReferencia, type EstadoDaIdentidade, estadoPeloErro, modoDaReferencia, MODOS_DA_IDENTIDADE, type ModosDaIdentidade, reapontamentos, referenciaDe, referenciaDeCodigo, referenciasDaLeitura } from "./pluggy-identidade.ts";
 import { type Existe, identidadeDoDia, MODO_DA_MARGEM, type ModoDaMargem, parearComSumidas, type TransacaoBruta, vereditoDoPar } from "./pluggy-margem.ts";
 
 const BRT = "America/Sao_Paulo";
@@ -162,13 +162,23 @@ export async function importarEntradas(
   // "sem_migration" = exactly the behaviour before; "indisponivel" = we could not tell whether the
   // protection exists, so this read writes nothing and stamps nothing (the next one tries again).
   const estado: EstadoDaIdentidade = bancoComReferencia(conexao?.institution_name) ? await estadoDaIdentidade(admin, !!modos.exigida) : "sem_migration";
-  const daIdentidade = { reapontadas: 0, observadas: 0, divergentes: 0, adiadas: 0 };
+  const daIdentidade = { reapontadas: 0, observadas: 0, divergentes: 0, adiadas: 0, semReferencia: 0, suprimidas: 0 };
   if (estado === "indisponivel") {
     console.error("pluggy identidade: estado indisponivel, leitura adiada", JSON.stringify({ conexao: conexaoId }));
     return { contas: contas.length, gravadas: 0, pix: 0, removidas: 0, completa: false, margem: { legitimas: 0, duplicadas: 0, aConferir: 0 }, identidade: null };
   }
   const identidade = estado === "ativa";
+  // 16/11: the first reads of a Mercado Pago connection must never run unprotected without it showing
+  if (estado === "sem_migration" && bancoComReferencia(conexao?.institution_name)) {
+    console.error("pluggy identidade: PROTECAO DESLIGADA (colunas ausentes)", JSON.stringify({ conexao: conexaoId }));
+  }
   const campos = identidade ? CAMPOS_COM_IDENTIDADE : CAMPOS_DA_LINHA;
+  // 16/11 (owner's decision): a rule is applied to ONE transaction, when that transaction carries a
+  // reference of the proven kind. Never to a connection or an account as a whole.
+  const aplicavel = (l: { provedor_ref?: string | null }) => identidade && modos.code === "aplicar" && referenciaDeCodigo(l.provedor_ref);
+  // true when something inside that scope was left unwritten or unchecked: then the read is not
+  // stamped, whatever the mode of everything else
+  let pendente = false;
 
   let gravadas = 0;
   let pix = 0;
@@ -210,9 +220,19 @@ export async function importarEntradas(
       if (!cursor) { terminou = true; break; }
     }
     if (!terminou) leituraCompleta = false;
-    // a reference identifies a payment only if no other transaction of this account has it in this read
-    const refs = identidade ? referenciasDaLeitura(creditos) : null;
+    // a reference identifies a payment only if no other transaction of this account has the same
+    // reference, day and amount in this read
+    const refs = identidade ? referenciasDaLeitura(creditos, (t) => chaveSumida(quandoFoi(t, atraso).dia, Number((t as { amount?: unknown }).amount))) : null;
     if (refs && refs.repetidas > 0) console.log("pluggy identidade: referencia repetida na leitura, ignorada", JSON.stringify({ conexao: conexaoId, repetidas: refs.repetidas }));
+    // 16/11: a transaction that comes WITHOUT the field, in an account that sends providerCode, is
+    // handled exactly as before this rule (no identity, no evidence rule) — but it is counted and
+    // the read is not stamped: the day is not taken as reconciled over an entry we could not identify
+    if (refs) {
+      const semCampo = creditos.filter((t) => quandoFoi(t, atraso).dia >= dataDe && referenciaDe(t) === null).length;
+      if (semCampo > 0 && modos.code === "aplicar" && await contaDeCodigo(admin, conexaoId, String(conta.id), creditos)) {
+        daIdentidade.semReferencia += semCampo; pendente = true;
+      }
+    }
     for (const t of creditos) {
       const q = quandoFoi(t, atraso);
       const p = ehPix(t);
@@ -240,23 +260,21 @@ export async function importarEntradas(
   // at it — from here on it is a known id, on any day of the window
   let naoGravar = new Set<string>();
   if (identidade) {
-    const r = await reapontarReemitidas(admin, { conexaoId, userId, linhas: [...lidas.values()], vistos, completa: leituraCompleta, modos });
+    const r = await reapontarReemitidas(admin, { conexaoId, userId, linhas: [...lidas.values()], vistos, completa: leituraCompleta, modos, dataDe });
     daIdentidade.reapontadas = r.reapontadas; daIdentidade.observadas = r.observadas;
     daIdentidade.divergentes = r.divergentes; daIdentidade.adiadas = r.adiar.size;
     naoGravar = r.naoGravar;
-    if (r.adiar.size > 0 || r.retidas > 0) provada = false; // something returned was not written: no stamp
+    if (r.adiar.size > 0 || r.retidas > 0) pendente = true; // something returned was not written: no stamp
   }
-  // The rule is APPLIED here only for a reference of the proven kind (providerCode). Then the
-  // oldest day is also decided on evidence, so a row that has no reference yet (stored before the
-  // migration) cannot be copied during the first days.
-  const aplicada = identidade && modos.code === "aplicar" && [...lidas.values()].some((l) => referenciaDeCodigo(l.provedor_ref));
-  const modoDaMargem: ModoDaMargem = aplicada ? "aplicar" : modo;
+  if (daIdentidade.semReferencia > 0) {
+    console.error("pluggy identidade: transacoes sem referencia em conta que envia providerCode", JSON.stringify({ conexao: conexaoId, sem_referencia: daIdentidade.semReferencia }));
+  }
 
-  const daMargem = new Map<string, LinhaDoBanco>();
+  const daMargem: LinhaDoBanco[] = [];
   const doMeio: LinhaDoBanco[] = [];
   for (const l of lidas.values()) {
     if (naoGravar.has(l.transaction_id)) continue;
-    if (l.transaction_date === dataDe) daMargem.set(l.transaction_id, l); else doMeio.push(l);
+    if (l.transaction_date === dataDe) daMargem.push(l); else doMeio.push(l);
   }
   // 08/10/2026: write only what is NEW or CHANGED. Re-saving identical rows on every read was
   // ~50 rewrites per new entry, each one also a realtime event to every open app.
@@ -268,26 +286,43 @@ export async function importarEntradas(
     if (eLer) { provada = false; console.error("pluggy importar: existentes nao lidas", eLer.message); }
     const aGravar = eLer ? linhas : linhasMudadas(linhas, existentes ?? []);
     if (aGravar.length === 0) continue;
-    const { error } = await admin.from("auto_detected_sales").upsert(aGravar, { onConflict: "transaction_id" });
+    const g = await gravarLinhas(admin, aGravar);
+    gravadas += g.gravadas;
     // 13/11: an entry that was not written must never be followed by a read stamp
-    if (error) { provada = false; console.error("pluggy importar: upsert", error.message); }
-    else gravadas += aGravar.length;
+    if (g.falhas.length > 0) { provada = false; if (g.falhas.some(aplicavel)) pendente = true; }
   }
-  const margem = await gravarMargem(admin, {
-    conexaoId, dataDe, horasAtraso: atraso, linhas: [...daMargem.values()], vistos,
-    existe: (id) => existeNaPluggy(apiKey, id), modo: modoDaMargem, campos, referenciaProva: aplicada,
-  });
+  // The oldest day. 16/11: each transaction goes by its own reference —
+  //   with a providerCode: decided on evidence, against the stored entries of ITS account that
+  //     have no reference (so a row stored before the migration is not copied on the first reads);
+  //   anything else (no reference, providerId, another bank): exactly as before, in the mode given.
+  const existe = (id: string) => existeNaPluggy(apiKey, id);
+  const usadas = new Set<string>(); // one stored entry justifies one suppression, across accounts
+  const margem: ResultadoDaMargem = { gravadas: 0, legitimas: 0, duplicadas: 0, aConferir: 0, pares: 0 };
+  const somar = (m: ResultadoDaMargem) => { for (const k of Object.keys(margem) as (keyof ResultadoDaMargem)[]) margem[k] += m[k]; };
+  const porConta = new Map<string, LinhaDoBanco[]>();
+  for (const l of daMargem.filter(aplicavel)) porConta.set(String(l.conta_id), [...(porConta.get(String(l.conta_id)) ?? []), l]);
+  for (const [conta, linhas] of porConta) {
+    const m = await gravarMargem(admin, { conexaoId, dataDe, horasAtraso: atraso, linhas, vistos, existe, modo: "aplicar", campos, so: { conta, usadas } });
+    if (m.aConferir > 0) pendente = true;
+    daIdentidade.suprimidas += m.duplicadas; // not written: identical stored entry whose id Pluggy no longer has
+    somar(m);
+  }
+  const resto = await gravarMargem(admin, { conexaoId, dataDe, horasAtraso: atraso, linhas: daMargem.filter((l) => !aplicavel(l)), vistos, existe, modo, campos });
+  somar(resto);
   // 13/11: does this bank send anything that identifies the payment itself? Counts and change
   // detectors only — no id, amount, name or document.
   if (brutasDaMargem.length > 0 && (bancoComReferencia(conexao?.institution_name) || margem.pares > 0)) {
     console.log("pluggy identidade", JSON.stringify({ conexao: conexaoId, dia: dataDe, ...identidadeDoDia(brutasDaMargem) }));
   }
   gravadas += margem.gravadas;
-  const removidas = leituraCompleta ? await tirarSumidas(admin, conexaoId, dataDe, vistos, vistosPorChave, () => { provada = false; }, aplicada) : 0;
+  // only after a COMPLETE read; and a stored entry that carries a providerCode is never removed for
+  // being absent from a list (per row, by its own reference)
+  const removidas = leituraCompleta ? await tirarSumidas(admin, conexaoId, dataDe, vistos, vistosPorChave, () => { provada = false; }, identidade && modos.code === "aplicar") : 0;
   // 05/11 (audit #2): completa = every account read to the end → the caller stamps leitura_ok_em.
-  // Where a rule is applied (13/11 oldest day, 15/11 identity): and nothing Pluggy returned was
-  // left unwritten or unchecked. Everywhere else the stamp is decided exactly as before.
-  const completa = modoDaMargem === "aplicar" ? leituraCompleta && provada && margem.aConferir === 0 : leituraCompleta;
+  // 13/11, mode "aplicar": and nothing Pluggy returned was left unwritten or unchecked.
+  // 16/11: and nothing inside the applied scope (transactions with a providerCode) is pending.
+  // For everything else the stamp is decided exactly as before.
+  const completa = (modo === "aplicar" ? leituraCompleta && provada && resto.aConferir === 0 : leituraCompleta) && !pendente;
   return {
     contas: contas.length, gravadas, pix, removidas, completa,
     margem: { legitimas: margem.legitimas, duplicadas: margem.duplicadas, aConferir: margem.aConferir },
@@ -298,6 +333,35 @@ export async function importarEntradas(
 type LinhaDoBanco = LinhaEntrada & { user_id: string; bank_connection_id: string };
 const CAMPOS_DA_LINHA = "transaction_id, amount, description, transaction_date, transacted_at, is_pix, own_transfer, pagador_nome, pagador_doc";
 const CAMPOS_COM_IDENTIDADE = `${CAMPOS_DA_LINHA}, conta_id, provedor_ref`;
+
+/** Writes entries by transaction_id. A line without a reference is written WITHOUT that column,
+ *  so a reference already stored is never erased by a read in which the field did not come
+ *  (PostgREST fills a missing key of a mixed batch with NULL, hence the two batches). */
+// deno-lint-ignore no-explicit-any
+async function gravarLinhas(admin: any, linhas: LinhaDoBanco[]): Promise<{ gravadas: number; falhas: LinhaDoBanco[] }> {
+  const fim = { gravadas: 0, falhas: [] as LinhaDoBanco[] };
+  const com = linhas.filter((l) => l.provedor_ref != null);
+  const sem = linhas.filter((l) => l.provedor_ref == null);
+  for (const [lote, corpo] of [[com, com], [sem, sem.map(({ provedor_ref: _r, ...resto }) => resto)]] as const) {
+    if (lote.length === 0) continue;
+    const { error } = await admin.from("auto_detected_sales").upsert(corpo, { onConflict: "transaction_id" });
+    if (error) { fim.falhas.push(...lote); console.error("pluggy importar: upsert", error.message); }
+    else fim.gravadas += lote.length;
+  }
+  return fim;
+}
+
+/** Does this account send providerCode? Yes if any credit of this read has one; otherwise, if any
+ *  entry stored for it has one. Not being able to tell counts as yes (the careful answer). */
+// deno-lint-ignore no-explicit-any
+async function contaDeCodigo(admin: any, conexaoId: string, conta: string, creditos: any[]): Promise<boolean> {
+  if (creditos.some((t) => referenciaDeCodigo(referenciaDe(t)))) return true;
+  try {
+    const { data, error } = await admin.from("auto_detected_sales").select("transaction_id")
+      .eq("bank_connection_id", conexaoId).eq("conta_id", conta).like("provedor_ref", "code:%").limit(1);
+    return error ? true : (data ?? []).length > 0;
+  } catch { return true; }
+}
 
 /** Can the identity columns of 20261115220000_entradas_identidade_do_provedor.sql be used?
  *  A missing column and a failed query are different answers (estadoPeloErro). */
@@ -324,7 +388,7 @@ async function estadoDaIdentidade(admin: any, exigida: boolean): Promise<EstadoD
  *  (13/11: the day is never taken as reconciled over an entry that is not there). */
 export async function reapontarReemitidas(
   // deno-lint-ignore no-explicit-any
-  admin: any, p: { conexaoId: string; userId: string; linhas: LinhaDoBanco[]; vistos: Set<string>; completa: boolean; modos: ModosDaIdentidade },
+  admin: any, p: { conexaoId: string; userId: string; linhas: LinhaDoBanco[]; vistos: Set<string>; completa: boolean; modos: ModosDaIdentidade; dataDe?: string },
 ) {
   const fim = { reapontadas: 0, observadas: 0, divergentes: 0, retidas: 0, adiar: new Set<string>(), naoGravar: new Set<string>() };
   const comRef = p.linhas.filter((l) => l.provedor_ref && l.conta_id);
@@ -347,7 +411,7 @@ export async function reapontarReemitidas(
     guardadas.push(...(b.data ?? []));
   }
   const novas = comRef.filter((l) => !guardadasPorId.has(l.transaction_id) && !fim.adiar.has(l.transaction_id));
-  const { reapontar, divergentes } = reapontamentos(novas, guardadas, p.vistos);
+  const { reapontar, divergentes } = reapontamentos(novas, guardadas, p.vistos, p.dataDe ?? "");
   const linhaDe = (id: string) => p.linhas.find((x) => x.transaction_id === id);
 
   for (const r of reapontar) {
@@ -358,6 +422,11 @@ export async function reapontarReemitidas(
       continue;
     }
     if (!p.completa) { fim.adiar.add(r.para); continue; } // a list still to be completed decides nothing
+    // 16/11: banco_entradas_revisao (the seller's or the admin's decision on a Pix) is keyed by the
+    // Pluggy id. It moves first, so a decision is never left pointing at an id that is gone; if the
+    // entry's own update then fails, the next read finishes the pair.
+    const rev = await admin.from("banco_entradas_revisao").update({ transaction_id: r.para }).eq("transaction_id", r.de).select("transaction_id");
+    if (rev.error) { fim.adiar.add(r.para); console.error("pluggy identidade: revisao nao reapontada", rev.error.message); continue; }
     const { data, error } = await admin.from("auto_detected_sales").update({ transaction_id: r.para, ids_anteriores: r.anteriores })
       .eq("transaction_id", r.de).eq("bank_connection_id", p.conexaoId).select("transaction_id");
     // no row changed = another import moved that row meanwhile: not ours to write now
@@ -419,9 +488,12 @@ type Banco = any;
 export async function gravarMargem(admin: Banco, p: {
   conexaoId: string; dataDe: string; horasAtraso: number; linhas: LinhaDoBanco[]; vistos: Set<string>;
   existe: (id: string) => Promise<Existe>; modo?: ModoDaMargem; campos?: string;
-  /** 15/11: two entries that BOTH carry a proven reference and were not matched by it are two
-   *  payments, however alike. Such a pair is never a suspect: the new one is written. */
-  referenciaProva?: boolean;
+  /** 16/11: the lines given all carry a providerCode and belong to ONE account. They are compared
+   *  only with stored entries that have no such reference (two entries that both carry one and
+   *  were not matched by it are two payments, however alike) and that are of that account or of
+   *  none (rows stored before the migration). `usadas`: stored entries already taken as the twin
+   *  of another line in this read — each one justifies a single suppression. */
+  so?: { conta: string; usadas: Set<string> };
 }): Promise<ResultadoDaMargem> {
   const campos = p.campos ?? CAMPOS_DA_LINHA;
   const fim: ResultadoDaMargem = { gravadas: 0, legitimas: 0, duplicadas: 0, aConferir: 0, pares: 0 };
@@ -431,9 +503,9 @@ export async function gravarMargem(admin: Banco, p: {
   const gravar = async (aGravar: LinhaDoBanco[]) => {
     for (let i = 0; i < aGravar.length; i += 100) {
       const lote = aGravar.slice(i, i + 100);
-      const { error } = await admin.from("auto_detected_sales").upsert(lote, { onConflict: "transaction_id" });
-      if (error) { if (!observar) fim.aConferir += lote.length; console.error("pluggy importar: upsert (margem)", error.message); }
-      else fim.gravadas += lote.length;
+      const g = await gravarLinhas(admin, lote);
+      fim.gravadas += g.gravadas;
+      if (g.falhas.length > 0 && !observar) fim.aConferir += g.falhas.length;
     }
   };
 
@@ -464,15 +536,12 @@ export async function gravarMargem(admin: Banco, p: {
   const guardadas = ((doDia.data ?? []) as LinhaEntrada[]).map((g) => ({
     ...g, transaction_id: String(g.transaction_id), amount: Number(g.amount), transaction_date: String(g.transaction_date).slice(0, 10), is_pix: !!g.is_pix,
   }));
-  let { legitimas, pares } = parearComSumidas(novas, guardadas, p.vistos, p.dataDe, p.horasAtraso);
-  if (p.referenciaProva) {
-    // new entries WITH a proven reference are compared only with stored ones that have none
-    const tem = (e: { provedor_ref?: string | null }) => referenciaDeCodigo(e.provedor_ref);
-    const a = parearComSumidas(novas.filter(tem), guardadas.filter((g) => !tem(g)), p.vistos, p.dataDe, p.horasAtraso);
-    const usadas = new Set(a.pares.map((par) => par.antiga));
-    const b = parearComSumidas(novas.filter((n) => !tem(n)), guardadas.filter((g) => !usadas.has(g.transaction_id)), p.vistos, p.dataDe, p.horasAtraso);
-    legitimas = [...a.legitimas, ...b.legitimas]; pares = [...a.pares, ...b.pares];
-  }
+  const so = p.so;
+  const candidatas = so
+    ? guardadas.filter((g) => !referenciaDeCodigo(g.provedor_ref) && (g.conta_id == null || g.conta_id === so.conta) && !so.usadas.has(g.transaction_id))
+    : guardadas;
+  const { legitimas, pares } = parearComSumidas(novas, candidatas, p.vistos, p.dataDe, p.horasAtraso);
+  if (so) for (const par of pares) so.usadas.add(par.antiga);
 
   fim.pares = pares.length;
   let existem = 0;

@@ -71,3 +71,54 @@ begin
   perform t.igual('divergences: removing the connection removes its divergences',
     (select count(*) from public.banco_entradas_divergencias where bank_connection_id = con1)::numeric, 0);
 end $$;
+
+-- 16/11 · the migration is one checked transaction and can be run again over itself
+\ir ../../migrations/20261115220000_entradas_identidade_do_provedor.sql
+do $$
+begin
+  perform t.igual('migration: running it again changes nothing and fails nothing',
+    (select count(*) from pg_indexes where schemaname = 'public' and indexname = 'auto_detected_sales_identidade_uq')::numeric, 1);
+end $$;
+
+-- 16/11 · against main (PR #320): the decision on a Pix lives in banco_entradas_revisao, keyed by
+-- the Pluggy id. A re-issue used to leave it pointing at an id that no longer exists; the importer
+-- now moves the decision and the entry together (reapontarReemitidas), which is what this replays.
+do $$
+declare
+  rui uuid := t.vendedor('rui-revisao');
+  con uuid;
+  linha uuid; criada timestamptz;
+begin
+  con := t.conexao(rui, 'Mercado Pago', now() - interval '20 days');
+  insert into public.auto_detected_sales (user_id, bank_connection_id, transaction_id, amount, description, transaction_date, transacted_at, is_pix, conta_id, provedor_ref)
+    values (rui, con, 'rv-a1', 501, 'Transferência PIX recebida', date '2026-11-12', '2026-11-12 03:00+00', true, 'conta-1', 'code:R501'),
+           (rui, con, 'rv-a2', 20,  'Transferência PIX recebida', date '2026-11-12', '2026-11-12 03:00+00', true, 'conta-1', 'code:R20');
+  select id, created_at into linha, criada from public.auto_detected_sales where transaction_id = 'rv-a1';
+  perform t.verdade('review: a big Pix is held until someone decides',
+    (select motivo is not null from public.banco_entradas_classificadas(rui, date '2026-11-12', date '2026-11-12') where transaction_id = 'rv-a1'));
+  insert into public.banco_entradas_revisao (transaction_id, user_id, amount, motivo, status, decidido_em) values ('rv-a1', rui, 501, 'admin', 'aprovada', now());
+  perform t.verdade('review: approved, it counts as a sale',
+    (select motivo is null from public.banco_entradas_classificadas(rui, date '2026-11-12', date '2026-11-12') where transaction_id = 'rv-a1'));
+
+  -- the re-issue as the importer applies it: decision first, then the entry
+  update public.banco_entradas_revisao set transaction_id = 'rv-b1' where transaction_id = 'rv-a1';
+  update public.auto_detected_sales set transaction_id = 'rv-b1', ids_anteriores = array_append(ids_anteriores, 'rv-a1')
+    where transaction_id = 'rv-a1' and bank_connection_id = con;
+
+  perform t.verdade('review: after the re-issue the Pix is still an approved sale',
+    (select motivo is null from public.banco_entradas_classificadas(rui, date '2026-11-12', date '2026-11-12') where transaction_id = 'rv-b1'));
+  perform t.igual('review: the day still has its two entries, not three',
+    (select count(*) from public.banco_entradas_classificadas(rui, date '2026-11-12', date '2026-11-12'))::numeric, 2);
+  perform t.verdade('review: it is the same row (same id, same created_at), so nothing downstream sees a new entry',
+    (select id = linha and created_at = criada from public.auto_detected_sales where transaction_id = 'rv-b1'));
+  perform t.igual('review: no decision is left on an id that is gone',
+    (select count(*) from public.banco_entradas_revisao r where r.user_id = rui and not exists (select 1 from public.auto_detected_sales a where a.transaction_id = r.transaction_id))::numeric, 0);
+
+  -- and what happens today (entry deleted, new id inserted): the approval is lost
+  delete from public.auto_detected_sales where transaction_id = 'rv-a2';
+  insert into public.banco_entradas_revisao (transaction_id, user_id, amount, motivo, status, decidido_em) values ('rv-a2', rui, 20, 'admin', 'negada', now());
+  insert into public.auto_detected_sales (user_id, bank_connection_id, transaction_id, amount, description, transaction_date, transacted_at, is_pix)
+    values (rui, con, 'rv-b2', 20, 'Transferência PIX recebida', date '2026-11-12', '2026-11-12 03:00+00', true);
+  perform t.igual('review (today''s behaviour, for the record): delete + insert leaves the decision orphaned',
+    (select count(*) from public.banco_entradas_revisao r where r.user_id = rui and not exists (select 1 from public.auto_detected_sales a where a.transaction_id = r.transaction_id))::numeric, 1);
+end $$;
