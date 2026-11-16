@@ -113,16 +113,22 @@ const FOCO=[{d:"26/08",ini:"13:34",fim:"15:23",min:109,tar:6,fic:3},
  {d:"15/09",ini:"16:26",fim:"20:29",min:243,tar:63,fic:25}];
 
 /* mapa pipeline do banco -> esteira desta tela */
-const DE_PIPE={trial:"trial", relacionamento:"pagante", inadimplente:"perdido", parceiro:"base", upgrade_pro:"upgrade"};
+const DE_PIPE={trial:"trial", relacionamento:"pagante", inadimplente:"perdido", parceiro:"base", upgrade_pro:"upgrade", resgate_trial:"resgate"};
 const DE_ETAPA={
  trial:{lp:"lp",dia1:"dia1",dia2:"dia2",dia3:"dia3",fechamento:"dia3",fechou:"assinou",nao_renovou:"acabou"},
  relacionamento:{inicio_mes:"novo",meio_mes:"meio",fim_mes:"meio",renovacao:"renova"},
  inadimplente:{novo:"saiu",contato1:"motivo",negociando:"oferta",fechamento:"voltou"},
  parceiro:{novo:"frio",contatado:"acordou",respondeu:"usou",virou_teste:"virou"},
- upgrade_pro:{dia1:"dia1",dia2:"dia2",dia3:"dia3",ligar:"ligar",renovou:"renovou",nao_renovou:"nao_renovou",duvida:"duvida"}};
+ upgrade_pro:{dia1:"dia1",dia2:"dia2",dia3:"dia3",ligar:"ligar",renovou:"renovou",nao_renovou:"nao_renovou",duvida:"duvida"},
+ resgate_trial:{dia1:"dia1",dia2:"dia2",dia3:"dia3",ligar:"ligar",assinou:"assinou",nao_assinou:"nao_assinou",duvida:"duvida"}};
 /* Esteira de UPGRADE PRO (12/10): coluna movida de verdade no banco (crm_mover),
    então "dias nessa coluna" é real. Fez upgrade = ganho, não fez = perdido. */
 const UPGRADE_STATUS={renovou:"ganho",nao_renovou:"perdido"};
+/* Esteiras cuja coluna mora no banco (crm_mover) e que não trocam com as outras:
+   Upgrade Pro (12/10) e Trial que não assinou (16/11). status = coluna final → ganho/perdido. */
+const MOVIDAS={upgrade:{status:UPGRADE_STATUS,fim:["renovou","nao_renovou"]},
+               resgate:{status:{assinou:"ganho",nao_assinou:"perdido"},fim:["assinou","nao_assinou"]}};
+const ehMovida=k=>Object.prototype.hasOwnProperty.call(MOVIDAS,k);
 
 const E={
  trial:{nome:"Trial de 3 dias",cor:"c1",
@@ -194,6 +200,19 @@ const E={
    nao_renovou:[{t:"Anotar o motivo",nota:"OBRIGATÓRIO. Por que ele não quis o Pro? Preço, não viu valor, não usa o banco… esse é o dado da campanha."}],
    duvida:[{t:"Anotar a dúvida e quando voltar",nota:"O que falta pra ele decidir? Escreva a dúvida e o dia de chamar de novo."}]}},
 
+ resgate:{nome:"Trial que não assinou",cor:"c3",
+  desc:"Quem já passou pelos 3 dias de teste e nunca assinou (16/11). Dividido meio a meio entre os closers. Dia 1, 2 e 3 é mensagem; no Dia 4 liga. Quem assinar cai sozinho em Assinou.",
+  cols:[["dia1","Dia 1 · Oi, tudo bem?"],["dia2","Dia 2 · Oi de novo"],["dia3","Dia 3 · Oi e apagar"],["ligar","Dia 4 · Ligar"],["assinou","Assinou"],["nao_assinou","Não assinou"],["duvida","Na dúvida"]],
+  ativ:{
+   dia1:[{t:"Mandar \"Oi, tudo bem?\"",m:"Oi {p}, tudo bem? Aqui é {eu} da Vant."},
+         {t:"Se respondeu: perguntar o que faltou no teste",nota:"Anote com as palavras dele o que faltou pra assinar: preço, tempo, não entendeu o app, achou que não precisava."}],
+   dia2:[{t:"Mandar \"Oi, tudo bem?\" de novo",m:"Oi {p}, tudo bem?"}],
+   dia3:[{t:"Mandar \"Oi, tudo bem?\" e apagar",nota:"Manda a mensagem e apaga pra todos. A notificação fica no celular dele e dá curiosidade de abrir a conversa."}],
+   ligar:[{t:"Ligar pra ele",nota:"Ligue pelo WhatsApp ou pelo telefone. Anote como foi e o motivo se não quiser."}],
+   assinou:[{t:"Confirmar que o acesso liberou",m:"{p}, confirmado: sua assinatura da Vant está ativa! Seu histórico do teste continua lá. Qualquer dúvida me chama aqui."}],
+   nao_assinou:[{t:"Anotar o motivo",nota:"OBRIGATÓRIO. Por que ele não assinou depois do teste? Esse é o dado da campanha."}],
+   duvida:[{t:"Anotar a dúvida e quando voltar",nota:"O que falta pra ele decidir? Escreva a dúvida e o dia de chamar de novo."}]}},
+
  base:{nome:"Base geral",cor:"c4",
   desc:"Quem criou conta e nunca virou nada. O maior bolo e o mais frio — só entra na fila quando o resto estiver limpo.",
   cols:[["frio","Nunca usou"],["acordou","Abriu o app"],["usou","Registrou venda"],["virou","Virou teste"]],
@@ -250,7 +269,7 @@ async function carregarTudo(){
   PROBLEMAS.length=0;
   /* Tudo de uma vez: antes eram 12 chamadas em fila (uma esperava a outra). */
   const dono=ehDono();
-  const [g0, n, rel, hot, conv, afil, cfg, est, vendas, fTrial, fRel, fInad, fParc, pkit, ajustes, fUp] = await Promise.all([
+  const [g0, n, rel, hot, conv, afil, cfg, est, vendas, fTrial, fRel, fInad, fParc, pkit, ajustes, fUp, fRes] = await Promise.all([
     dono ? chamar("crm_faturamento") : Promise.resolve(null),
     chamar("crm_numeros"),
     chamar("crm_relatorio_mensal"),
@@ -267,6 +286,7 @@ async function carregarTudo(){
     chamar("crm_parceiros_kit"),
     chamar("crm_ajustes_ler"),
     chamar("crm_funil",{p_pipeline:"upgrade_pro"}),
+    chamar("crm_funil",{p_pipeline:"resgate_trial"}),
   ]);
   AJUSTES = ajustes || {}; aplicarAjustes();
   const g = g0 || {};
@@ -292,9 +312,9 @@ async function carregarTudo(){
   HOJE=hojeZero();
   EST={};
   for(const e of (est||[])) EST[e.cartao]=normEst(e);
-  const FUNIS={trial:fTrial, relacionamento:fRel, inadimplente:fInad, parceiro:fParc, upgrade_pro:fUp};
+  const FUNIS={trial:fTrial, relacionamento:fRel, inadimplente:fInad, parceiro:fParc, upgrade_pro:fUp, resgate_trial:fRes};
 
-  const pipes=["upgrade_pro","trial","relacionamento","inadimplente","parceiro"];
+  const pipes=["upgrade_pro","resgate_trial","trial","relacionamento","inadimplente","parceiro"];
   QTD={}; F=[]; let id=0;
   for(const pipe of pipes){
     const dados = FUNIS[pipe];
@@ -303,7 +323,7 @@ async function carregarTudo(){
     for(const c of (dados.cartoes||[])){
       try{
         const col=mapa[c.etapa]; if(!col) continue;
-        if(String(c.status||"aberto")!=="aberto" && col!=="assinou" && pipe!=="upgrade_pro") continue;
+        if(String(c.status||"aberto")!=="aberto" && col!=="assinou" && pipe!=="upgrade_pro" && pipe!=="resgate_trial") continue;
         const k=est+"/"+col; QTD[k]=(QTD[k]||0)+1;
         const h=hotDe(c)||null;
         F.push({id:id++, cartaoId:c.id, e:est, c:col,
@@ -315,7 +335,7 @@ async function carregarTudo(){
           email:c.email||h?.email||"", cidade:c.cidade||"",
           d:Number(c.dias_na_etapa)||0,
           trava:(Number(c.dias_na_etapa)||0)>=1?(Number(c.dias_na_etapa)||0):0,
-          entrou:c.criado_em||null, fim:pipe==="trial"?(c.trial_end||null):null,
+          entrou:c.criado_em||null, fim:(pipe==="trial"||pipe==="resgate_trial")?(c.trial_end||null):null,
           // Pix da renovação não pago (Hotmart PAST_DUE): ainda tem acesso, não cancelou
           atrasado:!!(h&&/atrasad/i.test(h.situacao||"")),
           // data da próxima cobrança: a da Hotmart manda; a da Vant é reserva
@@ -415,6 +435,17 @@ function avaliar(f){
    :c==="ligar"?`<b>Dia de ligar.</b> Já foram 3 mensagens sem resposta.${quanto}`
    :c==="duvida"?`<b>Está na dúvida.</b> Veja a nota e chame no dia combinado.${quanto}`
    :`Assinante do Essencial, campanha de upgrade pro Pro (${(E.upgrade.cols.find(x=>x[0]===c)||[c,c])[1]}).${quanto}`;
+  if(!fechado&&f.d>=1) p+=` <b>Parado há ${Math.round(f.d)} dia${Math.round(f.d)===1?"":"s"} nessa coluna.</b>`;
+  return{score:Math.round(u*.55+d*.3+Math.min(30,f.d*1.1)*.15),porque:p};
+ }
+ if(f.e==="resgate"){
+  const c=etapaDe(f), fechado=MOVIDAS.resgate.fim.includes(c);
+  const quando=f.fim?` O teste acabou em <b>${esc(String(f.fim).slice(8,10)+"/"+String(f.fim).slice(5,7))}</b>.`:"";
+  u=fechado?5:c==="ligar"?88:c==="duvida"?78:c==="dia3"?72:c==="dia2"?68:65; d=55;
+  p=fechado?(c==="assinou"?"<b>Assinou.</b>":"<b>Não assinou.</b> Confira se o motivo está anotado.")
+   :c==="ligar"?`<b>Dia de ligar.</b> Já foram 3 mensagens sem resposta.${quando}`
+   :c==="duvida"?`<b>Está na dúvida.</b> Veja a nota e chame no dia combinado.${quando}`
+   :`Passou pelo teste e não assinou (${(E.resgate.cols.find(x=>x[0]===c)||[c,c])[1]}).${quando}`;
   if(!fechado&&f.d>=1) p+=` <b>Parado há ${Math.round(f.d)} dia${Math.round(f.d)===1?"":"s"} nessa coluna.</b>`;
   return{score:Math.round(u*.55+d*.3+Math.min(30,f.d*1.1)*.15),porque:p};
  }
@@ -598,14 +629,14 @@ async function moverUpgrade(f,destino,abrirDepois){
  f.c=destino; f.d=0; e.etapa=null; e.etapa_base=null;              // resposta na hora
  Object.assign(f,avaliar(f));
  QTD={}; for(const x of FICHAS){ const q=x.e+"/"+etapaDe(x); QTD[q]=(QTD[q]||0)+1; }
- toast(f.n.split(" ")[0]+" → "+((E.upgrade.cols.find(c=>c[0]===destino)||[0,destino])[1]));
+ toast(f.n.split(" ")[0]+" → "+((E[f.e].cols.find(c=>c[0]===destino)||[0,destino])[1]));
  render(); if(abrirDepois) abrir(f.id);
- const {error}=await sb.rpc("crm_mover",{p_cartao:f.cartaoId,p_etapa:destino,p_status:UPGRADE_STATUS[destino]||"aberto"});
+ const {error}=await sb.rpc("crm_mover",{p_cartao:f.cartaoId,p_etapa:destino,p_status:(MOVIDAS[f.e]||MOVIDAS.upgrade).status[destino]||"aberto"});
  if(error){ Object.assign(f,{c:antes.c,d:antes.d}); e.etapa=antes.etapa; e.etapa_base=antes.base;
    PROBLEMAS.push("mover no banco ("+f.n+"): "+error.message); mostrarProblemas(); render(); }
 }
 function mover(f,destino){
- if(f.e==="upgrade"&&E.upgrade.cols.some(c=>c[0]===destino)){ void moverUpgrade(f,destino,true); return; }
+ if(ehMovida(f.e)&&E[f.e].cols.some(c=>c[0]===destino)){ void moverUpgrade(f,destino,true); return; }
  // Trial > Assinou entra sozinho em Pagantes
  if(f.e==="trial"&&destino==="assinou"){
    void gravarEstado(f,{esteira:"pagante",etapa:"novo",etapa_base:f.c}); f.e="pagante";
@@ -1003,12 +1034,12 @@ function renderEsteiras(){
  Para mudar de lugar, <b>pegue a ficha e solte em qualquer coluna</b>, até de outra esteira (no celular: segure a ficha meio segundo e arraste).
  No celular, arraste as colunas para o lado.</p>${filtroDonos()}`;
  // a campanha de Upgrade Pro vem primeiro (é o foco do comercial agora)
- for(const [k,def] of Object.entries(E).filter(([k])=>esteiraVisivel(k)).sort(([a],[b])=>(b==="upgrade")-(a==="upgrade"))){
+ for(const [k,def] of Object.entries(E).filter(([k])=>esteiraVisivel(k)).sort(([a],[b])=>((b==="upgrade")*2+(b==="resgate"))-((a==="upgrade")*2+(a==="resgate")))){
   const total=def.cols.reduce((s,[c])=>s+(QTD[k+"/"+c]||0),0);
   h+=`<div class="box" style="margin-bottom:14px">
    <div class="est-head"><span class="dot" style="background:var(--${def.cor});width:9px;height:9px"></span>
     <h3>${def.nome}</h3><span class="c num">${total} fichas</span>
-    <p style="width:100%;margin:2px 0 0;font-size:11.5px;color:var(--dim)">${def.desc}</p>${k==="upgrade"?resumoUpgrade():""}</div>
+    <p style="width:100%;margin:2px 0 0;font-size:11.5px;color:var(--dim)">${def.desc}</p>${k==="upgrade"?resumoUpgrade():k==="resgate"?resumoResgate():""}</div>
    <div class="cols" style="--n:${def.cols.length}">
    ${def.cols.map(([c,titulo])=>{
      const qtd=QTD[k+"/"+c]||0,morto=(c==="acabou");
@@ -1021,8 +1052,8 @@ function renderEsteiras(){
         const semMotivo=etapaDe(x)==="acabou"&&!notaDe(x,0).trim();
         return `<button class="chip${morto?" morto":""}" style="border-left-color:var(--${morto?"bad":def.cor})" data-painel="${x.id}" data-arrasta="${x.id}">
          <div class="nm-l"><span class="nm">${esc(x.n)}</span>${etiquetaDono(x)}</div>
-         <div class="sb${travaDe(x)||semMotivo||(k==="upgrade"&&x.d>=1&&!["renovou","nao_renovou"].includes(c))?" bad":""}">${semMotivo?"sem motivo · conta como sem contato"
-           :travaDe(x)?`travado ${travaDe(x)}d`:`${Math.round(x.d)}d nessa coluna`}${k==="upgrade"?upgradeInfo(x):""}</div>${descDe(x)?`<div class="ds">${esc(descDe(x))}</div>`:""}</button>`;}).join("")}
+         <div class="sb${travaDe(x)||semMotivo||(ehMovida(k)&&x.d>=1&&!MOVIDAS[k].fim.includes(c))?" bad":""}">${semMotivo?"sem motivo · conta como sem contato"
+           :travaDe(x)?`travado ${travaDe(x)}d`:`${Math.round(x.d)}d nessa coluna`}${k==="upgrade"?upgradeInfo(x):k==="resgate"?resgateInfo(x):""}</div>${descDe(x)?`<div class="ds">${esc(descDe(x))}</div>`:""}</button>`;}).join("")}
       </div>
       ${am.length===0?`<div class="mais">${espera?`${espera} em espera · já falou, volta sozinha`:"vazia"}</div>`:""}</div>`;}).join("")}
    </div></div>`;}
@@ -1057,8 +1088,8 @@ const ARRASTO={f:null,el:null,fantasma:null,alvo:null,acabou:false,t:null,x0:0,y
 function moverArrastando(f,k,c){
  const destino=E[k]?.cols.find(x=>x[0]===c); if(!destino) return;
  if(f.e===k&&etapaDe(f)===c) return;
- if(k==="upgrade"||f.e==="upgrade"){
-   if(k!==f.e){ toast("A esteira de Upgrade Pro não troca com as outras."); return; }
+ if(ehMovida(k)||ehMovida(f.e)){
+   if(k!==f.e){ toast(`A esteira ${E[ehMovida(f.e)?f.e:k].nome} não troca com as outras.`); return; }
    void moverUpgrade(f,c,false); return;
  }
  if(k==="trial"&&c==="assinou"){            // mesma regra do botão: Assinou entra sozinho em Pagantes
@@ -1158,6 +1189,26 @@ function upgradeInfo(x){
  const t=tempoAssinante(x);
  const tempo=t.dias!=null?`<b style="color:var(--ink)">${t.dias}d na Vant</b>${t.mensalidades?` · ${t.mensalidades}ª mens.`:""}<br>`:"";
  return `<br>${tempo}${mes>0?`faz ${brl(Math.round(mes)).replace(/,00$/,"")}/mês`:"sem venda no mês"}${origem?` · ${esc(origem)}`:""}`;
+}
+function resgateInfo(x){
+ const origem=x.parceiro||(x.ref&&x.ref!=="—"?x.ref:"");
+ const fim=x.fim?`teste acabou ${String(x.fim).slice(8,10)}/${String(x.fim).slice(5,7)}`:"";
+ return fim||origem?`<br>${esc(fim)}${fim&&origem?" · ":""}${origem?esc(origem):""}`:"";
+}
+function resumoResgate(){
+ const t=FICHAS.filter(f=>f.e==="resgate");
+ const col=c=>t.filter(f=>etapaDe(f)===c).length;
+ const abertos=t.filter(f=>!MOVIDAS.resgate.fim.includes(etapaDe(f)));
+ const parados=abertos.filter(f=>f.d>=1).length;
+ const fez=col("assinou");
+ return `<div class="est-resumo">
+  <span><b>${t.length}</b> na lista</span>
+  <span>em contato: <b>${abertos.length}</b></span>
+  <span>assinaram: <b>${fez}</b> (${t.length?Math.round(fez/t.length*100):0}%)</span>
+  <span>não assinaram: <b>${col("nao_assinou")}</b></span>
+  <span>na dúvida: <b>${col("duvida")}</b></span>
+  <span${parados?' style="border-color:var(--warn);color:var(--warn)"':""}>parados +1 dia: <b>${parados}</b></span>
+ </div>`;
 }
 function resumoUpgrade(){
  const t=FICHAS.filter(f=>f.e==="upgrade");
@@ -1283,7 +1334,7 @@ function abrir(id,foco){
     <p class="nota" style="margin:11px 0 0"><b>Mover para:</b></p>
     <div class="mover">${cols.filter(([c])=>c!==et).map(([c,t])=>{
       const frente=cols.findIndex(x=>x[0]===c)>idx;
-      const trava=frente&&!pronto&&f.e!=="upgrade";   // no upgrade o comercial move pela conversa
+      const trava=frente&&!pronto&&!ehMovida(f.e);   // no upgrade o comercial move pela conversa
       return `<button class="mv" data-mover="${c}" ${trava?"disabled":""} title="${trava?"Faça as atividades desta etapa antes de avançar":"Mover para "+t}">${trava?"🔒 ":""}${esc(t)}</button>`;}).join("")}</div>
     ${!pronto?`<p class="nota">Só dá pra <b>avançar</b> depois que as atividades desta etapa estiverem feitas. Voltar é sempre liberado.</p>`:""}
    </div>
@@ -1960,7 +2011,7 @@ async function depoisDoLogin(){
   document.getElementById("telaLogin").hidden=true;
   document.getElementById("app").hidden=false;
   document.getElementById("carregando").hidden=false;
-  await chamar("crm_sync_upgrade");   // assinantes novos entram no Dia 1 do Upgrade Pro
+  await Promise.all([chamar("crm_sync_upgrade"), chamar("crm_sync_resgate")]);   // Upgrade: assinantes novos no Dia 1 · Resgate: quem assinou vai pra Assinou
   try{ await carregarTudo(); ULTIMA_CARGA=Date.now(); }
   catch(e){ PROBLEMAS.push("carregamento: "+(e.message||e)); mostrarProblemas(); }
   try{ aplicarPapel(); render(); renderParceiros(); renderAfiliados(); recarregarEquipe(); }
@@ -2037,7 +2088,7 @@ async function atualizar(silencioso){
   const cartaoAberto=drawerAberto?byId(+(document.getElementById("drawer").dataset.id||-1))?.cartaoId:null;
   if(!silencioso) document.getElementById("carregando").hidden=false;
   try{
-    if(!silencioso){ await Promise.all([chamar("crm_sync"), chamar("crm_sync_base"), chamar("crm_sync_upgrade")]); }
+    if(!silencioso){ await Promise.all([chamar("crm_sync"), chamar("crm_sync_base"), chamar("crm_sync_upgrade"), chamar("crm_sync_resgate")]); }
     await carregarTudo();
     // mantém a pessoa que estava na tela, mesmo que a ordem tenha mudado
     if(cartaoAtual){ const i=fila().findIndex(x=>x.cartaoId===cartaoAtual); if(i>=0){S.pos=i;salvar();} }
