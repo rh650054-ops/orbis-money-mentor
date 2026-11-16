@@ -682,6 +682,36 @@ function metaResgateHTML(){
   <div class="strip" style="flex-wrap:wrap">${pessoas.map(card).join("")}</div>
   <p class="nota" style="margin:4px 0 14px">Conta 1 lead por dia quando você move a ficha de coluna ou marca uma atividade/nota nela. Quem assina sozinho não conta.</p></div>`;
 }
+/* Métricas (Rick, 16/11): a meta do resgate dia a dia, uma coluna por closer. */
+function metaResgateTabelaHTML(){
+ const M=META_RESGATE; if(!M||!(M.pessoas||[]).length) return "";
+ const pessoas=minhaVisao()?M.pessoas.filter(p=>p.user_id===EU):M.pessoas;
+ if(!pessoas.length) return "";
+ const hoje=String(M.hoje), dd=d=>String(d).slice(8,10)+"/"+String(d).slice(5,7);
+ const datas=(pessoas[0].por_dia||[]).map(x=>String(x.d));
+ const nDe=(p,d)=>+((p.por_dia||[]).find(x=>String(x.d)===d)||{n:0}).n||0;
+ const cel=(p,d)=>{ if(d>hoje) return `<td style="padding:6px 8px;text-align:right;color:var(--faint)">—</td>`;
+   const n=nDe(p,d), cor=n>=p.meta?"c2":d===hoje?"c1":"warn";
+   return `<td style="padding:6px 8px;text-align:right"><b class="num" style="color:var(--${cor})">${n}</b><span style="color:var(--faint)"> / ${p.meta}</span></td>`; };
+ const tot=p=>{ const ds=datas.filter(d=>d<=hoje), feito=ds.reduce((s,d)=>s+nDe(p,d),0), alvo=p.meta*ds.length;
+   const bateu=ds.filter(d=>d<hoje&&nDe(p,d)>=p.meta).length, pct=alvo?Math.round(feito/alvo*100):0;
+   return {feito,alvo,bateu,pct,media:ds.length?Math.round(feito/ds.length):0}; };
+ return `<h2 class="sec">Meta por closer · Trial que não assinou</h2>
+ <div class="box pad" style="overflow-x:auto">
+  <table style="width:100%;border-collapse:collapse;font-size:13px">
+   <thead><tr><th style="text-align:left;padding:6px 8px;color:var(--dim);font-weight:600">Dia</th>
+    ${pessoas.map(p=>`<th style="text-align:right;padding:6px 8px;color:var(--dim);font-weight:600">${esc(p.nome)} <span style="font-weight:500">· meta ${p.meta}</span></th>`).join("")}</tr></thead>
+   <tbody>${datas.map((d,i)=>`<tr style="border-top:1px solid var(--line)${d===hoje?";background:var(--line)":""}"><td style="padding:6px 8px">Dia ${i+1} · ${dd(d)}${d===hoje?" <b>(hoje)</b>":""}</td>${pessoas.map(p=>cel(p,d)).join("")}</tr>`).join("")}</tbody>
+   <tfoot>${[["Total até hoje",t=>`<b class="num">${t.feito}</b><span style="color:var(--faint)"> / ${t.alvo}</span>`],
+             ["% da meta",t=>`<b class="num" style="color:var(--${t.pct>=100?"c2":"warn"})">${t.pct}%</b>`],
+             ["Média por dia",t=>`<b class="num">${t.media}</b>`],
+             ["Dias que bateu",t=>`<b class="num">${t.bateu}</b>`]].map(([rot,f])=>
+     `<tr style="border-top:1px solid var(--line)"><td style="padding:6px 8px;color:var(--dim)">${rot}</td>${pessoas.map(p=>`<td style="padding:6px 8px;text-align:right">${f(tot(p))}</td>`).join("")}</tr>`).join("")}
+    <tr style="border-top:1px solid var(--line)"><td style="padding:6px 8px;color:var(--dim)">Resultado</td>${pessoas.map(p=>`<td style="padding:6px 8px;text-align:right">${p.abertos} em contato · <b style="color:var(--c2)">${p.assinaram} assinaram</b></td>`).join("")}</tr></tfoot>
+  </table>
+  <p class="nota" style="margin:10px 0 0">Conta 1 lead por dia quando o closer move a ficha de coluna ou marca uma atividade/nota nela. Quem assina sozinho não conta. A meta não muda com o período escolhido acima: vale os ${M.dias} dias da campanha (${dd(M.inicio)} a ${dd(datas[datas.length-1]||M.inicio)}).</p>
+ </div>`;
+}
 /* atualiza só o painel (sem redesenhar a tela: não atrapalha quem está digitando uma nota) */
 async function atualizarMetaResgate(){
  const m=await chamar("crm_resgate_metas"); if(!m) return;
@@ -1573,6 +1603,7 @@ function renderMetricas(){
  document.getElementById("p-metricas").innerHTML=`
  ${periodoHTML()}
  ${relatorioHTML()}
+ ${metaResgateHTML()}${metaResgateTabelaHTML()}
  <h2 class="sec">Os números do Yan · clique em qualquer um para ver quem são</h2>
  <div class="taxas">${cards.map((t,i)=>`<button class="taxa" data-card="${i}">
    <span class="ver">ver lista ↗</span>
