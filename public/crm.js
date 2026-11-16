@@ -43,6 +43,8 @@ let GRANA={total:0,pagamentos:0,ticket:0,desde:"—",d7:0,d7Pag:0,mes:0,
   recorrente:0,recorrenteQtd:0,renovMes:0,renovMesValor:0,novasMes:0,dias:[]};
 let QTD={}, F=[], FICHAS=[], PARCEIROS=[], HOT=[], CONV={}, REL=[], AFIL=[], VENDAS=null;
 const mesAtual=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");};
+/* Meta da lista "Trial que não assinou" (Rick, 16/11): leads chamados por dia, por closer (crm_resgate_metas). */
+let META_RESGATE=null;
 let MES_AFIL=mesAtual(), AFIL_CFG={pct_primeira:15,pct_recorrente:10}, PKIT=[];
 /* EQUIPE (22/10/2026, Rick): cada um vê as esteiras dele. Rayanne: trial + pagantes.
    Paulo e Yan (closers): upgrade, encerrou/não renovou e base; no Upgrade cada um vê só as fichas dele.
@@ -269,7 +271,7 @@ async function carregarTudo(){
   PROBLEMAS.length=0;
   /* Tudo de uma vez: antes eram 12 chamadas em fila (uma esperava a outra). */
   const dono=ehDono();
-  const [g0, n, rel, hot, conv, afil, cfg, est, vendas, fTrial, fRel, fInad, fParc, pkit, ajustes, fUp, fRes] = await Promise.all([
+  const [g0, n, rel, hot, conv, afil, cfg, est, vendas, fTrial, fRel, fInad, fParc, pkit, ajustes, fUp, fRes, mRes] = await Promise.all([
     dono ? chamar("crm_faturamento") : Promise.resolve(null),
     chamar("crm_numeros"),
     chamar("crm_relatorio_mensal"),
@@ -287,7 +289,9 @@ async function carregarTudo(){
     chamar("crm_ajustes_ler"),
     chamar("crm_funil",{p_pipeline:"upgrade_pro"}),
     chamar("crm_funil",{p_pipeline:"resgate_trial"}),
+    chamar("crm_resgate_metas"),
   ]);
+  META_RESGATE = mRes || null;
   AJUSTES = ajustes || {}; aplicarAjustes();
   const g = g0 || {};
   GRANA={total:+g.total||0,pagamentos:+g.pagamentos||0,ticket:+g.ticket||0,desde:g.desde||"—",
@@ -503,6 +507,7 @@ async function gravarEstado(f,patch){
   const {data,error}=await sb.rpc("crm_estado_salvar",{p_cartao:f.cartaoId,p_patch:patch});
   if(error) throw error;
   if(data) EST[f.cartaoId]=normEst(data);
+  if(f.e==="resgate") void atualizarMetaResgate();
   return true;
  }catch(err){ PROBLEMAS.push("salvar no banco ("+f.n+"): "+(err.message||err)); mostrarProblemas(); return false; }
 }
@@ -633,7 +638,8 @@ async function moverUpgrade(f,destino,abrirDepois){
  render(); if(abrirDepois) abrir(f.id);
  const {error}=await sb.rpc("crm_mover",{p_cartao:f.cartaoId,p_etapa:destino,p_status:(MOVIDAS[f.e]||MOVIDAS.upgrade).status[destino]||"aberto"});
  if(error){ Object.assign(f,{c:antes.c,d:antes.d}); e.etapa=antes.etapa; e.etapa_base=antes.base;
-   PROBLEMAS.push("mover no banco ("+f.n+"): "+error.message); mostrarProblemas(); render(); }
+   PROBLEMAS.push("mover no banco ("+f.n+"): "+error.message); mostrarProblemas(); render(); return; }
+ if(f.e==="resgate") void atualizarMetaResgate();
 }
 function mover(f,destino){
  if(ehMovida(f.e)&&E[f.e].cols.some(c=>c[0]===destino)){ void moverUpgrade(f,destino,true); return; }
@@ -648,6 +654,40 @@ function mover(f,destino){
 }
 
 /* ===== VENDAS DE HOJE (Hotmart, ao vivo) ===== */
+/* Painel da meta do resgate: cada closer vê a dele; quem vê tudo (admin) vê todos, lado a lado. */
+function metaResgateHTML(){
+ const vazio='<div class="meta-resgate"></div>';
+ const M=META_RESGATE; if(!M||!(M.pessoas||[]).length) return vazio;
+ const pessoas=minhaVisao()?M.pessoas.filter(p=>p.user_id===EU):M.pessoas;
+ if(!pessoas.length) return vazio;
+ const hoje=String(M.hoje), dd=d=>String(d).slice(8,10)+"/"+String(d).slice(5,7);
+ const diaN=Math.min(M.dias,Math.max(0,Math.round((new Date(hoje)-new Date(String(M.inicio)))/864e5)+1));
+ const card=p=>{
+  const dias=p.por_dia||[], hj=(dias.find(x=>String(x.d)===hoje)||{n:0}).n;
+  const passados=dias.filter(x=>String(x.d)<=hoje), feito=passados.reduce((s,x)=>s+(+x.n||0),0);
+  const alvo=p.meta*passados.length, bateu=passados.filter(x=>String(x.d)<hoje&&x.n>=p.meta).length;
+  const maxN=Math.max(p.meta,...dias.map(x=>+x.n||0));
+  return `<div class="stat" style="min-width:250px;flex:1">
+   <div class="k">${esc(p.nome||"—")} · meta ${p.meta} leads/dia</div>
+   <div class="v num">${hj} <span style="font-size:14px;color:var(--dim)">/ ${p.meta} hoje</span></div>
+   <div class="meter"><i style="width:${Math.min(100,hj/p.meta*100)}%;background:var(--${hj>=p.meta?"c2":"warn"})"></i></div>
+   <div class="s">${hj>=p.meta?"Meta de hoje batida.":`Faltam ${p.meta-hj} leads hoje`} · campanha ${feito}/${alvo||p.meta}${bateu?` · bateu ${bateu} dia${bateu===1?"":"s"}`:""}</div>
+   <div style="display:flex;gap:3px;align-items:flex-end;height:44px;margin-top:9px" role="img" aria-label="Leads chamados por dia da campanha">
+    ${dias.map(x=>{const d=String(x.d), fut=d>hoje, n=+x.n||0;
+      return `<span title="${dd(d)}: ${fut?"ainda não chegou":n+" de "+p.meta}" style="flex:1;border-radius:3px 3px 0 0;min-height:3px;height:${fut?3:Math.max(3,n/maxN*100)}%;background:${fut?"var(--line)":n>=p.meta?"var(--c2)":d===hoje?"var(--c1)":"var(--warn)"}"></span>`;}).join("")}
+   </div>
+   <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);margin-top:3px"><span>${dd(M.inicio)}</span><span>${dd((dias[dias.length-1]||{}).d||M.inicio)}</span></div>
+   <div class="s" style="margin-top:6px">${p.abertos} em contato · ${p.assinaram} assinaram · ${p.leads} na lista</div></div>`;};
+ return `<div class="meta-resgate"><h2 class="sec">Meta · Trial que não assinou <span style="font-weight:500;color:var(--dim);font-size:13px">dia ${diaN} de ${M.dias}</span></h2>
+  <div class="strip" style="flex-wrap:wrap">${pessoas.map(card).join("")}</div>
+  <p class="nota" style="margin:4px 0 14px">Conta 1 lead por dia quando você move a ficha de coluna ou marca uma atividade/nota nela. Quem assina sozinho não conta.</p></div>`;
+}
+/* atualiza só o painel (sem redesenhar a tela: não atrapalha quem está digitando uma nota) */
+async function atualizarMetaResgate(){
+ const m=await chamar("crm_resgate_metas"); if(!m) return;
+ META_RESGATE=m;
+ document.querySelectorAll(".meta-resgate").forEach(el=>{ el.outerHTML=metaResgateHTML(); });
+}
 function vendasHojeHTML(){
  const v=VENDAS; if(!v) return "";
  const tot=(+v.novas||0)+(+v.renov||0), o=v.ontem||{}, totO=(+o.novas||0)+(+o.renov||0);
@@ -692,7 +732,7 @@ function renderHoje(){
  const msgs=mensagensDoDia();
   const vend=VENDAS?((+VENDAS.novas||0)+(+VENDAS.renov||0)):0;
 
- let h=vendasHojeHTML();
+ let h=vendasHojeHTML()+metaResgateHTML();
  h+=ehDono()? `<div class="grana">
   <div class="lbl">Faturamento total da Vant</div>
   <div class="big num">${brl(GRANA.total)}</div>
@@ -1039,7 +1079,7 @@ function renderEsteiras(){
   h+=`<div class="box" style="margin-bottom:14px">
    <div class="est-head"><span class="dot" style="background:var(--${def.cor});width:9px;height:9px"></span>
     <h3>${def.nome}</h3><span class="c num">${total} fichas</span>
-    <p style="width:100%;margin:2px 0 0;font-size:11.5px;color:var(--dim)">${def.desc}</p>${k==="upgrade"?resumoUpgrade():k==="resgate"?resumoResgate():""}</div>
+    <p style="width:100%;margin:2px 0 0;font-size:11.5px;color:var(--dim)">${def.desc}</p>${k==="upgrade"?resumoUpgrade():k==="resgate"?resumoResgate()+metaResgateHTML():""}</div>
    <div class="cols" style="--n:${def.cols.length}">
    ${def.cols.map(([c,titulo])=>{
      const qtd=QTD[k+"/"+c]||0,morto=(c==="acabou");
