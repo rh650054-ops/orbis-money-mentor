@@ -14,7 +14,7 @@
 // crédito como "ignorado", a próxima leitura não desfaz a escolha dele.
 
 import { linhasMudadas, type LinhaEntrada } from "./pluggy-linhas.ts";
-import { bancoComReferencia, type EstadoDaIdentidade, estadoPeloErro, idDaPreservada, idSemPluggy, modoDaReferencia, MODOS_DA_IDENTIDADE, type ModosDaIdentidade, reapontamentos, reaproveitados, referenciaDe, referenciaDeCodigo, referenciasDaLeitura } from "./pluggy-identidade.ts";
+import { bancoComReferencia, type ComIdentidade, type EstadoDaIdentidade, estadoPeloErro, idDaPreservada, idSemPluggy, modoDaReferencia, MODOS_DA_IDENTIDADE, type ModosDaIdentidade, PREFIXO_SEM_ID, reapontamentos, reaproveitados, referenciaDe, referenciaDeCodigo, referenciasDaLeitura } from "./pluggy-identidade.ts";
 import { type Existe, identidadeDoDia, MODO_DA_MARGEM, type ModoDaMargem, parearComSumidas, type TransacaoBruta, vereditoDoPar } from "./pluggy-margem.ts";
 
 const BRT = "America/Sao_Paulo";
@@ -391,6 +391,8 @@ export async function reapontarReemitidas(
   admin: any, p: { conexaoId: string; userId: string; linhas: LinhaDoBanco[]; vistos: Set<string>; completa: boolean; modos: ModosDaIdentidade; dataDe?: string },
 ) {
   const fim = { reapontadas: 0, observadas: 0, divergentes: 0, retidas: 0, preservadas: 0, adiar: new Set<string>(), naoGravar: new Set<string>() };
+  // a decision left behind by a read that stopped half-way is put back before anything else
+  if (p.modos.code === "aplicar") await recolocarRevisoes(admin, p.conexaoId, p.userId);
   const comRef = p.linhas.filter((l) => l.provedor_ref && l.conta_id);
   if (comRef.length === 0) return fim;
   const guardadasPorId = new Set<string>();
@@ -433,6 +435,9 @@ export async function reapontarReemitidas(
       // not kept apart = the arriving entry is NOT written over it now; no stamp, the next read tries again
       fim.adiar.add(g.transaction_id); preservarFalhou++;
       if (mud.error) console.error("pluggy identidade: guardada nao preservada", mud.error.message);
+      // the decision may already be on the new id while its entry is not: it goes back to wherever
+      // that entry is now (and stays, if a rival import took the entry there)
+      if (!rev.error) await recolocarRevisoes(admin, p.conexaoId, p.userId);
       continue;
     }
     fim.preservadas++;
@@ -490,6 +495,43 @@ export async function reapontarReemitidas(
     }));
   }
   return fim;
+}
+
+/** 17/11: keeping a stored entry apart is two writes — its decision (banco_entradas_revisao) and
+ *  the entry itself — and the function can fail, or be killed, between them. Then a decision sits
+ *  on an id of ours that no entry has. This puts it back on its entry, wherever that entry is now:
+ *  still on the Pluggy id (the second write never happened), or already on a newer one.
+ *  The entry is found by what the id was made of (idDaPreservada), never by amount alone; a
+ *  decision whose entry is not in this connection is left exactly where it is.
+ *  Safe to run any number of times: a decision that has its entry is never touched. */
+// deno-lint-ignore no-explicit-any
+export async function recolocarRevisoes(admin: any, conexaoId: string, userId: string): Promise<number> {
+  try {
+    const revs = await admin.from("banco_entradas_revisao").select("transaction_id, amount").eq("user_id", userId).like("transaction_id", `${PREFIXO_SEM_ID}%`);
+    if (revs.error) { console.error("pluggy identidade: revisoes nao lidas", revs.error.message); return 0; }
+    const nossas = ((revs.data ?? []) as { transaction_id: string; amount: number | string }[]).filter((r) => idSemPluggy(r.transaction_id));
+    if (nossas.length === 0) return 0;
+    const tem = await admin.from("auto_detected_sales").select("transaction_id").in("transaction_id", nossas.map((r) => r.transaction_id));
+    if (tem.error) { console.error("pluggy identidade: revisoes nao conferidas", tem.error.message); return 0; }
+    const comEntrada = new Set(((tem.data ?? []) as { transaction_id: string }[]).map((e) => String(e.transaction_id)));
+    const soltas = nossas.filter((r) => !comEntrada.has(r.transaction_id));
+    if (soltas.length === 0) return 0;
+    const cand = await admin.from("auto_detected_sales").select("transaction_id, conta_id, provedor_ref, transaction_date, amount")
+      .eq("bank_connection_id", conexaoId).like("provedor_ref", "code:%").in("amount", [...new Set(soltas.map((r) => String(Number(r.amount))))]);
+    if (cand.error) { console.error("pluggy identidade: revisoes nao conferidas", cand.error.message); return 0; }
+    const ondeEsta = new Map<string, string>();
+    for (const e of (cand.data ?? []) as ComIdentidade[]) ondeEsta.set(await idDaPreservada(conexaoId, e), String(e.transaction_id));
+    let recolocadas = 0;
+    for (const r of soltas) {
+      const atual = ondeEsta.get(r.transaction_id);
+      if (!atual || atual === r.transaction_id) continue;
+      const { error } = await admin.from("banco_entradas_revisao").update({ transaction_id: atual }).eq("transaction_id", r.transaction_id).select("transaction_id");
+      if (error) console.error("pluggy identidade: revisao nao recolocada", error.message); else recolocadas++;
+    }
+    // counts only
+    console.log("pluggy identidade: revisao recolocada", JSON.stringify({ conexao: conexaoId, recolocadas, sem_entrada_nesta_conexao: soltas.length - recolocadas }));
+    return recolocadas;
+  } catch (e) { console.error("pluggy identidade: revisoes", (e as Error)?.message); return 0; }
 }
 
 /** At most this many old ids are asked of Pluggy in one read; the rest waits for the next read. */

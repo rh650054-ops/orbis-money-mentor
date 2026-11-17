@@ -10,9 +10,9 @@ type Linha = Record<string, unknown> & { transaction_id: string; transaction_dat
 function banco(instituicao = "Mercado Pago") {
   const entradas: Linha[] = [];
   const divergencias: Record<string, unknown>[] = [];
-  const revisoes: { transaction_id: string; status: string }[] = []; // banco_entradas_revisao (PR #320)
+  const revisoes: { transaction_id: string; status: string; user_id?: string; amount?: number }[] = []; // banco_entradas_revisao (PR #320)
   const cfg = {
-    falharLerRef: false, falharRevisao: false, estado: "ativa" as "ativa" | "sem_migration" | "indisponivel",
+    falharLerRef: false, falharRevisao: false, falharEntrada: 0, falharLerRevisao: false, estado: "ativa" as "ativa" | "sem_migration" | "indisponivel",
     antesDeGravar: null as null | (() => void), antesDeReapontar: null as null | (() => void),
   };
   const identidade = (r: Linha) => r.provedor_ref && r.conta_id ? `${r.bank_connection_id}|${r.conta_id}|${r.provedor_ref}|${r.transaction_date}|${Number(r.amount).toFixed(2)}` : null;
@@ -59,6 +59,10 @@ function banco(instituicao = "Mercado Pago") {
           for (const a of alvo) Object.assign(a, novo);
           return responder(alvo.map((a) => ({ ...a })));
         }
+        if (tabela === "banco_entradas_revisao" && op === "select") {
+          if (cfg.falharLerRevisao) return responder(null, { message: "timeout" });
+          return responder(revisoes.filter((r) => filtros.every((f) => f(r as unknown as Linha))).map((a) => ({ ...a })));
+        }
         if (tabela !== "auto_detected_sales") return responder(null);
         if (sonda && cfg.estado === "sem_migration") return responder(null, { code: "42703", message: "column auto_detected_sales.conta_id does not exist" });
         if (sonda && cfg.estado === "indisponivel") return responder(null, { message: "canceling statement due to statement timeout" });
@@ -66,6 +70,8 @@ function banco(instituicao = "Mercado Pago") {
         if (op === "select" && porRef && cfg.falharLerRef) return responder(null, { message: "timeout" });
         const alvo = entradas.filter((r) => filtros.every((f) => f(r)));
         if (op === "delete") for (const a of alvo) entradas.splice(entradas.indexOf(a), 1);
+        // the write that keeps a stored entry apart fails (the decision has already been moved)
+        if (op === "update" && cfg.falharEntrada > 0 && idSemPluggy(String(novo.transaction_id ?? ""))) { cfg.falharEntrada--; return responder(null, { message: "timeout" }); }
         if (op === "update") {
           for (const a of alvo) {
             if (novo.transaction_id && entradas.some((e) => e !== a && e.transaction_id === novo.transaction_id)) return responder(null, unico);
@@ -794,6 +800,73 @@ describe("17/11 — an id Pluggy had given to one payment comes back on ANOTHER 
     expect(comRefDe(b, "C1")).toMatchObject({ transaction_id: "y", transaction_date: DIA });
     expect((await ler(b.admin)).completa).toBe(true);
     expect([b.ids(), b.total(DIA), b.total("2026-11-11")]).toEqual([["x1", "y"], 10, 10]);
+  });
+
+  describe("the decision and its entry are two writes: a failure between them never leaves the decision without an entry", () => {
+    const pedido = (id: string, amount = 10) => ({ transaction_id: id, user_id: "vendedor-1", amount, status: "aprovada" });
+    const comEntrada = (b: ReturnType<typeof banco>) => b.revisoes.every((r) => b.entradas.some((e) => e.transaction_id === r.transaction_id));
+    const recolocadas = () => vi.mocked(console.log).mock.calls.filter((c) => String(c[0]).includes("revisao recolocada")).map((c) => JSON.parse(String(c[1])).recolocadas);
+
+    it("the decision moved and the entry's write failed: the decision goes back to its entry in the same read; nothing overwritten, no stamp; the next read does both", async () => {
+      const b = banco();
+      pluggy([pix("x1", "C1", 10, DIA)]); await ler(b.admin);
+      b.revisoes.push(pedido("x1"));
+      b.cfg.falharEntrada = 1;
+      pluggy([pix("x1", "C7", 10, "2026-11-11")]);
+      const r = await ler(b.admin);
+      expect(b.entradas).toHaveLength(1);
+      expect(b.entradas[0]).toMatchObject({ transaction_id: "x1", provedor_ref: "code:C1", transaction_date: DIA, ids_anteriores: [] });
+      expect([b.revisoes[0]?.transaction_id, comEntrada(b), r.completa]).toEqual(["x1", true, false]);
+      const r2 = await ler(b.admin);
+      expect([b.total(DIA), b.total("2026-11-11"), r2.completa]).toEqual([10, 10, true]);
+      expect(idSemPluggy(comRefDe(b, "C1")?.transaction_id)).toBe(true);
+      expect([b.revisoes[0]?.transaction_id, comEntrada(b)]).toEqual([comRefDe(b, "C1")?.transaction_id, true]);
+    });
+
+    it("the function is killed between the two writes and Pluggy never returns that id on another payment again: the next read still puts the decision back", async () => {
+      const b = banco();
+      pluggy([pix("x1", "C1", 10, DIA), pix("k", "C2", 10, DIA)]); await ler(b.admin);
+      const livre = await idDaPreservada("con-1", b.entradas[0] as Linha);
+      b.revisoes.push(pedido(livre)); // what a killed read leaves: the decision on our id, the entry still on Pluggy's
+      expect(comEntrada(b)).toBe(false);
+      const r = await ler(b.admin); // the same list: no id on another payment in this read
+      expect([b.revisoes[0]?.transaction_id, comEntrada(b), r.completa]).toEqual(["x1", true, true]);
+      await ler(b.admin); await ler(b.admin); // any number of times
+      expect([b.revisoes[0]?.transaction_id, b.ids(), recolocadas()]).toEqual(["x1", ["k", "x1"], [1]]);
+    });
+
+    it("and if the entry meanwhile took a new Pluggy id, the decision follows it there", async () => {
+      const b = banco();
+      pluggy([pix("x1", "C1", 10, DIA)]); await ler(b.admin);
+      const livre = await idDaPreservada("con-1", b.entradas[0] as Linha);
+      b.revisoes.push(pedido(livre));
+      pluggy([pix("y", "C1", 10, DIA)]); // re-issued in the very read that repairs
+      await ler(b.admin);
+      expect([b.ids(), b.revisoes[0]?.transaction_id, comEntrada(b)]).toEqual([["y"], "y", true]);
+    });
+
+    it("a whole pair is never touched, and a decision is never put on an entry that merely has the same amount", async () => {
+      const b = banco();
+      pluggy([pix("x1", "C1", 10, DIA), pix("k", "C2", 10, DIA)]); await ler(b.admin);
+      pluggy([pix("x1", "C7", 10, "2026-11-11"), pix("k", "C2", 10, DIA)]); await ler(b.admin); // x1's payment kept apart
+      const inteira = String(comRefDe(b, "C1")?.transaction_id);
+      b.revisoes.push(pedido(inteira), pedido(`${PREFIXO_SEM_ID}de-outra-conexao`));
+      await ler(b.admin); await ler(b.admin);
+      expect(b.revisoes.map((r) => r.transaction_id)).toEqual([inteira, `${PREFIXO_SEM_ID}de-outra-conexao`]);
+      expect(recolocadas()).toEqual([0, 0]);
+    });
+
+    it("the decisions cannot be read: the read goes on as it would, nothing is moved", async () => {
+      const b = banco();
+      pluggy([pix("x1", "C1", 10, DIA)]); await ler(b.admin);
+      b.revisoes.push(pedido(await idDaPreservada("con-1", b.entradas[0] as Linha)));
+      b.cfg.falharLerRevisao = true;
+      const r = await ler(b.admin);
+      expect([r.completa, b.ids(), idSemPluggy(b.revisoes[0]?.transaction_id)]).toEqual([true, ["x1"], true]);
+      b.cfg.falharLerRevisao = false;
+      await ler(b.admin);
+      expect(b.revisoes[0]?.transaction_id).toBe("x1");
+    });
   });
 
   it("same id and SAME reference is the entry itself: corrected in place, as before", async () => {

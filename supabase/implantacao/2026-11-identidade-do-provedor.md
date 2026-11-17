@@ -153,6 +153,20 @@ existing re-issue rule points its row to it. Scope: both references of an applie
 (providerCode). A stored row without reference, or a providerId, is rewritten exactly as before and
 only counted.
 
+**The decision and the entry are two writes.** The decision moves first; if the entry's write then
+fails, the decision is put back on its entry in the same read (`recolocarRevisoes`). If the function
+is killed between the two, the same routine runs at the start of every later read of that
+connection: a decision on an id of ours that no entry has is matched to its entry by what the id
+was made of (never by amount alone) and moved to wherever that entry is now. A decision that has its
+entry is never touched, so it can run any number of times.
+
+```sql
+-- decisions on an id of ours with no entry behind them (expected: 0 rows, always)
+select r.transaction_id, r.status, r.criado_em from banco_entradas_revisao r
+ where r.transaction_id like 'vant-sem-id:%'
+   and not exists (select 1 from auto_detected_sales a where a.transaction_id = r.transaction_id);
+```
+
 **No migration.** `transaction_id` is text; nothing casts it.
 
 **What to watch** — log `pluggy identidade: id reaproveitado {conexao, preservadas,
