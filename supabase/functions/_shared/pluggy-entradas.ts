@@ -14,7 +14,7 @@
 // crédito como "ignorado", a próxima leitura não desfaz a escolha dele.
 
 import { linhasMudadas, type LinhaEntrada } from "./pluggy-linhas.ts";
-import { bancoComReferencia, type EstadoDaIdentidade, estadoPeloErro, modoDaReferencia, MODOS_DA_IDENTIDADE, type ModosDaIdentidade, reapontamentos, referenciaDe, referenciaDeCodigo, referenciasDaLeitura } from "./pluggy-identidade.ts";
+import { bancoComReferencia, type EstadoDaIdentidade, estadoPeloErro, idDaPreservada, idSemPluggy, modoDaReferencia, MODOS_DA_IDENTIDADE, type ModosDaIdentidade, reapontamentos, reaproveitados, referenciaDe, referenciaDeCodigo, referenciasDaLeitura } from "./pluggy-identidade.ts";
 import { type Existe, identidadeDoDia, MODO_DA_MARGEM, type ModoDaMargem, parearComSumidas, type TransacaoBruta, vereditoDoPar } from "./pluggy-margem.ts";
 
 const BRT = "America/Sao_Paulo";
@@ -390,15 +390,19 @@ export async function reapontarReemitidas(
   // deno-lint-ignore no-explicit-any
   admin: any, p: { conexaoId: string; userId: string; linhas: LinhaDoBanco[]; vistos: Set<string>; completa: boolean; modos: ModosDaIdentidade; dataDe?: string },
 ) {
-  const fim = { reapontadas: 0, observadas: 0, divergentes: 0, retidas: 0, adiar: new Set<string>(), naoGravar: new Set<string>() };
+  const fim = { reapontadas: 0, observadas: 0, divergentes: 0, retidas: 0, preservadas: 0, adiar: new Set<string>(), naoGravar: new Set<string>() };
   const comRef = p.linhas.filter((l) => l.provedor_ref && l.conta_id);
   if (comRef.length === 0) return fim;
   const guardadasPorId = new Set<string>();
   // deno-lint-ignore no-explicit-any
   const guardadas: any[] = [];
+  // deno-lint-ignore no-explicit-any
+  const comEsseId: any[] = [];
   for (let i = 0; i < comRef.length; i += 100) {
     const lote = comRef.slice(i, i + 100);
-    const a = await admin.from("auto_detected_sales").select("transaction_id").in("transaction_id", lote.map((l) => l.transaction_id));
+    const a = await admin.from("auto_detected_sales")
+      .select("transaction_id, bank_connection_id, conta_id, provedor_ref, transaction_date, amount, ids_anteriores")
+      .in("transaction_id", lote.map((l) => l.transaction_id));
     const b = a.error ? a : await admin.from("auto_detected_sales")
       .select("transaction_id, conta_id, provedor_ref, transaction_date, amount, ids_anteriores")
       .eq("bank_connection_id", p.conexaoId).in("provedor_ref", lote.map((l) => String(l.provedor_ref)));
@@ -407,8 +411,40 @@ export async function reapontarReemitidas(
       for (const l of lote) fim.adiar.add(l.transaction_id);
       continue;
     }
-    for (const e of a.data ?? []) guardadasPorId.add(String(e.transaction_id));
+    for (const e of a.data ?? []) { guardadasPorId.add(String(e.transaction_id)); comEsseId.push(e); }
     guardadas.push(...(b.data ?? []));
+  }
+  // 17/11: an id Pluggy had given to one payment comes back on ANOTHER one (another providerCode).
+  // The stored entry is not overwritten: it lets go of the id — keeping everything else it has, and
+  // the seller's decision on it — and the entry that arrived is from here on a new id like any other
+  // (pointed back to its own row if it has one; otherwise written, or decided on evidence on the
+  // oldest day). It does not wait for a whole list: it rests on what came, not on what is missing.
+  const reuso = reaproveitados(comRef.filter((l) => !fim.adiar.has(l.transaction_id)), comEsseId, p.conexaoId, p.modos);
+  let preservarFalhou = 0;
+  for (const g of reuso.soltar) {
+    const livre = await idDaPreservada(p.conexaoId, g);
+    const anteriores = [...new Set([...(g.ids_anteriores ?? []), g.transaction_id])];
+    // the decision first, as in a re-issue; the id it moves to is always the same for this payment,
+    // so a half-done pair is finished by the next read
+    const rev = await admin.from("banco_entradas_revisao").update({ transaction_id: livre }).eq("transaction_id", g.transaction_id).select("transaction_id");
+    const mud = rev.error ? rev : await admin.from("auto_detected_sales").update({ transaction_id: livre, ids_anteriores: anteriores })
+      .eq("transaction_id", g.transaction_id).eq("bank_connection_id", p.conexaoId).eq("provedor_ref", g.provedor_ref).select("transaction_id");
+    if (mud.error || (mud.data ?? []).length === 0) {
+      // not kept apart = the arriving entry is NOT written over it now; no stamp, the next read tries again
+      fim.adiar.add(g.transaction_id); preservarFalhou++;
+      if (mud.error) console.error("pluggy identidade: guardada nao preservada", mud.error.message);
+      continue;
+    }
+    fim.preservadas++;
+    guardadasPorId.delete(g.transaction_id);
+    // its own payment may be in this very list under a new id: then it is pointed back just below
+    for (const x of guardadas) if (x.transaction_id === g.transaction_id) { x.transaction_id = livre; x.ids_anteriores = anteriores; }
+  }
+  if (fim.preservadas + reuso.observados + preservarFalhou > 0) {
+    // counts only: no id, reference, amount, name or document
+    console.log("pluggy identidade: id reaproveitado", JSON.stringify({
+      conexao: p.conexaoId, preservadas: fim.preservadas, sem_referencia_so_observadas: reuso.observados, adiadas: preservarFalhou,
+    }));
   }
   const novas = comRef.filter((l) => !guardadasPorId.has(l.transaction_id) && !fim.adiar.has(l.transaction_id));
   const { reapontar, divergentes } = reapontamentos(novas, guardadas, p.vistos, p.dataDe ?? "");
@@ -462,6 +498,9 @@ export const MAX_CONFERIR = 60;
 /** Does this transaction id still exist on Pluggy? Only an explicit answer counts:
  *  200 with that same id = it exists; 404 = it does not; anything else = no answer. */
 export async function existeNaPluggy(apiKey: string, id: string): Promise<Existe> {
+  // 17/11: an id of our own (a stored entry whose Pluggy id went to another payment) is never asked
+  // of Pluggy, and its absence there proves nothing about the payment
+  if (idSemPluggy(id)) return "sem_resposta";
   try {
     const r = await fetch(`https://api.pluggy.ai/transactions/${encodeURIComponent(id)}`, {
       headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(10000),

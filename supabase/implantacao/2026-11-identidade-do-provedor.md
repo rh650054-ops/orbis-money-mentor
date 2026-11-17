@@ -132,3 +132,49 @@ Rows already pointed back keep their current id and their `ids_anteriores`.
 5. Two transactions of one read with the same reference, day and amount: both stored, neither constrained.
 6. An account with more than 5 pages in the window is never a whole list: re-issues wait, the read is not stamped.
 7. The copies stored before publication (separate procedure, PR #321).
+
+## 17/11 — an id handed to another payment (second change, code only)
+
+**What production showed** (first night, statement of 6 connections checked 13–17/11; 28 of 30
+connection-days equal to Pluggy's to the cent): Pluggy also gives an id that belonged to one
+payment to another payment of the same amount. The importer trusted the id and rewrote the row.
+
+| Seller | Day | Vant | Pluggy | What happened |
+|---|---|---|---|---|
+| 18b4ce0f | 13/11 | 23 · R$ 478.90 | 19 · R$ 383.90 | ids of three Pix of 16/11 came back as payments of 13/11 (already stored): +3 rows, +R$ 80 (one more row, R$ 15, was there before) |
+| 820e8266 | 13/11 | 3 · R$ 41.00 | 6 · R$ 74.00 | ids of three Pix of 13/11 came back as payments of 16 and 17/11, with 13/11 no longer read: −3 rows, −R$ 33 |
+
+**The rule** (`reaproveitados`, in `reapontarReemitidas`): a returned entry whose id is stored, in
+this connection, with ANOTHER providerCode → the stored entry is not overwritten. It moves to an id
+of its own (`vant-sem-id:` + digest of connection, account, reference, day, amount; its decision in
+`banco_entradas_revisao` moves with it; the Pluggy id goes to `ids_anteriores`) and the returned
+entry is a new id like any other. When the stored payment comes back under a new Pluggy id, the
+existing re-issue rule points its row to it. Scope: both references of an applied kind
+(providerCode). A stored row without reference, or a providerId, is rewritten exactly as before and
+only counted.
+
+**No migration.** `transaction_id` is text; nothing casts it.
+
+**What to watch** — log `pluggy identidade: id reaproveitado {conexao, preservadas,
+sem_referencia_so_observadas, adiadas}`:
+
+```sql
+-- stored entries currently without a Pluggy id (each one is a payment that was NOT overwritten)
+select left(bank_connection_id::text, 8) conexao, transaction_date, count(*), sum(amount)
+  from auto_detected_sales where transaction_id like 'vant-sem-id:%' group by 1, 2 order by 1, 2;
+```
+
+A day where that count grows AND Vant shows more entries than Pluggy's statement would mean a
+provider changing the providerCode of one payment — never seen (72 re-issues recognised by
+reference, 0 divergences); it would show here first.
+
+**Rollback**: republish the four functions from the commit before this one. Rows already kept under
+`vant-sem-id:` stay valid for the previous code (it never removes an entry that carries a
+providerCode for being absent from a list) and are still pointed back by reference.
+
+**Does NOT correct what already happened**: the 3 rows too many (18b4ce0f, 13/11) and the 3 missing
+payments (820e8266, 13/11) are data corrections, to be authorised separately.
+
+**Known**: `pluggy-conferir` (PR #321) asks Pluggy about every stored id it did not list; an id of
+ours would be asked too. To be taught the prefix before the next use of the checker on a day that
+has such rows.
