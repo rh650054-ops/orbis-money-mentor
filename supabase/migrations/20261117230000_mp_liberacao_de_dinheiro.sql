@@ -11,6 +11,9 @@
 -- Fix (rule for everyone): those descriptions are card machine money. The usual protections
 -- still apply: own transfers and refunds are checked before, and the ranking cap
 -- (typed sales − cash + R$ 500) still limits each day.
+-- Mercado Pago lists each machine sale on its own, so a single one far above the ticket
+-- (> max(R$ 150, 6 × ticket)) is held as 'grande' for the admin, like a big Pix: in the real case
+-- the seller ran his own credit card (R$ 2.060 + R$ 500, at 22h, after his sales day).
 --
 -- Also: banco_reconciliar(user, since) redoes the days from a given date (SQL editor only),
 -- because the normal reconcile only looks at the last 6 days.
@@ -20,6 +23,96 @@ returns boolean language sql immutable set search_path to 'public' as $function$
   select coalesce(lower(trim(p_descr)), '') ~
     '^(vendas?|recebimento de vendas?|liquida[cç][aã]o de vendas?|vendas? (no |com )?(cart[aã]o|d[eé]bito|cr[eé]dito).*|antecipa[cç][aã]o de vendas?.*|concepto|vendas? - dispon[ií]vel.*|venda presencial.*|vendas?: .+|vendas? com pix.*|libera[cç][aã]o de dinheiro( venda com (pix|qr ?code|cart[aã]o.*))?)$';
 $function$;
+
+create or replace function public.banco_entradas_classificadas(p_user uuid, p_de date, p_ate date)
+returns table(id uuid, transaction_id text, bank_connection_id uuid, amount numeric, description text, transaction_date date,
+              transacted_at timestamp with time zone, created_at timestamp with time zone, is_pix boolean, pagador text, motivo text)
+language sql stable security definer set search_path = public as $$
+  with perfil as (
+    select p.nickname, regexp_replace(coalesce(p.cpf, ''), '\D', '', 'g') as cpf,
+           regexp_replace(coalesce(p.tax_cnpj, ''), '\D', '', 'g') as cnpj, p.pix_merchant_name,
+           coalesce((select f.ticket from public.orbis_ficha f where f.user_id = p_user), 20) as ticket
+      from public.profiles p where p.user_id = p_user
+  ),
+  donos as (
+    select bc.dono_nome, regexp_replace(coalesce(bc.dono_doc, ''), '\D', '', 'g') as doc
+      from public.bank_connections bc where bc.user_id = p_user and (bc.dono_nome is not null or bc.dono_doc is not null)
+  ),
+  base as (
+    select a.id, a.transaction_id, a.bank_connection_id, a.amount, a.description, a.transaction_date, a.transacted_at, a.created_at,
+           coalesce(a.is_pix, coalesce(a.description, '') ilike '%pix%' or coalesce(a.description, '') ilike 'transfer%recebid%') as is_pix,
+           public.banco_eh_maquininha(a.description) as maq,
+           public.banco_pagador(a.pagador_nome, a.description) as pagador,
+           regexp_replace(coalesce(a.pagador_doc, ''), '\D', '', 'g') as doc,
+           coalesce(a.own_transfer, false) as own_transfer,
+           regexp_replace(coalesce(substring(a.description from '(\d{2}\.?\d{3}\.?\d{3})'), ''), '\D', '', 'g') as doc_descr,
+           -- 'total' = approved by the admin (lifts every check below); 'pessoal' = the seller marked it
+           -- himself (lifts only the personal-account check: big, recurring or round-trip still apply)
+           (select case when rv.motivo = 'conta_pessoal' then 'pessoal' else 'total' end
+              from public.banco_entradas_revisao rv
+             where rv.transaction_id = a.transaction_id and rv.status = 'aprovada') as aprovacao
+      from public.auto_detected_sales a
+     where a.user_id = p_user
+       and a.transaction_date between p_de - 2 and p_ate + 2
+       and coalesce(a.status, 'pending') <> 'ignored'
+  ),
+  por_dia as (
+    select public.banco_pagador(a.pagador_nome, a.description) as pagador, a.transaction_date as d, count(*) as cnt, sum(a.amount) as total
+      from public.auto_detected_sales a
+     where a.user_id = p_user and a.transaction_date between p_ate - 30 and p_ate + 2
+       and coalesce(a.status, 'pending') <> 'ignored'
+       and public.banco_pagador(a.pagador_nome, a.description) ~ '[a-z]{3,}.*[a-z]{3,}'
+       and not public.banco_eh_maquininha(a.description)
+     group by 1, 2
+  ),
+  recorrentes as (
+    select pd.pagador from por_dia pd cross join perfil pf
+     group by pd.pagador, pf.ticket
+    having max(pd.cnt) >= 3
+        or sum(pd.cnt) >= 5
+        or (count(*) >= 3 and sum(pd.total) > 6 * pf.ticket)
+  ),
+  classificada as (
+    select b.*, pf.ticket,
+      case
+        when not (b.is_pix or b.maq) then 'nao_e_venda'
+        when coalesce(b.description, '') || ' ' || coalesce(b.pagador, '') ~* '(kiwify|hotmart|ebanx|eduzz|monetizze|braip|perfect ?pay)' then 'plataforma'
+        when public.banco_nao_e_venda(b.description) then 'reembolso'
+        when b.own_transfer then 'propria'
+        when b.doc <> '' and (b.doc = pf.cpf or b.doc = pf.cnpj or exists (select 1 from donos d where d.doc <> '' and (d.doc = b.doc or left(d.doc, 8) = left(b.doc, 8)))) then 'propria'
+        when b.doc_descr <> '' and (left(pf.cnpj, 8) = b.doc_descr or left(pf.cpf, 8) = b.doc_descr or exists (select 1 from donos d where left(d.doc, 8) = b.doc_descr)) then 'propria'
+        when exists (select 1 from donos d where public.banco_mesma_pessoa(d.dono_nome, b.pagador)) then 'propria'
+        when public.banco_mesma_pessoa(pf.nickname, b.pagador) or public.banco_mesma_pessoa(pf.pix_merchant_name, b.pagador) then 'propria'
+        when exists (select 1 from public.open_finance_contas_proprias cp where cp.user_id = p_user and b.description ilike '%' || cp.termo || '%') then 'propria'
+        -- 17/11: Mercado Pago reports each machine sale on its own ("Liberação de dinheiro"), so one
+        -- far above the ticket is not street money — the seller's own card on his machine (real case:
+        -- R$ 2.060 + R$ 500 at 22h, after the sales day). It waits for the admin like a big Pix.
+        when b.maq and lower(coalesce(b.description, '')) ~ '^libera[cç][aã]o de dinheiro'
+             and b.amount > greatest(150, 6 * pf.ticket) and b.aprovacao is distinct from 'total' then 'grande'
+        when b.maq then null
+        -- 15/11: from here on, a Pix marked as a sale counts
+        when b.aprovacao = 'total' then null
+        when b.aprovacao is distinct from 'pessoal'
+         and not public.banco_conta_de_venda(b.bank_connection_id, coalesce(b.transacted_at, b.created_at)) then 'conta_pessoal'
+        when exists (
+          select 1 from public.extrato_lancamentos e
+           where e.user_id = p_user and e.tipo = 'saida'
+             and e.data between b.transaction_date - 2 and b.transaction_date + 2
+             and e.valor >= b.amount * 0.8
+             and public.banco_mesma_pessoa(coalesce(e.pessoa, e.comerciante, e.descricao), b.pagador)) then 'ida_volta'
+        when b.pagador in (select r.pagador from recorrentes r) then 'recorrente'
+        when b.amount > greatest(500, 20 * pf.ticket) then 'grande'
+        when b.amount > greatest(60, 3 * pf.ticket) and exists (
+          select 1 from public.profiles o
+           where o.user_id <> p_user and o.nickname is not null and public.banco_mesma_pessoa(o.nickname, b.pagador)) then 'vendedor'
+        else null
+      end as motivo
+    from base b cross join perfil pf
+  )
+  select c.id, c.transaction_id, c.bank_connection_id, c.amount, c.description, c.transaction_date, c.transacted_at, c.created_at,
+         c.is_pix, c.pagador, c.motivo
+    from classificada c;
+$$;
 
 -- the reconcile, from a given day (the 1-argument version keeps the last 6 days)
 create or replace function public.banco_reconciliar(p_user uuid, p_desde date)
