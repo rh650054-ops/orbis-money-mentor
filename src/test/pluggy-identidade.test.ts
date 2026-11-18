@@ -2,17 +2,17 @@
 // scenarios A to I of the owner's brief and the points of the review of PR #319, against a table
 // that has the migration's columns and enforces its unique index.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { importarEntradas } from "../../supabase/functions/_shared/pluggy-entradas";
-import { bancoComReferencia, estadoPeloErro, modoDaReferencia, MODOS_DA_IDENTIDADE, reapontamentos, referenciaDe, referenciasDaLeitura, type ModosDaIdentidade } from "../../supabase/functions/_shared/pluggy-identidade";
+import { existeNaPluggy, importarEntradas } from "../../supabase/functions/_shared/pluggy-entradas";
+import { bancoComReferencia, estadoPeloErro, idDaPreservada, idSemPluggy, modoDaReferencia, MODOS_DA_IDENTIDADE, PREFIXO_SEM_ID, reapontamentos, reaproveitados, referenciaDe, referenciasDaLeitura, type ModosDaIdentidade } from "../../supabase/functions/_shared/pluggy-identidade";
 
 type Linha = Record<string, unknown> & { transaction_id: string; transaction_date: string; amount: number; bank_connection_id: string };
 
 function banco(instituicao = "Mercado Pago") {
   const entradas: Linha[] = [];
   const divergencias: Record<string, unknown>[] = [];
-  const revisoes: { transaction_id: string; status: string }[] = []; // banco_entradas_revisao (PR #320)
+  const revisoes: { transaction_id: string; status: string; user_id?: string; amount?: number }[] = []; // banco_entradas_revisao (PR #320)
   const cfg = {
-    falharLerRef: false, falharRevisao: false, estado: "ativa" as "ativa" | "sem_migration" | "indisponivel",
+    falharLerRef: false, falharRevisao: false, falharEntrada: 0, falharLerRevisao: false, estado: "ativa" as "ativa" | "sem_migration" | "indisponivel",
     antesDeGravar: null as null | (() => void), antesDeReapontar: null as null | (() => void),
   };
   const identidade = (r: Linha) => r.provedor_ref && r.conta_id ? `${r.bank_connection_id}|${r.conta_id}|${r.provedor_ref}|${r.transaction_date}|${Number(r.amount).toFixed(2)}` : null;
@@ -59,6 +59,10 @@ function banco(instituicao = "Mercado Pago") {
           for (const a of alvo) Object.assign(a, novo);
           return responder(alvo.map((a) => ({ ...a })));
         }
+        if (tabela === "banco_entradas_revisao" && op === "select") {
+          if (cfg.falharLerRevisao) return responder(null, { message: "timeout" });
+          return responder(revisoes.filter((r) => filtros.every((f) => f(r as unknown as Linha))).map((a) => ({ ...a })));
+        }
         if (tabela !== "auto_detected_sales") return responder(null);
         if (sonda && cfg.estado === "sem_migration") return responder(null, { code: "42703", message: "column auto_detected_sales.conta_id does not exist" });
         if (sonda && cfg.estado === "indisponivel") return responder(null, { message: "canceling statement due to statement timeout" });
@@ -66,6 +70,8 @@ function banco(instituicao = "Mercado Pago") {
         if (op === "select" && porRef && cfg.falharLerRef) return responder(null, { message: "timeout" });
         const alvo = entradas.filter((r) => filtros.every((f) => f(r)));
         if (op === "delete") for (const a of alvo) entradas.splice(entradas.indexOf(a), 1);
+        // the write that keeps a stored entry apart fails (the decision has already been moved)
+        if (op === "update" && cfg.falharEntrada > 0 && idSemPluggy(String(novo.transaction_id ?? ""))) { cfg.falharEntrada--; return responder(null, { message: "timeout" }); }
         if (op === "update") {
           for (const a of alvo) {
             if (novo.transaction_id && entradas.some((e) => e !== a && e.transaction_id === novo.transaction_id)) return responder(null, unico);
@@ -639,6 +645,281 @@ describe("a failed query never makes the protection disappear", () => {
     b.cfg.falharLerRef = false;
     expect((await ler(b.admin)).completa).toBe(true);
     expect(b.ids()).toEqual(["b1"]);
+  });
+});
+
+describe("17/11 — an id Pluggy had given to one payment comes back on ANOTHER one", () => {
+  const HOJE = "2026-11-12";
+  const comRefDe = (b: ReturnType<typeof banco>, code: string) => b.entradas.find((e) => e.provedor_ref === `code:${code}`);
+  const semId = (b: ReturnType<typeof banco>) => b.entradas.filter((e) => idSemPluggy(e.transaction_id));
+
+  // production, seller 18b4ce0f, 16/11: three Pix received in the evening; at 22:35 their ids came
+  // back as three payments of the oldest day (already stored, without reference); the sales only
+  // got their new ids at 02:35
+  const cenarioDaNoite = async () => {
+    vi.setSystemTime(NA_BORDA_09);
+    const b = banco();
+    b.entradas.push(semRef("velho1", 25), semRef("velho2", 30), semRef("velho3", 25));
+    const dia9 = (p: string) => [pix(`${p}1`, "P1", 25, DIA), pix(`${p}2`, "P2", 30, DIA), pix(`${p}3`, "P3", 25, DIA)];
+    pluggy([...dia9("n"), pix("w1", "S1", 25, HOJE), pix("w2", "S2", 30, HOJE), pix("w3", "S3", 25, HOJE)]);
+    await ler(b.admin);
+    expect([b.doDia(DIA).length, b.total(DIA), b.doDia(HOJE).length, b.total(HOJE)]).toEqual([3, 80, 3, 80]);
+    Object.assign(comRefDe(b, "S1") ?? {}, { status: "ignored", daily_sale_id: "venda-9" }); // what the seller did with it
+    b.revisoes.push({ transaction_id: "w2", status: "aprovada" });
+    return { b, dia9 };
+  };
+
+  it("on the oldest day: the three rows of today's sales are NOT rewritten as that day (before: R$ 80 became R$ 160 there, and today lost R$ 80)", async () => {
+    const { b, dia9 } = await cenarioDaNoite();
+    pluggy(dia9("w")); // the ids of today's sales, now on the three old payments; the sales are not listed
+    const r = await ler(b.admin);
+    expect([b.doDia(DIA).length, b.total(DIA)]).toEqual([3, 80]);
+    expect([b.doDia(HOJE).length, b.total(HOJE)]).toEqual([3, 80]);
+    expect(b.doDia(DIA).map((e) => e.transaction_id).sort()).toEqual(["velho1", "velho2", "velho3"]);
+    expect(semId(b).map((e) => e.provedor_ref).sort()).toEqual(["code:S1", "code:S2", "code:S3"]);
+    expect(comRefDe(b, "S1")).toMatchObject({ status: "ignored", daily_sale_id: "venda-9", transaction_date: HOJE, ids_anteriores: ["w1"] });
+    expect(b.revisoes).toEqual([{ transaction_id: comRefDe(b, "S2")?.transaction_id, status: "aprovada" }]); // not left on an id that is now another Pix
+    expect(r.completa).toBe(true);
+  });
+
+  it("and when the sales come back under their new ids, each row takes its own: nothing left without a Pluggy id", async () => {
+    const { b, dia9 } = await cenarioDaNoite();
+    pluggy(dia9("w")); await ler(b.admin);
+    pluggy([...dia9("w"), pix("m1", "S1", 25, HOJE), pix("m2", "S2", 30, HOJE), pix("m3", "S3", 25, HOJE)]);
+    const r = await ler(b.admin);
+    expect(b.doDia(HOJE).map((e) => e.transaction_id).sort()).toEqual(["m1", "m2", "m3"]);
+    expect([b.doDia(DIA).length, b.total(DIA), b.total(HOJE), semId(b).length]).toEqual([3, 80, 80, 0]);
+    expect(comRefDe(b, "S1")).toMatchObject({ transaction_id: "m1", status: "ignored", daily_sale_id: "venda-9" });
+    expect(comRefDe(b, "S1")?.ids_anteriores).toContain("w1");
+    expect(b.revisoes).toEqual([{ transaction_id: "m2", status: "aprovada" }]);
+    expect(r.completa).toBe(true);
+  });
+
+  // production, seller 820e8266, 17/11: the ids of three Pix of a day that is no longer read came
+  // back as payments of the last two days
+  it("a day that is no longer read: its three payments stay (before: gone — Pluggy listed 6, Vant 3)", async () => {
+    const b = banco();
+    pluggy([pix("x1", "C1", 10, DIA), pix("x2", "C2", 11, DIA), pix("x3", "C3", 12, DIA)]); await ler(b.admin);
+    b.revisoes.push({ transaction_id: "x3", status: "pendente" });
+    vi.setSystemTime(new Date("2026-11-14T04:50:00Z")); // 14/11 01:50 in Brasília: the window starts 11/11
+    pluggy([pix("x1", "C7", 10, "2026-11-13"), pix("x2", "C8", 11, "2026-11-13"), pix("x3", "C9", 12, "2026-11-14")]);
+    const r = await ler(b.admin);
+    expect([b.doDia(DIA).length, b.total(DIA)]).toEqual([3, 33]);
+    expect(b.doDia(DIA).map((e) => e.provedor_ref).sort()).toEqual(["code:C1", "code:C2", "code:C3"]);
+    expect(b.doDia(DIA).every((e) => idSemPluggy(e.transaction_id))).toBe(true);
+    expect([b.doDia("2026-11-13").length, b.total("2026-11-13"), b.doDia("2026-11-14").length, b.total("2026-11-14")]).toEqual([2, 21, 1, 12]);
+    expect(b.entradas.find((e) => e.transaction_id === "x3")).toMatchObject({ provedor_ref: "code:C9", transaction_date: "2026-11-14" });
+    expect(b.revisoes[0]?.transaction_id).toBe(comRefDe(b, "C3")?.transaction_id); // the request stays with the Pix it was made about
+    expect(r.completa).toBe(true);
+    // and later whole reads never remove them for being absent from the list
+    pluggy([pix("x1", "C7", 10, "2026-11-13"), pix("x2", "C8", 11, "2026-11-13"), pix("x3", "C9", 12, "2026-11-14")]);
+    await ler(b.admin); await ler(b.admin);
+    expect([b.entradas.length, b.total(DIA)]).toEqual([6, 33]);
+  });
+
+  it("both in one read, inside the window: the old payment keeps its row under the new id, the new one gets a row; no refused write", async () => {
+    const b = banco();
+    pluggy([pix("x", "C1", 20, DIA), pix("k", "C2", 20, DIA)]); await ler(b.admin);
+    Object.assign(comRefDe(b, "C1") ?? {}, { status: "ignored" });
+    pluggy([pix("x", "C9", 20, "2026-11-11"), pix("y", "C1", 20, DIA), pix("k", "C2", 20, DIA)]);
+    const r = await ler(b.admin);
+    expect(b.ids()).toEqual(["k", "x", "y"]);
+    expect(comRefDe(b, "C1")).toMatchObject({ transaction_id: "y", transaction_date: DIA, status: "ignored" });
+    expect(comRefDe(b, "C1")?.ids_anteriores).toContain("x");
+    expect(comRefDe(b, "C9")).toMatchObject({ transaction_id: "x", transaction_date: "2026-11-11", status: "pending" });
+    expect([b.total(DIA), b.total("2026-11-11"), r.completa]).toEqual([40, 20, true]);
+    expect(vi.mocked(console.error).mock.calls.filter((c) => String(c[0]).includes("upsert"))).toEqual([]);
+  });
+
+  it("two payments swap ids: each row follows its own reference, two rows before and after, nothing refused", async () => {
+    const b = banco();
+    pluggy([pix("x", "C1", 20, DIA), pix("z", "C9", 20, "2026-11-11")]); await ler(b.admin);
+    Object.assign(comRefDe(b, "C9") ?? {}, { daily_sale_id: "venda-3" });
+    pluggy([pix("x", "C9", 20, "2026-11-11"), pix("y", "C1", 20, DIA)]);
+    const r = await ler(b.admin);
+    expect(b.ids()).toEqual(["x", "y"]);
+    expect(comRefDe(b, "C9")).toMatchObject({ transaction_id: "x", transaction_date: "2026-11-11", daily_sale_id: "venda-3", ids_anteriores: ["z"] });
+    expect(comRefDe(b, "C1")).toMatchObject({ transaction_id: "y", transaction_date: DIA });
+    expect([b.total(DIA), b.total("2026-11-11"), r.completa]).toEqual([20, 20, true]);
+    expect(vi.mocked(console.error).mock.calls.filter((c) => String(c[0]).includes("upsert"))).toEqual([]);
+  });
+
+  it("it does not wait for a whole list: on half a list the stored payment is still kept apart", async () => {
+    const b = banco();
+    pluggy([pix("x1", "C1", 10, DIA)]); await ler(b.admin);
+    pluggy([pix("x1", "C7", 10, "2026-11-11"), pix("z", "C8", 5, "2026-11-11", { pagina: 1 })], { paginaFora: 1 });
+    const r = await ler(b.admin);
+    expect([b.total(DIA), b.total("2026-11-11"), r.completa]).toEqual([10, 10, false]);
+    expect(comRefDe(b, "C1")?.transaction_date).toBe(DIA);
+  });
+
+  it("the stored payment cannot be kept apart (its decision cannot be moved): it is NOT overwritten, the arriving one waits, no stamp; the next read does it", async () => {
+    const b = banco();
+    pluggy([pix("x1", "C1", 10, DIA)]); await ler(b.admin);
+    b.revisoes.push({ transaction_id: "x1", status: "aprovada" });
+    b.cfg.falharRevisao = true;
+    pluggy([pix("x1", "C7", 10, "2026-11-11")]);
+    const r = await ler(b.admin);
+    expect(b.entradas).toHaveLength(1);
+    expect(b.entradas[0]).toMatchObject({ transaction_id: "x1", provedor_ref: "code:C1", transaction_date: DIA });
+    expect([b.revisoes[0]?.transaction_id, r.completa]).toEqual(["x1", false]);
+    b.cfg.falharRevisao = false;
+    expect((await ler(b.admin)).completa).toBe(true);
+    expect([b.total(DIA), b.total("2026-11-11")]).toEqual([10, 10]);
+    expect(b.revisoes[0]?.transaction_id).toBe(comRefDe(b, "C1")?.transaction_id);
+  });
+
+  it("two imports at once: the one that arrives second overwrites nothing and both end at the same id", async () => {
+    const b = banco();
+    pluggy([pix("x1", "C1", 10, DIA)]); await ler(b.admin);
+    b.revisoes.push({ transaction_id: "x1", status: "aprovada" });
+    const guardada = { ...(b.entradas[0] as Linha) };
+    const livre = await idDaPreservada("con-1", guardada);
+    // the rival moves decision and entry between our lookup and our update
+    b.cfg.antesDeReapontar = () => { Object.assign(b.entradas[0] as Linha, { transaction_id: livre, ids_anteriores: ["x1"] }); if (b.revisoes[0]) b.revisoes[0].transaction_id = livre; };
+    pluggy([pix("x1", "C7", 10, "2026-11-11")]);
+    const r = await ler(b.admin);
+    expect(b.entradas).toHaveLength(1);
+    expect(b.entradas[0]).toMatchObject({ transaction_id: livre, provedor_ref: "code:C1", transaction_date: DIA });
+    expect(r.completa).toBe(false);
+    expect((await ler(b.admin)).completa).toBe(true);
+    expect([b.total(DIA), b.total("2026-11-11"), b.revisoes[0]?.transaction_id]).toEqual([10, 10, livre]);
+  });
+
+  it("a rival import already finished both (old payment on its new id, arriving one stored under the id): ours moves neither", async () => {
+    const b = banco();
+    pluggy([pix("x1", "C1", 10, DIA)]); await ler(b.admin);
+    b.cfg.antesDeReapontar = () => {
+      Object.assign(b.entradas[0] as Linha, { transaction_id: "y", ids_anteriores: ["x1"] });
+      b.entradas.push({ ...(b.entradas[0] as Linha), transaction_id: "x1", provedor_ref: "code:C7", transaction_date: "2026-11-11", ids_anteriores: [] });
+    };
+    pluggy([pix("x1", "C7", 10, "2026-11-11"), pix("y", "C1", 10, DIA)]);
+    await ler(b.admin);
+    expect(b.ids()).toEqual(["x1", "y"]);
+    expect(comRefDe(b, "C7")).toMatchObject({ transaction_id: "x1", transaction_date: "2026-11-11" });
+    expect(comRefDe(b, "C1")).toMatchObject({ transaction_id: "y", transaction_date: DIA });
+    expect((await ler(b.admin)).completa).toBe(true);
+    expect([b.ids(), b.total(DIA), b.total("2026-11-11")]).toEqual([["x1", "y"], 10, 10]);
+  });
+
+  describe("the decision and its entry are two writes: a failure between them never leaves the decision without an entry", () => {
+    const pedido = (id: string, amount = 10) => ({ transaction_id: id, user_id: "vendedor-1", amount, status: "aprovada" });
+    const comEntrada = (b: ReturnType<typeof banco>) => b.revisoes.every((r) => b.entradas.some((e) => e.transaction_id === r.transaction_id));
+    const recolocadas = () => vi.mocked(console.log).mock.calls.filter((c) => String(c[0]).includes("revisao recolocada")).map((c) => JSON.parse(String(c[1])).recolocadas);
+
+    it("the decision moved and the entry's write failed: the decision goes back to its entry in the same read; nothing overwritten, no stamp; the next read does both", async () => {
+      const b = banco();
+      pluggy([pix("x1", "C1", 10, DIA)]); await ler(b.admin);
+      b.revisoes.push(pedido("x1"));
+      b.cfg.falharEntrada = 1;
+      pluggy([pix("x1", "C7", 10, "2026-11-11")]);
+      const r = await ler(b.admin);
+      expect(b.entradas).toHaveLength(1);
+      expect(b.entradas[0]).toMatchObject({ transaction_id: "x1", provedor_ref: "code:C1", transaction_date: DIA, ids_anteriores: [] });
+      expect([b.revisoes[0]?.transaction_id, comEntrada(b), r.completa]).toEqual(["x1", true, false]);
+      const r2 = await ler(b.admin);
+      expect([b.total(DIA), b.total("2026-11-11"), r2.completa]).toEqual([10, 10, true]);
+      expect(idSemPluggy(comRefDe(b, "C1")?.transaction_id)).toBe(true);
+      expect([b.revisoes[0]?.transaction_id, comEntrada(b)]).toEqual([comRefDe(b, "C1")?.transaction_id, true]);
+    });
+
+    it("the function is killed between the two writes and Pluggy never returns that id on another payment again: the next read still puts the decision back", async () => {
+      const b = banco();
+      pluggy([pix("x1", "C1", 10, DIA), pix("k", "C2", 10, DIA)]); await ler(b.admin);
+      const livre = await idDaPreservada("con-1", b.entradas[0] as Linha);
+      b.revisoes.push(pedido(livre)); // what a killed read leaves: the decision on our id, the entry still on Pluggy's
+      expect(comEntrada(b)).toBe(false);
+      const r = await ler(b.admin); // the same list: no id on another payment in this read
+      expect([b.revisoes[0]?.transaction_id, comEntrada(b), r.completa]).toEqual(["x1", true, true]);
+      await ler(b.admin); await ler(b.admin); // any number of times
+      expect([b.revisoes[0]?.transaction_id, b.ids(), recolocadas()]).toEqual(["x1", ["k", "x1"], [1]]);
+    });
+
+    it("and if the entry meanwhile took a new Pluggy id, the decision follows it there", async () => {
+      const b = banco();
+      pluggy([pix("x1", "C1", 10, DIA)]); await ler(b.admin);
+      const livre = await idDaPreservada("con-1", b.entradas[0] as Linha);
+      b.revisoes.push(pedido(livre));
+      pluggy([pix("y", "C1", 10, DIA)]); // re-issued in the very read that repairs
+      await ler(b.admin);
+      expect([b.ids(), b.revisoes[0]?.transaction_id, comEntrada(b)]).toEqual([["y"], "y", true]);
+    });
+
+    it("a whole pair is never touched, and a decision is never put on an entry that merely has the same amount", async () => {
+      const b = banco();
+      pluggy([pix("x1", "C1", 10, DIA), pix("k", "C2", 10, DIA)]); await ler(b.admin);
+      pluggy([pix("x1", "C7", 10, "2026-11-11"), pix("k", "C2", 10, DIA)]); await ler(b.admin); // x1's payment kept apart
+      const inteira = String(comRefDe(b, "C1")?.transaction_id);
+      b.revisoes.push(pedido(inteira), pedido(`${PREFIXO_SEM_ID}de-outra-conexao`));
+      await ler(b.admin); await ler(b.admin);
+      expect(b.revisoes.map((r) => r.transaction_id)).toEqual([inteira, `${PREFIXO_SEM_ID}de-outra-conexao`]);
+      expect(recolocadas()).toEqual([0, 0]);
+    });
+
+    it("the decisions cannot be read: the read goes on as it would, nothing is moved", async () => {
+      const b = banco();
+      pluggy([pix("x1", "C1", 10, DIA)]); await ler(b.admin);
+      b.revisoes.push(pedido(await idDaPreservada("con-1", b.entradas[0] as Linha)));
+      b.cfg.falharLerRevisao = true;
+      const r = await ler(b.admin);
+      expect([r.completa, b.ids(), idSemPluggy(b.revisoes[0]?.transaction_id)]).toEqual([true, ["x1"], true]);
+      b.cfg.falharLerRevisao = false;
+      await ler(b.admin);
+      expect(b.revisoes[0]?.transaction_id).toBe("x1");
+    });
+  });
+
+  it("same id and SAME reference is the entry itself: corrected in place, as before", async () => {
+    const b = banco();
+    pluggy([pix("x1", "C1", 10, DIA)]); await ler(b.admin);
+    pluggy([pix("x1", "C1", 10, "2026-11-10", { description: "Pix recebido" })]);
+    await ler(b.admin);
+    expect(b.entradas).toHaveLength(1);
+    expect(b.entradas[0]).toMatchObject({ transaction_id: "x1", transaction_date: "2026-11-10", description: "Pix recebido", ids_anteriores: [] });
+  });
+
+  it("outside the proven scope nothing changes: a row without reference, or a business providerId, is rewritten as today and only counted", async () => {
+    const b = banco();
+    b.entradas.push({ ...semRef("s1", 10) });
+    pluggy([pix("s1", "C7", 10, "2026-11-11")]);
+    await ler(b.admin);
+    expect(b.entradas).toHaveLength(1);
+    expect(b.entradas[0]).toMatchObject({ transaction_id: "s1", transaction_date: "2026-11-11", provedor_ref: "code:C7" });
+    const contado = vi.mocked(console.log).mock.calls.filter((c) => String(c[0]).includes("id reaproveitado")).map((c) => JSON.parse(String(c[1])));
+    expect(contado).toEqual([{ conexao: "con-1", preservadas: 0, sem_referencia_so_observadas: 1, adiadas: 0 }]);
+
+    const e = banco("Mercado Pago Empresas");
+    pluggy([pj("j1", "PI-1", 100, `${DIA}T15:00:00.000Z`)]); await ler(e.admin);
+    pluggy([pj("j1", "PI-2", 100, "2026-11-11T15:00:00.000Z")]);
+    await ler(e.admin);
+    expect(e.entradas).toHaveLength(1);
+    expect(e.entradas[0]).toMatchObject({ transaction_id: "j1", transaction_date: "2026-11-11" });
+    expect(semId(e)).toEqual([]);
+  });
+
+  it("an id of our own is never asked of Pluggy, and is no evidence of anything", async () => {
+    pluggy([]);
+    expect(await existeNaPluggy("chave", `${PREFIXO_SEM_ID}0123`)).toBe("sem_resposta");
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+    expect(await existeNaPluggy("chave", "qualquer-id")).toBe("nao_existe");
+  });
+
+  it("reaproveitados and idDaPreservada: the pure rules", async () => {
+    const g = (id: string, ref: string | null, dia = DIA, amount = 10, con = "con-1") => ({ transaction_id: id, bank_connection_id: con, conta_id: "conta-1", provedor_ref: ref, transaction_date: dia, amount });
+    const l = (id: string, ref: string | null, dia = DIA, amount = 10) => ({ transaction_id: id, conta_id: "conta-1", provedor_ref: ref, transaction_date: dia, amount });
+    // another providerCode under the same id → kept apart, whatever the day
+    expect(reaproveitados([l("a", "code:2")], [g("a", "code:1")], "con-1").soltar.map((x) => x.transaction_id)).toEqual(["a"]);
+    // same reference, no reference on the line, or a row of another connection → nothing
+    expect(reaproveitados([l("a", "code:1", "2026-11-11"), l("b", null)], [g("a", "code:1"), g("b", "code:1")], "con-1")).toEqual({ soltar: [], observados: 0 });
+    expect(reaproveitados([l("a", "code:2")], [g("a", "code:1", DIA, 10, "con-2")], "con-1")).toEqual({ soltar: [], observados: 0 });
+    // no stored reference, or a kind that is only observed: counted when day or amount changed, never kept apart
+    expect(reaproveitados([l("a", "code:2", "2026-11-11"), l("b", "code:3"), l("c", "id:9", DIA, 11)], [g("a", null), g("b", null), g("c", "id:8")], "con-1")).toEqual({ soltar: [], observados: 2 });
+    expect(reaproveitados([l("a", "code:2")], [g("a", "code:1")], "con-1", { code: "observar", id: "observar" })).toEqual({ soltar: [], observados: 0 });
+    // one payment, one id — whoever computes it, whenever
+    const id = await idDaPreservada("con-1", g("a", "code:1"));
+    expect(id).toMatch(new RegExp(`^${PREFIXO_SEM_ID}[0-9a-f]{32}$`));
+    expect(await idDaPreservada("con-1", { ...g("outro-id", "code:1"), amount: "10.00" })).toBe(id);
+    expect(new Set([id, await idDaPreservada("con-2", g("a", "code:1")), await idDaPreservada("con-1", g("a", "code:2")), await idDaPreservada("con-1", g("a", "code:1", "2026-11-10")), await idDaPreservada("con-1", g("a", "code:1", DIA, 11))]).size).toBe(5);
   });
 });
 

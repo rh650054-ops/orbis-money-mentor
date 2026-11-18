@@ -130,3 +130,54 @@ export function reapontamentos(novas: ComIdentidade[], guardadas: ComIdentidade[
   }
   return { reapontar, divergentes };
 }
+
+// 17/11/2026 — what the first night in production showed (6 connections checked against Pluggy's
+// statement, 13 to 17/11): Pluggy does not only give an old payment a new id. It also hands an id
+// that it had given to ONE payment to ANOTHER one of the same amount. Ten cases in 24 hours:
+//   - three Pix received on 16/11 (17:18, 18:38, 18:44) were stored under ids that, at 22:35, came
+//     back as three payments of 13/11. The importer trusted the id and rewrote the three rows as
+//     13/11 — where those payments were already stored: R$ 80 counted twice;
+//   - the ids of three Pix of 13/11 came back, on 17/11, as payments of 16 and 17/11. 13/11 was no
+//     longer read, so those three payments were gone from Vant: R$ 33 missing (Pluggy lists 6, Vant 3).
+// In every case the `providerCode` that came with the id was ANOTHER one: the reference followed
+// the payment, the id did not. So, where both carry a providerCode, two different references under
+// one id are two payments — the stored one is kept and the one that arrived is treated as new.
+
+/** The id of a stored entry whose Pluggy id was handed to another payment. Never a Pluggy id. */
+export const PREFIXO_SEM_ID = "vant-sem-id:";
+export const idSemPluggy = (id: string | null | undefined) => !!id && id.startsWith(PREFIXO_SEM_ID);
+
+/** Returned entries whose Pluggy id IS stored, in this connection, for an entry that is not them:
+ *   - `soltar`: both carry a reference of an APPLIED kind (providerCode) and the references differ.
+ *     The stored entry is another payment and must not be overwritten;
+ *   - `observados`: the stored entry has no reference (or one of a kind only observed) and the id
+ *     came back on another day or with another amount. Nothing identifies either payment: counted,
+ *     and written exactly as before.
+ *  Same id and same reference is the entry itself, whatever else changed. */
+export function reaproveitados(
+  listadas: ComIdentidade[], guardadasPorId: (ComIdentidade & { bank_connection_id?: string | null })[], conexaoId: string,
+  modos: ModosDaIdentidade = MODOS_DA_IDENTIDADE,
+): { soltar: ComIdentidade[]; observados: number } {
+  const aplicada = (ref: string | null | undefined) => !!ref && modoDaReferencia(ref, modos) === "aplicar";
+  const porId = new Map<string, ComIdentidade>();
+  for (const g of guardadasPorId) if (String(g.bank_connection_id ?? "") === conexaoId) porId.set(g.transaction_id, g);
+  const soltar: ComIdentidade[] = [];
+  let observados = 0;
+  for (const l of listadas) {
+    const g = porId.get(l.transaction_id);
+    if (!g || !l.provedor_ref || g.provedor_ref === l.provedor_ref) continue;
+    if (aplicada(l.provedor_ref) && aplicada(g.provedor_ref)) { soltar.push(g); continue; }
+    const mudou = String(g.transaction_date).slice(0, 10) !== l.transaction_date || Number(g.amount) !== Number(l.amount);
+    if (mudou) observados++;
+  }
+  return { soltar, observados };
+}
+
+/** The id a stored entry takes when Pluggy's id is no longer its own. It depends only on what
+ *  identifies the payment (connection, account, reference, day, amount), so two imports at the same
+ *  time — or a second try after a half-done one — arrive at the same id. */
+export async function idDaPreservada(conexaoId: string, g: ComIdentidade): Promise<string> {
+  const chave = [conexaoId, g.conta_id ?? "", g.provedor_ref ?? "", String(g.transaction_date).slice(0, 10), Number(g.amount).toFixed(2)].join("|");
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(chave));
+  return PREFIXO_SEM_ID + [...new Uint8Array(buf)].slice(0, 16).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
