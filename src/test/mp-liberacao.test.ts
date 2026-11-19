@@ -14,10 +14,11 @@ describe("card machine money from Mercado Pago", () => {
   it.each(["liberação de dinheiro de empréstimo", "pix recebido joao", "resgate rdb", "transferência recebida"])("does not count '%s'", (d) => {
     expect(regra.test(d)).toBe(false);
   });
-  it("a single machine sale far above the ticket waits for the admin (own card on the machine)", () => {
+  it("a single machine sale far above the ticket is the seller's own card: never a sale, no review", () => {
     expect(sql).toContain("when b.maq and lower(coalesce(b.description, '')) ~ '^libera[cç][aã]o de dinheiro'");
-    expect(sql).toContain("and b.amount > greatest(150, 6 * pf.ticket) and b.aprovacao is distinct from 'total' then 'grande'");
-    expect(sql.indexOf("then 'grande'\n        when b.maq then null")).toBeGreaterThan(-1);
+    expect(sql).toContain("and b.amount > greatest(150, 6 * pf.ticket) then 'cartao_proprio'");
+    // decided before the approval check, so no approval can lift it
+    expect(sql.indexOf("then 'cartao_proprio'")).toBeLessThan(sql.indexOf("when b.aprovacao = 'total' then null"));
   });
   it("the reconcile from a given day is not callable from the app", () => {
     expect(sql).toContain("revoke all on function public.banco_reconciliar(uuid, date) from public, anon, authenticated;");

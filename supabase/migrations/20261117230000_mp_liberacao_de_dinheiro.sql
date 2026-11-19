@@ -12,8 +12,8 @@
 -- still apply: own transfers and refunds are checked before, and the ranking cap
 -- (typed sales − cash + R$ 500) still limits each day.
 -- Mercado Pago lists each machine sale on its own, so a single one far above the ticket
--- (> max(R$ 150, 6 × ticket)) is held as 'grande' for the admin, like a big Pix: in the real case
--- the seller ran his own credit card (R$ 2.060 + R$ 500, at 22h, after his sales day).
+-- (> max(R$ 150, 6 × ticket)) is the seller's own card on his machine: 'cartao_proprio', never a
+-- sale, never reviewed (Rick, 19/11). Real case: R$ 2.060 + R$ 500, at 22h, after his sales day.
 --
 -- Also: banco_reconciliar(user, since) redoes the days from a given date (SQL editor only),
 -- because the normal reconcile only looks at the last 6 days.
@@ -85,10 +85,11 @@ language sql stable security definer set search_path = public as $$
         when public.banco_mesma_pessoa(pf.nickname, b.pagador) or public.banco_mesma_pessoa(pf.pix_merchant_name, b.pagador) then 'propria'
         when exists (select 1 from public.open_finance_contas_proprias cp where cp.user_id = p_user and b.description ilike '%' || cp.termo || '%') then 'propria'
         -- 17/11: Mercado Pago reports each machine sale on its own ("Liberação de dinheiro"), so one
-        -- far above the ticket is not street money — the seller's own card on his machine (real case:
-        -- R$ 2.060 + R$ 500 at 22h, after the sales day). It waits for the admin like a big Pix.
+        -- far above the ticket is the seller's own card on his machine (real case: R$ 2.060 + R$ 500 at
+        -- 22h, after the sales day). Rick, 19/11: "passou no cartão dele não pode nem ir pra revisão,
+        -- isso não é venda" — same rule as own transfers: never a sale, no review, no approval lifts it.
         when b.maq and lower(coalesce(b.description, '')) ~ '^libera[cç][aã]o de dinheiro'
-             and b.amount > greatest(150, 6 * pf.ticket) and b.aprovacao is distinct from 'total' then 'grande'
+             and b.amount > greatest(150, 6 * pf.ticket) then 'cartao_proprio'
         when b.maq then null
         -- 15/11: from here on, a Pix marked as a sale counts
         when b.aprovacao = 'total' then null
