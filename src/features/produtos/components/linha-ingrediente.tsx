@@ -37,10 +37,12 @@ function Sugestoes({ texto, lista, onEscolher }: { texto: string; lista: Ingredi
   );
 }
 
-export function LinhaIngrediente({ it, rende, nomeProduto = "unidades", estoque, sugestoes, repetido, onMudar }: {
+export function LinhaIngrediente({ it, rende, nomeProduto = "unidades", estoque, sugestoes, repetido, avisoRepetido = "esse ingrediente já está na receita", onMudar }: {
   it: IngredienteRascunho; rende: number; nomeProduto?: string; estoque?: number; sugestoes: IngredienteGuardado[];
   /** another line of the same recipe is this same ingredient */
   repetido?: boolean;
+  /** why it is flagged (default: repeated in this recipe) */
+  avisoRepetido?: string;
   onMudar: (m: Partial<IngredienteRascunho>) => void;
 }) {
   const [editando, setEditando] = useState(false);
@@ -70,7 +72,7 @@ export function LinhaIngrediente({ it, rende, nomeProduto = "unidades", estoque,
           className="flex-1 min-w-0 bg-transparent outline-none text-[14px] font-extrabold" aria-label="Ingrediente" />
       </div>
       {editando && <Sugestoes texto={it.nome} lista={sugestoes} onEscolher={usar} />}
-      {repetido && <span className="text-[11px] font-black pl-[30px]" style={{ color: "#FF6B6B" }}>esse ingrediente já está na receita</span>}
+      {repetido && <span className="text-[11px] font-black pl-[30px]" style={{ color: "#FF6B6B" }}>{avisoRepetido}</span>}
       {it.usa && (
         <>
           <div className={LINHA} style={{ color: "#b9b3a6" }}>

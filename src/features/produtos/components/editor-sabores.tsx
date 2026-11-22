@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { useIngredientesGuardadosQuery } from "../api/use-ingredientes-guardados-query";
 import { ehRascunho, linhasRepetidas, novoIngrediente, type IngredienteRascunho } from "../lib/receitas";
-import { custoDoSabor, emojiDoSabor, novoSabor, type SaborRascunho } from "../lib/sabores";
+import { custoDoSabor, emojiDoSabor, novoSabor, type SaborRascunho, ingredientesEmConflito } from "../lib/sabores";
 import { reais } from "./campos";
 import { LinhaIngrediente } from "./linha-ingrediente";
 
@@ -21,6 +21,7 @@ export function EditorSabores({ sabores, base, rende, preco, estoques, onMudar, 
   const adicionar = () => { onMudar([...sabores, novoSabor()]); setAtivo(sabores.length); };
   const tirar = (i: number) => { onMudar(sabores.filter((_, j) => j !== i)); setAtivo(Math.max(0, Math.min(ativo, sabores.length - 2))); };
   const temBase = base.some((i) => i.usa && i.nome.trim());
+  const conflitos = ingredientesEmConflito(base, sabores);
   const comCusto = sabores.filter((x) => x.nome.trim()).map((x) => ({ ...x, custo: custoDoSabor(base, x, rende) }));
 
   return (
@@ -60,7 +61,8 @@ export function EditorSabores({ sabores, base, rende, preco, estoques, onMudar, 
           <p className="text-[11.5px] font-bold" style={{ color: "#8A8A8A" }}>{temBase ? "O que entra só no" : "Tudo que vai no"} {s.nome.trim() || "sabor"}{s.itens.some(ehRascunho) ? " · tem ingrediente sem quantidade (rascunho)" : ""}:</p>
           {s.itens.map((it, i) => (
             <LinhaIngrediente key={i} it={it} rende={rende} nomeProduto={nomeProduto} estoque={estoques?.get(it.nome.trim().toLowerCase())}
-              repetido={linhasRepetidas([...base, ...s.itens]).has(base.length + i)}
+              repetido={conflitos.has(`${ativo}:${i}`) || linhasRepetidas(s.itens).has(i)}
+              avisoRepetido={conflitos.has(`${ativo}:${i}`) ? "já está na receita base ou em outro sabor: por enquanto, cada ingrediente entra em um lugar só do produto" : undefined}
               onMudar={(m) => mudarSabor(ativo, { itens: s.itens.map((x, j) => (j === i ? { ...x, ...m } : x)) })}
               sugestoes={guardados.filter((g) => !s.itens.some((x, j) => j !== i && x.id === g.id))} />
           ))}

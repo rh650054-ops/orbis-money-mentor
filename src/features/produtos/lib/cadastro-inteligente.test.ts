@@ -4,7 +4,7 @@ import { RASCUNHO_VAZIO } from "../types";
 import { adiarConvite, ADIAR_DIAS, deveMostrarConvite, lerConvite, nuncaMaisConvite } from "./convite-cadastro";
 import { apagarRascunho, guardarRascunho, lerRascunho } from "./rascunho-cadastro";
 import { ehRascunho, ingredienteIgual, nomeNormalizado, novoIngrediente, receitaCompleta } from "./receitas";
-import { custoDoSabor, saboresParaSalvar } from "./sabores";
+import { custoDoSabor, ingredientesEmConflito, saboresParaSalvar } from "./sabores";
 
 const ing = (nome: string, qtd: number, precoPacote = 0, pacote = 1) => ({ ...novoIngrediente(nome, qtd), precoPacote, pacote });
 
@@ -18,6 +18,20 @@ describe("sabores com receitas diferentes (sem base, cada sabor tem a sua)", () 
   it("cada sabor vai pro banco com os próprios ingredientes", () => {
     const s = saboresParaSalvar([morango, nutella]);
     expect(s.map((x) => x.itens.map((i) => i.nome))).toEqual([["Leite condensado", "Morango"], ["Creme de leite", "Nutella"]]);
+  });
+});
+
+describe("um ingrediente em um lugar só do produto (UNIQUE product_id, ingredient_id de hoje)", () => {
+  const sab = (nome: string, itens: ReturnType<typeof ing>[]) => ({ nome, emoji: "", itens });
+  it("o mesmo ingrediente em dois sabores é apontado antes de salvar (o banco recusaria)", () => {
+    const c = ingredientesEmConflito([], [sab("Morango", [ing("Leite condensado", 1)]), sab("Nutella", [ing("leite  condensado", 1), ing("Nutella", 140)])]);
+    expect([...c]).toEqual(["1:0"]);
+  });
+  it("na base e num sabor também", () => {
+    expect([...ingredientesEmConflito([ing("Leite condensado", 1)], [sab("Morango", [ing("Leite Condensado", 1), ing("Morango", 500)])])]).toEqual(["0:0"]);
+  });
+  it("ingredientes diferentes, ou linhas desmarcadas, passam", () => {
+    expect(ingredientesEmConflito([ing("Leite", 1)], [sab("A", [ing("Morango", 1)]), sab("B", [{ ...ing("Leite", 1), usa: false }])]).size).toBe(0);
   });
 });
 

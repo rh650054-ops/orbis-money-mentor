@@ -14,8 +14,9 @@ beforeEach(() => { localStorage.clear(); produtos.lista = []; });
 describe("banner 'Você vende bem. Mas sabe quanto realmente lucra?'", () => {
   it("mostra o texto e as três ações para quem não tem produto", () => {
     abrir();
-    expect(screen.getByText(/Você vende bem\. Mas sabe quanto/)).toBeInTheDocument();
-    expect(screen.getByText("Cadastre seus produtos para acompanhar seus custos, estoque e produção.")).toBeInTheDocument();
+    expect(screen.getByText("Você vende bem. Mas sabe quanto realmente lucra?")).toBeInTheDocument();
+    expect(screen.getByText("DICA DA VANT")).toBeInTheDocument();
+    expect(screen.getByText("Cadastre o que você vende e descubra seus custos, controle seu estoque e saiba quanto pode produzir.")).toBeInTheDocument();
     for (const t of ["Cadastrar meus produtos", "Mais tarde", "Não mostrar novamente"]) expect(screen.getByText(t)).toBeInTheDocument();
   });
   it("'Mais tarde' fecha agora e não volta ao reabrir a tela", () => {

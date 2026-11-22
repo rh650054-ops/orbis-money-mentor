@@ -102,4 +102,70 @@ describe("cadastro inteligente (Etapa 2)", () => {
     act(() => clicar("SALVAR PRODUTO"));
     expect(enviado()).toMatchObject({ nome: "Brigadeiro", origem: "faz", rende: 30 });
   });
+
+  it("rascunho: sair NO MEIO da receita (sem CONTINUAR) e voltar mantém rendimento, quantidades e ingredientes", () => {
+    const tela = abrir();
+    nome("Geladinho");
+    clicar("Eu mesmo produzo");
+    clicar("Montar minha receita");
+    digitar("Quanto a receita rende", "40");
+    digitar("Quanto usa na leva", "2");
+    digitar("Quanto paga nessa compra", "6,50");
+    tela.unmount();   // phone call, app closed, no CONTINUAR pressed
+    abrir();
+    expect(screen.getByLabelText("Quanto a receita rende")).toHaveValue("40");
+    expect(screen.getAllByLabelText("Quanto usa na leva")[0]).toHaveValue("2");
+    expect(screen.getAllByLabelText("Quanto paga nessa compra")[0]).toHaveValue("6,50");
+    // the lines he had not filled are still there as drafts (no quantity invented)
+    expect(screen.getAllByLabelText("Ingrediente").length).toBeGreaterThan(1);
+    clicar("CONTINUAR");
+    clicar("Não, é um só");
+    precoERevisao("3");
+    expect(screen.getByText("RECEITA PRONTA")).toBeInTheDocument();
+  });
+
+  it("rascunho: sair na pergunta dos sabores mantém os sabores digitados", () => {
+    const tela = abrir();
+    nome("Água");
+    clicar("Compro pronto para revender");
+    clicar("Sei o preço de 1");
+    digitar("Quanto pagou em 1", "1");
+    clicar("CONTINUAR");
+    clicar("Sim, tem mais de um");
+    digitar("Versão 1", "500 ml");
+    digitar("Versão 2", "1,5 L");
+    tela.unmount();
+    abrir();
+    expect(screen.getByLabelText("Versão 1")).toHaveValue("500 ml");
+    expect(screen.getByLabelText("Versão 2")).toHaveValue("1,5 L");
+  });
+
+  it("rascunho é de cada usuário e some depois de salvar", () => {
+    abrir();
+    nome("Trufa");
+    expect(localStorage.getItem("vant_cadastro_rascunho_v1:u1")).toContain("Trufa");
+    expect(localStorage.getItem("vant_cadastro_rascunho_v1:u2")).toBeNull();
+    clicar("Configurar depois");
+    clicar("Não, é um só");
+    precoERevisao("4");
+    clicar("SALVAR PRODUTO");
+    expect(localStorage.getItem("vant_cadastro_rascunho_v1:u1")).toBeNull();
+  });
+
+  it("sabores que repetem um ingrediente da base: aviso e não segue (o banco recusaria e os sabores se perderiam)", () => {
+    abrir();
+    nome("Batida");
+    clicar("Eu mesmo produzo");
+    clicar("Montar minha receita");
+    digitar("Quanto a receita rende", "20");
+    digitar("Quanto usa na leva", "1");
+    clicar("CONTINUAR");
+    clicar("Sim, tem mais de um");
+    digitar("Nome do sabor", "Morango");
+    clicar(/ingrediente do Morango/);            // "+ ingrediente do Morango"
+    const campos = screen.getAllByLabelText("Ingrediente");
+    fireEvent.change(campos[campos.length - 1]!, { target: { value: "Leite condensado" } });
+    expect(screen.getByText(/já está na receita base ou em outro sabor/)).toBeInTheDocument();
+    expect(screen.getByText("TIRE O INGREDIENTE REPETIDO").closest("button")).toBeDisabled();
+  });
 });

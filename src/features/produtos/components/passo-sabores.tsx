@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { rascunhoDaReceita } from "../lib/receitas";
-import { emojiDoSabor, novoSabor, type SaborRascunho } from "../lib/sabores";
+import { emojiDoSabor, ingredientesEmConflito, novoSabor, type SaborRascunho } from "../lib/sabores";
 import { VANT } from "../lib/visual";
 import type { RascunhoProduto } from "../types";
 import { EditorSabores } from "./editor-sabores";
@@ -57,10 +57,11 @@ export function PassoSabores({ r, total, onSabores, onContinuar, onVoltar }: {
     );
   }
   const nomeados = r.sabores.filter((s) => s.nome.trim()).length;
+  const conflitos = faz ? ingredientesEmConflito(rascunhoDaReceita(r.receita ?? []), r.sabores).size : 0;
   return (
     <QuizCasca passo={4} total={total} onVoltar={() => setTem(null)} titulo={faz ? "Sabores" : "Versões"}
       sub={faz ? "Dê o nome e diga o que muda em cada um. Pode deixar ingrediente sem quantidade: fica como rascunho." : "Só os nomes. Estoque e preço são do produto."}
-      rodape={<BotaoOuro onClick={onContinuar} disabled={nomeados === 0}>CONTINUAR</BotaoOuro>}>
+      rodape={<BotaoOuro onClick={onContinuar} disabled={nomeados === 0 || conflitos > 0}>{conflitos > 0 ? "TIRE O INGREDIENTE REPETIDO" : "CONTINUAR"}</BotaoOuro>}>
       {faz
         ? <EditorSabores sabores={r.sabores} base={rascunhoDaReceita(r.receita ?? [])} rende={r.rende} preco={r.precoLivre ? 0 : r.preco}
             nomeProduto={plural(r.nome)} onMudar={onSabores} />

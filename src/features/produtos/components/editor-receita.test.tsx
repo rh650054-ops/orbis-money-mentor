@@ -111,3 +111,47 @@ describe("campos continuam livres (12/11)", () => {
     expect(uso).toHaveValue("0,");
   });
 });
+
+describe("conversão de unidades na linha do ingrediente (kg/g e L/ml)", () => {
+  it("compra em kg: 1 kg vira 1000 g; uso 200 g de R$ 35,99 = R$ 7,20 na leva", () => {
+    render(<Harness rende={20} inicial={[ing({ nome: "Leite em pó" })]} />);
+    fireEvent.change(screen.getByLabelText("Unidade da compra"), { target: { value: "kg" } });
+    expect(ultimo.itens[0]).toMatchObject({ unidade: "g", pacote: 1000 });
+    fireEvent.change(screen.getByLabelText("Quanto paga nessa compra"), { target: { value: "35,99" } });
+    fireEvent.change(screen.getByLabelText("Quanto usa na leva"), { target: { value: "200" } });
+    expect(screen.getByText("→ R$ 7,20")).toBeInTheDocument();
+    expect(receitaDoRascunho(ultimo.itens)[0]).toMatchObject({ unidade: "g", pacote: 1000, qtd: 200, preco: 0.036 });
+  });
+
+  it("compra em litro: 1,5 l vira 1500 ml; uso 300 ml de R$ 9 = R$ 1,80", () => {
+    render(<Harness rende={20} inicial={[ing({ nome: "Leite" })]} />);
+    fireEvent.change(screen.getByLabelText("Unidade da compra"), { target: { value: "l" } });
+    fireEvent.change(screen.getByLabelText("Quanto compra"), { target: { value: "1,5" } });
+    expect(ultimo.itens[0]).toMatchObject({ unidade: "ml", pacote: 1500 });
+    fireEvent.change(screen.getByLabelText("Quanto paga nessa compra"), { target: { value: "9" } });
+    fireEvent.change(screen.getByLabelText("Quanto usa na leva"), { target: { value: "300" } });
+    expect(screen.getByText("→ R$ 1,80")).toBeInTheDocument();
+  });
+
+  it("compra pequena fica na unidade pequena (500 g não vira 0,5 kg); ml idem", () => {
+    render(<Harness rende={20} inicial={[ing({ nome: "Morango", unidade: "g", pacote: 500 }), ing({ nome: "Essência", unidade: "ml", pacote: 30 })]} />);
+    const unidades = screen.getAllByLabelText("Unidade da compra");
+    expect(unidades[0]).toHaveValue("g");
+    expect(unidades[1]).toHaveValue("ml");
+    expect(screen.getAllByLabelText("Quanto compra")[0]).toHaveValue("500");
+  });
+
+  it("ida e volta pelo banco: o que foi salvo em kg e em l volta igual, sem reescalar", () => {
+    const tela = [ing({ nome: "Leite em pó", unidade: "g", pacote: 1000, precoPacote: 35.99, qtd: 200 }),
+      ing({ nome: "Leite", unidade: "ml", pacote: 1500, precoPacote: 9, qtd: 300 })];
+    const salvo = receitaDoRascunho(tela);
+    const volta = rascunhoDaReceita(salvo, 20);
+    expect(volta.map((i) => [i.unidade, i.pacote, i.qtd])).toEqual([["g", 1000, 200], ["ml", 1500, 300]]);
+    // PRE-EXISTING (before Etapa 2), pending Rick's decision: the price of 1 g/ml is rounded to 4 decimals
+    // on save (receitaDoRascunho), so R$ 35,99 per kg comes back as R$ 36,00. Not changed: it is a cost value.
+    expect(volta.map((i) => i.precoPacote)).toEqual([36, 9]);
+    render(<Harness rende={20} inicial={volta} />);
+    expect(screen.getAllByLabelText("Unidade da compra").map((s) => (s as HTMLSelectElement).value)).toEqual(["kg", "l"]);
+    expect(screen.getAllByLabelText("Quanto compra").map((s) => (s as HTMLInputElement).value)).toEqual(["1", "1,5"]);
+  });
+});
