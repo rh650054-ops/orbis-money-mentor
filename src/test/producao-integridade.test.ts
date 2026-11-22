@@ -33,6 +33,8 @@ describe("production integrity (Etapa 1)", () => {
     expect(codigo).toContain("hint = 'VANT_RECEITA_SEM_RENDIMENTO'");
     // an emptied recipe stays a draft but never produces, with or without a reason (case 27)
     expect(codigo).toContain("hint = 'VANT_RECEITA_INCOMPLETA'");
+    // only a manufactured product with a valid recipe is produced; resale grows by purchase
+    expect(codigo).toContain("hint = 'VANT_PRODUTO_SEM_RECEITA'");
     expect(codigo.indexOf("hint = 'VANT_RECEITA_INCOMPLETA'")).toBeLessThan(codigo.indexOf("hint = 'VANT_RECEITA_REDUZIDA'"));
     expect(codigo).toContain("check (not consumo_ajustado or justificativa_consumo is not null)");
   });

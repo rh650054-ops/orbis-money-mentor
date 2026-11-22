@@ -2,6 +2,9 @@
 -- removed) must not let the seller justify once and then produce without limit using no material.
 -- Rules: an incomplete recipe may stay saved as a draft; a recipe without valid consumption cannot
 -- be used in production; legitimate edits keep working; history is kept; nothing is invented.
+-- Approved flow (22/11): only a manufactured product with a valid recipe is produced; a product
+-- bought ready grows its stock through the purchase record; a product without a recipe stays
+-- registered and sellable but never manufactures units.
 create temp table f (k text primary key, id uuid);
 create or replace function pg_temp.id(p text) returns uuid language sql as $$ select id from f where k = p $$;
 create or replace function pg_temp.est(p text) returns numeric language sql as $$
@@ -44,6 +47,9 @@ begin
   -- made by the seller, recipe never filled in
   insert into public.products (user_id, name, recipe_mode, origem) values (u, 'Trufa', 'none', 'faz') returning id into p;
   insert into f values ('trufa', p);
+  -- the 21 of production: batch mode, no recipe line, no origin
+  insert into public.products (user_id, name, recipe_mode, batch_yield) values (u, 'Pudim', 'batch', 10) returning id into p;
+  insert into f values ('pudim', p);
 end $$;
 select t.logar(pg_temp.id('u'));
 select t.verdade('setup: a normal production works and consumes', pg_temp.produzir('zero-0001', 'brig', 20) = 'ok' and pg_temp.est('lc') = 99);
@@ -72,11 +78,33 @@ select t.verdade('Z3 per_unit with every ingredient zeroed: refused (the sale wo
   pg_temp.produzir('zero-0006', 'salg', 10, 'motivo qualquer') like 'VANT_RECEITA_INCOMPLETA|%Salgado%');
 
 select t.verdade('Z4 a product the seller makes, recipe never filled in: refused, nothing invented',
-  pg_temp.produzir('zero-0007', 'trufa', 10) like 'VANT_RECEITA_INCOMPLETA|%Trufa%');
+  pg_temp.produzir('zero-0007', 'trufa', 10) like 'VANT_PRODUTO_SEM_RECEITA|%Trufa%');
 
 -- ---------------------------------------------------------------- legitimate cases keep working
-select t.verdade('L1 resale product that never had a recipe: allowed, zero consumption (nothing to invent)',
-  pg_temp.produzir('zero-0008', 'agua', 12) = 'ok' and pg_temp.est('agua') = 12);
+-- ---------------------------------------------------------------- resale: never through production
+create temp table antes_revenda as select * from public.products where id in (pg_temp.id('agua'), pg_temp.id('trufa'), pg_temp.id('pudim'));
+select t.verdade('V1 product bought ready (resale, no recipe): production refused, points to the purchase record',
+  pg_temp.produzir('zero-0008', 'agua', 12) like 'VANT_PRODUTO_SEM_RECEITA|Água não tem receita%registro de compra%');
+select t.verdade('V1 ...with a justification too', pg_temp.produzir('zero-0008b', 'agua', 12, 'chegou do fornecedor') like 'VANT_PRODUTO_SEM_RECEITA|%');
+select t.verdade('V1 ...and typed consumption cannot turn it into a recipe',
+  pg_temp.produzir('zero-0008c', 'agua', 12, 'usei leite', null, jsonb_build_array(jsonb_build_object('ingrediente', pg_temp.id('lc'), 'quantidade', 1))) like 'VANT_PRODUTO_SEM_RECEITA|%');
+select t.verdade('V2 batch mode with no recipe line (21 such products in production): refused', pg_temp.produzir('zero-0008d', 'pudim', 10) like 'VANT_PRODUTO_SEM_RECEITA|%Pudim%');
+select t.igual('V3 no resale unit entered by production', pg_temp.est('agua'), 0);
+select t.verdade('V3 refusing changed nothing in those products (not migrated, not edited)',
+  (select count(*) = 3 from public.products p join antes_revenda a on a.id = p.id where (p.*)::text = (a.*)::text));
+select t.verdade('V4 one resale item in a mixed production: the whole call is refused, the valid item too',
+  t.erro(format($q$select public.producao_registrar('zero-0008e', jsonb_build_array(jsonb_build_object('produto', %L::uuid, 'sabor', %L::uuid, 'unidades', 10), jsonb_build_object('produto', %L::uuid, 'unidades', 5)))$q$,
+    pg_temp.id('gel'), pg_temp.id('gel:choc'), pg_temp.id('agua'))) like 'VANT_PRODUTO_SEM_RECEITA|%'
+  and pg_temp.est('choc') = 4950);
+-- legitimate resale movements keep working: what a purchase and a sale do to products.stock_quantity
+update public.products set stock_quantity = stock_quantity + 24 where id = pg_temp.id('agua');   -- purchase of 24
+update public.products set stock_quantity = stock_quantity - 5 where id = pg_temp.id('agua');    -- sale of 5
+select t.igual('V5 resale stock still moves by purchase and sale (24 - 5)', pg_temp.est('agua'), 19);
+select t.verdade('V5 those movements write no production history and no recipe log',
+  not exists (select 1 from public.producao_itens where product_id = pg_temp.id('agua'))
+  and not exists (select 1 from public.receita_alteracoes where product_id = pg_temp.id('agua')));
+select t.verdade('V5 a resale product is still sellable: nothing blocks it outside production',
+  (select is_active from public.products where id = pg_temp.id('agua')));
 select t.verdade('L2 recipe that lives only in the flavour: producing that flavour is allowed and consumes',
   pg_temp.produzir('zero-0009', 'gel', 10, null, 'gel:choc') = 'ok' and pg_temp.est('choc') = 4850);  -- 5000 - 50 (setup) - 100
 select t.verdade('L2 ...the same product without the flavour has no consumption: refused',
@@ -92,9 +120,9 @@ select t.igual('L4 ...and it consumes what the recipe now says (1 can)', pg_temp
 select t.verdade('L4 the next production needs no reason', pg_temp.produzir('zero-0014', 'brig', 20) = 'ok' and pg_temp.est('lc') = 97);
 
 -- ---------------------------------------------------------------- corrections, undo and history
-select t.verdade('H1 a correction cannot move an existing production onto an empty recipe',
+select t.verdade('H1 a correction cannot move an existing production onto a product without recipe',
   (select t.erro(format($q$select public.producao_corrigir(%L, 'zero-cor-01', jsonb_build_array(jsonb_build_object('produto', %L::uuid, 'unidades', 10)), null, 'era trufa')$q$,
-     (select registro_id from public.producao_eventos where chave = 'zero-0014'), pg_temp.id('trufa')))) like 'VANT_RECEITA_INCOMPLETA|%');
+     (select registro_id from public.producao_eventos where chave = 'zero-0014'), pg_temp.id('trufa')))) like 'VANT_PRODUTO_SEM_RECEITA|%');
 update public.product_recipes set quantity = 0 where product_id = pg_temp.id('brig');
 select t.verdade('H2 undoing an earlier production still works on an emptied recipe (it returns what was STORED)',
   t.erro(format($q$select public.producao_desfazer(%L, 'zero-des-01', 'produção duplicada')$q$, (select registro_id from public.producao_eventos where chave = 'zero-0014'))) = 'ok');
@@ -102,8 +130,8 @@ select t.igual('H2 ...the can of that production came back', pg_temp.est('lc'), 
 select t.verdade('H3 every stored production kept its real consumption (versions untouched)',
   (select count(*) = 4 from public.producao_consumos c join public.producao_eventos e on e.id = c.evento_id
     where e.chave in ('zero-0001', 'zero-0013', 'zero-0014') and c.quantidade_real > 0));
-select t.verdade('H4 no production in the whole history entered units of a recipe-based product with zero consumption',
+select t.verdade('H4 no non-per_unit production in the whole history entered units with zero consumption',
   not exists (select 1 from public.producao_eventos e join public.producao_itens i on i.evento_id = e.id
                join public.products p on p.id = i.product_id
-              where p.origem = 'faz' and p.recipe_mode = 'batch'
+              where e.tipo <> 'desfazer' and p.recipe_mode <> 'per_unit'
                 and not exists (select 1 from public.producao_consumos c where c.evento_id = e.id)));

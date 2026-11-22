@@ -37,10 +37,11 @@ begin
   insert into f values ('salg', p);
   insert into public.product_recipes (user_id, product_id, ingredient_id, quantity) values (u, p, pg_temp.id('i:Farinha'), 0.1);
 
-  insert into public.products (user_id, name) values (o, 'Produto do outro') returning id into p;
+  insert into public.products (user_id, name, recipe_mode, batch_yield) values (o, 'Produto do outro', 'batch', 1) returning id into p;
   insert into f values ('outro', p);
   insert into public.ingredients (user_id, name, stock_quantity) values (o, 'Ingrediente do outro', 9) returning id into g;
   insert into f values ('i:outro', g);
+  insert into public.product_recipes (user_id, product_id, ingredient_id, quantity) values (o, p, g, 1);
 end $$;
 
 select t.logar(pg_temp.id('u'));

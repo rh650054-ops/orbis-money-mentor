@@ -242,7 +242,7 @@ language sql immutable set search_path = public as $$ select 0.10::numeric $$;
 create or replace function public.producao_estado_alvo(p_user uuid, p_itens jsonb, p_consumo jsonb, p_justificativa text) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare
-  it jsonb; v_pid uuid; v_vid uuid; v_n numeric; v_iid uuid; v_txt text;
+  it jsonb; v_pid uuid; v_vid uuid; v_n numeric; v_iid uuid; v_txt text; v_txt2 text;
   v_itens jsonb := '[]'; v_ovr jsonb := '[]'; v_res jsonb; v_ajustes jsonb; v_abaixo text[]; v_versoes jsonb;
 begin
   if p_itens is null or jsonb_typeof(p_itens) <> 'array' or jsonb_array_length(p_itens) = 0 then
@@ -271,22 +271,33 @@ begin
     v_itens := v_itens || jsonb_build_object('produto', v_pid, 'sabor', v_vid, 'unidades', v_n::int);
   end loop;
 
-  -- a recipe-based product needs VALID consumption on every item (22/11 final check). A recipe with
-  -- every ingredient zeroed or removed stays saved as a draft, but cannot produce: otherwise one
-  -- justification would open unlimited production with no material. Recipe-based = the seller
-  -- makes it, or batch/per_unit mode, or it has recipe lines, or its log shows it had ingredients
-  -- (so switching to "resale" after emptying it does not escape). Valid = a base line > 0, or (not
-  -- per_unit) a line > 0 of the flavour being produced. Typed consumption cannot replace it: nothing
-  -- is invented over an empty recipe. Products that never had a recipe (resale) are not affected.
-  with itens as (select x.produto, x.sabor from jsonb_to_recordset(v_itens) as x(produto uuid, sabor uuid))
-  select string_agg(distinct p.name, ', ') into v_txt
-    from itens i join public.products p on p.id = i.produto
-   where (p.origem = 'faz' or p.recipe_mode in ('batch', 'per_unit')
-          or exists (select 1 from public.product_recipes r where r.product_id = p.id)
-          or exists (select 1 from public.receita_alteracoes a where a.product_id = p.id and a.campo = 'ingrediente'))
-     and not exists (select 1 from public.product_recipes r where r.product_id = p.id and r.variant_id is null and r.quantity > 0)
-     and not (p.recipe_mode <> 'per_unit' and i.sabor is not null
-              and exists (select 1 from public.product_recipes r where r.variant_id = i.sabor and r.quantity > 0));
+  -- Only a MANUFACTURED product, with a VALID recipe, can be produced (22/11, approved flow):
+  --   * every item needs valid consumption: a base line > 0, or (not per_unit) a line > 0 of the
+  --     flavour being produced;
+  --   * a product without a recipe (bought ready / resale, or a sheet never filled in) stays
+  --     registered and sellable, but its stock grows through the purchase record, never here
+  --     (VANT_PRODUTO_SEM_RECEITA);
+  --   * a recipe with every ingredient zeroed or removed stays saved as a draft and cannot produce,
+  --     with or without a reason (VANT_RECEITA_INCOMPLETA): otherwise one justification would open
+  --     unlimited production with no material;
+  --   * typed consumption cannot replace a recipe: nothing is invented.
+  -- No existing product is changed: the screen will offer to complete the sheet first.
+  with itens as (select x.produto, x.sabor from jsonb_to_recordset(v_itens) as x(produto uuid, sabor uuid)),
+  sem as (
+    select p.id, p.name,
+           exists (select 1 from public.product_recipes r where r.product_id = p.id)
+           or exists (select 1 from public.receita_alteracoes a where a.product_id = p.id and a.campo = 'ingrediente') as teve_receita
+      from itens i join public.products p on p.id = i.produto
+     where not exists (select 1 from public.product_recipes r where r.product_id = p.id and r.variant_id is null and r.quantity > 0)
+       and not (p.recipe_mode <> 'per_unit' and i.sabor is not null
+                and exists (select 1 from public.product_recipes r where r.variant_id = i.sabor and r.quantity > 0))
+  )
+  select string_agg(distinct name, ', ') filter (where teve_receita), string_agg(distinct name, ', ') filter (where not teve_receita)
+    into v_txt, v_txt2 from sem;
+  if v_txt2 is not null then
+    raise exception '% não tem receita, então não é fabricado pelo app. Produto comprado pronto entra no estoque pelo registro de compra; se você faz esse produto, cadastre a receita para produzir.', v_txt2
+      using hint = 'VANT_PRODUTO_SEM_RECEITA';
+  end if;
   if v_txt is not null then
     raise exception 'A receita de % está incompleta (nenhum ingrediente com quantidade). Ela continua salva como rascunho; complete a ficha para produzir.', v_txt
       using hint = 'VANT_RECEITA_INCOMPLETA';
