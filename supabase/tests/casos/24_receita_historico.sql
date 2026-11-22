@@ -57,7 +57,10 @@ select t.verdade('R3 asked once: the following production needs no reason', pg_t
 delete from public.product_recipes where product_id = pg_temp.id('brig') and ingredient_id = pg_temp.id('lc');
 select t.verdade('R4 removing an ingredient: reduction, logged with the old amount',
   exists (select 1 from public.receita_alteracoes where ingredient_id = pg_temp.id('lc') and operacao = 'removeu' and antes = '1' and reduz));
-select t.verdade('R4 ...asks for a reason', pg_temp.produzir('rec-00005', 20) like 'VANT_RECEITA_REDUZIDA|%');
+-- chocolate is already 0 (R2), so with the milk gone the base recipe consumes nothing: an empty
+-- recipe cannot produce at all, with or without a reason (case 27)
+select t.verdade('R4 ...the base recipe is now empty: refused as incomplete, a reason does not open it',
+  pg_temp.produzir('rec-00005', 20) like 'VANT_RECEITA_INCOMPLETA|%' and pg_temp.produzir('rec-00005b', 20, 'motivo qualquer') like 'VANT_RECEITA_INCOMPLETA|%');
 insert into public.product_recipes (user_id, product_id, ingredient_id, quantity) values (pg_temp.id('u'), pg_temp.id('brig'), pg_temp.id('lc'), 1);
 update public.product_recipes set quantity = 60 where product_id = pg_temp.id('brig') and ingredient_id = pg_temp.id('choc');
 select t.verdade('R4 putting it back is logged but is not a reduction... the earlier removal still needs a reason once',
