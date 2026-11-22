@@ -46,7 +46,8 @@ const iguais = [], mudadas = [];
 for (const nome of [...CADEIA, ...OPCIONAIS]) {
   const d = defs.get(nome);
   if (!d) { if (OPCIONAIS.includes(nome)) continue; console.error(`Funcao da cadeia sem definicao no repositorio: ${nome}`); process.exit(2); }
-  sql += `\n-- ${nome}  <- ${d.arquivo}\n${d.sql}\n`;
+  // every signature of the name (overloads are different functions), each at its last definition
+  for (const [sig, v] of d.assinaturas) sql += `\n-- ${nome}(${sig})  <- ${v.arquivo}\n${v.sql}\n`;
   ((manifesto.funcoes[nome] ?? []).includes(d.hash) ? iguais : mudadas).push(`${nome}  (${d.arquivo})`);
 }
 const arq = join(tmp, "funcoes.sql");
