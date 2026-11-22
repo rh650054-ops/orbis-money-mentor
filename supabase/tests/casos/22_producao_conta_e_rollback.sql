@@ -3,8 +3,7 @@
 --      flows as production runs them: delete-my-account (apagar_dados_do_usuario, then
 --      auth.admin.deleteUser) and admin-delete-user (service-role deletes of a fixed table list,
 --      the profile, then auth.admin.deleteUser). Nobody can delete history row by row;
---   2) the rollback removes exactly what the migration created, refuses while history exists,
---      and the migration can be applied again afterwards.
+--   2) the rollback refuses while production history exists (the full rehearsal is case 26).
 
 -- Copy of apagar_dados_do_usuario as production runs it (read on 22/11/2026).
 create or replace function public.apagar_dados_do_usuario(p_user uuid) returns jsonb
@@ -83,41 +82,3 @@ select t.verdade('rollback with history: refused, nothing dropped',
     if to_regclass('public.producao_eventos') is not null and exists (select 1 from public.producao_eventos) then
       raise exception 'Rollback recusado: já existe produção registrada pelo novo fluxo. Peça autorização antes de apagar esse histórico.';
     end if; end $$$q$) like 'P0001|Rollback recusado%');
-delete from auth.users where id = pg_temp.id('k');  -- the rehearsal below needs an empty history
-select t.igual('setup for the rehearsal: no history left', (select count(*) from public.producao_eventos), 0);
-select t.vendedor('Conta Nova') as nova \gset
-insert into f values ('n', :'nova');
-insert into public.ingredients (user_id, name, unit, stock_quantity) values (:'nova', 'Farinha', 'kg', 10);
-insert into public.products (user_id, name, recipe_mode, batch_yield) values (:'nova', 'Pão', 'batch', 10);
-insert into public.product_recipes (user_id, product_id, ingredient_id, quantity)
-  select :'nova', p.id, g.id, 1 from public.products p, public.ingredients g where p.user_id = :'nova' and g.user_id = :'nova';
-
--- ---------------------------------------------------------------- 2. rollback rehearsal
-create or replace function pg_temp.objetos() returns text language sql as $$
-  select md5(coalesce(string_agg(o, ';' order by o), '')) from (
-    select 'T:' || c.relname || ':' || c.relrowsecurity as o from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and c.relname not like 'producao\_%'
-    union all select 'F:' || p.proname || ':' || md5(pg_get_functiondef(p.oid)) from pg_proc p where p.pronamespace = 'public'::regnamespace and p.prokind = 'f' and p.proname not like 'producao\_%'
-    union all select 'G:' || t.tgname || ':' || t.tgrelid::regclass::text from pg_trigger t join pg_class c on c.oid = t.tgrelid where c.relnamespace = 'public'::regnamespace and c.relname not like 'producao\_%' and not t.tgisinternal
-  ) z $$;
-create or replace function pg_temp.dados() returns text language plpgsql as $$
-declare r record; h text; tudo text := '';
-begin
-  for r in select tablename from pg_tables where schemaname = 'public' and tablename not like 'producao\_%' order by 1 loop
-    execute format('select md5(coalesce(string_agg(x::text, ''|'' order by x::text), '''')) from public.%I x', r.tablename) into h;
-    tudo := tudo || r.tablename || ':' || h || ';';
-  end loop;
-  return md5(tudo);
-end $$;
-select pg_temp.objetos() as objetos \gset
-select pg_temp.dados() as dados \gset
-\ir ../../producao-integridade/rollback-etapa1.sql
-select t.igual('rollback: no producao_* table or function is left',
-  (select count(*) from pg_class where relnamespace = 'public'::regnamespace and relname like 'producao\_%') + (select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname like 'producao\_%'), 0);
-select t.verdade('rollback: every other table, function and trigger is identical', pg_temp.objetos() = :'objetos');
-select t.verdade('rollback: no existing data changed (products, ingredients, recipes...)', pg_temp.dados() = :'dados');
-\ir ../../migrations/20261122120000_producao_integridade.sql
-select t.logar(pg_temp.id('n'));
-select t.verdade('re-apply: the migration runs again on top of the rollback and works',
-  (select (public.producao_registrar('reaplicar-0001', jsonb_build_array(jsonb_build_object('produto', p.id, 'unidades', 10)))->>'repetido') = 'false'
-     from public.products p where p.user_id = pg_temp.id('n')));
-select t.igual('re-apply: the flour went 10 -> 9', (select stock_quantity from public.ingredients where user_id = pg_temp.id('n')), 9);

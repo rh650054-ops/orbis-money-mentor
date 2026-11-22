@@ -21,6 +21,13 @@
 --   * typed consumption (real use) may differ from the recipe only with a justification, and never
 --     below 90% of the recipe on any ingredient (producao_reducao_maxima); a recipe without a yield
 --     blocks the production instead of producing with no ingredient.
+--     TEMPORARY PROTECTION: the 90% floor exists only until the definitive model, in which the
+--     effective consumption may differ freely from the forecast, always with a justification and
+--     history, and is never invented. Do not build other rules on top of it;
+--   * a recipe changed to consume less (ingredient lowered or removed, more units per batch, mode
+--     that stops consuming at production) since the product's last production asks for a
+--     justification on the next one; every recipe change is kept in receita_alteracoes (written by
+--     the triggers of 20261122130000, which is the only file touching existing objects).
 --
 -- Locks: products, then flavours, then ingredients, each in id order (FOR UPDATE), the same order
 -- produto_produzir* start with. The idempotency key also takes a transaction advisory lock.
@@ -52,7 +59,12 @@ create table public.producao_eventos (
   -- typed consumption different from the recipe: flagged, with the reason the seller gave
   consumo_ajustado boolean not null default false,
   justificativa_consumo text check (justificativa_consumo is null or char_length(justificativa_consumo) between 5 and 300),
+  -- the recipe of a product in this production was reduced since its previous production
+  receita_reduzida boolean not null default false,
+  -- last receita_alteracoes.id of each product at this moment: {product_id: id}; rebuilds the recipe used
+  receita_versoes jsonb not null default '{}',
   check (not consumo_ajustado or justificativa_consumo is not null),
+  check (not receita_reduzida or justificativa_consumo is not null),
   resposta jsonb not null,
   criado_em timestamptz not null default now(),
   unique (user_id, chave),
@@ -106,11 +118,31 @@ create table public.producao_movimentos (
 );
 create index producao_movimentos_registro_idx on public.producao_movimentos (registro_id);
 
+-- Every change to a recipe or to the yield/mode of a product, append-only. Written only by
+-- receita_registrar() (triggers in 20261122130000). reduz = the change makes production consume
+-- less per unit. No FK to products: deleting a product keeps working as today.
+create table public.receita_alteracoes (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  product_id uuid not null,
+  variant_id uuid,
+  ingredient_id uuid,
+  campo text not null check (campo in ('ingrediente', 'rendimento', 'modo')),
+  operacao text not null check (operacao in ('incluiu', 'alterou', 'removeu')),
+  antes text,
+  depois text,
+  reduz boolean not null,
+  por uuid,
+  em timestamptz not null default clock_timestamp()
+);
+create index receita_alteracoes_produto_idx on public.receita_alteracoes (product_id, em desc);
+
 -- ------------------------------------------------------------------ immutability
 -- History never changes. The only deletes allowed are of a whole account:
 --   * the FK cascade from auth.users (both account deletions end with auth.admin.deleteUser), and
 --     the cascade from producao_registros to its children that it starts;
---   * apagar_dados_do_usuario (delete-my-account), which sweeps every table with user_id first.
+--   * apagar_dados_do_usuario (delete-my-account), which sweeps every table with user_id first;
+--   * conta_teste_zerar (reset of an account listed in contas_teste), which wipes its own data.
 -- Not even the service role can delete or edit history row by row.
 create or replace function public.producao_imutavel() returns trigger
 language plpgsql set search_path = public as $$
@@ -118,10 +150,10 @@ declare v_ctx text;
 begin
   if tg_op = 'DELETE' then
     get diagnostics v_ctx = pg_context;
-    if v_ctx ~ 'apagar_dados_do_usuario' then return old; end if;
+    if v_ctx ~ '(apagar_dados_do_usuario|conta_teste_zerar)' then return old; end if;
     -- FK cascades run as internal SQL inside the RI trigger (depth > 1); a statement sent by a client
     -- never carries this context
-    if pg_trigger_depth() > 1 and v_ctx ~ 'DELETE FROM ONLY "public"."producao_(registros|eventos|itens|consumos|movimentos)"' then return old; end if;
+    if pg_trigger_depth() > 1 and v_ctx ~ 'DELETE FROM ONLY "public"."(producao_(registros|eventos|itens|consumos|movimentos)|receita_alteracoes)"' then return old; end if;
   elsif tg_op = 'UPDATE' and tg_table_name = 'producao_registros' then
     if new.id = old.id and new.user_id = old.user_id and new.criado_em = old.criado_em
        and new.versao = old.versao + 1 and old.status <> 'desfeita' then
@@ -136,6 +168,7 @@ create trigger producao_eventos_imutavel before update or delete on public.produ
 create trigger producao_itens_imutavel before update or delete on public.producao_itens for each row execute function public.producao_imutavel();
 create trigger producao_consumos_imutavel before update or delete on public.producao_consumos for each row execute function public.producao_imutavel();
 create trigger producao_movimentos_imutavel before update or delete on public.producao_movimentos for each row execute function public.producao_imutavel();
+create trigger receita_alteracoes_imutavel before update or delete on public.receita_alteracoes for each row execute function public.producao_imutavel();
 
 create or replace function public.producao_sem_truncate() returns trigger language plpgsql as $$
 begin
@@ -146,6 +179,7 @@ create trigger producao_eventos_sem_truncate before truncate on public.producao_
 create trigger producao_itens_sem_truncate before truncate on public.producao_itens for each statement execute function public.producao_sem_truncate();
 create trigger producao_consumos_sem_truncate before truncate on public.producao_consumos for each statement execute function public.producao_sem_truncate();
 create trigger producao_movimentos_sem_truncate before truncate on public.producao_movimentos for each statement execute function public.producao_sem_truncate();
+create trigger receita_alteracoes_sem_truncate before truncate on public.receita_alteracoes for each statement execute function public.producao_sem_truncate();
 
 -- ------------------------------------------------------------------ access
 -- Read-only for the owner; every write goes through the functions below.
@@ -154,8 +188,10 @@ alter table public.producao_eventos enable row level security;
 alter table public.producao_itens enable row level security;
 alter table public.producao_consumos enable row level security;
 alter table public.producao_movimentos enable row level security;
-revoke all on public.producao_registros, public.producao_eventos, public.producao_itens, public.producao_consumos, public.producao_movimentos from public, anon, authenticated;
-grant select on public.producao_registros, public.producao_eventos, public.producao_itens, public.producao_consumos, public.producao_movimentos to authenticated;
+alter table public.receita_alteracoes enable row level security;
+revoke all on public.producao_registros, public.producao_eventos, public.producao_itens, public.producao_consumos, public.producao_movimentos, public.receita_alteracoes from public, anon, authenticated;
+grant select on public.producao_registros, public.producao_eventos, public.producao_itens, public.producao_consumos, public.producao_movimentos, public.receita_alteracoes to authenticated;
+create policy receita_alteracoes_dono on public.receita_alteracoes for select to authenticated using (user_id = auth.uid());
 create policy producao_registros_dono on public.producao_registros for select to authenticated using (user_id = auth.uid());
 create policy producao_eventos_dono on public.producao_eventos for select to authenticated using (user_id = auth.uid());
 create policy producao_itens_dono on public.producao_itens for select to authenticated using (user_id = auth.uid());
@@ -207,7 +243,7 @@ create or replace function public.producao_estado_alvo(p_user uuid, p_itens json
 language plpgsql stable security definer set search_path = public as $$
 declare
   it jsonb; v_pid uuid; v_vid uuid; v_n numeric; v_iid uuid; v_txt text;
-  v_itens jsonb := '[]'; v_ovr jsonb := '[]'; v_res jsonb; v_ajustes jsonb; v_abaixo text[];
+  v_itens jsonb := '[]'; v_ovr jsonb := '[]'; v_res jsonb; v_ajustes jsonb; v_abaixo text[]; v_versoes jsonb;
 begin
   if p_itens is null or jsonb_typeof(p_itens) <> 'array' or jsonb_array_length(p_itens) = 0 then
     raise exception 'Informe pelo menos um produto para produzir.' using hint = 'VANT_ITENS_INVALIDOS';
@@ -320,8 +356,28 @@ begin
   if jsonb_array_length(v_ajustes) > 0 and (p_justificativa is null or char_length(trim(p_justificativa)) < 5 or char_length(p_justificativa) > 300) then
     raise exception 'O consumo informado é diferente da receita. Explique o motivo (5 a 300 letras).' using hint = 'VANT_JUSTIFICATIVA_OBRIGATORIA';
   end if;
+
+  -- recipe reduced since the product's previous production (new flow): allowed, but explained once
+  with prods as (select distinct (i->>'produto')::uuid as produto from jsonb_array_elements(v_res->'itens') i)
+  select coalesce(jsonb_object_agg(x.produto, (select max(a.id) from public.receita_alteracoes a where a.product_id = x.produto)), '{}')
+    into v_versoes from prods x;
+  with prods as (select distinct (i->>'produto')::uuid as produto from jsonb_array_elements(v_res->'itens') i)
+  select string_agg(p.name, ', ' order by p.name) into v_txt
+    from prods x join public.products p on p.id = x.produto
+   where exists (
+     select 1 from public.receita_alteracoes a
+      where a.product_id = x.produto and a.reduz
+        and a.em > coalesce((select max(e.criado_em) from public.producao_eventos e
+                               join public.producao_itens pi on pi.evento_id = e.id
+                              where e.user_id = p_user and pi.product_id = x.produto), '-infinity'));
+  if v_txt is not null and (p_justificativa is null or char_length(trim(p_justificativa)) < 5 or char_length(p_justificativa) > 300) then
+    raise exception 'A receita de % foi alterada para gastar menos desde a última produção. Explique o motivo (5 a 300 letras).', v_txt
+      using hint = 'VANT_RECEITA_REDUZIDA';
+  end if;
+
   return v_res || jsonb_build_object('ajustes', v_ajustes, 'ajustado', jsonb_array_length(v_ajustes) > 0,
-    'justificativa', case when jsonb_array_length(v_ajustes) > 0 then trim(p_justificativa) end);
+    'receita_reduzida', v_txt is not null, 'receita_versoes', v_versoes,
+    'justificativa', case when jsonb_array_length(v_ajustes) > 0 or v_txt is not null then trim(p_justificativa) end);
 end $$;
 
 -- The state a registro is in now (its latest version). Undone = nothing.
@@ -434,11 +490,13 @@ begin
   select status into v_status from public.producao_registros where id = p_registro;
   v_resp := jsonb_build_object('registro_id', p_registro, 'evento_id', p_evento, 'tipo', p_tipo, 'versao', p_versao, 'status', v_status,
     'itens', coalesce(p_estado->'itens', '[]'), 'consumo', coalesce(p_estado->'consumo', '[]'),
-    'avisos', coalesce(p_estado->'avisos', '[]'), 'ajustes', coalesce(p_estado->'ajustes', '[]'), 'estoque', p_estoque, 'repetido', false);
+    'avisos', coalesce(p_estado->'avisos', '[]'), 'ajustes', coalesce(p_estado->'ajustes', '[]'),
+    'receita_reduzida', coalesce((p_estado->>'receita_reduzida')::boolean, false), 'estoque', p_estoque, 'repetido', false);
   insert into public.producao_eventos (id, registro_id, user_id, tipo, versao, chave, conteudo_hash, motivo, notas,
-                                       consumo_ajustado, justificativa_consumo, resposta)
+                                       consumo_ajustado, receita_reduzida, receita_versoes, justificativa_consumo, resposta)
   values (p_evento, p_registro, p_user, p_tipo, p_versao, p_chave, p_hash, p_motivo, p_notas,
-          coalesce((p_estado->>'ajustado')::boolean, false), p_estado->>'justificativa', v_resp);
+          coalesce((p_estado->>'ajustado')::boolean, false), coalesce((p_estado->>'receita_reduzida')::boolean, false),
+          coalesce(p_estado->'receita_versoes', '{}'), p_estado->>'justificativa', v_resp);
   return v_resp;
 end $$;
 

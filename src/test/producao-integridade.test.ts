@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 // proven by the SQL cases 20-22 (npm run test:sql); these keep the promises visible in preflight.
 const raiz = resolve(__dirname, "../..");
 const sql = readFileSync(resolve(raiz, "supabase/migrations/20261122120000_producao_integridade.sql"), "utf8");
+const parte2 = readFileSync(resolve(raiz, "supabase/migrations/20261122130000_receita_historico_e_conta_teste.sql"), "utf8").replace(/--[^\n]*/g, "");
 const rollback = readFileSync(resolve(raiz, "supabase/producao-integridade/rollback-etapa1.sql"), "utf8");
 const codigo = sql.replace(/--[^\n]*/g, "");
 
@@ -20,8 +21,8 @@ describe("production integrity (Etapa 1)", () => {
   it("does not redefine any existing function or table", () => {
     const criadas = [...codigo.matchAll(/create (?:or replace )?(?:function|table) public\.(\w+)/gi)].map((m) => m[1] ?? "");
     expect(criadas.length).toBeGreaterThan(0);
-    for (const nome of criadas) expect(nome).toMatch(/^producao_/);
-    expect(codigo).not.toMatch(/alter table public\.(?!producao_)/i);
+    for (const nome of criadas) expect(nome).toMatch(/^(producao_|receita_alteracoes$)/);
+    expect(codigo).not.toMatch(/alter table public\.(?!producao_|receita_alteracoes)/i);
     expect(codigo).not.toMatch(/\b(update|delete from|insert into) public\.(production_batches|mercado_\w+|defcon_sales|daily_sales)\b/i);
   });
 
@@ -40,6 +41,22 @@ describe("production integrity (Etapa 1)", () => {
 
   it("never changes costs or prices", () => {
     expect(codigo).not.toMatch(/set[^;]*\b(cost|cost_per_unit|sale_price)\s*=/i);
+    expect(parte2).not.toMatch(/\b(cost|cost_per_unit|sale_price)\b/i);
+  });
+
+  it("part 2 only logs recipe changes and extends conta_teste_zerar", () => {
+    const criadas = [...parte2.matchAll(/create (?:or replace )?function public\.(\w+)/gi)].map((m) => m[1]);
+    expect(criadas.sort()).toEqual(["conta_teste_zerar", "receita_registrar"]);
+    // the recipe triggers write only to the log, never back to products/recipes/ingredients
+    const gatilho = parte2.slice(parte2.indexOf("function public.receita_registrar"), parte2.indexOf("create trigger"));
+    expect(gatilho).not.toMatch(/\b(update|delete from)\b/i);
+    expect([...gatilho.matchAll(/insert into public\.(\w+)/gi)].every((m) => m[1] === "receita_alteracoes")).toBe(true);
+    expect([...parte2.matchAll(/create trigger \w+\s+(after|before)/gi)].map((m) => m[1]?.toLowerCase())).toEqual(["after", "after"]);
+    expect(parte2).toContain("'producao_registros','receita_alteracoes'];");
+  });
+
+  it("the 90% floor is documented as temporary", () => {
+    expect(sql).toContain("TEMPORARY PROTECTION");
   });
 
   it("only the three entry points are callable by a logged user", () => {
@@ -56,8 +73,9 @@ describe("production integrity (Etapa 1)", () => {
 
   it("the rollback refuses while history exists and drops only producao_* objects", () => {
     expect(rollback).toContain("Rollback recusado");
-    const derrubados = [...rollback.matchAll(/drop (?:function|table) if exists ([^;(]+)/gi)].flatMap((m) => (m[1] ?? "").split(","));
-    for (const d of derrubados) expect(d.trim()).toMatch(/^public\.producao_/);
+    const derrubados = [...rollback.matchAll(/drop (?:function|table|trigger) if exists ([^;(]+)/gi)].flatMap((m) => (m[1] ?? "").split(","));
+    for (const d of derrubados) expect(d.trim()).toMatch(/^(public\.producao_|public\.receita_|receita_alteracoes_registrar on public\.(products|product_recipes))/);
+    expect(rollback).toContain("receita_alteracoes mantida");
   });
 
   it("no screen calls the new functions yet (Etapa 1 changes no screen)", () => {
