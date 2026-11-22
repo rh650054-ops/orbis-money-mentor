@@ -1,4 +1,5 @@
-/* /products/novo e /products/:id — cadastro do produto em perguntas (quiz). */
+/* /products/novo — cadastro do produto em perguntas (quiz). 22/11 (Etapa 2): 6 perguntas — o que vende,
+   como consegue (produz / revende / configurar depois), receita ou custo, sabores, preço e revisão. */
 import { useMemo, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,7 +16,9 @@ import { PassoOrigem } from "../components/passo-origem";
 import { PassoCustoCompra } from "../components/passo-custo-compra";
 import { PassoCustoFaz } from "../components/passo-custo-faz";
 import { PassoPreco } from "../components/passo-preco";
-import { PassoEstoque } from "../components/passo-estoque";
+import { PassoSabores } from "../components/passo-sabores";
+import { PassoRevisao } from "../components/passo-revisao";
+import { useSalvarSaboresMutation } from "../api/use-salvar-sabores-mutation";
 import { QuizPronto } from "../components/quiz-pronto";
 import { CarregandoProdutos } from "../components/carregando-produtos";
 
@@ -32,7 +35,8 @@ export default function QuizProdutoPage() {
 
 function Quiz({ inicial, userId }: { inicial?: RascunhoProduto; userId?: string }) {
   const navigate = useNavigate();
-  const q = useQuizProduto(inicial);
+  const q = useQuizProduto(inicial, userId);
+  const salvarSabores = useSalvarSaboresMutation();
   const salvar = useSalvarProdutoMutation(userId, inicial);
   const foto = useSubirFotoMutation(userId);
   const sair = () => navigate("/products");
@@ -42,7 +46,15 @@ function Quiz({ inicial, userId }: { inicial?: RascunhoProduto; userId?: string 
   const [salvo, setSalvo] = useState<string | null>(null);
   const gravar = (rascunho: RascunhoProduto) => {
     salvar.mutate(rascunho, {
-      onSuccess: (id) => { setSalvo(id); q.ir("pronto"); },
+      onSuccess: (id) => {
+        setSalvo(id); q.terminou(); q.ir("pronto");
+        // flavours of a new product; if they fail, the product is saved and the sheet shows what is missing
+        if (!rascunho.id && rascunho.sabores.some((x) => x.nome.trim())) {
+          salvarSabores.mutate({ produtoId: id, sabores: rascunho.sabores }, {
+            onError: (e) => toast({ title: "O produto foi salvo, mas os sabores não", description: `${mapSupabaseError(e).message} Confira na ficha do produto.`, variant: "destructive" }),
+          });
+        }
+      },
       onError: (e) => toast({ title: "Não consegui salvar o produto", description: mapSupabaseError(e).message, variant: "destructive" }),
     });
   };
@@ -63,11 +75,13 @@ function Quiz({ inicial, userId }: { inicial?: RascunhoProduto; userId?: string 
             rendeInicial={r.rende} onCusto={q.setCusto} onRende={(n) => q.setPacote(n)} onReceita={q.setReceita} onContinuar={q.avancar} onVoltar={voltar} />
         : <PassoCustoCompra total={TOTAL_PASSOS} nome={r.nome} custo={r.custo} onCusto={q.setCusto} onPacote={(n) => q.setPacote(n)}
             onFaco={() => q.setOrigem("faz")} onContinuar={q.avancar} onVoltar={voltar} />;
+    case "sabores":
+      return <PassoSabores r={r} total={TOTAL_PASSOS} onSabores={q.setSabores} onContinuar={q.avancar} onVoltar={voltar} />;
     case "preco":
       return <PassoPreco total={TOTAL_PASSOS} nome={r.nome} custo={r.custo} preco={r.preco} combo={r.combo}
         onPreco={q.setPreco} onCombo={q.setCombo} onPrecoLivre={q.setPrecoLivre} onContinuar={q.avancar} onVoltar={voltar} />;
-    case "estoque":
-      return <PassoEstoque total={TOTAL_PASSOS} nome={r.nome} estoque={r.estoque} custo={r.custo} pacote={q.pacote} salvando={salvar.isPending}
+    case "revisao":
+      return <PassoRevisao r={r} total={TOTAL_PASSOS} pacote={q.pacote} salvando={salvar.isPending} onIr={q.ir}
         onEstoque={q.setEstoque} onSalvar={() => gravar(r)} onVoltar={voltar}
         onSemEstoque={() => { q.semEstoque(); gravar({ ...r, controlaEstoque: false, estoque: 0 }); }} />;
     case "pronto":

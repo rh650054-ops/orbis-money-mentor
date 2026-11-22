@@ -20,8 +20,9 @@ export function PassoCustoFaz({ nome, custo, total, receitaInicial, rendeInicial
 }) {
   const [caminho, setCaminho] = useState<null | "sei" | "receita">(receitaInicial ? "receita" : null);
   const [gasto, setGasto] = useState(0);
-  const [rende, setRende] = useState(rendeInicial > 0 ? rendeInicial : 20);
-  const [itens, setItens] = useState<IngredienteRascunho[]>(() => receitaInicial ?? ingredientesSugeridos(nome, rendeInicial > 0 ? rendeInicial : 20));
+  // 22/11: the yield is HIS number: it starts empty instead of an assumed 20
+  const [rende, setRende] = useState(rendeInicial > 0 ? rendeInicial : 0);
+  const [itens, setItens] = useState<IngredienteRascunho[]>(() => receitaInicial ?? ingredientesSugeridos(nome));
   const voltar = () => (caminho ? setCaminho(null) : onVoltar());
 
   if (!caminho) {
@@ -71,10 +72,11 @@ export function PassoCustoFaz({ nome, custo, total, receitaInicial, rendeInicial
     onRende(r);
     onReceita(receitaDoRascunho(novos), r);
   };
+  // an incomplete recipe may go on as a draft; the yield is what makes it a recipe
   const valida = receitaDoRascunho(itens).length > 0 && rende >= 1;
   return (
     <QuizCasca passo={3} total={total} onVoltar={voltar} titulo={`O que vai em ${nome}?`}
-      sub="Quanto de cada coisa vai numa leva. Já marcamos o comum: ajusta do seu jeito."
+      sub="Diga quanto rende e quanto usa de cada coisa. Preço é opcional: pode vir depois, do mercado."
       rodape={<BotaoOuro onClick={() => { aplicar(itens, rende); onContinuar(); }} disabled={!valida}>CONTINUAR</BotaoOuro>}>
       <EditorReceita itens={itens} rende={rende} nomeProduto={plural(nome)} onItens={(n) => aplicar(n, rende)} onRende={(r) => aplicar(itens, r)} />
     </QuizCasca>

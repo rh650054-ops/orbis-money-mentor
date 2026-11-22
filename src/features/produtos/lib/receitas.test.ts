@@ -8,13 +8,14 @@ const ing = (nome: string, qtd: number, precoPacote: number, pacote = 1, usa = t
   ({ ...novoIngrediente(nome, qtd), precoPacote, pacote, usa });
 
 describe("receita de quem faz", () => {
-  it("sugere os ingredientes comuns; embalagem vai 1 por unidade e vem em pacote", () => {
+  it("sugere os NOMES comuns; quantidades começam vazias (22/11: nada é inventado)", () => {
     expect(ingredientesSugeridos("Trufa de maracujá").map((i) => i.nome)).toContain("Leite condensado");
     expect(ingredientesSugeridos("Capinha").length).toBe(2);
     const batida = ingredientesSugeridos("Batida", 20);
     expect(batida.map((i) => i.nome)).toEqual(["Leite condensado", "Creme de leite", "Fruta / polpa", "Copo e canudo"]);
-    expect(batida.find((i) => i.nome === "Copo e canudo")).toMatchObject({ qtd: 20, pacote: 100, unidade: "un" });
-    expect(batida.find((i) => i.nome === "Leite condensado")).toMatchObject({ qtd: 1, pacote: 1 });
+    expect(batida.find((i) => i.nome === "Copo e canudo")).toMatchObject({ qtd: 0, pacote: 100, unidade: "un" });
+    expect(batida.find((i) => i.nome === "Leite condensado")).toMatchObject({ qtd: 0, pacote: 1 });
+    expect(batida.every((i) => i.daPra === undefined)).toBe(true);
   });
 
   it("preço de 1 sai do pacote: 100 canudos por R$ 8 = R$ 0,08; lata de 800 g por R$ 30", () => {
@@ -36,7 +37,7 @@ describe("receita de quem faz", () => {
     expect(custoPorUnidade(totalDaReceita(itens), 20)).toBe(1.3);
   });
 
-  it("salva só o marcado, com unidade e pacote (e volta igual)", () => {
+  it("salva só o marcado e com nome; sem quantidade vira rascunho (e volta igual)", () => {
     const r = receitaDoRascunho([
       { ...ing(" Leite em pó ", 200, 30, 800), unidade: "g" },
       ing("Copo", 20, 0, 50),
@@ -47,6 +48,8 @@ describe("receita de quem faz", () => {
     expect(r).toEqual([
       { nome: "Leite em pó", qtd: 200, preco: 0.0375, unidade: "g", pacote: 800 },
       { nome: "Copo", qtd: 20, preco: 0, unidade: "un", pacote: 50 },
+      // 22/11: before, "Fruta" without quantity vanished on save; now it is kept as a draft (no consumption)
+      { nome: "Fruta", qtd: 0, preco: 2, unidade: "un", pacote: 1, aprender: true },
     ]);
     expect(receitaDoRascunho(rascunhoDaReceita(r))).toEqual(r);
   });
@@ -66,8 +69,8 @@ describe("descubro na compra (26/10)", () => {
     expect(r).toHaveLength(1);
     expect(r[0]).toMatchObject({ nome: "Maracujá", qtd: 0, aprender: true, unidade: "g", pacote: 1000 });
     expect(rascunhoDaReceita(r)[0]).toMatchObject({ aprender: true, qtd: 0 });
-    // sem a marca, qtd 0 continua fora
-    expect(receitaDoRascunho([{ nome: "X", qtd: 0, unidade: "un", pacote: 1, precoPacote: 0, usa: true }])).toHaveLength(0);
+    // 22/11: without the flag, a named line with qty 0 is also a draft now (before it was dropped)
+    expect(receitaDoRascunho([{ nome: "X", qtd: 0, unidade: "un", pacote: 1, precoPacote: 0, usa: true }])).toEqual([expect.objectContaining({ nome: "X", qtd: 0, aprender: true })]);
   });
 });
 

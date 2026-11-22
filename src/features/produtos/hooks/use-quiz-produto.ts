@@ -1,10 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { emojiDoNome } from "../lib/conta";
+import { apagarRascunho, guardarRascunho, lerRascunho } from "../lib/rascunho-cadastro";
+import type { SaborRascunho } from "../lib/sabores";
 import { RASCUNHO_VAZIO, type ItemReceita, type ProdutoComFaixas, type RascunhoProduto } from "../types";
 
-export type PassoQuiz = "nome" | "origem" | "custo" | "preco" | "estoque" | "pronto";
-const ORDEM: PassoQuiz[] = ["nome", "origem", "custo", "preco", "estoque", "pronto"];
-export const TOTAL_PASSOS = 5;
+/* 22/11 (Etapa 2): 6 questions — what, how he gets it, recipe (makes) or cost (buys), flavours,
+   price, review. "Configurar depois" skips question 3. The stock question lives in the review. */
+export type PassoQuiz = "nome" | "origem" | "custo" | "sabores" | "preco" | "revisao" | "pronto";
+const ORDEM: PassoQuiz[] = ["nome", "origem", "custo", "sabores", "preco", "revisao", "pronto"];
+export const TOTAL_PASSOS = 6;
 
 export function rascunhoDe(p: ProdutoComFaixas): RascunhoProduto {
   const combo = p.faixas.find((f) => f.qty >= 2) ?? null;
@@ -12,38 +16,53 @@ export function rascunhoDe(p: ProdutoComFaixas): RascunhoProduto {
     id: p.id, nome: p.name, emoji: p.emoji || emojiDoNome(p.name), foto: p.photo_url,
     origem: p.origem, custo: p.cost, preco: p.sale_price, precoLivre: !!p.open_price,
     combo, estoque: p.stock_quantity, controlaEstoque: p.controla_estoque !== false,
-    receita: null, rende: p.batch_yield,
+    receita: null, rende: p.batch_yield, sabores: [],
   };
 }
 
-/** Estado do quiz: o rascunho do produto e em que pergunta ele está. */
-export function useQuizProduto(inicial?: RascunhoProduto) {
-  const [r, setR] = useState<RascunhoProduto>(inicial ?? RASCUNHO_VAZIO);
-  const [passo, setPasso] = useState<PassoQuiz>("nome");
-  /** unidades do pacote (passo do custo) pra sugerir "+1 pacote" no estoque */
+/** Quiz state: the product draft and which question he is on. A NEW product's draft is kept per
+ *  user until saved (lerRascunho), so leaving and coming back loses nothing. */
+export function useQuizProduto(inicial?: RascunhoProduto, userId?: string) {
+  const [retomado] = useState(() => (inicial ? null : lerRascunho(userId)));
+  const [r, setR] = useState<RascunhoProduto>(inicial ?? retomado?.r ?? RASCUNHO_VAZIO);
+  const [passo, setPasso] = useState<PassoQuiz>(retomado?.passo ?? "nome");
+  /** units of the pack (cost step) to suggest "+1 pacote" in the stock */
   const [pacote, setPacote] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (inicial || passo === "pronto") return;
+    guardarRascunho(userId, r, passo);
+  }, [inicial, userId, r, passo]);
 
   const mudar = (m: Partial<RascunhoProduto>) => setR((x) => ({ ...x, ...m }));
   const ir = (p: PassoQuiz) => { setPasso(p); window.scrollTo(0, 0); };
-  const avancar = () => ir(ORDEM[Math.min(ORDEM.length - 1, ORDEM.indexOf(passo) + 1)]!);
-  const voltar = (): boolean => {
-    const i = ORDEM.indexOf(passo);
-    if (i <= 0) return false;
-    ir(ORDEM[i - 1]!);
-    return true;
+  /** "Configurar depois" has no question 3 */
+  const pula = (p: PassoQuiz) => p === "custo" && r.origem === null;
+  const andar = (d: 1 | -1): PassoQuiz | null => {
+    let i = ORDEM.indexOf(passo) + d;
+    while (i >= 0 && i < ORDEM.length && pula(ORDEM[i]!)) i += d;
+    return i >= 0 && i < ORDEM.length ? ORDEM[i]! : null;
   };
-  const recomecar = () => { setR(RASCUNHO_VAZIO); setPacote(null); ir("nome"); };
+  const avancar = () => { const p = andar(1); if (p) ir(p); };
+  const voltar = (): boolean => { const p = andar(-1); if (!p) return false; ir(p); return true; };
+  const recomecar = () => { apagarRascunho(userId); setR(RASCUNHO_VAZIO); setPacote(null); ir("nome"); };
 
   return {
-    r, passo, pacote, setPacote, ir, avancar, voltar, recomecar,
+    r, passo, pacote, setPacote, ir, avancar, voltar, recomecar, retomado: !!retomado,
+    terminou: () => apagarRascunho(userId),
     setNome: (nome: string) => mudar({ nome, emoji: emojiDoNome(nome) }),
     setFoto: (foto: string | null) => mudar({ foto }),
-    setOrigem: (origem: "compra" | "faz") => { mudar({ origem }); ir("custo"); },
+    setOrigem: (origem: "compra" | "faz" | null) => {
+      // leaving "makes" drops the recipe typed here: a resale product has no recipe
+      mudar({ origem, ...(origem !== "faz" ? { receita: null, rende: 0 } : {}) });
+      ir(origem === null ? "sabores" : "custo");
+    },
     setCusto: (custo: number) => mudar({ custo }),
     setPreco: (preco: number) => mudar({ preco, precoLivre: false }),
-    setPrecoLivre: () => { mudar({ precoLivre: true, preco: 0, combo: null }); ir("estoque"); },
+    setPrecoLivre: () => { mudar({ precoLivre: true, preco: 0, combo: null }); ir("revisao"); },
     setCombo: (combo: RascunhoProduto["combo"]) => mudar({ combo }),
     setReceita: (receita: ItemReceita[] | null, rende: number) => mudar({ receita, rende }),
+    setSabores: (sabores: SaborRascunho[]) => mudar({ sabores }),
     setEstoque: (estoque: number) => mudar({ estoque, controlaEstoque: true }),
     semEstoque: () => mudar({ controlaEstoque: false, estoque: 0 }),
   };
