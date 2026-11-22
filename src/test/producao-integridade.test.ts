@@ -25,6 +25,19 @@ describe("production integrity (Etapa 1)", () => {
     expect(codigo).not.toMatch(/\b(update|delete from|insert into) public\.(production_batches|mercado_\w+|defcon_sales|daily_sales)\b/i);
   });
 
+  it("typed consumption: floor below the recipe, reason required, recipe without yield blocked", () => {
+    expect(codigo).toContain("select 0.10::numeric");
+    expect(codigo).toContain("hint = 'VANT_CONSUMO_ABAIXO_DO_MINIMO'");
+    expect(codigo).toContain("hint = 'VANT_JUSTIFICATIVA_OBRIGATORIA'");
+    expect(codigo).toContain("hint = 'VANT_RECEITA_SEM_RENDIMENTO'");
+    expect(codigo).toContain("check (not consumo_ajustado or justificativa_consumo is not null)");
+  });
+
+  it("history leaves with the account and nobody deletes it row by row", () => {
+    expect(codigo).toContain("user_id uuid not null references auth.users (id) on delete cascade,");
+    expect(codigo).not.toMatch(/current_user\s*=\s*'service_role'/);
+  });
+
   it("never changes costs or prices", () => {
     expect(codigo).not.toMatch(/set[^;]*\b(cost|cost_per_unit|sale_price)\s*=/i);
   });

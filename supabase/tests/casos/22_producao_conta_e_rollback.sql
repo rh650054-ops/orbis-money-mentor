@@ -1,6 +1,8 @@
 -- Etapa 1 (22/11/2026): what must keep working around the new immutable history.
---   1) deleting an account (delete-my-account -> apagar_dados_do_usuario, admin -> service role)
---      still removes the production history, instead of failing on the immutability triggers;
+--   1) deleting an account still removes the production history, with no orphan left, in both
+--      flows as production runs them: delete-my-account (apagar_dados_do_usuario, then
+--      auth.admin.deleteUser) and admin-delete-user (service-role deletes of a fixed table list,
+--      the profile, then auth.admin.deleteUser). Nobody can delete history row by row;
 --   2) the rollback removes exactly what the migration created, refuses while history exists,
 --      and the migration can be applied again afterwards.
 
@@ -27,6 +29,7 @@ begin
   return jsonb_build_object('tabelas_varridas', v_tabelas, 'linhas_apagadas', v_linhas);
 end $function$;
 -- Supabase gives the service role every table; the migration does not take that away.
+grant all on public.products, public.ingredients, public.product_recipes, public.profiles to service_role;
 grant all on public.producao_registros, public.producao_eventos, public.producao_itens, public.producao_consumos, public.producao_movimentos to service_role;
 
 create temp table f (k text primary key, id uuid);
@@ -39,8 +42,8 @@ $$;
 do $$
 declare u uuid; o uuid; p uuid; g uuid;
 begin
-  foreach u in array array[t.vendedor('Conta Apagada'), t.vendedor('Conta Mantida')] loop
-    insert into f values (case when not exists (select 1 from f) then 'u' else 'o' end, u);
+  foreach u in array array[t.vendedor('Conta Apagada'), t.vendedor('Conta Admin'), t.vendedor('Conta Mantida')] loop
+    insert into f values ((array['u', 'o', 'k'])[(select count(*) from f) + 1], u);
     insert into public.ingredients (user_id, name, unit, stock_quantity) values (u, 'Farinha', 'kg', 10) returning id into g;
     insert into public.products (user_id, name, recipe_mode, batch_yield) values (u, 'Pão', 'batch', 10) returning id into p;
     insert into public.product_recipes (user_id, product_id, ingredient_id, quantity) values (u, p, g, 1);
@@ -51,19 +54,43 @@ end $$;
 
 -- ---------------------------------------------------------------- 1. account deletion
 select t.igual('setup: each account has history (registro + event + item + consumption + 2 movements)', pg_temp.historico(pg_temp.id('u')), 6);
-select public.apagar_dados_do_usuario(pg_temp.id('u'));
-select t.igual('delete-my-account: the production history of that account is gone', pg_temp.historico(pg_temp.id('u')), 0);
-select t.igual('delete-my-account: the other account keeps all its history', pg_temp.historico(pg_temp.id('o')), 6);
-select t.verdade('delete-my-account: a plain delete is still refused afterwards',
+-- nobody deletes history row by row, not even the service role or the owner
+select t.verdade('service role: a direct delete of history is refused',
+  t.erro(format('delete from public.producao_registros where user_id = %L', pg_temp.id('o')), 'service_role') like 'VANT_HISTORICO_IMUTAVEL|%');
+select t.verdade('owner: a direct delete is refused (no grant)',
+  t.erro(format('delete from public.producao_eventos where user_id = %L', pg_temp.id('o')), 'authenticated', pg_temp.id('o')) like '42501|%');
+select t.verdade('postgres: a plain delete is refused',
   t.erro(format('delete from public.producao_eventos where user_id = %L', pg_temp.id('o'))) like 'VANT_HISTORICO_IMUTAVEL|%');
+
+-- delete-my-account: apagar_dados_do_usuario, then auth.admin.deleteUser
+select public.apagar_dados_do_usuario(pg_temp.id('u'));
+select t.igual('delete-my-account: the sweep already removes the history', pg_temp.historico(pg_temp.id('u')), 0);
+delete from auth.users where id = pg_temp.id('u');
+select t.verdade('delete-my-account: the account itself is gone', not exists (select 1 from auth.users where id = pg_temp.id('u')));
+
+-- admin-delete-user: service-role deletes of its fixed list (producao_* not in it), the profile, then deleteUser
+select t.erro(format('delete from public.%I where user_id = %L', x, pg_temp.id('o')), 'service_role') from unnest(array['product_recipes', 'products', 'ingredients', 'profiles']) x;
+select t.igual('admin: after the table list and the profile, the history is still there (not in the list)', pg_temp.historico(pg_temp.id('o')), 6);
+select t.verdade('admin: deleteUser (auth.users) goes through', t.erro(format('delete from auth.users where id = %L', pg_temp.id('o'))) = 'ok');
+select t.igual('admin: the account''s history went with it (FK cascade)', pg_temp.historico(pg_temp.id('o')), 0);
+select t.verdade('no orphan: every history row belongs to an existing account',
+  not exists (select 1 from (select user_id from public.producao_registros union all select user_id from public.producao_eventos
+     union all select user_id from public.producao_itens union all select user_id from public.producao_consumos
+     union all select user_id from public.producao_movimentos) h where not exists (select 1 from auth.users a where a.id = h.user_id)));
+select t.igual('the account that was kept has all its history', pg_temp.historico(pg_temp.id('k')), 6);
 select t.verdade('rollback with history: refused, nothing dropped',
   t.erro($q$do $$ begin
     if to_regclass('public.producao_eventos') is not null and exists (select 1 from public.producao_eventos) then
       raise exception 'Rollback recusado: já existe produção registrada pelo novo fluxo. Peça autorização antes de apagar esse histórico.';
     end if; end $$$q$) like 'P0001|Rollback recusado%');
-select t.verdade('admin (service role): can delete an account''s history',
-  t.erro(format('delete from public.producao_registros where user_id = %L', pg_temp.id('o')), 'service_role') = 'ok');
-select t.igual('admin (service role): cascade removed every row of that account', pg_temp.historico(pg_temp.id('o')), 0);
+delete from auth.users where id = pg_temp.id('k');  -- the rehearsal below needs an empty history
+select t.igual('setup for the rehearsal: no history left', (select count(*) from public.producao_eventos), 0);
+select t.vendedor('Conta Nova') as nova \gset
+insert into f values ('n', :'nova');
+insert into public.ingredients (user_id, name, unit, stock_quantity) values (:'nova', 'Farinha', 'kg', 10);
+insert into public.products (user_id, name, recipe_mode, batch_yield) values (:'nova', 'Pão', 'batch', 10);
+insert into public.product_recipes (user_id, product_id, ingredient_id, quantity)
+  select :'nova', p.id, g.id, 1 from public.products p, public.ingredients g where p.user_id = :'nova' and g.user_id = :'nova';
 
 -- ---------------------------------------------------------------- 2. rollback rehearsal
 create or replace function pg_temp.objetos() returns text language sql as $$
@@ -89,8 +116,8 @@ select t.igual('rollback: no producao_* table or function is left',
 select t.verdade('rollback: every other table, function and trigger is identical', pg_temp.objetos() = :'objetos');
 select t.verdade('rollback: no existing data changed (products, ingredients, recipes...)', pg_temp.dados() = :'dados');
 \ir ../../migrations/20261122120000_producao_integridade.sql
-select t.logar(pg_temp.id('o'));
+select t.logar(pg_temp.id('n'));
 select t.verdade('re-apply: the migration runs again on top of the rollback and works',
   (select (public.producao_registrar('reaplicar-0001', jsonb_build_array(jsonb_build_object('produto', p.id, 'unidades', 10)))->>'repetido') = 'false'
-     from public.products p where p.user_id = pg_temp.id('o')));
-select t.igual('re-apply: the flour of the kept account went 9 -> 8', (select stock_quantity from public.ingredients where user_id = pg_temp.id('o')), 8);
+     from public.products p where p.user_id = pg_temp.id('n')));
+select t.igual('re-apply: the flour went 10 -> 9', (select stock_quantity from public.ingredients where user_id = pg_temp.id('n')), 9);

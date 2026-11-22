@@ -55,7 +55,8 @@ select t.igual('...e 5 funcoes', (select count(*) from pg_proc where pronamespac
 select t.igual('...com chaves para o cadastro do usuario, todas em cascata', (select count(*) from pg_constraint where contype = 'f' and confrelid = 'auth.users'::regclass and confdeltype = 'c' and conrelid::regclass::text like '%of\_%')::numeric, 7);
 \ir ../../modulo-a/rollback-a-pr1.sql
 select t.igual('rollback: nao sobra nenhum objeto of_', pg_temp.objetos_of()::numeric, 0);
-select t.igual('rollback: o cadastro de usuarios fica sem nenhuma chave ou gatilho apontando para ele', (select count(*) from pg_constraint where confrelid = 'auth.users'::regclass)::numeric + (select count(*) from pg_trigger where tgrelid = 'auth.users'::regclass)::numeric, 0);
+select t.igual('rollback: o cadastro de usuarios fica sem nenhuma chave ou gatilho apontando para ele', (select count(*) from pg_constraint where confrelid = 'auth.users'::regclass and conrelid::regclass::text like 'of\_%')::numeric
+  + (select count(*) from pg_trigger where tgrelid = 'auth.users'::regclass and (tgconstraint = 0 or tgconstraint in (select oid from pg_constraint where conrelid::regclass::text like 'of\_%')))::numeric, 0);  -- only what A-PR1 created (22/11: producao_registros has its own FK)
 select t.verdade('rollback: tabelas, funcoes, gatilhos e policies que ja existiam ficam identicos', pg_temp.objetos_antigos() = :'objetos');
 select t.verdade('rollback: nenhum dado que ja existia mudou', pg_temp.dados_antigos() = :'dados');
 select t.verdade('rollback: a regra atual continua respondendo igual', public.banco_conta_de_venda(:'c1', now()) = :'resposta_antes'::boolean);

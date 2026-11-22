@@ -9,14 +9,15 @@ begin
     raise exception 'Rollback recusado: já existe produção registrada pelo novo fluxo. Peça autorização antes de apagar esse histórico.';
   end if;
 end $$;
-drop function if exists public.producao_registrar(text, jsonb, jsonb, text);
+drop function if exists public.producao_registrar(text, jsonb, jsonb, text, text);
 drop function if exists public.producao_corrigir(uuid, text, jsonb, jsonb, text);
 drop function if exists public.producao_desfazer(uuid, text, text);
 drop function if exists public.producao_gravar(uuid, uuid, uuid, text, integer, text, text, jsonb, jsonb, text, text);
 drop function if exists public.producao_aplicar(uuid, uuid, uuid, jsonb);
 drop function if exists public.producao_deltas(jsonb, jsonb);
 drop function if exists public.producao_estado_atual(uuid);
-drop function if exists public.producao_estado_alvo(uuid, jsonb, jsonb);
+drop function if exists public.producao_estado_alvo(uuid, jsonb, jsonb, text);
+drop function if exists public.producao_reducao_maxima();
 drop function if exists public.producao_repetido(uuid, text, text);
 drop function if exists public.producao_validar_chave(text);
 drop function if exists public.producao_num(numeric);

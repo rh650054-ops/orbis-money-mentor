@@ -110,7 +110,7 @@ select t.logar(pg_temp.id('u'));
 -- ---------------------------------------------------------------- 4. real consumption typed by the seller
 create temp table r4 as select public.producao_registrar('teste-reg-0004',
   jsonb_build_array(jsonb_build_object('produto', pg_temp.id('brig'), 'unidades', 20)),
-  jsonb_build_array(jsonb_build_object('ingrediente', pg_temp.id('i:Chocolate'), 'quantidade', 70))) as r;
+  jsonb_build_array(jsonb_build_object('ingrediente', pg_temp.id('i:Chocolate'), 'quantidade', 70)), null, 'chocolate grudou na panela') as r;
 insert into f select 'reg4', (r->>'registro_id')::uuid from r4;
 select t.igual('4 real: chocolate takes the typed 70, not the recipe 50', pg_temp.est('i:Chocolate'), 330);
 select t.igual('4 real: condensed milk follows the recipe (1 batch)', pg_temp.est('i:Leite condensado'), 2);

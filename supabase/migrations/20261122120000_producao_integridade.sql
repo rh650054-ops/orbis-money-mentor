@@ -1,7 +1,7 @@
 -- Etapa 1 (22/11/2026) — production integrity.
 --
 -- Adds three NEW entry points, used by no screen yet:
---   producao_registrar(chave, itens, consumo?, notas?)   one atomic production of several products/flavours
+--   producao_registrar(chave, itens, consumo?, notas?, justificativa?)   one atomic production of several products/flavours
 --   producao_corrigir(registro, chave, itens, consumo?, motivo)
 --   producao_desfazer(registro, chave, motivo)
 --
@@ -17,15 +17,20 @@
 --     the client lost the first response; the same key with other content is refused;
 --   * the REAL consumption of each production is stored and never edited; corrections and undos
 --     are new events computed from that stored consumption (not from today's recipe);
---   * a correction/undo can never take out units that are no longer in stock (already sold).
+--   * a correction/undo can never take out units that are no longer in stock (already sold);
+--   * typed consumption (real use) may differ from the recipe only with a justification, and never
+--     below 90% of the recipe on any ingredient (producao_reducao_maxima); a recipe without a yield
+--     blocks the production instead of producing with no ingredient.
 --
 -- Locks: products, then flavours, then ingredients, each in id order (FOR UPDATE), the same order
 -- produto_produzir* start with. The idempotency key also takes a transaction advisory lock.
 
 -- ------------------------------------------------------------------ tables (history, append-only)
+-- user_id -> auth.users ON DELETE CASCADE: both account deletions (delete-my-account and
+-- admin-delete-user) end with auth.admin.deleteUser, which removes this history with the account.
 create table public.producao_registros (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null,
+  user_id uuid not null references auth.users (id) on delete cascade,
   status text not null default 'ativa' check (status in ('ativa', 'corrigida', 'desfeita')),
   versao integer not null default 1 check (versao >= 1),
   criado_em timestamptz not null default now(),
@@ -44,6 +49,10 @@ create table public.producao_eventos (
   conteudo_hash text not null,
   motivo text check (motivo is null or char_length(motivo) <= 300),
   notas text check (notas is null or char_length(notas) <= 300),
+  -- typed consumption different from the recipe: flagged, with the reason the seller gave
+  consumo_ajustado boolean not null default false,
+  justificativa_consumo text check (justificativa_consumo is null or char_length(justificativa_consumo) between 5 and 300),
+  check (not consumo_ajustado or justificativa_consumo is not null),
   resposta jsonb not null,
   criado_em timestamptz not null default now(),
   unique (user_id, chave),
@@ -98,18 +107,21 @@ create table public.producao_movimentos (
 create index producao_movimentos_registro_idx on public.producao_movimentos (registro_id);
 
 -- ------------------------------------------------------------------ immutability
--- History never changes. Two exceptions, both deletes of a whole account:
--- apagar_dados_do_usuario (delete-my-account) and the service role (admin-delete-user).
+-- History never changes. The only deletes allowed are of a whole account:
+--   * the FK cascade from auth.users (both account deletions end with auth.admin.deleteUser), and
+--     the cascade from producao_registros to its children that it starts;
+--   * apagar_dados_do_usuario (delete-my-account), which sweeps every table with user_id first.
+-- Not even the service role can delete or edit history row by row.
 create or replace function public.producao_imutavel() returns trigger
 language plpgsql set search_path = public as $$
 declare v_ctx text;
 begin
   if tg_op = 'DELETE' then
     get diagnostics v_ctx = pg_context;
-    if current_user = 'service_role' or v_ctx ~ 'apagar_dados_do_usuario' then return old; end if;
-    -- the FK cascade from an allowed registro delete runs as the table owner, not as the caller;
-    -- the parent row already passed this check
-    if v_ctx ~ 'DELETE FROM ONLY "public"."producao_(eventos|itens|consumos|movimentos)"' and pg_trigger_depth() > 1 then return old; end if;
+    if v_ctx ~ 'apagar_dados_do_usuario' then return old; end if;
+    -- FK cascades run as internal SQL inside the RI trigger (depth > 1); a statement sent by a client
+    -- never carries this context
+    if pg_trigger_depth() > 1 and v_ctx ~ 'DELETE FROM ONLY "public"."producao_(registros|eventos|itens|consumos|movimentos)"' then return old; end if;
   elsif tg_op = 'UPDATE' and tg_table_name = 'producao_registros' then
     if new.id = old.id and new.user_id = old.user_id and new.criado_em = old.criado_em
        and new.versao = old.versao + 1 and old.status <> 'desfeita' then
@@ -185,11 +197,17 @@ end $$;
 -- each flavour's extras x (flavour units / batch_yield). Products in 'per_unit' mode take their
 -- ingredients at the sale (defcon_venda_baixa_estoque), so production takes none, as today.
 -- p_consumo = [{ingrediente, quantidade}] replaces the recipe amount of that ingredient (real use).
-create or replace function public.producao_estado_alvo(p_user uuid, p_itens jsonb, p_consumo jsonb) returns jsonb
+-- Rules for it (22/11 review): every recipe ingredient always counts (omitting one = the recipe);
+-- any amount different from the recipe, or an ingredient outside it, needs p_justificativa; and no
+-- ingredient may go below (1 - producao_reducao_maxima()) of its recipe amount.
+create or replace function public.producao_reducao_maxima() returns numeric
+language sql immutable set search_path = public as $$ select 0.10::numeric $$;
+
+create or replace function public.producao_estado_alvo(p_user uuid, p_itens jsonb, p_consumo jsonb, p_justificativa text) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare
-  it jsonb; v_pid uuid; v_vid uuid; v_n numeric; v_iid uuid;
-  v_itens jsonb := '[]'; v_ovr jsonb := '[]'; v_res jsonb;
+  it jsonb; v_pid uuid; v_vid uuid; v_n numeric; v_iid uuid; v_txt text;
+  v_itens jsonb := '[]'; v_ovr jsonb := '[]'; v_res jsonb; v_ajustes jsonb; v_abaixo text[];
 begin
   if p_itens is null or jsonb_typeof(p_itens) <> 'array' or jsonb_array_length(p_itens) = 0 then
     raise exception 'Informe pelo menos um produto para produzir.' using hint = 'VANT_ITENS_INVALIDOS';
@@ -216,6 +234,15 @@ begin
     end if;
     v_itens := v_itens || jsonb_build_object('produto', v_pid, 'sabor', v_vid, 'unidades', v_n::int);
   end loop;
+
+  -- a recipe without a yield cannot be converted into ingredients: block instead of producing for free
+  select string_agg(distinct p.name, ', ') into v_txt
+    from jsonb_to_recordset(v_itens) as x(produto uuid) join public.products p on p.id = x.produto
+   where p.recipe_mode <> 'per_unit' and coalesce(p.batch_yield, 0) <= 0
+     and exists (select 1 from public.product_recipes r where r.product_id = p.id and r.quantity > 0);
+  if v_txt is not null then
+    raise exception 'A receita de % não tem rendimento por leva. Ajuste a ficha antes de produzir.', v_txt using hint = 'VANT_RECEITA_SEM_RENDIMENTO';
+  end if;
 
   if p_consumo is not null and jsonb_typeof(p_consumo) <> 'null' then
     if jsonb_typeof(p_consumo) <> 'array' then
@@ -272,13 +299,29 @@ begin
                  select p.name || ': baixa os ingredientes na venda, não na produção.' as txt
                    from prod pr join public.products p on p.id = pr.produto
                   where p.recipe_mode = 'per_unit' and exists (select 1 from public.product_recipes r where r.product_id = p.id and r.quantity > 0)
-                 union all
-                 select p.name || ': receita sem rendimento por leva, nenhum ingrediente baixado.'
-                   from prod pr join public.products p on p.id = pr.produto
-                  where p.recipe_mode <> 'per_unit' and coalesce(p.batch_yield, 0) <= 0
-                    and exists (select 1 from public.product_recipes r where r.product_id = p.id and r.quantity > 0)) a))
+                 ) a))
     into v_res;
-  return v_res;
+
+  -- typed consumption: floor and justification
+  select coalesce(jsonb_agg(jsonb_build_object('ingrediente', c->'ingrediente', 'nome', c->>'nome', 'unidade', c->>'unidade',
+                  'receita', (c->>'receita')::numeric, 'real', (c->>'real')::numeric) order by c->>'nome'), '[]'),
+         array_agg(format('%s (receita %s %s, mínimo %s %s, informado %s %s)', c->>'nome',
+                  public.producao_num((c->>'receita')::numeric), c->>'unidade',
+                  public.producao_num((c->>'receita')::numeric * (1 - public.producao_reducao_maxima())), c->>'unidade',
+                  public.producao_num((c->>'real')::numeric), c->>'unidade') order by c->>'nome')
+           filter (where (c->>'real')::numeric < (c->>'receita')::numeric * (1 - public.producao_reducao_maxima()))
+    into v_ajustes, v_abaixo
+    from jsonb_array_elements(v_res->'consumo') c
+   where (c->>'real')::numeric <> (c->>'receita')::numeric;
+  if array_length(v_abaixo, 1) > 0 then
+    raise exception 'Consumo abaixo do mínimo da receita: %. Se a receita mudou, corrija a ficha do produto.', array_to_string(v_abaixo, '; ')
+      using hint = 'VANT_CONSUMO_ABAIXO_DO_MINIMO';
+  end if;
+  if jsonb_array_length(v_ajustes) > 0 and (p_justificativa is null or char_length(trim(p_justificativa)) < 5 or char_length(p_justificativa) > 300) then
+    raise exception 'O consumo informado é diferente da receita. Explique o motivo (5 a 300 letras).' using hint = 'VANT_JUSTIFICATIVA_OBRIGATORIA';
+  end if;
+  return v_res || jsonb_build_object('ajustes', v_ajustes, 'ajustado', jsonb_array_length(v_ajustes) > 0,
+    'justificativa', case when jsonb_array_length(v_ajustes) > 0 then trim(p_justificativa) end);
 end $$;
 
 -- The state a registro is in now (its latest version). Undone = nothing.
@@ -391,14 +434,17 @@ begin
   select status into v_status from public.producao_registros where id = p_registro;
   v_resp := jsonb_build_object('registro_id', p_registro, 'evento_id', p_evento, 'tipo', p_tipo, 'versao', p_versao, 'status', v_status,
     'itens', coalesce(p_estado->'itens', '[]'), 'consumo', coalesce(p_estado->'consumo', '[]'),
-    'avisos', coalesce(p_estado->'avisos', '[]'), 'estoque', p_estoque, 'repetido', false);
-  insert into public.producao_eventos (id, registro_id, user_id, tipo, versao, chave, conteudo_hash, motivo, notas, resposta)
-  values (p_evento, p_registro, p_user, p_tipo, p_versao, p_chave, p_hash, p_motivo, p_notas, v_resp);
+    'avisos', coalesce(p_estado->'avisos', '[]'), 'ajustes', coalesce(p_estado->'ajustes', '[]'), 'estoque', p_estoque, 'repetido', false);
+  insert into public.producao_eventos (id, registro_id, user_id, tipo, versao, chave, conteudo_hash, motivo, notas,
+                                       consumo_ajustado, justificativa_consumo, resposta)
+  values (p_evento, p_registro, p_user, p_tipo, p_versao, p_chave, p_hash, p_motivo, p_notas,
+          coalesce((p_estado->>'ajustado')::boolean, false), p_estado->>'justificativa', v_resp);
   return v_resp;
 end $$;
 
 -- ------------------------------------------------------------------ entry points
-create or replace function public.producao_registrar(p_chave text, p_itens jsonb, p_consumo jsonb default null, p_notas text default null)
+create or replace function public.producao_registrar(p_chave text, p_itens jsonb, p_consumo jsonb default null, p_notas text default null,
+  p_justificativa text default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   u uuid := auth.uid(); v_hash text; v_resp jsonb; v_estado jsonb; v_reg uuid; v_ev uuid := gen_random_uuid(); v_estoque jsonb;
@@ -406,12 +452,12 @@ begin
   if u is null then raise exception 'Faça login para registrar a produção.' using hint = 'VANT_LOGIN'; end if;
   perform public.producao_validar_chave(p_chave);
   if p_notas is not null and char_length(p_notas) > 300 then raise exception 'Observação muito longa (máx. 300).' using hint = 'VANT_TEXTO_LONGO'; end if;
-  v_hash := md5(jsonb_build_object('tipo', 'registro', 'itens', p_itens, 'consumo', p_consumo, 'notas', p_notas)::text);
+  v_hash := md5(jsonb_build_object('tipo', 'registro', 'itens', p_itens, 'consumo', p_consumo, 'notas', p_notas, 'justificativa', p_justificativa)::text);
   perform pg_advisory_xact_lock(hashtextextended(u::text || ':' || p_chave, 0));
   v_resp := public.producao_repetido(u, p_chave, v_hash);
   if v_resp is not null then return v_resp; end if;
 
-  v_estado := public.producao_estado_alvo(u, p_itens, p_consumo);
+  v_estado := public.producao_estado_alvo(u, p_itens, p_consumo, p_justificativa);
   insert into public.producao_registros (user_id) values (u) returning id into v_reg;
   v_estoque := public.producao_aplicar(u, v_reg, v_ev, public.producao_deltas('{}', v_estado));
   return public.producao_gravar(u, v_reg, v_ev, 'registro', 1, p_chave, v_hash, v_estado, v_estoque, null, p_notas);
@@ -439,7 +485,7 @@ begin
     raise exception 'Essa produção foi desfeita. Registre uma nova.' using hint = 'VANT_REGISTRO_DESFEITO';
   end if;
   v_antes := public.producao_estado_atual(p_registro);
-  v_depois := public.producao_estado_alvo(u, p_itens, p_consumo);
+  v_depois := public.producao_estado_alvo(u, p_itens, p_consumo, p_motivo);  -- the mandatory reason also justifies the consumption
   v_deltas := public.producao_deltas(v_antes, v_depois);
   if jsonb_array_length(v_deltas) = 0 then
     raise exception 'A correção é igual à produção atual.' using hint = 'VANT_SEM_MUDANCA';
@@ -483,14 +529,15 @@ revoke all on function public.producao_sem_truncate() from public, anon, authent
 revoke all on function public.producao_num(numeric) from public, anon, authenticated;
 revoke all on function public.producao_validar_chave(text) from public, anon, authenticated;
 revoke all on function public.producao_repetido(uuid, text, text) from public, anon, authenticated;
-revoke all on function public.producao_estado_alvo(uuid, jsonb, jsonb) from public, anon, authenticated;
+revoke all on function public.producao_estado_alvo(uuid, jsonb, jsonb, text) from public, anon, authenticated;
+revoke all on function public.producao_reducao_maxima() from public, anon, authenticated;
 revoke all on function public.producao_estado_atual(uuid) from public, anon, authenticated;
 revoke all on function public.producao_deltas(jsonb, jsonb) from public, anon, authenticated;
 revoke all on function public.producao_aplicar(uuid, uuid, uuid, jsonb) from public, anon, authenticated;
 revoke all on function public.producao_gravar(uuid, uuid, uuid, text, integer, text, text, jsonb, jsonb, text, text) from public, anon, authenticated;
-revoke all on function public.producao_registrar(text, jsonb, jsonb, text) from public, anon;
+revoke all on function public.producao_registrar(text, jsonb, jsonb, text, text) from public, anon;
 revoke all on function public.producao_corrigir(uuid, text, jsonb, jsonb, text) from public, anon;
 revoke all on function public.producao_desfazer(uuid, text, text) from public, anon;
-grant execute on function public.producao_registrar(text, jsonb, jsonb, text) to authenticated;
+grant execute on function public.producao_registrar(text, jsonb, jsonb, text, text) to authenticated;
 grant execute on function public.producao_corrigir(uuid, text, jsonb, jsonb, text) to authenticated;
 grant execute on function public.producao_desfazer(uuid, text, text) to authenticated;
