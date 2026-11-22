@@ -85,3 +85,20 @@ begin
   reset role;
   return n;
 end $$;
+-- 22/11: runs a statement (optionally as another role/user) and returns 'ok' or 'HINT|message'
+-- (SQLSTATE when there is no hint). Lets a case assert the exact refusal a function gives.
+create or replace function t.erro(p_sql text, p_role text default null, p_user uuid default null) returns text language plpgsql as $$
+declare v_msg text; v_hint text; v_state text;
+begin
+  if p_user is not null then perform set_config('request.jwt.claim.sub', p_user::text, true); end if;
+  if p_role is not null then execute format('set local role %I', p_role); end if;
+  begin
+    execute p_sql;
+  exception when others then
+    get stacked diagnostics v_msg = message_text, v_hint = pg_exception_hint, v_state = returned_sqlstate;
+    if p_role is not null then reset role; end if;
+    return coalesce(nullif(v_hint, ''), v_state) || '|' || v_msg;
+  end;
+  if p_role is not null then reset role; end if;
+  return 'ok';
+end $$;
