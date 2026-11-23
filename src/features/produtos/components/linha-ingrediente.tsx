@@ -78,14 +78,14 @@ export function LinhaIngrediente({ it, rende, nomeProduto = "unidades", estoque,
           <div className={LINHA} style={{ color: "#b9b3a6" }}>
             <span>Compro</span>
             <MiniNumero key={`q-${compra.unidade}`} valor={compra.valor} rotulo="Quanto compra"
-              onChange={(v) => onMudar({ pacote: v > 0 ? pacoteDaCompra(v, compra.unidade, it.unidade) : 1 })} />
+              onChange={(v) => onMudar({ pacote: v > 0 ? pacoteDaCompra(v, compra.unidade, it.unidade) : 1, ...(it.precoPacote > 0 ? { precoEditado: true } : {}) })} />
             <select value={compra.unidade} aria-label="Unidade da compra"
-              onChange={(e) => { const c = COMPRA.find((x) => x.rotulo === e.target.value) ?? COMPRA[0]!; onMudar({ unidade: c.leva, pacote: Math.max(1, compra.valor) * c.fator }); }}
+              onChange={(e) => { const c = COMPRA.find((x) => x.rotulo === e.target.value) ?? COMPRA[0]!; onMudar({ unidade: c.leva, pacote: Math.max(1, compra.valor) * c.fator, ...(it.precoPacote > 0 ? { precoEditado: true } : {}) }); }}
               className="h-9 rounded-[10px] bg-[#1a1a19] px-2 outline-none text-sm font-black text-[#F4F1EA]">
               {COMPRA.map((u) => <option key={u.rotulo} value={u.rotulo}>{u.rotulo}</option>)}
             </select>
             <span>por</span>
-            <MiniDinheiro valor={it.precoPacote} onChange={(precoPacote) => onMudar({ precoPacote })} />
+            <MiniDinheiro valor={it.precoPacote} onChange={(precoPacote) => onMudar({ precoPacote, precoEditado: true })} />
           </div>
           <div className={LINHA} style={{ color: "#b9b3a6" }}>
             {it.aprender ? (

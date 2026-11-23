@@ -18,6 +18,9 @@ export interface IngredienteRascunho {
   usa: boolean;
   /** "não sei quanto vai, descubro na compra" (26/10) */
   aprender?: boolean;
+  /** 23/11: he typed the price or the purchase size on THIS screen. Only then the price is sent:
+   *  a price that came from the database (e.g. a newer Market purchase) is never re-sent over itself */
+  precoEditado?: boolean;
   /** 26/10 (Rick): "compro 1 kg por R$ 35,99 e dá pra 100 garrafinhas". qtd por leva = pacote × rende ÷ daPra */
   daPra?: number;
 }
@@ -141,8 +144,10 @@ export function receitaDoRascunho(itens: IngredienteRascunho[]): ItemReceita[] {
       const rascunho = ehRascunho(i);
       return {
         ...(i.id ? { id: i.id } : {}), nome: i.nome.trim(), qtd: rascunho ? 0 : i.qtd,
-        preco: Math.round(precoDe1(i) * 10000) / 10000, unidade: i.unidade, pacote: i.pacote > 0 ? i.pacote : 1,
-        ...(rascunho ? { aprender: true } : {}),
+        // 23/11: full precision (it used to be 4 decimals: R$ 35,99/kg came back as R$ 36,00);
+        // 10 decimals only drops binary float noise (35.99 / 1000 = 0.035990000000000004)
+        preco: Math.round(precoDe1(i) * 1e10) / 1e10, unidade: i.unidade, pacote: i.pacote > 0 ? i.pacote : 1,
+        ...(rascunho ? { aprender: true } : {}), ...(i.precoEditado ? { precoEditado: true } : {}),
       };
     });
 }
@@ -153,6 +158,7 @@ export function rascunhoDaReceita(r: ItemReceita[], _rende?: number): Ingredient
   return r.map((i) => ({
     ...(i.id ? { id: i.id } : {}), nome: i.nome, qtd: i.qtd, unidade: i.unidade, pacote: i.pacote,
     precoPacote: Math.round(i.preco * i.pacote * 100) / 100, usa: true, ...(i.aprender ? { aprender: true } : {}),
+    ...(i.precoEditado ? { precoEditado: true } : {}),
   }));
 }
 

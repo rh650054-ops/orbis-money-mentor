@@ -64,6 +64,8 @@ export interface ItemReceita {
   pacote: number;
   /** não sabe quanto vai: a 1ª compra descobre (qtd fica 0 até lá) */
   aprender?: boolean;
+  /** 23/11: price typed on the screen (only then it is sent; see salvarReceita) */
+  precoEditado?: boolean;
 }
 
 export const UNIDADES = ["un", "g", "kg", "ml", "l"] as const;
