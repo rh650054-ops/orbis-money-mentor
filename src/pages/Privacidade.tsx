@@ -66,7 +66,7 @@ export default function Privacidade() {
           <p>Não vendemos seus dados. Compartilhamos apenas com fornecedores que operam o serviço, sob contrato:</p>
           <p><strong>Supabase</strong> — banco de dados e autenticação. Os dados da Vant ficam hospedados em servidores na região de São Paulo, Brasil (AWS sa-east-1).</p>
           <p><strong>Vercel</strong> — hospedagem do site e do aplicativo web (EUA, com rede de distribuição global).</p>
-          <p><strong>Anthropic</strong> — processamento das conversas do assistente de IA (EUA). Veja a seção 5 sobre transferência internacional.</p>
+          <p><strong>Anthropic (Claude), OpenAI e Google (Gemini)</strong> — inteligência artificial (EUA), <strong>somente se você autorizar</strong> no app (Minha Conta → Inteligência artificial). Recebem só o necessário pra cada função: vendas, metas, produtos e gastos (dicas, relatórios e mentor), o que você escreve ou fala pro mentor, fotos que você escolhe (nota fiscal, comprovante, Estúdio de Marca), o extrato do banco conectado e a cidade do seu ponto (clima). CPF e senha nunca são enviados. Veja a seção 5 sobre transferência internacional.</p>
           <p><strong>Hotmart</strong> — processamento do pagamento da assinatura.</p>
           <p><strong>Pluggy</strong> — conexão bancária via Open Finance, somente quando você autoriza (Brasil, regulada pelo ecossistema do Banco Central).</p>
           <p><strong>Mercado Pago</strong> — processamento de depósitos e saques da carteira X1, quando você usa essa função.</p>
@@ -76,11 +76,10 @@ export default function Privacidade() {
         <S t="5. Transferência internacional de dados">
           <p>
             Alguns operadores estão localizados fora do Brasil, principalmente nos Estados Unidos
-            (Anthropic e Vercel). Nesses casos, a transferência é amparada pelo art. 33 da LGPD por
-            meio de garantias contratuais: o tratamento pela Anthropic é regido pelos seus termos
-            comerciais, que incorporam um Adendo de Processamento de Dados (DPA) com Cláusulas
-            Contratuais Padrão, e a Anthropic não utiliza os dados enviados pela API para treinar
-            seus modelos por padrão. Enviamos à IA somente o necessário para gerar as respostas.
+            (Anthropic, OpenAI, Google e Vercel). Nesses casos, a transferência é amparada pelo art. 33 da LGPD por
+            meio de garantias contratuais: o tratamento pelos provedores de IA é regido pelos seus termos
+            comerciais de API e respectivos Adendos de Processamento de Dados (DPA); a Anthropic não
+            utiliza os dados enviados pela API para treinar seus modelos por padrão. Enviamos à IA somente o necessário para gerar as respostas.
           </p>
         </S>
 

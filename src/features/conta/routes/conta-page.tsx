@@ -19,6 +19,7 @@ import { DadosContaCard, EditarDadosFolha } from "../components/dados-conta";
 import { PlanoCard } from "../components/plano-card";
 import { PrivacidadeCard } from "../components/privacidade-card";
 import { AcoesConta } from "../components/acoes-conta";
+import { IaContaCard } from "@/features/consentimento-ia";
 import { EditarPerfilFolha } from "../components/editar-perfil-folha";
 import { FotoMenu } from "../components/foto-menu";
 
@@ -67,6 +68,7 @@ export default function ContaPage() {
       <DadosContaCard conta={conta} onEditar={() => setFolha("dados")} />
       <PlanoCard plano={plano} />
       <PrivacidadeCard conta={conta} />
+      <IaContaCard />
       <AcoesConta />
 
       <EditarDadosFolha aberta={folha === "dados"} onFechar={() => setFolha(null)} conta={conta} />
