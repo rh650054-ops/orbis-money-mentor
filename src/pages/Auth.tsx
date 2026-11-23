@@ -12,7 +12,7 @@ import { avisar } from "@/shared/lib/avisar";
 import { LogIn, UserPlus, IdCard, Mail, KeyRound, User, Phone, MapPin } from "lucide-react";
 import { validateCPF, cpfToInternalEmail } from "@/shared/lib/cpf-validation";
 import { getReferralCode } from "@/shared/lib/checkout";
-import { TERMOS_VERSAO } from "@/components/AceiteTermosModal";
+import { TERMOS_VERSAO } from "@/shared/lib/termos";
 import { useBrazilCities } from "@/shared/hooks/use-brazil-cities";
 import { telefoneNormalizado, telefoneValido } from "@/shared/lib/telefone";
 import { zerarSeContaTeste } from "@/components/jornada/conta-teste";

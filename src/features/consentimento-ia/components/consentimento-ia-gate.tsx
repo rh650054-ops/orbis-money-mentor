@@ -1,17 +1,21 @@
-/* Asks once, after login, before any data goes to a third-party AI (23/11/2026, all platforms).
-   Also answers EVENTO_IA_DESLIGADA: a user-started AI feature was blocked → explain and offer to turn it on. */
+/* AI permission (23/11/2026, all platforms). Normally asked on the Terms acceptance screen
+   (AceiteTermosModal, separate unchecked box). This sheet covers the rest:
+   - Terms already current but AI never answered (e.g. accepted at sign-up) → asks once;
+   - EVENTO_IA_DESLIGADA: a user-started AI feature was blocked → explain and offer to turn it on. */
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
 import { EVENTO_IA_DESLIGADA } from "@/shared/lib/consentimento-ia";
 import { Botao, Folha } from "@/shared/components/vant-ui";
 import { useConsentimentoIa, useResponderConsentimentoIa } from "../api/use-consentimento-ia";
+import { useTermosEmDia } from "../api/use-termos-em-dia";
 import { TextoIa } from "./texto-ia";
 
 export function ConsentimentoIaGate() {
   const { user } = useAuth();
   const consentimento = useConsentimentoIa(user?.id);
   const responder = useResponderConsentimentoIa(user?.id);
+  const termos = useTermosEmDia(user?.id);
   const [desligadaAberta, setDesligadaAberta] = useState(false);
 
   useEffect(() => {
@@ -21,7 +25,8 @@ export function ConsentimentoIaGate() {
   }, []);
 
   if (!user) return null;
-  const naoRespondeu = consentimento.isSuccess && consentimento.data === null;
+  // Terms not current → AceiteTermosModal asks both on one screen; never two screens in a row.
+  const naoRespondeu = consentimento.isSuccess && consentimento.data === null && termos.data === true;
   const aberta = naoRespondeu || desligadaAberta;
 
   const escolher = (permitido: boolean) =>
