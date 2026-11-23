@@ -11,6 +11,7 @@ import FeatureErrorBoundary from "@/shared/components/feature-error-boundary";
 import { AvisoNovoDominio } from "@/features/novo-dominio";
 import { BoasVindasGate } from "@/features/boas-vindas";
 import { AvisoCortesia, CortesiaTesteLojaGate } from "@/features/teste-loja";
+import { ConsentimentoIaGate } from "@/features/consentimento-ia";
 import OfflineGate from "@/components/OfflineGate";
 
 // Recarrega a página UMA vez se um chunk antigo sumiu após um deploy novo.
@@ -126,6 +127,8 @@ export function AppRouter() {
       <BoasVindasGate />
       {/* Teste fechado da Play Store: conta nova no app da loja ganha 30 dias de teste (28/10, até 15/12) */}
       <CortesiaTesteLojaGate />
+      {/* IA de terceiros (Anthropic, OpenAI, Gemini): pergunta uma vez antes de enviar qualquer dado (23/11, App Store 5.1.2(i)) */}
+      <ConsentimentoIaGate />
       <AvisoCortesia />
       {/* "A Vant mudou de endereço": só em app.orbis.inf.br e só depois que o Rick liga
           (app_settings.aviso_novo_dominio = 'on') */}

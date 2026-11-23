@@ -17,8 +17,11 @@
 #   Secrets:   ASC_KEY_ID, ASC_ISSUER_ID,
 #              ASC_KEY_P8_BASE64   (the .p8 App Store Connect API key, base64; role Admin,
 #                                   so Xcode can create the signing certificate itself)
-#   Optional:  VITE_COBRANCA_LOJA = link   (Néctar model: subscribe button opens Hotmart;
-#                                          default is "fora": the store app does not sell)
+#   Optional:  VITE_COBRANCA_LOJA_IOS = link   (Néctar model: "Assinar" opens the site).
+#              Unset = "fora": the iPhone app shows no price, no link, no checkout.
+#              This is iOS-only on purpose: the shared VITE_COBRANCA_LOJA variable (Android)
+#              is NOT read here, and cobranca-loja.ts falls back to "link" when the value is
+#              empty, so the safe default has to be forced in this file.
 name: iOS build
 
 on:
@@ -36,6 +39,11 @@ jobs:
   ios:
     runs-on: macos-15
     timeout-minutes: 60
+    defaults:
+      run:
+        # "bash" (not the implicit default) adds -o pipefail: without it
+        # "xcodebuild ... | tail -40" hid every failure and the run went green.
+        shell: bash
     steps:
       - uses: actions/checkout@v4
 
@@ -58,9 +66,11 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_COBRANCA_LOJA: ${{ vars.VITE_COBRANCA_LOJA }}
+          VITE_COBRANCA_LOJA: ${{ vars.VITE_COBRANCA_LOJA_IOS || 'fora' }}
         run: |
           test -n "$VITE_SUPABASE_URL" || { echo "Missing repo variable VITE_SUPABASE_URL"; exit 1; }
+          case "$VITE_COBRANCA_LOJA" in fora|link) ;; *) echo "VITE_COBRANCA_LOJA_IOS must be fora or link"; exit 1;; esac
+          echo "::notice::iPhone billing mode: $VITE_COBRANCA_LOJA"
           npm run build
 
       - name: Copy web bundle into the iOS project
@@ -87,7 +97,29 @@ jobs:
           fi
           [[ "$VERSION_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version_name must look like 1.0.0"; exit 1; }
           KEY="$RUNNER_TEMP/AuthKey.p8"
-          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$KEY"
+          echo "$ASC_KEY_P8_BASE64" | tr -d ' \r\n' | base64 --decode > "$KEY"
+          grep -q "BEGIN PRIVATE KEY" "$KEY" || { echo "::error::ASC_KEY_P8_BASE64 does not decode to a .p8 key. Redo the base64 of the AuthKey file."; exit 1; }
+
+          # Ask Apple directly whether the key works, so a bad value fails here with a clear message
+          # instead of a 401 buried in the xcodebuild log.
+          JWT=$(KEY="$KEY" node -e '
+            const c = require("crypto"), fs = require("fs");
+            const b = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+            const now = Math.floor(Date.now() / 1000);
+            const data = b({ alg: "ES256", kid: process.env.ASC_KEY_ID.trim(), typ: "JWT" }) + "." +
+              b({ iss: process.env.ASC_ISSUER_ID.trim(), iat: now, exp: now + 600, aud: "appstoreconnect-v1" });
+            const sig = c.sign("sha256", Buffer.from(data), { key: fs.readFileSync(process.env.KEY), dsaEncoding: "ieee-p1363" });
+            process.stdout.write(data + "." + sig.toString("base64url"));')
+          HTTP=$(curl -s -o "$RUNNER_TEMP/asc.json" -w "%{http_code}" -H "Authorization: Bearer $JWT" \
+            "https://api.appstoreconnect.apple.com/v1/apps?filter%5BbundleId%5D=app.vant.vendas")
+          case "$HTTP" in
+            200) grep -q '"bundleId"' "$RUNNER_TEMP/asc.json" \
+                   && echo "::notice::App Store Connect key OK and app app.vant.vendas found." \
+                   || { echo "::error::Key OK, but no app with bundle id app.vant.vendas in App Store Connect."; exit 1; } ;;
+            401) echo "::error::Apple rejected the API key (401). Check ASC_ISSUER_ID (long id at the top of the Team Keys page), ASC_KEY_ID (10 chars, same key as the .p8) and that the key was not revoked."; exit 1 ;;
+            403) echo "::error::Key accepted but without permission (403). The key must be a TEAM key with role Admin, and all agreements must be accepted in App Store Connect."; exit 1 ;;
+            *)   echo "::error::Unexpected answer from App Store Connect: HTTP $HTTP"; head -c 400 "$RUNNER_TEMP/asc.json"; exit 1 ;;
+          esac
           AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
 
           xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \

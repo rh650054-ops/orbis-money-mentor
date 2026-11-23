@@ -103,13 +103,14 @@ serve(async (req) => {
         trial_end: null,
         is_trial_active: false,
         nickname: nickname || email.split('@')[0],
-        // Conta NOVA (revisor das lojas / demonstração): fora do ranking e sem cair no onboarding.
+        // Conta NOVA (revisor das lojas / demonstração): fora do ranking. Desde 23/11/2026 passa
+        // pelo onboarding no 1º acesso e aceita os Termos (com a permissão de IA) no app, como
+        // qualquer vendedor: é isso que o revisor da Apple precisa ver.
         // Conta existente convertida (gente da equipe) continua como estava nesses pontos.
         ...(existingUser ? {} : {
           ranking_hidden: true,
-          onboarding_completed: true,
-          termos_aceitos_versao: '2026-07-28',
-          termos_aceitos_em: new Date().toISOString(),
+          onboarding_completed: false,
+          onboarding_step: 0,
         }),
       }, { onConflict: 'user_id' })
       .select('user_id');

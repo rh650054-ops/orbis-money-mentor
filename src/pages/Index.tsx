@@ -3,9 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useDailyGoalPlan } from "@/hooks/useDailyGoalPlan";
 import { supabase } from "@/integrations/supabase/client";
-import AntiProcrastination from "@/components/AntiProcrastination";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { formatCurrency } from "@/shared/lib/utils";
 import { vendidoDoDia } from "@/shared/lib/vendido";
@@ -44,7 +42,6 @@ const REWARD_TIERS = [
 export default function Index() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
-  const { hasPlanToday, loading: planLoading } = useDailyGoalPlan(user?.id);
   const jornada = useJornada();
   const { toast } = useToast();
 
@@ -598,7 +595,6 @@ export default function Index() {
       <CompeticaoRow onClick={() => navigate('/competitions')} />
 
 
-      <AntiProcrastination visible={!descansoHoje && !hasPlanToday} />
 
 
       {user && (() => {
