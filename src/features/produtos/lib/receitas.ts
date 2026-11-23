@@ -18,6 +18,9 @@ export interface IngredienteRascunho {
   usa: boolean;
   /** "não sei quanto vai, descubro na compra" (26/10) */
   aprender?: boolean;
+  /** 23/11: he typed the price or the purchase size on THIS screen. Only then the price is sent:
+   *  a price that came from the database (e.g. a newer Market purchase) is never re-sent over itself */
+  precoEditado?: boolean;
   /** 26/10 (Rick): "compro 1 kg por R$ 35,99 e dá pra 100 garrafinhas". qtd por leva = pacote × rende ÷ daPra */
   daPra?: number;
 }
@@ -31,15 +34,35 @@ export function qtdPorDaPra(i: Pick<IngredienteRascunho, "pacote" | "daPra">, re
 export function custoPorDaPra(i: Pick<IngredienteRascunho, "precoPacote" | "daPra">): number {
   return i.daPra && i.daPra > 0 && i.precoPacote > 0 ? i.precoPacote / i.daPra : 0;
 }
-/** Volta do banco: "dá pra" = pacote × rende ÷ qtd (1000 g numa leva de 100 com pacote 1000 → dá pra 100). */
-export function daPraDaQtd(i: Pick<IngredienteRascunho, "pacote" | "qtd">, rende: number): number | undefined {
-  if (!(i.qtd > 0) || !(rende > 0)) return undefined;
-  return Math.round(((i.pacote > 0 ? i.pacote : 1) * rende / i.qtd) * 100) / 100;
+/* 22/11 (Etapa 2): the yield ("rende") is the seller's number. It is never derived from a "dá pra"
+   any more: before, the largest "dá pra" became the yield and every quantity was rescaled when a saved
+   recipe was opened (saved "rende 20, 1 can" came back as "rende 100, 5 cans"). Now "dá pra" is only a
+   shortcut that fills the quantity used, once; what is saved is exactly what is shown. */
+
+/** Same ingredient written differently: case, accents, extra spaces, plural "s", punctuation.
+ *  "Leite Condensado", "leite  condensado", "Leites condensados" → "leite condensado". */
+export function nomeNormalizado(nome: string): string {
+  return nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter(Boolean)
+    .map((w) => (w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w)).join(" ");
 }
-/** Leva = o maior "dá pra" (quem compra leite em pó pra 100 define a leva de 100). */
-export function rendePelosDaPra(itens: IngredienteRascunho[], atual: number): number {
-  const ns = itens.filter((i) => i.usa && i.daPra && i.daPra > 0).map((i) => i.daPra as number);
-  return ns.length ? Math.max(1, Math.round(Math.max(...ns))) : atual;
+
+/** An ingredient he already has that is the same one written differently (only an exact match after
+ *  normalizing: "leite" never matches "leite condensado"). */
+export function ingredienteIgual<T extends { nome: string }>(nome: string, guardados: T[]): T | undefined {
+  const n = nomeNormalizado(nome);
+  return n ? guardados.find((g) => nomeNormalizado(g.nome) === n) : undefined;
+}
+
+/** A line is a DRAFT when it has a name but no quantity used yet ("descubro depois"). */
+export const ehRascunho = (i: Pick<IngredienteRascunho, "usa" | "nome" | "qtd" | "aprender">) =>
+  i.usa && i.nome.trim() !== "" && (!!i.aprender || !(i.qtd > 0));
+
+/** Complete = a yield and EVERY checked, named ingredient with a quantity (23/11: one filled line is not
+ *  enough; "descubro depois" counts as missing; unchecked lines are not part of the recipe). */
+export function receitaCompleta(itens: IngredienteRascunho[], rende: number): boolean {
+  const ativos = itens.filter((i) => i.usa && i.nome.trim() !== "");
+  return rende >= 1 && ativos.length > 0 && ativos.every((i) => !i.aprender && i.qtd > 0);
 }
 
 const BASE: [RegExp, string[]][] = [
@@ -58,8 +81,10 @@ export const novoIngrediente = (nome = "", qtd = 1): IngredienteRascunho =>
 export function ingredientesSugeridos(nomeProduto: string, rende = 20): IngredienteRascunho[] {
   const achou = BASE.find(([re]) => re.test(nomeProduto));
   const nomes = achou ? achou[1] : ["Ingrediente principal", "Embalagem"];
-  // embalagem: "compro 100 por R$ X e dá pra 100"; o resto o vendedor diz pra quantas dá
-  return nomes.map((nome) => ({ ...novoIngrediente(nome, ehEmbalagem(nome) ? rende : 1), ...(ehEmbalagem(nome) ? { pacote: 100, daPra: 100 } : {}) }));
+  // 22/11: only NAMES are suggested; quantities start empty (nothing is invented). The packaging keeps
+  // "compro 100" as a purchase size, and the seller says how many go in the batch.
+  void rende;
+  return nomes.map((nome) => ({ ...novoIngrediente(nome, 0), ...(ehEmbalagem(nome) ? { pacote: 100 } : {}) }));
 }
 
 /** Tamanho de compra que faz sentido ao trocar a unidade (26/10, bug do R$ 404 por garrafinha:
@@ -109,31 +134,48 @@ export function totalDaReceita(itens: Pick<IngredienteRascunho, "qtd" | "pacote"
   return Math.round(soma * 100) / 100;
 }
 
-/** O que vai pro banco: só o marcado, com nome, quantidade e como compra. */
+/** O que vai pro banco: só o marcado, com nome, quantidade e como compra.
+ *  22/11: a line with a name but no quantity is kept as a draft ("descubro depois", aprender) instead of
+ *  being dropped on save; it never counts as consumption (quantity 0), so it cannot feed production. */
 export function receitaDoRascunho(itens: IngredienteRascunho[]): ItemReceita[] {
   return itens
-    .filter((i) => i.usa && i.nome.trim() !== "" && (i.qtd > 0 || i.aprender))
-    .map((i) => ({
-      ...(i.id ? { id: i.id } : {}), nome: i.nome.trim(), qtd: i.aprender ? 0 : i.qtd,
-      preco: Math.round(precoDe1(i) * 10000) / 10000, unidade: i.unidade, pacote: i.pacote > 0 ? i.pacote : 1,
-      ...(i.aprender ? { aprender: true } : {}),
-    }));
+    .filter((i) => i.usa && i.nome.trim() !== "")
+    .map((i) => {
+      const rascunho = ehRascunho(i);
+      return {
+        ...(i.id ? { id: i.id } : {}), nome: i.nome.trim(), qtd: rascunho ? 0 : i.qtd,
+        // 23/11: full precision (it used to be 4 decimals: R$ 35,99/kg came back as R$ 36,00);
+        // 10 decimals only drops binary float noise (35.99 / 1000 = 0.035990000000000004)
+        preco: Math.round(precoDe1(i) * 1e10) / 1e10, unidade: i.unidade, pacote: i.pacote > 0 ? i.pacote : 1,
+        ...(rascunho ? { aprender: true } : {}), ...(i.precoEditado ? { precoEditado: true } : {}),
+      };
+    });
 }
 
-/** Volta da receita salva pro rascunho editável (com rende, calcula o "dá pra" de cada um). */
-export function rascunhoDaReceita(r: ItemReceita[], rende?: number): IngredienteRascunho[] {
-  return r.map((i) => {
-    const base = {
-      ...(i.id ? { id: i.id } : {}), nome: i.nome, qtd: i.qtd, unidade: i.unidade, pacote: i.pacote,
-      precoPacote: Math.round(i.preco * i.pacote * 100) / 100, usa: true, ...(i.aprender ? { aprender: true } : {}),
-    };
-    const daPra = rende ? daPraDaQtd(base, rende) : undefined;
-    return daPra ? { ...base, daPra } : base;
-  });
+/** Volta da receita salva pro rascunho editável: exatamente o que está salvo (22/11: no "dá pra" is
+ *  derived any more, so opening a recipe never rescales its quantities). */
+export function rascunhoDaReceita(r: ItemReceita[], _rende?: number): IngredienteRascunho[] {
+  return r.map((i) => ({
+    ...(i.id ? { id: i.id } : {}), nome: i.nome, qtd: i.qtd, unidade: i.unidade, pacote: i.pacote,
+    precoPacote: Math.round(i.preco * i.pacote * 100) / 100, usa: true, ...(i.aprender ? { aprender: true } : {}),
+    ...(i.precoEditado ? { precoEditado: true } : {}),
+  }));
 }
 
 /** Quantas levas dá pra fazer com o estoque de ingredientes (a menor de todas). */
 export function levasPossiveis(receita: { qtd: number; estoque: number }[]): number {
   const contas = receita.filter((i) => i.qtd > 0).map((i) => Math.floor(Math.max(0, i.estoque) / i.qtd + 1e-9));
   return contas.length ? Math.min(...contas) : 0;
+}
+
+/** Indexes of lines that are the same ingredient as an earlier line. */
+export function linhasRepetidas(itens: IngredienteRascunho[]): Set<number> {
+  const vistos = new Map<string, number>();
+  const rep = new Set<number>();
+  itens.forEach((it, i) => {
+    const k = it.id ?? nomeNormalizado(it.nome);
+    if (!it.usa || !k) return;
+    if (vistos.has(k)) rep.add(i); else vistos.set(k, i);
+  });
+  return rep;
 }

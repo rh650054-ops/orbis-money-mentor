@@ -1,7 +1,7 @@
 /* SABORES (Rick, 26/10/2026): um produto, uma receita BASE (vai em todos) e, em cada
    sabor, só o que muda. Custo de cada unidade do sabor = base ÷ rende + extras ÷ rende. */
 import { custoPorUnidade } from "./conta";
-import { precoDe1, receitaDoRascunho, totalDaReceita, type IngredienteRascunho } from "./receitas";
+import { nomeNormalizado, precoDe1, receitaDoRascunho, totalDaReceita, type IngredienteRascunho } from "./receitas";
 import type { ItemReceita } from "../types";
 
 export interface SaborRascunho {
@@ -45,4 +45,23 @@ export function dividirIgual(n: number, sabores: number): number[] {
   const base = Math.floor(n / sabores);
   const sobra = n - base * sabores;
   return Array.from({ length: sabores }, (_, i) => base + (i < sobra ? 1 : 0));
+}
+
+/** 22/11: today product_recipes has UNIQUE (product_id, ingredient_id): one ingredient can be in the
+ *  base OR in one flavour of a product, never in two places — the database refuses and the whole
+ *  flavour save fails. Lines that would hit it ("flavour index:line index"), so the screen warns
+ *  BEFORE saving. Goes away with the per-flavour recipe model (see ETAPA-2 analysis). */
+export function ingredientesEmConflito(base: IngredienteRascunho[], sabores: SaborRascunho[]): Set<string> {
+  const chave = (i: IngredienteRascunho) => (i.usa && i.nome.trim() ? i.id ?? nomeNormalizado(i.nome) : "");
+  const naBase = new Set(base.map(chave).filter(Boolean));
+  const dono = new Map<string, number>();
+  const conflito = new Set<string>();
+  sabores.forEach((s, si) => s.itens.forEach((it, li) => {
+    const k = chave(it);
+    if (!k) return;
+    const primeiro = dono.get(k);
+    if (naBase.has(k) || (primeiro !== undefined && primeiro !== si)) conflito.add(`${si}:${li}`);
+    else dono.set(k, si);
+  }));
+  return conflito;
 }

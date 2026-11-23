@@ -1,5 +1,6 @@
 /* Sabores de um produto (26/10/2026): lista com estoque e custo, salvar, produzir por
    sabor e distribuir o que já está no estoque entre os sabores. */
+import { precoParaGravar } from "./salvar-receita";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { supabase } from "@/shared/api";
@@ -51,10 +52,10 @@ export function useSaboresDeVariosQuery(produtoIds: string[]) {
   });
 }
 
-export async function salvarSabores(produtoId: string, sabores: { id?: string; nome: string; emoji: string; itens: { id?: string; nome: string; qtd: number; preco: number; unidade: Unidade; pacote: number; aprender?: boolean }[] }[]) {
+export async function salvarSabores(produtoId: string, sabores: { id?: string; nome: string; emoji: string; itens: { id?: string; nome: string; qtd: number; preco: number; unidade: Unidade; pacote: number; aprender?: boolean; precoEditado?: boolean }[] }[]) {
   const { error } = await rpc("produto_sabores_salvar", {
     p_produto: produtoId,
-    p_sabores: sabores.map((s) => ({ ...(s.id ? { id: s.id } : {}), nome: s.nome, emoji: s.emoji, itens: s.itens.map((i) => ({ ...(i.id ? { id: i.id } : {}), nome: i.nome, qtd: i.qtd, preco: i.preco, ...(i.aprender ? { aprender: true } : {}) })) })),
+    p_sabores: sabores.map((s) => ({ ...(s.id ? { id: s.id } : {}), nome: s.nome, emoji: s.emoji, itens: s.itens.map((i) => ({ ...(i.id ? { id: i.id } : {}), nome: i.nome, qtd: i.qtd, preco: precoParaGravar(i), ...(i.aprender ? { aprender: true } : {}) })) })),
   });
   if (error) throw error;
   // como cada extra é comprado (unidade e tamanho do pacote)

@@ -38,7 +38,7 @@ export function PassoPreco({ nome, custo, preco, combo, total, onPreco, onCombo,
 }) {
   const [chave, setChave] = useState(0); // remonta o campo quando toca num preço sugerido
   return (
-    <QuizCasca passo={4} total={total} onVoltar={onVoltar}
+    <QuizCasca passo={5} total={total} onVoltar={onVoltar}
       titulo={`Quanto você cobra no ${nome}?`}
       sub={custo > 0 ? <>Você paga <b style={{ color: "#F4F1EA" }}>{reais(custo)}</b> em cada um.</> : "Quanto o cliente paga em 1."}
       rodape={<>
