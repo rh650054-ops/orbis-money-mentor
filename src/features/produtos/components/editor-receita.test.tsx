@@ -120,7 +120,7 @@ describe("conversão de unidades na linha do ingrediente (kg/g e L/ml)", () => {
     fireEvent.change(screen.getByLabelText("Quanto paga nessa compra"), { target: { value: "35,99" } });
     fireEvent.change(screen.getByLabelText("Quanto usa na leva"), { target: { value: "200" } });
     expect(screen.getByText("= R$ 7,20 na leva")).toBeInTheDocument();
-    expect(receitaDoRascunho(ultimo.itens)[0]).toMatchObject({ unidade: "g", pacote: 1000, qtd: 200, preco: 0.036 });
+    expect(receitaDoRascunho(ultimo.itens)[0]).toMatchObject({ unidade: "g", pacote: 1000, qtd: 200, preco: 0.03599, precoEditado: true });
   });
 
   it("compra em litro: 1,5 l vira 1500 ml; uso 300 ml de R$ 9 = R$ 1,80", () => {
@@ -147,9 +147,8 @@ describe("conversão de unidades na linha do ingrediente (kg/g e L/ml)", () => {
     const salvo = receitaDoRascunho(tela);
     const volta = rascunhoDaReceita(salvo, 20);
     expect(volta.map((i) => [i.unidade, i.pacote, i.qtd])).toEqual([["g", 1000, 200], ["ml", 1500, 300]]);
-    // PRE-EXISTING (before Etapa 2), pending Rick's decision: the price of 1 g/ml is rounded to 4 decimals
-    // on save (receitaDoRascunho), so R$ 35,99 per kg comes back as R$ 36,00. Not changed: it is a cost value.
-    expect(volta.map((i) => i.precoPacote)).toEqual([36, 9]);
+    // 23/11 (approved): full precision — R$ 35,99 per kg comes back as R$ 35,99 (it was R$ 36,00)
+    expect(volta.map((i) => i.precoPacote)).toEqual([35.99, 9]);
     render(<Harness rende={20} inicial={volta} />);
     expect(screen.getAllByLabelText("Unidade da compra").map((s) => (s as HTMLSelectElement).value)).toEqual(["kg", "l"]);
     expect(screen.getAllByLabelText("Quanto compra").map((s) => (s as HTMLInputElement).value)).toEqual(["1", "1,5"]);
