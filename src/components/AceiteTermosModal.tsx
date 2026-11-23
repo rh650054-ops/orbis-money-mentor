@@ -72,6 +72,12 @@ export default function AceiteTermosModal({ userId }: { userId: string }) {
     setErro("Não consegui salvar seu aceite — confere a internet e toca de novo.");
   };
 
+  // iPhone (23/11): the login field stayed focused under this screen, so the keyboard flashed
+  // open and shut over it. Drop the focus as soon as the screen shows.
+  useEffect(() => {
+    if (aberto && !lendoDocumento) (document.activeElement as HTMLElement | null)?.blur?.();
+  }, [aberto, lendoDocumento]);
+
   if (!aberto || lendoDocumento) return null;
 
   return (

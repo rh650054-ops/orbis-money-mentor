@@ -17,6 +17,7 @@ import { useBrazilCities } from "@/shared/hooks/use-brazil-cities";
 import { telefoneNormalizado, telefoneValido } from "@/shared/lib/telefone";
 import { zerarSeContaTeste } from "@/components/jornada/conta-teste";
 import { urlPublica } from "@/shared/lib/platform";
+import { demoNoPrimeiroAcesso } from "@/shared/lib/demo-primeiro-acesso";
 
 type LoginMethod = "cpf" | "email";
 
@@ -121,6 +122,12 @@ export default function Auth() {
         if (entrou?.user && await zerarSeContaTeste(entrou.user.id)) {
           cadastrando.current = false;
           toast({ title: "Conta de teste zerada", description: "Começando do zero: onboarding e Dia 0." });
+          navigate("/onboarding-novo", { replace: true });
+          return;
+        }
+        // Conta demo (revisor das lojas) que nunca passou do onboarding: 1º acesso vai pra ele (23/11).
+        if (entrou?.user && await demoNoPrimeiroAcesso(entrou.user.id)) {
+          cadastrando.current = false;
           navigate("/onboarding-novo", { replace: true });
           return;
         }

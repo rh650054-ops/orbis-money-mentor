@@ -22,9 +22,9 @@ vi.mock("@/shared/api", async () => {
 vi.mock("@/shared/hooks/use-toast", () => ({ toast: vi.fn() }));
 import { ConsentimentoIaGate } from "./components/consentimento-ia-gate";
 
-const montar = () => render(
+const montar = (rota = "/") => render(
   <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-    <MemoryRouter><ConsentimentoIaGate /></MemoryRouter>
+    <MemoryRouter initialEntries={[rota]}><ConsentimentoIaGate /></MemoryRouter>
   </QueryClientProvider>,
 );
 
@@ -46,6 +46,12 @@ describe("consentimento de IA", () => {
     montar();
     await waitFor(() => expect(iaPermitida()).toBe(false));
     await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByText("A VANT usa IA. Você autoriza?")).not.toBeInTheDocument();
+  });
+
+  it("nunca abre por cima do onboarding (roubava o foco e o teclado do iPhone piscava)", async () => {
+    montar("/onboarding-novo");
+    await new Promise((r) => setTimeout(r, 30));
     expect(screen.queryByText("A VANT usa IA. Você autoriza?")).not.toBeInTheDocument();
   });
 
