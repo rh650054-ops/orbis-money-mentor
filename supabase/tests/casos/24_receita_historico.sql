@@ -39,19 +39,26 @@ select t.verdade('R1 production records the recipe version it used',
   (select (receita_versoes->>pg_temp.id('brig')::text)::bigint = (select max(id) from public.receita_alteracoes) from public.producao_eventos where chave = 'rec-00001'));
 select t.igual('R1 production itself writes no recipe log (stock/flag updates are not recipe changes)', pg_temp.log(), 3);
 
--- ---------------------------------------------------------------- the bypass: zero the recipe, then produce
-update public.product_recipes set quantity = 0 where product_id = pg_temp.id('brig') and ingredient_id = pg_temp.id('choc');
-select t.verdade('R2 setting an ingredient to zero is logged as a reduction (50 -> 0)',
-  exists (select 1 from public.receita_alteracoes where ingredient_id = pg_temp.id('choc') and operacao = 'alterou' and antes = '50' and depois = '0' and reduz));
+-- ---------------------------------------------------------------- the bypass: reduce the recipe, then produce
+-- (23/11/2026, yield per flavour: an ingredient ZEROED but kept in the recipe is now an incomplete
+-- recipe, refused even with a reason (R2b). The reduction path is shown by lowering an amount.)
+update public.product_recipes set quantity = 30 where product_id = pg_temp.id('brig') and ingredient_id = pg_temp.id('choc');
+select t.verdade('R2 lowering an ingredient is logged as a reduction (50 -> 30)',
+  exists (select 1 from public.receita_alteracoes where ingredient_id = pg_temp.id('choc') and operacao = 'alterou' and antes = '50' and depois = '30' and reduz));
 select t.verdade('R2 next production without a reason: refused, names the product',
   pg_temp.produzir('rec-00002', 20) like 'VANT_RECEITA_REDUZIDA|%Brigadeiro%');
 select t.igual('R2 refused production moved nothing', (select stock_quantity from public.products where id = pg_temp.id('brig')), 20);
-select t.verdade('R2 with a reason: accepted', pg_temp.produzir('rec-00003', 20, 'chocolate saiu da receita, agora é só leite') = 'ok');
+select t.verdade('R2 with a reason: accepted', pg_temp.produzir('rec-00003', 20, 'menos chocolate na receita nova') = 'ok');
 select t.verdade('R2 the event is flagged and keeps the reason',
-  (select receita_reduzida and justificativa_consumo = 'chocolate saiu da receita, agora é só leite' from public.producao_eventos where chave = 'rec-00003'));
-select t.verdade('R2 the consumption history shows the recipe as it was used (no chocolate line)',
-  not exists (select 1 from public.producao_consumos c join public.producao_eventos e on e.id = c.evento_id where e.chave = 'rec-00003' and c.ingredient_id = pg_temp.id('choc')));
+  (select receita_reduzida and justificativa_consumo = 'menos chocolate na receita nova' from public.producao_eventos where chave = 'rec-00003'));
+select t.verdade('R2 the consumption history shows the recipe as it was used (30 g of chocolate)',
+  exists (select 1 from public.producao_consumos c join public.producao_eventos e on e.id = c.evento_id where e.chave = 'rec-00003' and c.ingredient_id = pg_temp.id('choc') and c.quantidade_receita = 30));
 select t.verdade('R3 asked once: the following production needs no reason', pg_temp.produzir('rec-00004', 20) = 'ok');
+update public.product_recipes set quantity = 0 where product_id = pg_temp.id('brig') and ingredient_id = pg_temp.id('choc');
+select t.verdade('R2b setting an ingredient to zero is logged as a reduction (30 -> 0)',
+  exists (select 1 from public.receita_alteracoes where ingredient_id = pg_temp.id('choc') and operacao = 'alterou' and antes = '30' and depois = '0' and reduz));
+select t.verdade('R2b a zeroed ingredient left in the recipe: incomplete, a reason does not open it',
+  pg_temp.produzir('rec-00004b', 20) like 'VANT_RECEITA_INCOMPLETA|%Brigadeiro%' and pg_temp.produzir('rec-00004c', 20, 'chocolate saiu da receita') like 'VANT_RECEITA_INCOMPLETA|%');
 
 -- ---------------------------------------------------------------- every kind of reduction
 delete from public.product_recipes where product_id = pg_temp.id('brig') and ingredient_id = pg_temp.id('lc');

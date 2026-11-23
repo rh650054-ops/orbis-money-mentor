@@ -25,6 +25,7 @@ import { useIngredients } from "@/hooks/useIngredients";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
+import { AVISO_RECEITA_POR_SABOR, temIngredienteRepetido, temReceitaPorSabor } from "@/shared/lib/receita-por-sabor";
 import { Input } from "@/shared/ui/input";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { Label } from "@/shared/ui/label";
@@ -317,9 +318,21 @@ export default function Products() {
           const { error: eTiers } = await supabase.from("product_price_tiers" as any).insert(faixas.map((t) => ({ user_id: user.id, product_id: pid, qty: t.qty, price: t.price })));
           if (eTiers) { falhouExtra = true; avisar.usuario("Não consegui salvar a tabela de preço por quantidade. Tenta de novo.", eTiers, "Products: gravar faixas de preço"); }
         }
-        const { error: eDelRec } = await supabase.from("product_recipes").delete().eq("product_id", pid);
+        // 23/11: this sheet rewrites every row as base. A product with per-flavour data, or with an
+        // ingredient in two rows (base + flavour), would lose its flavour recipes: keep its recipe
+        // untouched and point to the new screen. (Before the migration the variant query fails and
+        // nothing changes; no product of today has a repeated ingredient.)
+        const { data: variantes, error: eVar } = await supabase.from("product_variants" as any).select("batch_yield, usa_base").eq("product_id", pid);
+        const { data: linhasAtuais } = await supabase.from("product_recipes").select("ingredient_id").eq("product_id", pid);
+        const soNoNovo = (!eVar && temReceitaPorSabor((variantes as unknown as { batch_yield: number | null; usa_base: boolean }[]) ?? []))
+          || temIngredienteRepetido(linhasAtuais ?? []);
+        if (soNoNovo) {
+          falhouExtra = true;
+          toast({ title: "Receita não alterada", description: AVISO_RECEITA_POR_SABOR, variant: "destructive" });
+        }
+        const { error: eDelRec } = soNoNovo ? { error: null } : await supabase.from("product_recipes").delete().eq("product_id", pid);
         if (eDelRec) { falhouExtra = true; avisar.usuario("Não consegui salvar a receita do produto. Tenta de novo.", eDelRec, "Products: apagar receita"); }
-        if (form.recipe_mode !== "none") {
+        if (form.recipe_mode !== "none" && !soNoNovo) {
           const rows = form.recipe_items
             .filter((r) => r.ingredient_id && r.quantity)
             .map((r) => ({

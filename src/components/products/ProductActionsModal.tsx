@@ -9,6 +9,7 @@ import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/shared/hooks/use-toast";
 import { useIngredients } from "@/hooks/useIngredients";
+import { AVISO_RECEITA_POR_SABOR, temReceitaPorSabor } from "@/shared/lib/receita-por-sabor";
 
 interface Product {
   id: string;
@@ -108,6 +109,16 @@ export default function ProductActionsModal({ product, onClose, onChanged }: Pro
       return;
     }
     setBusy(true);
+
+    // 23/11: this screen only knows the product's yield. A product whose flavours have their own
+    // yield or skip the base is produced only by the new screen. (Before the migration the columns
+    // do not exist, the query fails and nothing changes.)
+    const { data: variantes, error: eVar } = await supabase.from("product_variants" as any).select("batch_yield, usa_base").eq("product_id", product.id);
+    if (!eVar && temReceitaPorSabor((variantes as unknown as { batch_yield: number | null; usa_base: boolean }[]) ?? [])) {
+      toast({ title: "Use o cadastro novo", description: AVISO_RECEITA_POR_SABOR, variant: "destructive" });
+      setBusy(false);
+      return;
+    }
 
     const unitsAdded = lots * yieldPer;
     try {

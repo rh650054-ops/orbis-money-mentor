@@ -28,7 +28,7 @@ const CADEIA = [
 const OPCIONAIS = ["premio_homologacao_automatica"]; // exist only after their fix lands
 // Migrations that change grants or policies, or create tables (not chain functions), and must be
 // applied whole, in order.
-const APLICAR_INTEIRAS = ["20261110121000_premio_fechamento_sem_leitura_direta.sql", "20261111170000_modulo_a_conexoes_espelho.sql", "20261115220000_entradas_identidade_do_provedor.sql", "20261122120000_producao_integridade.sql", "20261122130000_receita_historico_e_conta_teste.sql"];
+const APLICAR_INTEIRAS = ["20261110121000_premio_fechamento_sem_leitura_direta.sql", "20261111170000_modulo_a_conexoes_espelho.sql", "20261115220000_entradas_identidade_do_provedor.sql", "20261122120000_producao_integridade.sql", "20261122130000_receita_historico_e_conta_teste.sql", "20261123120000_rendimento_por_sabor.sql"];
 
 const manifesto = JSON.parse(readFileSync(join(raiz, "supabase/baseline/manifesto-producao.json"), "utf8"));
 const defs = ultimasDefinicoes(raiz);
@@ -39,7 +39,7 @@ console.log("1) Montando o banco de teste");
 psql("postgres", ["-c", `drop database if exists ${BASE}`]);
 psql("postgres", ["-c", `create database ${BASE}`]);
 psql(BASE, ["-c", `alter database ${BASE} set timezone to 'UTC'`]);
-for (const f of ["00_supabase.sql", "01_tabelas.sql", "02_dubles.sql", "03_asserts.sql"]) psql(BASE, ["-f", join(aqui, "schema", f)]);
+for (const f of ["00_supabase.sql", "01_tabelas.sql", "02_dubles.sql", "03_asserts.sql", "04_produtos_legado_producao.sql"]) psql(BASE, ["-f", join(aqui, "schema", f)]);
 
 let sql = "set check_function_bodies = off;\n";
 const iguais = [], mudadas = [];
