@@ -84,7 +84,7 @@ jobs:
             -PversionCode="$VERSION_CODE" \
             -PversionName="$VERSION_NAME"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vant-${{ inputs.version_name }}-${{ github.run_number }}
           path: android/app/build/outputs/bundle/release/*.aab

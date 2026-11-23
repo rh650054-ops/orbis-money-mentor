@@ -111,7 +111,7 @@ jobs:
           bash ferramenta/scripts/edge-ci.sh baixar_e_comparar "$contra"
       # actions/upload-artifact v4.6.2 — hashes and versions only, never the code or the token
       - if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: edge-registro-antes-${{ github.run_id }}
           path: |
@@ -166,7 +166,7 @@ jobs:
           [ "$nova" -gt "$VERSAO_ATUAL" ] || { echo "a versão não avançou: a publicação não aconteceu"; exit 3; }
           bash ferramenta/scripts/edge-ci.sh baixar_e_comparar alvo || { echo "O PUBLICADO DIFERE DO COMMIT PEDIDO — fazer o rollback indicado no resumo"; exit 1; }
       - if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: edge-registro-publicacao-${{ github.run_id }}
           path: |
