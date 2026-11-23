@@ -29,6 +29,7 @@ vi.mock("../api/use-atividade-query", () => ({
 const { mutacao } = vi.hoisted(() => ({ mutacao: () => ({ mutate: vi.fn(), isPending: false }) }));
 vi.mock("../api/use-conta-mutations", () => ({ useSalvarDadosMutation: mutacao, useSalvarPerfilMutation: mutacao, useRankingVisivelMutation: mutacao }));
 vi.mock("../api/use-foto-mutation", () => ({ useFotoMutation: mutacao }));
+vi.mock("@/features/consentimento-ia", () => ({ IaContaCard: () => <p>INTELIGÊNCIA ARTIFICIAL</p> }));
 
 import ContaPage from "./conta-page";
 
@@ -38,7 +39,7 @@ describe("minha conta", () => {
     // card: name + plan badge, no phone/e-mail up top
     expect(screen.getAllByText("Rick").length).toBeGreaterThan(0);
     expect(screen.getAllByText("PRO").length).toBeGreaterThan(0);
-    for (const t of ["SEU PERFIL PÚBLICO", "SUA ATIVIDADE", "DADOS DA CONTA", "SEU PLANO", "PRIVACIDADE E VISIBILIDADE"]) expect(screen.getByText(t)).toBeTruthy();
+    for (const t of ["SEU PERFIL PÚBLICO", "SUA ATIVIDADE", "DADOS DA CONTA", "SEU PLANO", "PRIVACIDADE E VISIBILIDADE", "INTELIGÊNCIA ARTIFICIAL"]) expect(screen.getByText(t)).toBeTruthy();
     expect(screen.getByText("197")).toBeTruthy();
     expect(screen.getByText("54%")).toBeTruthy();
     expect(screen.getByText("@vant")).toBeTruthy();
