@@ -2,7 +2,7 @@
 #
 # Run it from GitHub: Actions > "Android build" > Run workflow.
 # The signed .aab shows up as a downloadable artifact at the end of the run;
-# upload it to Play Console > Testing > Closed testing.
+# upload it to Play Console (Production or a testing track).
 #
 # One-time setup in GitHub > Settings > Secrets and variables > Actions
 # (never paste these values in a chat):
@@ -11,6 +11,13 @@
 #              ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
 # Without the keystore secrets the run still builds, but the .aab is unsigned
 # (useful to check the build; Play only accepts signed bundles).
+#
+# Billing (23/11/2026): optional variable VITE_COBRANCA_LOJA_ANDROID = link turns on the
+# "Assinar" button that opens the site. Unset = "fora": no price, no link, no checkout —
+# Google Play's payments policy forbids linking out to buy a digital subscription unless the
+# app is enrolled in an external-offers program for the country. cobranca-loja.ts falls back
+# to "link" when the value is empty, so the safe default has to be forced here. The shared
+# VITE_COBRANCA_LOJA variable is no longer read.
 name: Android build
 
 on:
@@ -28,6 +35,9 @@ jobs:
   bundle:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash  # adds -o pipefail: a failing command in a pipe turns the run red
     steps:
       - uses: actions/checkout@v4
 
@@ -49,10 +59,11 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          # opcional: "link" = botão de assinar abre a Hotmart (modelo Néctar); padrão: o app da loja não vende
-          VITE_COBRANCA_LOJA: ${{ vars.VITE_COBRANCA_LOJA }}
+          VITE_COBRANCA_LOJA: ${{ vars.VITE_COBRANCA_LOJA_ANDROID || 'fora' }}
         run: |
           test -n "$VITE_SUPABASE_URL" || { echo "Missing repo variable VITE_SUPABASE_URL"; exit 1; }
+          case "$VITE_COBRANCA_LOJA" in fora|link) ;; *) echo "VITE_COBRANCA_LOJA_ANDROID must be fora or link"; exit 1;; esac
+          echo "::notice::Android billing mode: $VITE_COBRANCA_LOJA"
           npm run build
 
       - name: Copy web bundle into the Android project
