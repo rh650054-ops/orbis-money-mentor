@@ -48,4 +48,25 @@ describe("vender · Pro showcase for whoever is not Pro (25/10/2026)", () => {
     expect(screen.getByText("Suba pro Pro")).toBeTruthy();
     expect(screen.queryByText("COMEÇAR COM O ESSENCIAL")).toBeNull();
   });
+
+  it("23/11: Essencial subscriber can buy ONLY the bank from the Vender tab (it was only on /pro)", () => {
+    sub.status = "active";
+    abrir.mockClear();
+    render(<MemoryRouter><VenderPage /></MemoryRouter>);
+    expect(screen.getByText("Só quer ligar o banco?")).toBeTruthy();
+    fireEvent.click(screen.getByText(/LIGAR SÓ O BANCO/));
+    expect(abrir.mock.calls[0]?.[0]).toContain("off=3nnrr1xn");
+    expect(abrir.mock.calls[0]?.[0]).toContain("sck=banco_avulso");
+  });
+
+  it("23/11: not subscribed yet: Essencial + bank in two steps (anyone can buy it)", () => {
+    sub.status = "trial";
+    abrir.mockClear();
+    render(<MemoryRouter><VenderPage /></MemoryRouter>);
+    expect(screen.getByText("Só quer ligar o banco?")).toBeTruthy();
+    fireEvent.click(screen.getByText(/1\. ASSINAR O ESSENCIAL/));
+    fireEvent.click(screen.getByText(/2\. LIGAR SÓ O BANCO/));
+    expect(abrir.mock.calls[1]?.[0]).toContain("off=3nnrr1xn");
+    expect(abrir.mock.calls[0]?.[0]).not.toContain("3nnrr1xn");
+  });
 });

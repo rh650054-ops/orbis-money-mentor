@@ -4,9 +4,9 @@
    subscriber: their plan marked, upgrade only. Web build only (see vitrine-pro). */
 import { useState } from "react";
 import { COR } from "@/shared/components/vant-ui";
-import { ECONOMIA_ANUAL } from "@/components/conectar/pro-lib";
+import { ECONOMIA_ANUAL, ESSENCIAL_COM_BANCO, PRECO_BANCO, PRECO_ESSENCIAL, PRECO_MENSAL, brl } from "@/components/conectar/pro-lib";
 import { PLANOS, type Plano } from "./vitrine-dados";
-import { abrirCheckout, getCheckoutUrl, getProCheckoutUrl } from "@/shared/lib/checkout";
+import { BANCO_EXTRA_CHECKOUT, abrirCheckout, getCheckoutUrl, getProCheckoutUrl } from "@/shared/lib/checkout";
 import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 
 
@@ -41,6 +41,39 @@ function Cartao({ p, aberto, onClick }: { p: Plano; aberto: boolean; onClick: ()
   );
 }
 
+/** 23/11/2026 (Rick: "qualquer um tem que poder comprar o Essencial com banco"): the bank can be
+ *  bought alone (+R$ 12,90/month, 1 slot) on top of the Essencial; the server already accepts it
+ *  (orbis_pro_ativo / open_finance_limite). It was only on /pro and on the Products paywall, never on
+ *  the Vender tab. Essencial subscriber: one step (the bank). Not subscribed yet: two steps
+ *  (Essencial, then the bank, same e-mail) — Hotmart has no single "Essencial + banco" offer. */
+function SoOBanco({ jaAssina, abrirBanco, abrirEssencial }: { jaAssina: boolean; abrirBanco: () => void; abrirEssencial: () => void }) {
+  const diferenca = Math.round((PRECO_MENSAL - ESSENCIAL_COM_BANCO) * 100) / 100;
+  const botao = "w-full h-11 rounded-[14px] text-[13.5px] font-black";
+  return (
+    <div className="rounded-[20px] p-3.5 mt-2.5" style={{ background: COR.card, border: `1px solid ${COR.borda}` }}>
+      <b className="block text-[15px] font-black">Só quer ligar o banco?</b>
+      <span className="block text-[12px] leading-snug mt-1" style={{ color: "#a9a49a" }}>
+        {jaAssina ? <>No seu Essencial, cada banco é +{brl(PRECO_BANCO)}/mês: fica {brl(ESSENCIAL_COM_BANCO)}.</>
+          : <>Essencial com banco: {brl(PRECO_ESSENCIAL)} + {brl(PRECO_BANCO)} = <b style={{ color: COR.texto }}>{brl(ESSENCIAL_COM_BANCO)}/mês</b>.</>}
+        {" "}Por {brl(diferenca)} a mais, o Pro já vem com o banco e tudo acima.
+      </span>
+      <div className="flex flex-col gap-2 mt-2.5">
+        {!jaAssina && (
+          <button type="button" onClick={abrirEssencial} className={botao} style={{ background: "#121211", border: `1px solid ${COR.borda}`, color: COR.texto }}>
+            1. ASSINAR O ESSENCIAL · {brl(PRECO_ESSENCIAL)}/MÊS
+          </button>
+        )}
+        <button type="button" onClick={abrirBanco} className={botao} style={{ background: "#121211", border: `1px solid ${COR.ouro}`, color: COR.ouro }}>
+          {jaAssina ? "" : "2. "}LIGAR SÓ O BANCO · {brl(PRECO_BANCO)}/MÊS
+        </button>
+      </div>
+      <span className="block text-[10.5px] mt-1.5" style={{ color: COR.apagado }}>
+        Pague com o mesmo e-mail da sua conta VANT. A vaga do banco libera em até 1 minuto.
+      </span>
+    </div>
+  );
+}
+
 export function VitrinePlanos({ assinaEssencial }: { assinaEssencial: boolean }) {
   const [plano, setPlano] = useState<Plano>("anual");
   const montar = useCheckoutUrl();
@@ -58,6 +91,10 @@ export function VitrinePlanos({ assinaEssencial }: { assinaEssencial: boolean })
         )}
         {lista.map((p) => <Cartao key={p} p={p} aberto={plano === p} onClick={() => setPlano(p)} />)}
       </div>
+      {BANCO_EXTRA_CHECKOUT && (
+        <SoOBanco jaAssina={assinaEssencial} abrirEssencial={() => abrirCheckout(montar(getCheckoutUrl()))}
+          abrirBanco={() => abrirCheckout(montar(`${BANCO_EXTRA_CHECKOUT}&sck=banco_avulso`))} />
+      )}
       <div className="grid grid-cols-3 gap-1.5 mt-5">
         {[["🔒", "Senha do banco nunca passa pela VANT"], ["🏛️", "Open Finance regulado pelo Banco Central"], ["↩️", "7 dias de garantia"]].map(([ic, t]) => (
           <div key={t} className="rounded-[12px] px-1.5 py-2 text-center text-[10.5px] leading-tight" style={{ background: "#0b0b0c", border: `1px solid ${COR.borda}`, color: COR.suave }}><b className="block text-[16px] mb-0.5">{ic}</b>{t}</div>
