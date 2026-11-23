@@ -95,7 +95,7 @@ export function LinhaIngrediente({ it, rende, nomeProduto = "unidades", estoque,
                 <span>Uso</span>
                 <MiniNumero valor={it.qtd} exemplo="?" rotulo="Quanto usa na leva" onChange={(qtd) => onMudar({ qtd })} />
                 <span>{it.unidade} na leva</span>
-                {custoLeva > 0 && <span className="font-black" style={{ color: "#F5B800" }}>→ {reais(custoLeva)}</span>}
+                {custoLeva > 0 && <span className="font-black" style={{ color: "#F5B800" }}>= {reais(custoLeva)} na leva</span>}
               </>
             )}
           </div>

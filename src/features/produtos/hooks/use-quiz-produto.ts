@@ -10,6 +10,14 @@ export type PassoQuiz = "nome" | "origem" | "custo" | "sabores" | "preco" | "rev
 const ORDEM: PassoQuiz[] = ["nome", "origem", "custo", "sabores", "preco", "revisao", "pronto"];
 export const TOTAL_PASSOS = 6;
 
+/** A new registration's product id, chosen once and kept in the draft (idempotent creation). */
+function comId(r: RascunhoProduto, novo = false): RascunhoProduto {
+  if (r.novoId && !novo) return r;
+  const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID()
+    : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (Number(c) ^ (Math.random() * 16) >> (Number(c) / 4)).toString(16));
+  return { ...r, novoId: id };
+}
+
 export function rascunhoDe(p: ProdutoComFaixas): RascunhoProduto {
   const combo = p.faixas.find((f) => f.qty >= 2) ?? null;
   return {
@@ -24,7 +32,7 @@ export function rascunhoDe(p: ProdutoComFaixas): RascunhoProduto {
  *  user until saved (lerRascunho), so leaving and coming back loses nothing. */
 export function useQuizProduto(inicial?: RascunhoProduto, userId?: string) {
   const [retomado] = useState(() => (inicial ? null : lerRascunho(userId)));
-  const [r, setR] = useState<RascunhoProduto>(inicial ?? retomado?.r ?? RASCUNHO_VAZIO);
+  const [r, setR] = useState<RascunhoProduto>(() => inicial ?? comId(retomado?.r ?? RASCUNHO_VAZIO));
   const [passo, setPasso] = useState<PassoQuiz>(retomado?.passo ?? "nome");
   /** units of the pack (cost step) to suggest "+1 pacote" in the stock */
   const [pacote, setPacote] = useState<number | null>(null);
@@ -45,7 +53,7 @@ export function useQuizProduto(inicial?: RascunhoProduto, userId?: string) {
   };
   const avancar = () => { const p = andar(1); if (p) ir(p); };
   const voltar = (): boolean => { const p = andar(-1); if (!p) return false; ir(p); return true; };
-  const recomecar = () => { apagarRascunho(userId); setR(RASCUNHO_VAZIO); setPacote(null); ir("nome"); };
+  const recomecar = () => { apagarRascunho(userId); setR(comId(RASCUNHO_VAZIO, true)); setPacote(null); ir("nome"); };
 
   return {
     r, passo, pacote, setPacote, ir, avancar, voltar, recomecar, retomado: !!retomado,

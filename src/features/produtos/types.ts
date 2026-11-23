@@ -44,6 +44,9 @@ export interface RascunhoProduto {
    *  null = sem receita salva (custo digitado direto). */
   receita: ItemReceita[] | null;
   rende: number;
+  /** 23/11: id chosen by the phone for a NEW product, kept in the draft: a retry after a lost answer
+   *  hits "already exists" and updates the same row instead of creating a second product */
+  novoId?: string;
   /** 22/11: flavours or versions typed in the registration (new products only; the sheet edits them) */
   sabores: SaborRascunho[];
 }

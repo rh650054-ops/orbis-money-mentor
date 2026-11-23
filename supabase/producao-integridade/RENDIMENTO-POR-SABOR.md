@@ -1,6 +1,7 @@
 # Per-flavour recipe and yield — impact analysis (22/11/2026)
 
-Status: **analysis only**. No migration written or applied. Needs Rick's decisions (end of file).
+Status: **approved in concept on 23/11** (decisions below). Implementation = a separate database stage
+(migration + rollback + equivalence tests), not written or applied yet.
 
 ## Today
 
@@ -89,9 +90,55 @@ SQL: equivalence on current data shapes; flavour yield; shared ingredient across
 the base; `usa_base = false`; incomplete own recipe; legacy path (decision 2); recipe log on yield
 change; rollback refusal. UI: per-flavour yield field, own-recipe toggle, list "x un. por receita".
 
-## Decisions for Rick
+## Decisions (Rick, 23/11)
 
-1. `usa_base` default `true` (today's behaviour) — confirm.
-2. Old "Produzi" (`produto_produzir_sabores`): apply the same formula, or refuse flavours with their own yield until Etapa 3 retires it.
-3. Market auto-production ignores flavours today — keep it until the Market stage.
-4. Per-flavour cost: display only (recommended) or also feed sales cost (financial change).
+1. `product_variants.batch_yield` optional; `usa_base = true` by default; a flavour may have its own
+   recipe independent of the base. **Approved.**
+2. The same ingredient may be reused by several flavours (and the base) without a second ingredient
+   row: one `ingredients` row, several `product_recipes` rows. **Approved** (partial unique indexes).
+3. Full compatibility with existing products: equivalence tests are mandatory. **Approved.**
+4. Per-flavour cost is **informative only**: `products.cost` and the cost stored in sales do not change.
+
+## Old production paths: contextual block (proposal)
+
+A product is "per-flavour" when any of its flavours has `batch_yield` set or `usa_base = false`.
+Existing products have neither, so none of them is affected.
+
+| Path | For per-flavour products | For every other product |
+|---|---|---|
+| `produto_produzir_sabores`, `produto_produzir` (old "Produzi") | refuse: "Esse produto tem receita por sabor; registre pela produção nova" | unchanged |
+| `ProductActionsModal` (legacy client production) | hide/refuse "Produzir" (reads the new columns) | unchanged |
+| `mercado_concluir` automatic production | skip the product (it would take base ÷ product yield and ignore flavours), say so in its answer | unchanged |
+| `producao_registrar` (Etapa 1) | the only path, with `Y_v` and `usa_base` | unchanged formula (equivalence test) |
+
+Until the new production screen is active (Etapa 3), a per-flavour product cannot be produced
+automatically at all, which is what "bloqueio contextual" means: nothing produces it with a wrong
+consumption. SQL tests: each old path refuses a per-flavour product and still works, byte-for-byte,
+for a product without flavour yields.
+
+## Price precision per g/ml (investigation, nothing changed)
+
+`receitaDoRascunho` (client, since before Etapa 2) rounds the price of 1 g/ml to 4 decimals before
+sending it; `produto_salvar_receita` / `produto_sabores_salvar` store what they receive in
+`ingredients.cost_per_unit` (numeric, no limit) and recompute `products.cost` from it.
+
+| Purchase | Exact per g | Saved today | Reopened as | Exact product cost | Cost saved today |
+|---|---|---|---|---|---|
+| 1 kg for R$ 35,99 | 0,03599 | 0,0360 | **R$ 36,00** | 1 can R$ 6,50 + 200 g, yields 20: **R$ 0,68** | **R$ 0,69** |
+| 25 kg for R$ 129,90 | 0,005196 | 0,0052 | **R$ 130,00** | 5 kg per batch, yields 100: R$ 0,2598 | R$ 0,2600 |
+
+Also: saving a recipe overwrites `cost_per_unit` with the rounded value, so a precise cost that came
+from a market purchase (10 of the 442 priced ingredients in production have more than 4 decimals)
+is silently rounded when the recipe is opened and saved.
+
+Proposed fix (needs authorization, financial): send the price of 1 g/ml with full precision (or 8
+decimals). Formulas stay the same; only FUTURE saves change, by the amounts above; past sales keep
+their stored `unit_cost`; no stored cost is recomputed retroactively.
+
+## Next stage (database), when authorized
+One migration (2 columns, 2 partial unique indexes, `producao_estado_alvo` with `Y_v`/`usa_base`,
+`produto_sabores_salvar` accepting shared ingredients, contextual blocks above, recipe log of flavour
+yields) + rollback (refuses while a per-flavour product or a shared ingredient exists) + SQL cases:
+equivalence on today's shapes, flavour yield, own recipe, shared ingredients, every old path refusing
+per-flavour products and unchanged otherwise. Then the screens (own-recipe question, yield per flavour,
+stock per flavour in the review).

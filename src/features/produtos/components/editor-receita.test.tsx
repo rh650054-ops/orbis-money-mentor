@@ -119,7 +119,7 @@ describe("conversão de unidades na linha do ingrediente (kg/g e L/ml)", () => {
     expect(ultimo.itens[0]).toMatchObject({ unidade: "g", pacote: 1000 });
     fireEvent.change(screen.getByLabelText("Quanto paga nessa compra"), { target: { value: "35,99" } });
     fireEvent.change(screen.getByLabelText("Quanto usa na leva"), { target: { value: "200" } });
-    expect(screen.getByText("→ R$ 7,20")).toBeInTheDocument();
+    expect(screen.getByText("= R$ 7,20 na leva")).toBeInTheDocument();
     expect(receitaDoRascunho(ultimo.itens)[0]).toMatchObject({ unidade: "g", pacote: 1000, qtd: 200, preco: 0.036 });
   });
 
@@ -130,7 +130,7 @@ describe("conversão de unidades na linha do ingrediente (kg/g e L/ml)", () => {
     expect(ultimo.itens[0]).toMatchObject({ unidade: "ml", pacote: 1500 });
     fireEvent.change(screen.getByLabelText("Quanto paga nessa compra"), { target: { value: "9" } });
     fireEvent.change(screen.getByLabelText("Quanto usa na leva"), { target: { value: "300" } });
-    expect(screen.getByText("→ R$ 1,80")).toBeInTheDocument();
+    expect(screen.getByText("= R$ 1,80 na leva")).toBeInTheDocument();
   });
 
   it("compra pequena fica na unidade pequena (500 g não vira 0,5 kg); ml idem", () => {

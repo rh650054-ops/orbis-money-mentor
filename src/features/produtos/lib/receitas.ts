@@ -55,9 +55,11 @@ export function ingredienteIgual<T extends { nome: string }>(nome: string, guard
 export const ehRascunho = (i: Pick<IngredienteRascunho, "usa" | "nome" | "qtd" | "aprender">) =>
   i.usa && i.nome.trim() !== "" && (!!i.aprender || !(i.qtd > 0));
 
-/** The recipe can feed production only when it has a yield and at least one ingredient with quantity. */
+/** Complete = a yield and EVERY checked, named ingredient with a quantity (23/11: one filled line is not
+ *  enough; "descubro depois" counts as missing; unchecked lines are not part of the recipe). */
 export function receitaCompleta(itens: IngredienteRascunho[], rende: number): boolean {
-  return rende >= 1 && itens.some((i) => i.usa && i.nome.trim() !== "" && !i.aprender && i.qtd > 0);
+  const ativos = itens.filter((i) => i.usa && i.nome.trim() !== "");
+  return rende >= 1 && ativos.length > 0 && ativos.every((i) => !i.aprender && i.qtd > 0);
 }
 
 const BASE: [RegExp, string[]][] = [

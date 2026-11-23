@@ -17,8 +17,10 @@ function Linha({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   );
 }
 
-export function PassoRevisao({ r, pacote, salvando, total, onIr, onEstoque, onSalvar, onSemEstoque, onVoltar }: {
+export function PassoRevisao({ r, pacote, salvando, falha, total, onIr, onEstoque, onSalvar, onSemEstoque, onVoltar }: {
   r: RascunhoProduto; pacote: number | null; salvando: boolean; total: number;
+  /** last save attempt failed: the draft is intact and a retry never duplicates the product */
+  falha?: string | null;
   onIr: (p: "nome" | "origem" | "custo" | "sabores" | "preco") => void;
   onEstoque: (n: number) => void; onSalvar: () => void; onSemEstoque: () => void; onVoltar: () => void;
 }) {
@@ -31,13 +33,22 @@ export function PassoRevisao({ r, pacote, salvando, total, onIr, onEstoque, onSa
   return (
     <QuizCasca passo={6} total={total} onVoltar={onVoltar} titulo="Confere e salva" sub="Toque em editar pra voltar em qualquer resposta. Nada se perde."
       rodape={<>
-        <BotaoOuro onClick={onSalvar} disabled={salvando}>{salvando ? "SALVANDO…" : "SALVAR PRODUTO"}</BotaoOuro>
+        <BotaoOuro onClick={onSalvar} disabled={salvando}>{salvando ? "SALVANDO…" : falha ? "TENTAR DE NOVO" : "SALVAR PRODUTO"}</BotaoOuro>
         <LinkCinza onClick={onSemEstoque}>salvar sem controlar estoque</LinkCinza>
       </>}>
       <div className="rounded-[18px] px-4 py-3" style={{ background: VANT.cartao, border: `1px solid ${s.cor}66` }}>
         <p className="text-[11px] font-black tracking-[.14em]" style={{ color: s.cor }}>{s.titulo.toUpperCase()}</p>
         <p className="text-[13px] font-bold mt-1" style={{ color: "#d6d6d6" }}>{s.texto}</p>
+        {s.completar && r.origem === "faz" && (
+          <button type="button" onClick={() => onIr("custo")} className="mt-2 text-[12.5px] font-black underline" style={{ color: VANT.ouro }}>Completar receita</button>
+        )}
       </div>
+      {falha && (
+        <div role="alert" className="rounded-[18px] px-4 py-3" style={{ background: "#1a0c0c", border: `1px solid ${VANT.erro}` }}>
+          <p className="text-[13px] font-black" style={{ color: VANT.erro }}>Não salvou tudo</p>
+          <p className="text-[12.5px] font-bold mt-1" style={{ color: "#d6d6d6" }}>{falha} Seus dados continuam aqui. Tente de novo: o produto não será duplicado.</p>
+        </div>
+      )}
       <div className="rounded-[18px] px-4 pt-1 pb-1" style={{ background: VANT.cartao, border: `1px solid ${VANT.borda}` }}>
         <Linha rotulo="Produto">{r.emoji} {r.nome}{editar("nome")}</Linha>
         <Linha rotulo="Como consegue">{r.origem === "faz" ? "Eu mesmo produzo" : r.origem === "compra" ? "Compro pronto" : "Configurar depois"}{editar("origem")}</Linha>

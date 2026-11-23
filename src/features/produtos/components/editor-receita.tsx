@@ -34,7 +34,7 @@ export function EditorReceita({ itens, rende, onItens, onRende, estoques, nomePr
         <MiniNumero valor={rende} largura={76} exemplo="?" rotulo="Quanto a receita rende" onChange={(n) => onRende(Math.max(0, Math.round(n)))} />
         <span className="text-[13px] font-bold" style={{ color: "#b9b3a6" }}>{nomeProduto}</span>
       </div>
-      {!(rende >= 1) && <p className="text-[11.5px] font-bold px-1" style={{ color: "#F5B800" }}>Diga quantas saem de uma leva. Só você sabe esse número.</p>}
+      {!(rende >= 1) && <p className="text-[11.5px] font-bold px-1" style={{ color: "#F5B800" }}>Diga quantas saem de uma leva (ex.: 6 {nomeProduto}). Só você sabe esse número.</p>}
       {itens.map((it, i) => (
         <LinhaIngrediente key={i} it={it} rende={rende} nomeProduto={nomeProduto} repetido={repetidas.has(i)}
           estoque={estoques?.get(it.nome.trim().toLowerCase())} onMudar={(m) => mudar(i, m)}
@@ -45,8 +45,8 @@ export function EditorReceita({ itens, rende, onItens, onRende, estoques, nomePr
         <Plus className="w-3.5 h-3.5" /> adicionar ingrediente
       </button>
       {custo > 0 && rende >= 1
-        ? <ResultadoOuro rotulo={`Cada ${nomeProduto === "unidades" ? "uma" : nomeProduto} te custa`} valor={reais(custo)}
-            detalhe={`${rende} ${nomeProduto} por ${reais(total)}${rascunhos ? ` · ${rascunhos} ingrediente${rascunhos > 1 ? "s" : ""} ainda sem quantidade` : ""}`} />
+        ? <ResultadoOuro rotulo={`${rascunhos ? "Custo parcial de cada" : "Cada"} ${nomeProduto === "unidades" ? "unidade" : nomeProduto.replace(/s$/, "")}`} valor={reais(custo)}
+            detalhe={`custo por unidade: ${reais(total)} da leva ÷ ${rende}${rascunhos ? ` · faltam ${rascunhos} quantidade${rascunhos > 1 ? "s" : ""}, o custo real é maior` : ""}`} />
         : <p className="text-[11.5px] font-bold px-1" style={{ color: "#8A8A8A" }}>Sem preço? Tudo bem: o custo aparece quando você anotar a compra no "Tô no mercado".</p>}
     </div>
   );

@@ -9,10 +9,10 @@ vi.mock("@/shared/hooks/use-toast", () => ({ toast: vi.fn() }));
 vi.mock("../api/use-produtos-query", () => ({ useProdutosQuery: () => ({ isError: false, isFetchedAfterMount: true, data: [] }) }));
 vi.mock("../api/use-ingredientes-guardados-query", () => ({ useIngredientesGuardadosQuery: () => ({ data: [] }) }));
 vi.mock("../api/use-subir-foto-mutation", () => ({ useSubirFotoMutation: () => ({ mutate: vi.fn(), isPending: false }) }));
-const salvar = vi.fn((_: RascunhoProduto, o: { onSuccess: (id: string) => void }) => o.onSuccess("novo-1"));
-vi.mock("../api/use-produto-mutations", () => ({ useSalvarProdutoMutation: () => ({ mutate: salvar, isPending: false }) }));
-const salvarSabores = vi.fn();
-vi.mock("../api/use-salvar-sabores-mutation", () => ({ useSalvarSaboresMutation: () => ({ mutate: salvarSabores }) }));
+const salvar = vi.fn(async (r: RascunhoProduto) => r.id ?? r.novoId ?? "novo-1");
+vi.mock("../api/use-produto-mutations", () => ({ useSalvarProdutoMutation: () => ({ mutateAsync: salvar, isPending: false }) }));
+const salvarSabores = vi.fn(async (_: { produtoId: string; sabores: unknown[] }) => {});
+vi.mock("../api/use-salvar-sabores-mutation", () => ({ useSalvarSaboresMutation: () => ({ mutateAsync: salvarSabores, isPending: false }) }));
 
 import QuizProdutoPage from "./quiz-produto-page";
 
@@ -23,10 +23,11 @@ const enviado = () => salvar.mock.calls.at(-1)![0];
 const nome = (n: string) => { digitar("Nome do produto", n); clicar("CONTINUAR"); };
 const precoERevisao = (v: string) => { digitar("Valor", v); clicar("CONTINUAR"); };
 
-beforeEach(() => { localStorage.clear(); salvar.mockClear(); salvarSabores.mockClear(); });
+beforeEach(() => { localStorage.clear(); salvar.mockClear(); salvarSabores.mockReset(); salvarSabores.mockImplementation(async () => {}); });
+const salvarProduto = async () => { await act(async () => { clicar(/SALVAR PRODUTO|TENTAR DE NOVO/); }); };
 
 describe("cadastro inteligente (Etapa 2)", () => {
-  it("fabricação: receita com rendimento dele, sabores com receitas diferentes, revisão e salvar", () => {
+  it("fabricação: receita com rendimento dele, sabores com receitas diferentes, revisão e salvar", async () => {
     abrir();
     nome("Batida");
     clicar("Eu mesmo produzo");
@@ -40,20 +41,22 @@ describe("cadastro inteligente (Etapa 2)", () => {
     digitar("Nome do sabor", "Morango");
     clicar("CONTINUAR");
     precoERevisao("8");
-    expect(screen.getByText("RECEITA PRONTA")).toBeInTheDocument();
-    expect(screen.getByText(/Rende 20\. Pode usar a produção automática/)).toBeInTheDocument();
-    clicar("SALVAR PRODUTO");
+    // 23/11: 1 ingredient with quantity and 3 without is NOT "ready": it says what is missing
+    expect(screen.getByText("RECEITA PARCIALMENTE CONFIGURADA")).toBeInTheDocument();
+    expect(screen.getByText(/Falta informar a quantidade de 3 ingredientes/)).toBeInTheDocument();
+    expect(screen.getByText("Completar receita")).toBeInTheDocument();
+    await salvarProduto();
     const r = enviado();
-    expect(r).toMatchObject({ nome: "Batida", origem: "faz", rende: 20, preco: 8 });
+    expect(r).toMatchObject({ nome: "Batida", origem: "faz", rende: 20, preco: 8, novoId: expect.any(String) });
     expect(r.receita![0]).toMatchObject({ nome: "Leite condensado", qtd: 1, preco: 6.5 });
     expect(r.receita!.filter((i) => i.aprender).length).toBe(3);         // drafts kept, no consumption invented
     // the second, unnamed flavour line is dropped by the save (saboresParaSalvar)
-    expect(salvarSabores.mock.calls[0]![0]).toMatchObject({ produtoId: "novo-1", sabores: expect.arrayContaining([expect.objectContaining({ nome: "Morango" })]) });
+    expect(salvarSabores.mock.calls[0]![0]).toMatchObject({ produtoId: r.novoId, sabores: expect.arrayContaining([expect.objectContaining({ nome: "Morango" })]) });
     expect(screen.getByText("PRODUTO CADASTRADO")).toBeInTheDocument();
     expect(localStorage.getItem("vant_cadastro_rascunho_v1:u1")).toBeNull();   // saved → draft cleared
   });
 
-  it("revenda: não pede receita; custo de 1 e preço; sem receita no que vai pro banco", () => {
+  it("revenda: não pede receita; custo de 1 e preço; sem receita no que vai pro banco", async () => {
     abrir();
     nome("Água");
     clicar("Compro pronto para revender");
@@ -66,12 +69,12 @@ describe("cadastro inteligente (Etapa 2)", () => {
     expect(screen.getByText("REVENDA")).toBeInTheDocument();
     expect(screen.getByText(/O estoque entra quando você registra a compra/)).toBeInTheDocument();
     digitar("Quantidade", "24");
-    clicar("SALVAR PRODUTO");
+    await salvarProduto();
     expect(enviado()).toMatchObject({ origem: "compra", receita: null, custo: 1.2, preco: 3, estoque: 24 });
     expect(salvarSabores).not.toHaveBeenCalled();
   });
 
-  it("configurar depois: pula a pergunta 3, salva vendável e diz que a produção fica desligada", () => {
+  it("configurar depois: pula a pergunta 3, salva vendável e diz que a produção fica desligada", async () => {
     abrir();
     nome("Trufa");
     clicar("Configurar depois");
@@ -80,11 +83,11 @@ describe("cadastro inteligente (Etapa 2)", () => {
     precoERevisao("5");
     expect(screen.getByText("CONFIGURAR DEPOIS")).toBeInTheDocument();
     expect(screen.getByText(/produção automática ficam desligados/)).toBeInTheDocument();
-    clicar("SALVAR PRODUTO");
+    await salvarProduto();
     expect(enviado()).toMatchObject({ origem: null, receita: null, rende: 0, preco: 5 });
   });
 
-  it("voltar e sair não perdem nada: o rascunho volta na mesma pergunta", () => {
+  it("voltar e sair não perdem nada: o rascunho volta na mesma pergunta", async () => {
     const tela = abrir();
     nome("Brigadeiro");
     clicar("Eu mesmo produzo");
@@ -99,11 +102,11 @@ describe("cadastro inteligente (Etapa 2)", () => {
     expect(screen.getByText(/Brigadeiro tem outros sabores/)).toBeInTheDocument();
     clicar("Não, é um só");
     precoERevisao("2");
-    act(() => clicar("SALVAR PRODUTO"));
+    await salvarProduto();
     expect(enviado()).toMatchObject({ nome: "Brigadeiro", origem: "faz", rende: 30 });
   });
 
-  it("rascunho: sair NO MEIO da receita (sem CONTINUAR) e voltar mantém rendimento, quantidades e ingredientes", () => {
+  it("rascunho: sair NO MEIO da receita (sem CONTINUAR) e voltar mantém rendimento, quantidades e ingredientes", async () => {
     const tela = abrir();
     nome("Geladinho");
     clicar("Eu mesmo produzo");
@@ -121,10 +124,10 @@ describe("cadastro inteligente (Etapa 2)", () => {
     clicar("CONTINUAR");
     clicar("Não, é um só");
     precoERevisao("3");
-    expect(screen.getByText("RECEITA PRONTA")).toBeInTheDocument();
+    expect(screen.getByText("RECEITA PARCIALMENTE CONFIGURADA")).toBeInTheDocument();
   });
 
-  it("rascunho: sair na pergunta dos sabores mantém os sabores digitados", () => {
+  it("rascunho: sair na pergunta dos sabores mantém os sabores digitados", async () => {
     const tela = abrir();
     nome("Água");
     clicar("Compro pronto para revender");
@@ -140,7 +143,7 @@ describe("cadastro inteligente (Etapa 2)", () => {
     expect(screen.getByLabelText("Versão 2")).toHaveValue("1,5 L");
   });
 
-  it("rascunho é de cada usuário e some depois de salvar", () => {
+  it("rascunho é de cada usuário e some depois de salvar", async () => {
     abrir();
     nome("Trufa");
     expect(localStorage.getItem("vant_cadastro_rascunho_v1:u1")).toContain("Trufa");
@@ -148,11 +151,11 @@ describe("cadastro inteligente (Etapa 2)", () => {
     clicar("Configurar depois");
     clicar("Não, é um só");
     precoERevisao("4");
-    clicar("SALVAR PRODUTO");
+    await salvarProduto();
     expect(localStorage.getItem("vant_cadastro_rascunho_v1:u1")).toBeNull();
   });
 
-  it("sabores que repetem um ingrediente da base: aviso e não segue (o banco recusaria e os sabores se perderiam)", () => {
+  it("sabores que repetem um ingrediente da base: aviso e não segue (o banco recusaria e os sabores se perderiam)", async () => {
     abrir();
     nome("Batida");
     clicar("Eu mesmo produzo");
@@ -167,5 +170,58 @@ describe("cadastro inteligente (Etapa 2)", () => {
     fireEvent.change(campos[campos.length - 1]!, { target: { value: "Leite condensado" } });
     expect(screen.getByText(/já está na receita base ou em outro sabor/)).toBeInTheDocument();
     expect(screen.getByText("TIRE O INGREDIENTE REPETIDO").closest("button")).toBeDisabled();
+  });
+
+  it("receita com TODOS os ingredientes com quantidade e rendimento: pronta", async () => {
+    abrir();
+    nome("Brigadeiro");
+    clicar("Eu mesmo produzo");
+    clicar("Montar minha receita");
+    digitar("Quanto a receita rende", "20");
+    screen.getAllByLabelText("Quanto usa na leva").forEach((c, i) => fireEvent.change(c, { target: { value: String(i + 1) } }));
+    clicar("CONTINUAR");
+    clicar("Não, é um só");
+    precoERevisao("2");
+    expect(screen.getByText("RECEITA PRONTA")).toBeInTheDocument();
+    expect(screen.queryByText("Completar receita")).toBeNull();
+  });
+
+  it("sabores falham: NÃO mostra 'cadastrado', guarda o rascunho e a nova tentativa não duplica o produto", async () => {
+    salvarSabores.mockImplementationOnce(async () => { throw new Error("rede caiu"); });
+    const tela = abrir();
+    nome("Geladinho");
+    clicar("Compro pronto para revender");
+    clicar("Sei o preço de 1");
+    digitar("Quanto pagou em 1", "1");
+    clicar("CONTINUAR");
+    clicar("Sim, tem mais de um");
+    digitar("Versão 1", "Uva");
+    clicar("CONTINUAR");
+    precoERevisao("3");
+    await salvarProduto();
+    expect(screen.queryByText("PRODUTO CADASTRADO")).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent("Não salvou tudo");
+    expect(screen.getByText("TENTAR DE NOVO")).toBeInTheDocument();
+    const primeiro = salvar.mock.calls[0]![0];
+    expect(localStorage.getItem("vant_cadastro_rascunho_v1:u1")).toContain(primeiro.novoId!);   // draft kept, with its id
+    tela.unmount(); abrir();                                // even leaving the app and coming back
+    await salvarProduto();
+    expect(salvar.mock.calls[1]![0].novoId).toBe(primeiro.novoId);   // same product id: the mutation updates, never inserts twice
+    expect(salvarSabores).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("PRODUTO CADASTRADO")).toBeInTheDocument();
+    expect(localStorage.getItem("vant_cadastro_rascunho_v1:u1")).toBeNull();
+  });
+
+  it("produto falha: nada é dado como salvo e os sabores nem são tentados", async () => {
+    salvar.mockImplementationOnce(async () => { throw new Error("sem internet"); });
+    abrir();
+    nome("Pastel");
+    clicar("Configurar depois");
+    clicar("Não, é um só");
+    precoERevisao("6");
+    await salvarProduto();
+    expect(screen.queryByText("PRODUTO CADASTRADO")).toBeNull();
+    expect(salvarSabores).not.toHaveBeenCalled();
+    expect(localStorage.getItem("vant_cadastro_rascunho_v1:u1")).toContain("Pastel");
   });
 });

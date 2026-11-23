@@ -13,7 +13,7 @@ export function lerRascunho(userId: string | undefined): { r: RascunhoProduto; p
     if (!bruto) return null;
     const v = JSON.parse(bruto) as { r?: Partial<RascunhoProduto>; passo?: PassoGuardado };
     if (!v.r || typeof v.r.nome !== "string" || !v.r.nome.trim()) return null;
-    return { r: { ...RASCUNHO_VAZIO, ...v.r, id: undefined }, passo: v.passo ?? "nome" };
+    return { r: { ...RASCUNHO_VAZIO, ...v.r, id: undefined }, passo: v.passo ?? "nome" };   // novoId is kept
   } catch { return null; }
 }
 

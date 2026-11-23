@@ -40,6 +40,9 @@ describe("cadastro incompleto não alimenta produção", () => {
     expect(receitaCompleta([ing("Leite", 1)], 20)).toBe(true);
     expect(receitaCompleta([ing("Leite", 1)], 0)).toBe(false);
     expect(receitaCompleta([ing("Leite", 0)], 20)).toBe(false);
+    expect(receitaCompleta([ing("Leite", 1), ing("Polpa", 0)], 20)).toBe(false);                        // one missing = incomplete
+    expect(receitaCompleta([ing("Leite", 1), { ...ing("Polpa", 0), usa: false }], 20)).toBe(true);      // unchecked lines do not count
+    expect(receitaCompleta([ing("Leite", 1), { ...ing("Polpa", 5), aprender: true }], 20)).toBe(false);  // "descubro depois" = missing
     expect(ehRascunho(ing("Leite", 0))).toBe(true);
   });
   it("a revisão diz a verdade sobre cada caso", () => {
@@ -48,7 +51,12 @@ describe("cadastro incompleto não alimenta produção", () => {
     expect(situacaoDoCadastro({ ...base, origem: null }).titulo).toBe("Configurar depois");
     expect(situacaoDoCadastro({ ...base, origem: "faz", receita: null }).titulo).toBe("Sem receita");
     expect(situacaoDoCadastro({ ...base, origem: "faz", rende: 20, receita: [{ nome: "Leite", qtd: 0, preco: 0, unidade: "un", pacote: 1, aprender: true }] }).titulo).toBe("Receita em rascunho");
-    expect(situacaoDoCadastro({ ...base, origem: "faz", rende: 0, receita: [{ nome: "Leite", qtd: 1, preco: 0, unidade: "un", pacote: 1 }] }).titulo).toBe("Receita em rascunho");
+    expect(situacaoDoCadastro({ ...base, origem: "faz", rende: 0, receita: [{ nome: "Leite", qtd: 1, preco: 0, unidade: "un", pacote: 1 }] }).titulo).toBe("Receita parcialmente configurada");
+    // 23/11: one ingredient with quantity is not enough; "descubro depois" counts as missing
+    const parcial = situacaoDoCadastro({ ...base, origem: "faz", rende: 20, receita: [{ nome: "Leite", qtd: 1, preco: 0, unidade: "un", pacote: 1 }, { nome: "Polpa", qtd: 0, preco: 0, unidade: "g", pacote: 1000, aprender: true }] });
+    expect(parcial).toMatchObject({ titulo: "Receita parcialmente configurada", completar: true });
+    expect(parcial.texto).toContain("Falta informar a quantidade de 1 ingrediente.");
+    expect(parcial.texto).not.toMatch(/pode usar a produção automática/i);
     expect(situacaoDoCadastro({ ...base, origem: "faz", rende: 20, receita: [{ nome: "Leite", qtd: 1, preco: 0, unidade: "un", pacote: 1 }] }).titulo).toBe("Receita pronta");
   });
 });
