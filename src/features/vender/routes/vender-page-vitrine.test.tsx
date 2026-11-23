@@ -59,9 +59,14 @@ describe("vender · Pro showcase for whoever is not Pro (25/10/2026)", () => {
     expect(abrir.mock.calls[0]?.[0]).toContain("sck=banco_avulso");
   });
 
-  it("trial (not subscribed yet): no bank-only option (it is for who already pays the Essencial)", () => {
+  it("23/11: not subscribed yet: Essencial + bank in two steps (anyone can buy it)", () => {
     sub.status = "trial";
+    abrir.mockClear();
     render(<MemoryRouter><VenderPage /></MemoryRouter>);
-    expect(screen.queryByText("Só quer ligar o banco?")).toBeNull();
+    expect(screen.getByText("Só quer ligar o banco?")).toBeTruthy();
+    fireEvent.click(screen.getByText(/1\. ASSINAR O ESSENCIAL/));
+    fireEvent.click(screen.getByText(/2\. LIGAR SÓ O BANCO/));
+    expect(abrir.mock.calls[1]?.[0]).toContain("off=3nnrr1xn");
+    expect(abrir.mock.calls[0]?.[0]).not.toContain("3nnrr1xn");
   });
 });
