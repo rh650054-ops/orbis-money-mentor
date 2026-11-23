@@ -4,7 +4,7 @@ import { RASCUNHO_VAZIO } from "../types";
 import { adiarConvite, ADIAR_DIAS, deveMostrarConvite, lerConvite, nuncaMaisConvite } from "./convite-cadastro";
 import { apagarRascunho, guardarRascunho, lerRascunho } from "./rascunho-cadastro";
 import { ehRascunho, ingredienteIgual, nomeNormalizado, novoIngrediente, receitaCompleta } from "./receitas";
-import { custoDoSabor, ingredientesEmConflito, saboresParaSalvar } from "./sabores";
+import { custoDoSabor, saboresParaSalvar } from "./sabores";
 
 const ing = (nome: string, qtd: number, precoPacote = 0, pacote = 1) => ({ ...novoIngrediente(nome, qtd), precoPacote, pacote });
 
@@ -21,17 +21,22 @@ describe("sabores com receitas diferentes (sem base, cada sabor tem a sua)", () 
   });
 });
 
-describe("um ingrediente em um lugar só do produto (UNIQUE product_id, ingredient_id de hoje)", () => {
-  const sab = (nome: string, itens: ReturnType<typeof ing>[]) => ({ nome, emoji: "", itens });
-  it("o mesmo ingrediente em dois sabores é apontado antes de salvar (o banco recusaria)", () => {
-    const c = ingredientesEmConflito([], [sab("Morango", [ing("Leite condensado", 1)]), sab("Nutella", [ing("leite  condensado", 1), ing("Nutella", 140)])]);
-    expect([...c]).toEqual(["1:0"]);
+describe("rendimento e receita por sabor (23/11)", () => {
+  const base = [ing("Leite condensado", 1, 6.5)];
+  it("o sabor que usa a base custa base + extra ÷ o rendimento DELE", () => {
+    const morango = { nome: "Morango", emoji: "🍓", itens: [ing("Morango", 300, 20, 1000)], rende: 6 };
+    expect(custoDoSabor(base, morango, 10)).toBe(2.08);   // (6,50 + 6,00) ÷ 6
   });
-  it("na base e num sabor também", () => {
-    expect([...ingredientesEmConflito([ing("Leite condensado", 1)], [sab("Morango", [ing("Leite Condensado", 1), ing("Morango", 500)])])]).toEqual(["0:0"]);
+  it("receita própria não leva a base; sem rendimento próprio vale o do produto", () => {
+    const cafe = { nome: "Café", emoji: "☕", itens: [ing("Café", 80, 40, 1000)], usaBase: false };
+    expect(custoDoSabor(base, cafe, 10)).toBe(0.32);       // 3,20 ÷ 10, sem a lata
   });
-  it("ingredientes diferentes, ou linhas desmarcadas, passam", () => {
-    expect(ingredientesEmConflito([ing("Leite", 1)], [sab("A", [ing("Morango", 1)]), sab("B", [{ ...ing("Leite", 1), usa: false }])]).size).toBe(0);
+  it("o mesmo ingrediente na base e em vários sabores vai pro banco em cada um (um só cadastro no estoque)", () => {
+    const s = saboresParaSalvar([
+      { nome: "Morango", emoji: "", itens: [ing("Leite condensado", 1)], rende: 6 },
+      { nome: "Nutella", emoji: "", itens: [ing("leite condensado", 1)], usaBase: false },
+    ]);
+    expect(s.map((x) => [x.itens.map((i) => i.nome), x.rende, x.usaBase])).toEqual([[["Leite condensado"], 6, true], [["leite condensado"], null, false]]);
   });
 });
 

@@ -1,7 +1,7 @@
 /* SABORES (Rick, 26/10/2026): um produto, uma receita BASE (vai em todos) e, em cada
    sabor, só o que muda. Custo de cada unidade do sabor = base ÷ rende + extras ÷ rende. */
 import { custoPorUnidade } from "./conta";
-import { nomeNormalizado, precoDe1, receitaDoRascunho, totalDaReceita, type IngredienteRascunho } from "./receitas";
+import { precoDe1, receitaDoRascunho, totalDaReceita, type IngredienteRascunho } from "./receitas";
 import type { ItemReceita } from "../types";
 
 export interface SaborRascunho {
@@ -9,6 +9,12 @@ export interface SaborRascunho {
   nome: string;
   emoji: string;
   itens: IngredienteRascunho[];
+  /** 23/11: units per batch of THIS flavour; null/undefined = the product's */
+  rende?: number | null;
+  /** 23/11: false = own recipe only (the base does not go in); default true */
+  usaBase?: boolean;
+  /** 23/11: ready units the seller already has when registering (new products only) */
+  estoque?: number;
 }
 
 const EMOJIS: [RegExp, string][] = [
@@ -25,18 +31,27 @@ export function emojiDoSabor(nome: string): string {
 
 export const novoSabor = (nome = ""): SaborRascunho => ({ nome, emoji: emojiDoSabor(nome), itens: [] });
 
-/** Custo de 1 unidade de cada sabor: base + extras do sabor, ÷ rende. Null quando falta preço. */
+/** The yield a flavour is made with: its own, else the product's. */
+export const rendeDoSabor = (s: SaborRascunho, rende: number) => (s.rende && s.rende > 0 ? s.rende : rende);
+
+/** Custo de 1 unidade de cada sabor: (base, se o sabor usa a base) + extras, ÷ o rendimento do sabor.
+ *  Null quando falta preço. */
 export function custoDoSabor(base: IngredienteRascunho[], sabor: SaborRascunho, rende: number): number | null {
-  const usados = [...base, ...sabor.itens].filter((i) => i.usa && i.qtd > 0 && i.nome.trim());
+  const usados = [...(sabor.usaBase === false ? [] : base), ...sabor.itens].filter((i) => i.usa && i.qtd > 0 && i.nome.trim());
   if (usados.length === 0 || usados.some((i) => precoDe1(i) <= 0)) return null;
-  return custoPorUnidade(totalDaReceita(usados), rende);
+  return custoPorUnidade(totalDaReceita(usados), rendeDoSabor(sabor, rende));
 }
 
-/** Só sabores com nome; extras no formato do banco. */
-export function saboresParaSalvar(sabores: SaborRascunho[]): { id?: string; nome: string; emoji: string; itens: ItemReceita[] }[] {
+export interface SaborParaSalvar { id?: string; nome: string; emoji: string; itens: ItemReceita[]; rende: number | null; usaBase: boolean }
+
+/** Só sabores com nome; extras, rendimento e "usa a base" no formato do banco. */
+export function saboresParaSalvar(sabores: SaborRascunho[]): SaborParaSalvar[] {
   return sabores
     .filter((s) => s.nome.trim() !== "")
-    .map((s) => ({ ...(s.id ? { id: s.id } : {}), nome: s.nome.trim(), emoji: s.emoji || emojiDoSabor(s.nome), itens: receitaDoRascunho(s.itens) }));
+    .map((s) => ({
+      ...(s.id ? { id: s.id } : {}), nome: s.nome.trim(), emoji: s.emoji || emojiDoSabor(s.nome), itens: receitaDoRascunho(s.itens),
+      rende: s.rende && s.rende > 0 ? s.rende : null, usaBase: s.usaBase !== false,
+    }));
 }
 
 /** Divide N unidades entre os sabores (igual, sobra pros primeiros). */
@@ -47,21 +62,5 @@ export function dividirIgual(n: number, sabores: number): number[] {
   return Array.from({ length: sabores }, (_, i) => base + (i < sobra ? 1 : 0));
 }
 
-/** 22/11: today product_recipes has UNIQUE (product_id, ingredient_id): one ingredient can be in the
- *  base OR in one flavour of a product, never in two places — the database refuses and the whole
- *  flavour save fails. Lines that would hit it ("flavour index:line index"), so the screen warns
- *  BEFORE saving. Goes away with the per-flavour recipe model (see ETAPA-2 analysis). */
-export function ingredientesEmConflito(base: IngredienteRascunho[], sabores: SaborRascunho[]): Set<string> {
-  const chave = (i: IngredienteRascunho) => (i.usa && i.nome.trim() ? i.id ?? nomeNormalizado(i.nome) : "");
-  const naBase = new Set(base.map(chave).filter(Boolean));
-  const dono = new Map<string, number>();
-  const conflito = new Set<string>();
-  sabores.forEach((s, si) => s.itens.forEach((it, li) => {
-    const k = chave(it);
-    if (!k) return;
-    const primeiro = dono.get(k);
-    if (naBase.has(k) || (primeiro !== undefined && primeiro !== si)) conflito.add(`${si}:${li}`);
-    else dono.set(k, si);
-  }));
-  return conflito;
-}
+// 23/11: the same ingredient may now be in the base and in several flavours (one stock record):
+// the 22/11 guard against it (ingredientesEmConflito) is gone with the per-flavour model.

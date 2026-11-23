@@ -59,6 +59,7 @@ const ProdutosPage = lazyWithReload(() => import("@/features/produtos/routes/pro
 const QuizProdutoPage = lazyWithReload(() => import("@/features/produtos/routes/quiz-produto-page"));
 const MercadoPage = lazyWithReload(() => import("@/features/produtos/routes/mercado-page"));
 const FichaProdutoPage = lazyWithReload(() => import("@/features/produtos/routes/ficha-produto-page"));
+const ProducaoPage = lazyWithReload(() => import("@/features/produtos/routes/producao-page"));
 const CustoProduto = lazyWithReload(() => import("@/pages/CustoProduto"));
 const Chat = lazyWithReload(() => import("@/pages/Chat"));
 const Finances = lazyWithReload(() => import("@/pages/Finances"));
@@ -205,6 +206,7 @@ export function AppRouter() {
                     <Route path="/products/novo" element={<FeatureErrorBoundary title="Produtos"><SoProProdutos><QuizProdutoPage /></SoProProdutos></FeatureErrorBoundary>} />
                     <Route path="/products/ficha" element={<SoProProdutos><Products /></SoProProdutos>} />
                     <Route path="/products/mercado" element={<FeatureErrorBoundary title="Produtos"><SoProProdutos><MercadoPage /></SoProProdutos></FeatureErrorBoundary>} />
+                    <Route path="/products/produzir" element={<FeatureErrorBoundary title="Produção"><SoProProdutos><ProducaoPage /></SoProProdutos></FeatureErrorBoundary>} />
                     <Route path="/products/:id" element={<FeatureErrorBoundary title="Produtos"><SoProProdutos><FichaProdutoPage /></SoProProdutos></FeatureErrorBoundary>} />
                     <Route path="/custo-produto" element={<SoProProdutos><CustoProduto /></SoProProdutos>} />
                     <Route path="/bank-connections" element={<BankConnections />} />

@@ -22,6 +22,12 @@ import { useSalvarSaboresMutation } from "../api/use-salvar-sabores-mutation";
 import { QuizPronto } from "../components/quiz-pronto";
 import { CarregandoProdutos } from "../components/carregando-produtos";
 
+/** 23/11: ready units typed per flavour: the product total is their sum. */
+function comEstoqueDosSabores(r: RascunhoProduto): RascunhoProduto {
+  const porSabor = r.sabores.reduce((t, x) => t + (x.nome.trim() ? x.estoque ?? 0 : 0), 0);
+  return porSabor > 0 && r.controlaEstoque ? { ...r, estoque: porSabor } : r;
+}
+
 export default function QuizProdutoPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -48,8 +54,9 @@ function Quiz({ inicial, userId }: { inicial?: RascunhoProduto; userId?: string 
   /* 23/11: "Produto cadastrado!" only after the product AND its flavours are saved. On any failure the
      draft stays (with the product id chosen by the phone), so "tentar de novo" updates the same
      product — never a second one — and saves the flavours again (matched by name: idempotent). */
-  const gravar = async (rascunho: RascunhoProduto) => {
+  const gravar = async (inicial: RascunhoProduto) => {
     setFalha(null);
+    const rascunho = comEstoqueDosSabores(inicial);
     try {
       const id = await salvar.mutateAsync(rascunho);
       if (!rascunho.id && rascunho.sabores.some((x) => x.nome.trim())) {
@@ -85,7 +92,7 @@ function Quiz({ inicial, userId }: { inicial?: RascunhoProduto; userId?: string 
       return <PassoPreco total={TOTAL_PASSOS} nome={r.nome} custo={r.custo} preco={r.preco} combo={r.combo}
         onPreco={q.setPreco} onCombo={q.setCombo} onPrecoLivre={q.setPrecoLivre} onContinuar={q.avancar} onVoltar={voltar} />;
     case "revisao":
-      return <PassoRevisao r={r} total={TOTAL_PASSOS} pacote={q.pacote} salvando={salvar.isPending || salvarSabores.isPending} falha={falha} onIr={q.ir}
+      return <PassoRevisao r={comEstoqueDosSabores(r)} total={TOTAL_PASSOS} pacote={q.pacote} salvando={salvar.isPending || salvarSabores.isPending} falha={falha} onIr={q.ir}
         onEstoque={q.setEstoque} onSalvar={() => void gravar(r)} onVoltar={voltar}
         onSemEstoque={() => { q.semEstoque(); void gravar({ ...r, controlaEstoque: false, estoque: 0 }); }} />;
     case "pronto":

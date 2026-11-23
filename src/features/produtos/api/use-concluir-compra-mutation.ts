@@ -11,7 +11,11 @@ export const resultadoCompraSchema = z.object({
   total: num,
   produtos: z.array(z.object({
     id: z.string(), nome: z.string(), receitas: num, unidades: num, custo_antes: num, custo_depois: num,
+    // 23/11: the purchase no longer manufactures; how much the stock now allows (null = per flavour)
+    pode_receitas: num, pode_unidades: z.coerce.number().nullable().catch(null), receita_completa: z.boolean().catch(true),
   })).catch([]),
+  /** 23/11: editing a purchase saved before: the automatic production it had was undone */
+  producao_desfeita: z.array(z.object({ id: z.string(), nome: z.string(), unidades: num })).catch([]),
 });
 export type ResultadoCompra = z.infer<typeof resultadoCompraSchema>;
 

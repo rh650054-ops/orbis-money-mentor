@@ -155,7 +155,7 @@ describe("cadastro inteligente (Etapa 2)", () => {
     expect(localStorage.getItem("vant_cadastro_rascunho_v1:u1")).toBeNull();
   });
 
-  it("sabores que repetem um ingrediente da base: aviso e não segue (o banco recusaria e os sabores se perderiam)", async () => {
+  it("23/11: sabor que repete um ingrediente da base segue (mesmo ingrediente, um cadastro só no estoque)", async () => {
     abrir();
     nome("Batida");
     clicar("Eu mesmo produzo");
@@ -168,8 +168,9 @@ describe("cadastro inteligente (Etapa 2)", () => {
     clicar(/ingrediente do Morango/);            // "+ ingrediente do Morango"
     const campos = screen.getAllByLabelText("Ingrediente");
     fireEvent.change(campos[campos.length - 1]!, { target: { value: "Leite condensado" } });
-    expect(screen.getByText(/já está na receita base ou em outro sabor/)).toBeInTheDocument();
-    expect(screen.getByText("TIRE O INGREDIENTE REPETIDO").closest("button")).toBeDisabled();
+    // 23/11: the same ingredient in the base and in a flavour is allowed (one stock record)
+    expect(screen.queryByText(/já está na receita base ou em outro sabor/)).toBeNull();
+    expect(screen.getByText("CONTINUAR").closest("button")).not.toBeDisabled();
   });
 
   it("receita com TODOS os ingredientes com quantidade e rendimento: pronta", async () => {

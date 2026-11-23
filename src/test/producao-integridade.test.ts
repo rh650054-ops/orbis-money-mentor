@@ -83,12 +83,14 @@ describe("production integrity (Etapa 1)", () => {
     expect(rollback).toContain("receita_alteracoes mantida");
   });
 
-  it("no screen calls the new functions yet (Etapa 1 changes no screen)", () => {
+  it("23/11: the new functions are called from ONE place only (the production API of the Produtos feature)", () => {
     const arquivos = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? arquivos(resolve(dir, e.name)) : [resolve(dir, e.name)]));
     const usos = arquivos(resolve(raiz, "src"))
       .filter((f) => /\.(ts|tsx)$/.test(f) && !f.includes("/test/"))
-      .filter((f) => /producao_(registrar|corrigir|desfazer)/.test(readFileSync(f, "utf8")));
-    expect(usos).toEqual([]);
+      .filter((f) => !/\.test\.tsx?$/.test(f))
+      .filter((f) => /rpc\(\s*["']producao_(registrar|corrigir|desfazer)/.test(readFileSync(f, "utf8")))
+      .map((f) => f.slice(resolve(raiz, "src").length + 1));
+    expect(usos).toEqual(["features/produtos/api/use-producao-escrita.ts"]);
   });
 });
