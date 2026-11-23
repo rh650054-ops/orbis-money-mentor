@@ -65,7 +65,7 @@ jobs:
         run: |
           test -n "$VITE_SUPABASE_URL" || { echo "Missing repo variable VITE_SUPABASE_URL"; exit 1; }
           case "$VITE_COBRANCA_LOJA" in fora|link) ;; *) echo "VITE_COBRANCA_LOJA_IOS must be fora or link"; exit 1;; esac
-          echo "::notice::iPhone billing mode: $VITE_COBRANCA_LOJA
+          echo "::notice::iPhone billing mode: $VITE_COBRANCA_LOJA"
           npm run build
 
       - name: Copy web bundle into the iOS project
