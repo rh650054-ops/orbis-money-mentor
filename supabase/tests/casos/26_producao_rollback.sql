@@ -32,6 +32,10 @@ create or replace function pg_temp.novos() returns numeric language sql as $$
 $$;
 
 -- ---------------------------------------------------------------- "before"
+-- 23/11: the test database also has the module and yield-per-flavour migrations on top of Etapa 1; they
+-- are rolled back first (its own rehearsal is case 29), as it must be in production.
+\ir ../../modulo-producao/rollback.sql
+\ir ../../rendimento-por-sabor/rollback.sql
 \ir ../../producao-integridade/rollback-etapa1.sql
 select t.igual('before: no object of Etapa 1 exists', pg_temp.novos(), 0);
 select t.verdade('before: conta_teste_zerar is exactly the production function', pg_temp.zerar_de_producao());

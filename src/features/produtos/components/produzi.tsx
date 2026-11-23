@@ -12,8 +12,10 @@ import { BotaoOuro } from "./quiz-casca";
 
 export interface Pendente { previstas: number; produzidas: number; custo: number }
 
-export function Produzi({ produto, pendente, onFechar }: {
+export function Produzi({ produto, pendente, incompleta, onFechar }: {
   produto: { id: string; name: string } | null; pendente?: Pendente; onFechar: () => void;
+  /** 23/11: the recipe has an ingredient without quantity — this path stays, with the guidance */
+  incompleta?: boolean;
 }) {
   const falta = pendente ? Math.max(pendente.previstas - pendente.produzidas, 0) : 0;
   const [n, setN] = useState(falta);
@@ -29,6 +31,12 @@ export function Produzi({ produto, pendente, onFechar }: {
     <Dialog open={!!produto} onOpenChange={(v) => { if (!v) onFechar(); }}>
       <DialogContent className="bg-[#0b0b0c] text-[#F4F1EA] border-[#26241f] max-w-sm">
         <DialogHeader><DialogTitle className="text-[22px] font-black">Produzi {nome}s</DialogTitle></DialogHeader>
+        {incompleta && produto && (
+          <p className="text-[12.5px] font-bold rounded-[12px] px-3 py-2" style={{ background: "rgba(245,184,0,.08)", color: "#F5B800" }}>
+            A receita está incompleta (tem ingrediente sem quantidade). Aqui só baixam os ingredientes que já têm quantidade.{" "}
+            <a href={`/products/${produto.id}`} className="underline">Complete a receita</a> para usar a produção nova, que baixa tudo certo.
+          </p>
+        )}
         {pendente && (
           <p className="text-[13px] font-bold" style={{ color: "#b9b3a6" }}>
             Da última compra faltam <b style={{ color: "#F5B800" }}>{falta} de {pendente.previstas}</b>

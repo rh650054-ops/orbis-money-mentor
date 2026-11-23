@@ -39,7 +39,9 @@ vi.mock("../api/use-banco-compra", () => ({
 const mutate = vi.fn((_c: ConcluirCompra, opts: { onSuccess: (r: ResultadoCompra) => void }) =>
   opts.onSuccess({
     compra_id: "c1", total: 415.06,
-    produtos: [{ id: "b", nome: "Batida", receitas: 57, unidades: 1140, custo_antes: 0.6, custo_depois: 0.36 }],
+    // 23/11: the purchase manufactures nothing; it says how much the stock now allows
+    produtos: [{ id: "b", nome: "Batida", receitas: 0, unidades: 0, custo_antes: 0.6, custo_depois: 0.36, pode_receitas: 57, pode_unidades: 1140, receita_completa: true }],
+    producao_desfeita: [],
   }));
 vi.mock("../api/use-compra-mercado", () => ({
   useCompraAbertaQuery: () => ({ data: null, isLoading: false }),
@@ -67,6 +69,7 @@ describe("Tô no mercado", () => {
     preencher("Quantos", ["57"]);
     preencher("Preço de 1 (opcional)", ["4,99", "2,29"]);
     expect(screen.getByText(/Batida · 57 receitas/)).toBeTruthy();
+    expect(screen.getByText("dá pra fazer 1.140")).toBeTruthy();
     expect(screen.getByText(/mais caro \(4%\)/)).toBeTruthy();
     expect(screen.getByText("TOTAL DA COMPRA")).toBeTruthy();
     expect(screen.getAllByText(/414,96/).length).toBeGreaterThan(0);
@@ -88,9 +91,11 @@ describe("Tô no mercado", () => {
       { tipo: "ingrediente", id: "cl", nome: "Creme de leite", qtd: 57, preco_unit: 2.29, para: ["b"] },
     ]);
     expect(enviado?.novaReceita).toBeNull();
-    expect(screen.getByText("COMPRA ANOTADA")).toBeTruthy();
-    expect(screen.getByText("+1.140")).toBeTruthy();
-    expect(screen.getByText(/sobra R\$ 7,64 por venda/)).toBeTruthy();
+    expect(screen.getByText("COMPRA REGISTRADA!")).toBeTruthy();
+    expect(screen.getByText("dá pra fazer até 1.140")).toBeTruthy();
+    expect(screen.getByText("PRODUZIR AGORA")).toBeTruthy();
+    expect(screen.getByText(/Ou depois/)).toBeTruthy();
+    expect(screen.queryByText("+1.140")).toBeNull();
     expect(screen.getByText("Achei no seu extrato. É essa?")).toBeTruthy();
     expect(screen.getByText("Atacadão")).toBeTruthy();
   });

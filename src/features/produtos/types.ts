@@ -1,3 +1,4 @@
+import type { SaborRascunho } from "./lib/sabores";
 import { z } from "zod";
 
 const num = z.coerce.number().catch(0);
@@ -43,6 +44,11 @@ export interface RascunhoProduto {
    *  null = sem receita salva (custo digitado direto). */
   receita: ItemReceita[] | null;
   rende: number;
+  /** 23/11: id chosen by the phone for a NEW product, kept in the draft: a retry after a lost answer
+   *  hits "already exists" and updates the same row instead of creating a second product */
+  novoId?: string;
+  /** 22/11: flavours or versions typed in the registration (new products only; the sheet edits them) */
+  sabores: SaborRascunho[];
 }
 
 /** Um ingrediente da receita: quanto vai numa leva (na unidade de medida dele: 1 un,
@@ -58,6 +64,8 @@ export interface ItemReceita {
   pacote: number;
   /** não sabe quanto vai: a 1ª compra descobre (qtd fica 0 até lá) */
   aprender?: boolean;
+  /** 23/11: price typed on the screen (only then it is sent; see salvarReceita) */
+  precoEditado?: boolean;
 }
 
 export const UNIDADES = ["un", "g", "kg", "ml", "l"] as const;
@@ -67,5 +75,5 @@ export const unidadeDe = (u: string | null | undefined): Unidade =>
 
 export const RASCUNHO_VAZIO: RascunhoProduto = {
   nome: "", emoji: "📦", foto: null, origem: null, custo: 0, preco: 0,
-  precoLivre: false, combo: null, estoque: 0, controlaEstoque: true, receita: null, rende: 0,
+  precoLivre: false, combo: null, estoque: 0, controlaEstoque: true, receita: null, rende: 0, sabores: [],
 };

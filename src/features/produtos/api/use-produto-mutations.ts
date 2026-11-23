@@ -31,9 +31,13 @@ export function useSalvarProdutoMutation(userId: string | undefined, inicial?: R
         ...(r.controlaEstoque && mexeuEstoque ? { stock_quantity: Math.max(0, Math.round(r.estoque)) } : {}),
         ...(!editando && !r.controlaEstoque ? { stock_quantity: 0 } : {}),
       };
-      const salvo = r.id
+      let salvo = r.id
         ? await supabase.from("products").update(linha).eq("id", r.id).select("id").single()
-        : await supabase.from("products").insert(linha).select("id").single();
+        : await supabase.from("products").insert({ ...linha, ...(r.novoId ? { id: r.novoId } : {}) }).select("id").single();
+      // 23/11: retry of a registration whose first answer was lost: the row exists → same product, updated
+      if (salvo.error?.code === "23505" && r.novoId && !r.id) {
+        salvo = await supabase.from("products").update(linha).eq("id", r.novoId).select("id").single();
+      }
       if (salvo.error) throw salvo.error;
       const id = salvo.data.id;
       // combo: o quiz cuida de UM combo; os outros (se ele tinha) ficam como estão.

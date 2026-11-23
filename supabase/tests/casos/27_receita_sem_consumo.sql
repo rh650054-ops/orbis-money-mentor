@@ -113,6 +113,10 @@ update public.product_recipes set quantity = 0.1 where product_id = pg_temp.id('
 select t.verdade('L3 per_unit filled again: allowed (it consumes at the sale, as today)',
   pg_temp.produzir('zero-0011', 'salg', 10, 'receita do salgado voltou') = 'ok');
 update public.product_recipes set quantity = 1 where product_id = pg_temp.id('brig') and ingredient_id = pg_temp.id('lc');
+-- 23/11/2026 (yield per flavour): while the zeroed chocolate stays in the recipe it is still a draft
+select t.verdade('L4 one ingredient back but another still zeroed: incomplete, refused even with a reason',
+  pg_temp.produzir('zero-0011b', 'brig', 20, 'tirei o chocolate da receita') like 'VANT_RECEITA_INCOMPLETA|%Brigadeiro%' and pg_temp.est('lc') = 99);
+delete from public.product_recipes where product_id = pg_temp.id('brig') and ingredient_id = pg_temp.id('choc');
 select t.verdade('L4 draft completed (one ingredient back): allowed, the earlier reduction asks its reason once',
   pg_temp.produzir('zero-0012', 'brig', 20) like 'VANT_RECEITA_REDUZIDA|%'
   and pg_temp.produzir('zero-0013', 'brig', 20, 'tirei o chocolate da receita') = 'ok');

@@ -1,4 +1,4 @@
-/* Prévia ao vivo: quantas unidades a compra vira e quanto sai CADA uma — a mesma
+/* Prévia ao vivo: quantas unidades a compra permite fazer (23/11: nada é fabricado sozinho) e quanto sai CADA uma — a mesma
    conta que o banco faz ao concluir. Na 1ª compra de um produto sem receita,
    pergunta quantas dá pra fazer (e isso vira a receita). */
 import type { PreviaMercado } from "../lib/mercado";
@@ -80,10 +80,10 @@ export function MercadoPrevia({ previa, custos }: { previa: PreviaMercado; custo
   const nada = sobem.length === 0 && previa.prontos.length === 0;
   return (
     <div className="rounded-[18px] px-4 py-3.5 flex flex-col gap-2.5" style={CAIXA}>
-      <span className="text-[10.5px] font-black tracking-[.14em]" style={{ color: "#F5B800" }}>ISSO VIRA NO ESTOQUE</span>
+      <span className="text-[10.5px] font-black tracking-[.14em]" style={{ color: "#F5B800" }}>COM ESSA COMPRA</span>
       {nada && (
         <span className="text-[13px] font-bold" style={{ color: "#b9b3a6" }}>
-          Põe a quantidade de cada item e a VANT mostra quantas unidades dá pra fazer.
+          Põe a quantidade de cada item e a VANT mostra quantas dá pra fazer. A produção você registra quando fizer.
         </span>
       )}
       {sobem.map((p) => {
@@ -92,7 +92,7 @@ export function MercadoPrevia({ previa, custos }: { previa: PreviaMercado; custo
           <div key={p.id} className="flex flex-col gap-0.5">
             <div className="flex justify-between items-baseline gap-2">
               <span className="text-[14px] font-extrabold">{p.nome} · {receitasTxt(p.receitas)}</span>
-              <span className="text-[20px] font-black tabular-nums" style={{ color: "#F5B800" }}>→ {un(p.unidades)} un</span>
+              <span className="text-[16px] font-black tabular-nums" style={{ color: "#F5B800" }}>dá pra fazer {un(p.unidades)}</span>
             </div>
             {c && <CustoDeCada c={c} />}
           </div>

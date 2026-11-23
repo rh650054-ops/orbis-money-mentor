@@ -76,7 +76,8 @@ export default function MercadoPage() {
     return <MercadoPronto resultado={feito.r} prontos={feito.prontos} resumo={feito.resumo} onProdutos={voltar}
       faz={base.produtos.filter((p) => p.origem === "faz" || p.recipe_mode === "batch")}
       onEditar={() => { setEditId(feito.r.compra_id); setFeito(null); }}
-      onDia={() => navigate("/daily-goals")} onLigarBanco={() => navigate("/verificar")} />;
+      onDia={() => navigate("/daily-goals")} onLigarBanco={() => navigate("/verificar")}
+      onProduzir={(ids) => navigate(`/products/produzir?p=${ids.join(",")}`)} />;
   }
   if (base.produtos.length === 0) {
     return (
@@ -130,7 +131,7 @@ export default function MercadoPage() {
 
   return (
     <MercadoCasca titulo={editId ? "Editar compra" : "Tô no mercado"}
-      sub={editId ? "Muda o que precisar. Ao concluir, a compra antiga é trocada por esta." : "Anota o que você tá comprando. O estoque sobe sozinho."} onVoltar={voltar}
+      sub={editId ? "Muda o que precisar. Ao concluir, a compra antiga é trocada por esta." : "Anota o que você tá comprando. Os ingredientes entram no estoque; a produção você registra quando fizer."} onVoltar={voltar}
       rodape={(
         <>
           {porItem ? <MercadoTotal total={m.totalCompra} itens={comValor.length} porItem />

@@ -12,6 +12,7 @@ import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import { MissaoDoDia } from "@/components/jornada/MissaoDoDia";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { NovoDesafioSheet } from "@/features/objetivo-lucro";
+import { ConviteCadastro } from "@/features/produtos";
 import { travaPro, useAcessoQuery } from "@/shared/api/acesso";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { DayStartPopup } from "@/components/DayStartPopup";
@@ -536,6 +537,8 @@ export default function Index() {
         <div><ConfirmarEmailNudge userId={user.id} /></div>
         <div><CobrancaDoCorre userId={user.id} vendidoHoje={dailyProfit} onComecar={() => navigate("/daily-goals")} /></div>
         <div><WeeklyChallengeDashboardCard /></div>
+        {/* 22/11 (Etapa 2): last in the queue on purpose — the product invite never jumps ahead */}
+        <div><ConviteCadastro userId={user.id} /></div>
       </div>
 
       {/* A semana encosta no card da meta, por fora dele (pedido do Rick) —

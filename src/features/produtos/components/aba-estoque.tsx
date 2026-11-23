@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ProdutoComFaixas } from "../types";
 import { useAProduzirQuery } from "../api/use-producao-mutations";
+import { useCatalogoProducaoQuery } from "../api/use-catalogo-producao-query";
+import { usaProducaoNova } from "../lib/producao";
 import { ComprasRecentes } from "./compras-recentes";
 import { CompraDetalhe } from "./compra-detalhe";
 import { useSaboresDeVariosQuery } from "../api/use-sabores";
@@ -22,6 +24,12 @@ export function AbaEstoque({ produtos, userId, onRepor }: {
   const { data: aProduzir = [] } = useAProduzirQuery(true);
   const faz = (p: ProdutoComFaixas) => p.origem === "faz" || p.recipe_mode === "batch";
   const pendenteDe = (id: string) => aProduzir.find((a) => a.produto_id === id);
+  // 23/11: a recipe that can produce goes to the new screen; without recipe / incomplete keeps this one
+  const catalogo = useCatalogoProducaoQuery(userId);
+  const produzir = (p: ProdutoComFaixas) => {
+    if (!pendenteDe(p.id) && catalogo.data && usaProducaoNova(catalogo.data, p.id)) navigate(`/products/produzir?p=${p.id}`);
+    else setProduzindo(p);
+  };
   const controlados = produtos.filter((p) => p.controla_estoque !== false || faz(p));
   const valor = controlados.reduce((s, p) => s + Math.max(0, p.stock_quantity) * Math.max(0, p.cost), 0);
   // sabores (26/10): "🍓 40 · 🥭 38" embaixo do produto
@@ -33,6 +41,14 @@ export function AbaEstoque({ produtos, userId, onRepor }: {
         <span className="text-[13px] font-extrabold" style={{ color: "#b9b3a6" }}>Você tem em mercadoria</span>
         <span className="text-xl font-black">{reais(valor)}</span>
       </div>
+      {controlados.some(faz) && (
+        <button type="button" onClick={() => navigate("/products/produzir")} className="rounded-[16px] px-4 py-3 flex items-center justify-between text-left"
+          style={{ background: "#0f0d08", border: "1px solid #F5B800" }}>
+          <span className="flex flex-col"><span className="text-sm font-black">Produzir</span>
+            <span className="text-xs font-bold" style={{ color: "#7b766e" }}>vários produtos e sabores de uma vez</span></span>
+          <span className="font-black" style={{ color: "#F5B800" }}>›</span>
+        </button>
+      )}
       {ordem.map((p) => {
         const baixo = estoqueBaixo(p);
         return (
@@ -52,7 +68,7 @@ export function AbaEstoque({ produtos, userId, onRepor }: {
               )}
             </span>
             {faz(p) ? (
-              <button type="button" onClick={() => setProduzindo(p)} className="rounded-full px-3 py-1.5 text-xs font-black"
+              <button type="button" onClick={() => produzir(p)} className="rounded-full px-3 py-1.5 text-xs font-black"
                 style={pendenteDe(p.id) || baixo ? { background: "#F5B800", color: "#1A1200" } : { background: "#121211", border: "1px solid #26241f" }}>
                 Produzi
               </button>
@@ -71,7 +87,9 @@ export function AbaEstoque({ produtos, userId, onRepor }: {
       <IngredientesGuardados userId={userId} />
       <ComprasRecentes userId={userId} onAbrir={setCompraAberta} />
       <CompraDetalhe id={compraAberta} onFechar={() => setCompraAberta(null)} onEditar={(id) => navigate(`/products/mercado?editar=${id}`)} />
-      <Produzi key={produzindo?.id ?? "x"} produto={produzindo} pendente={produzindo ? pendenteDe(produzindo.id) : undefined} onFechar={() => setProduzindo(null)} />
+      <Produzi key={produzindo?.id ?? "x"} produto={produzindo} pendente={produzindo ? pendenteDe(produzindo.id) : undefined}
+        incompleta={!!produzindo && !!catalogo.data && catalogo.data.receitas.some((r) => r.product_id === produzindo.id && (r.quantity <= 0 || r.aprender))}
+        onFechar={() => setProduzindo(null)} />
     </div>
   );
 }

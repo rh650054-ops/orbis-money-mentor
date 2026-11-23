@@ -1,5 +1,6 @@
 /* Sabores de um produto (26/10/2026): lista com estoque e custo, salvar, produzir por
    sabor e distribuir o que já está no estoque entre os sabores. */
+import { precoParaGravar } from "./salvar-receita";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { supabase } from "@/shared/api";
@@ -14,7 +15,17 @@ const extraSchema = z.object({ id: z.string(), nome: z.string(), qtd: num, preco
 const saborSchema = z.object({ id: z.string(), nome: z.string(), emoji: z.string().catch("🥤"), estoque: num, custo: num, extras: z.array(extraSchema).catch([]) });
 
 export interface ExtraDoSabor { id: string; nome: string; qtd: number; preco: number; unidade: Unidade; pacote: number; estoque: number; aprender?: boolean }
-export interface Sabor { id: string; nome: string; emoji: string; estoque: number; custo: number; extras: ExtraDoSabor[] }
+export interface Sabor { id: string; nome: string; emoji: string; estoque: number; custo: number; extras: ExtraDoSabor[]; rende?: number | null; usaBase?: boolean }
+
+type Linhas = PromiseLike<{ data: unknown[] | null; error: unknown }>;
+type Tabela = { select: (c: string) => { eq: (c: string, v: string) => Linhas } };
+const extraVariante = z.object({ id: z.string(), batch_yield: z.coerce.number().nullable().catch(null), usa_base: z.boolean().catch(true) });
+/** 23/11: each flavour's own yield and "usa a base" (before the migration the columns do not exist: defaults). */
+async function rendimentos(produtoId: string): Promise<Map<string, { rende: number | null; usaBase: boolean }>> {
+  const r = await (supabase as unknown as { from: (t: string) => Tabela }).from("product_variants").select("id, batch_yield, usa_base").eq("product_id", produtoId);
+  if (r.error) return new Map();
+  return new Map(z.array(extraVariante).parse(r.data ?? []).map((v) => [v.id, { rende: v.batch_yield, usaBase: v.usa_base }]));
+}
 
 export const saboresKey = (produtoId: string) => produtosKeys.detail(`${produtoId}:sabores`);
 
@@ -23,10 +34,10 @@ export function useSaboresQuery(produtoId: string | undefined, ativo = true) {
     queryKey: saboresKey(produtoId ?? ""),
     enabled: !!produtoId && ativo,
     queryFn: async (): Promise<Sabor[]> => {
-      const { data, error } = await rpc("produto_sabores", { p_produto: produtoId });
+      const [{ data, error }, extra] = await Promise.all([rpc("produto_sabores", { p_produto: produtoId }), rendimentos(produtoId ?? "")]);
       if (error) throw error;
       return z.array(saborSchema).parse(data ?? []).map((s) => ({
-        ...s, extras: s.extras.map((e) => ({ ...e, unidade: unidadeDe(e.unidade), pacote: e.pacote > 0 ? e.pacote : 1 })),
+        ...s, ...(extra.get(s.id) ?? {}), extras: s.extras.map((e) => ({ ...e, unidade: unidadeDe(e.unidade), pacote: e.pacote > 0 ? e.pacote : 1 })),
       }));
     },
   });
@@ -51,10 +62,16 @@ export function useSaboresDeVariosQuery(produtoIds: string[]) {
   });
 }
 
-export async function salvarSabores(produtoId: string, sabores: { id?: string; nome: string; emoji: string; itens: { id?: string; nome: string; qtd: number; preco: number; unidade: Unidade; pacote: number; aprender?: boolean }[] }[]) {
+export async function salvarSabores(produtoId: string, sabores: { id?: string; nome: string; emoji: string; rende?: number | null; usaBase?: boolean; itens: { id?: string; nome: string; qtd: number; preco: number; unidade: Unidade; pacote: number; aprender?: boolean; precoEditado?: boolean }[] }[]) {
   const { error } = await rpc("produto_sabores_salvar", {
     p_produto: produtoId,
-    p_sabores: sabores.map((s) => ({ ...(s.id ? { id: s.id } : {}), nome: s.nome, emoji: s.emoji, itens: s.itens.map((i) => ({ ...(i.id ? { id: i.id } : {}), nome: i.nome, qtd: i.qtd, preco: i.preco, ...(i.aprender ? { aprender: true } : {}) })) })),
+    // 23/11: rende (null = the product's) and usa_base go too; a database before the
+    // yield-per-flavour migration simply ignores the two keys
+    p_sabores: sabores.map((s) => ({
+      ...(s.id ? { id: s.id } : {}), nome: s.nome, emoji: s.emoji,
+      ...(s.rende !== undefined ? { rende: s.rende } : {}), ...(s.usaBase !== undefined ? { usa_base: s.usaBase } : {}),
+      itens: s.itens.map((i) => ({ ...(i.id ? { id: i.id } : {}), nome: i.nome, qtd: i.qtd, preco: precoParaGravar(i), ...(i.aprender ? { aprender: true } : {}) })),
+    })),
   });
   if (error) throw error;
   // como cada extra é comprado (unidade e tamanho do pacote)

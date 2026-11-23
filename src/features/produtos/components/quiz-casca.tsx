@@ -28,7 +28,7 @@ export function QuizCasca({ passo, total, titulo, sub, onVoltar, children, rodap
 }) {
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto bg-black">
-      <div className="min-h-[100dvh] bg-black text-[#F4F1EA] px-4 pt-safe pb-safe max-w-md mx-auto flex flex-col gap-3" style={{ paddingTop: "calc(env(safe-area-inset-top) + 16px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)" }}>
+      <div className="min-h-[100dvh] bg-black text-white px-4 pt-safe pb-safe max-w-md mx-auto flex flex-col gap-3" style={{ paddingTop: "calc(env(safe-area-inset-top) + 16px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)" }}>
       <div className="flex items-center gap-3">
         <button type="button" onClick={onVoltar} aria-label="Voltar" className="-ml-1 p-1" style={{ color: "#7b766e" }}>
           <ChevronLeft className="w-6 h-6" />
