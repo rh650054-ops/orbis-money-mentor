@@ -5,11 +5,13 @@ import { useToast } from "@/shared/hooks/use-toast";
 import { formatCurrency } from "@/shared/lib/utils";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
+import { ajustarDinheiro } from "./ajustar-dinheiro-conta";
 
 /**
  * Cash ("Dinheiro") of one day, editable in place (Mohamed 21/10). The bank never sees
- * cash, so even with Open Finance the seller must be able to fix it. Pix/card stay as
- * they are (the bank owns them). "Vendeu" is kept: total_debt = vendeu − what fell.
+ * cash, so even with Open Finance the seller must be able to fix it. Pix/card shown stay as
+ * they are (the bank owns them). "Vendeu" is kept: the cash comes out of what was
+ * launched as Pix/card, then out of "falta cair" (see ajustar-dinheiro-conta.ts).
  * After saving, the bank reconciliation runs again so Pix/calote stay coherent, and
  * the ranking revenue is re-synced.
  */
@@ -24,21 +26,20 @@ export function AjustarDinheiro({ userId, date, valor, onSaved }: { userId: stri
     try {
       const { data: row, error: selErr } = await supabase
         .from("daily_sales")
-        .select("id, cash_sales, pix_sales, card_sales, total_debt")
+        .select("id, cash_sales, pix_sales, card_sales, total_profit, total_debt")
         .eq("user_id", userId)
         .eq("date", date)
         .maybeSingle();
       if (selErr) throw selErr;
       if (!row) throw new Error("sem dia");
-      const r = row as { id: string; cash_sales: number | null; pix_sales: number | null; card_sales: number | null; total_debt: number | null };
-      const pix = Number(r.pix_sales) || 0;
-      const card = Number(r.card_sales) || 0;
-      const vendeu = (Number(r.cash_sales) || 0) + pix + card + Math.max(0, Number(r.total_debt) || 0);
-      const caiu = Math.round((novo + pix + card) * 100) / 100;
-      const debt = Math.max(0, Math.round((vendeu - caiu) * 100) / 100);
+      const r = row as { id: string; cash_sales: number | null; pix_sales: number | null; card_sales: number | null; total_profit: number | null; total_debt: number | null };
+      const c = ajustarDinheiro({
+        cash: Number(r.cash_sales) || 0, pix: Number(r.pix_sales) || 0, card: Number(r.card_sales) || 0,
+        caiu: Number(r.total_profit) || 0, debt: Number(r.total_debt) || 0,
+      }, novo);
       const { error } = await supabase
         .from("daily_sales")
-        .update({ cash_sales: novo, total_profit: caiu, total_debt: debt, unpaid_sales: debt > 0 ? 1 : 0, updated_at: new Date().toISOString() } as never)
+        .update({ cash_sales: c.cash, pix_sales: c.pix, card_sales: c.card, total_profit: c.caiu, total_debt: c.debt, unpaid_sales: c.debt > 0 ? 1 : 0, updated_at: new Date().toISOString() } as never)
         .eq("id", r.id);
       if (error) throw error;
       try { await (supabase as any).rpc("banco_reconciliar_me"); } catch { /* no bank: nothing to do */ }
