@@ -1,27 +1,33 @@
-/* /products — a tela de Produtos que substitui a antiga (Rick, 07/10):
-   o lucro de cada produto, o mais lucrativo no topo, e "Chegou mercadoria".
+/* /products — Produtos e Estoque (24/11/2026, redesign of the 07/10 screen): summary numbers, the area
+   navigation, the product cards with the recipe / stock status and "Registrar compra" at the end of the
+   list. Same data, same rules: costs that depend on an incomplete recipe are never shown as exact.
    Sem produto ainda → a introdução que chama o quiz. */
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProdutosQuery } from "../api/use-produtos-query";
+import { useCatalogoProducaoQuery } from "../api/use-catalogo-producao-query";
 import { lucroDe, ordenarPorLucro } from "../lib/conta";
+import { painelDoProduto, resumoDoPainel } from "../lib/painel";
 import { AbaEstoque } from "../components/aba-estoque";
 import { ChegouMercadoria } from "../components/chegou-mercadoria";
 import { CarregandoProdutos } from "../components/carregando-produtos";
 import { IntroProdutos } from "../components/intro-produtos";
 import { estoqueBaixo, ProdutoCard } from "../components/produto-card";
-import { DuasAbas, reais } from "../components/campos";
+import { NavPainel, RegistrarCompra, ResumoPainel, type Aba } from "../components/painel-produtos";
+import { reais } from "../components/campos";
 import { OURO } from "../components/quiz-casca";
 
 export default function ProdutosPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data, isLoading, isError, refetch } = useProdutosQuery(user?.id);
-  const [aba, setAba] = useState<"produtos" | "estoque">("produtos");
+  const catalogo = useCatalogoProducaoQuery(user?.id);
+  const [aba, setAba] = useState<Aba>("produtos");
   const [chegou, setChegou] = useState<{ aberto: boolean; id?: string }>({ aberto: false });
   const lista = useMemo(() => ordenarPorLucro(data ?? []), [data]);
+  const painel = useMemo(() => new Map(lista.map((p) => [p.id, painelDoProduto(catalogo.data, p)])), [lista, catalogo.data]);
 
   if (isLoading) return <CarregandoProdutos />;
   if (isError) {
@@ -34,44 +40,51 @@ export default function ProdutosPage() {
   }
   if (lista.length === 0) return <IntroProdutos onComecar={() => navigate("/products/novo")} onVoltar={() => navigate(-1)} />;
 
-  const comLucro = lista.filter((p) => !p.open_price && p.sale_price > 0 && p.cost > 0);
+  // "the one that makes the most" only among products whose cost is reliable (complete recipe or typed cost)
+  const comLucro = lista.filter((p) => !p.open_price && p.sale_price > 0 && p.cost > 0 && painel.get(p.id)?.custoConfiavel);
   const melhor = comLucro[0];
   const pior = comLucro.length > 1 ? comLucro[comLucro.length - 1] : undefined;
-  const algumBaixo = lista.some(estoqueBaixo);
+  const resumo = resumoDoPainel(lista, [...painel.values()]);
 
   return (
-    <div className="text-[#F4F1EA] max-w-md mx-auto flex flex-col gap-3 pt-2 pb-44">
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={() => navigate(-1)} aria-label="Voltar" className="-ml-1 p-1" style={{ color: "#7b766e" }}><ChevronLeft className="w-6 h-6" /></button>
-        <h1 className="text-xl font-black">Produtos</h1>
-        <button type="button" onClick={() => navigate("/products/novo")} className="ml-auto rounded-full px-3.5 py-2 text-[12.5px] font-black" style={{ background: OURO, color: "#1A1200" }}>+ Produto</button>
+    <div className="text-[#F4F1EA] max-w-md md:max-w-2xl mx-auto flex flex-col gap-3.5 pt-2 pb-36">
+      <div className="flex items-start gap-2">
+        <button type="button" onClick={() => navigate(-1)} aria-label="Voltar" className="-ml-1 p-1 mt-0.5" style={{ color: "#7b766e" }}><ChevronLeft className="w-6 h-6" /></button>
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <h1 className="text-[22px] font-black leading-tight">Produtos e Estoque</h1>
+          <p className="text-[12.5px] font-bold" style={{ color: "#8a857b" }}>Cadastre, acompanhe e produza com controle.</p>
+        </div>
+        <button type="button" onClick={() => navigate("/products/novo")} className="shrink-0 rounded-full px-3.5 h-10 text-[13px] font-black" style={{ background: OURO, color: "#1A1200" }}>+ Novo produto</button>
       </div>
-      <DuasAbas valor={aba} onChange={setAba} opcoes={[["produtos", "Produtos"], ["estoque", algumBaixo ? "Estoque •" : "Estoque"]]} />
+
+      <ResumoPainel produtos={resumo.produtos} unidades={resumo.unidades} podeProduzir={resumo.podeProduzir} calculando={catalogo.isLoading} />
+      <NavPainel aba={aba} alerta={lista.some(estoqueBaixo)} onAba={setAba} />
 
       {aba === "produtos" ? (
         <>
           {melhor && (
-            <div className="rounded-[18px] px-4 py-3.5 flex flex-col gap-1" style={{ background: "linear-gradient(170deg, #12200f, #0e0e10 70%)", border: "1px solid rgba(61,214,140,.35)" }}>
-              <span className="text-[10.5px] font-black tracking-[.14em]" style={{ color: "#3DD68C" }}>SEU PRODUTO QUE MAIS DÁ LUCRO</span>
-              <span className="text-[17px] font-black">{melhor.name} · sobra {reais(lucroDe(melhor.sale_price, melhor.cost).sobra)} em cada</span>
-              {pior && <span className="text-xs" style={{ color: "#b9b3a6" }}>{pior.name} é o que menos dá lucro: {reais(lucroDe(pior.sale_price, pior.cost).sobra)}.</span>}
+            <div className="rounded-[18px] px-4 py-3.5 flex items-center gap-3" style={{ background: "linear-gradient(110deg, rgba(61,214,140,.13), #121211 65%)", border: "1px solid rgba(61,214,140,.3)" }}>
+              <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                <span className="text-[10.5px] font-black tracking-[.14em]" style={{ color: "#3DD68C" }}>SEU PRODUTO QUE MAIS DÁ LUCRO</span>
+                <span className="text-[16px] font-black truncate">{melhor.name}</span>
+                <span className="text-[11.5px] font-bold" style={{ color: "#8a857b" }}>{reais(melhor.sale_price)} de venda · {reais(melhor.cost)} de custo</span>
+                {pior && <span className="text-[11px] font-bold" style={{ color: "#6f6a61" }}>{pior.name} é o que menos dá lucro: {reais(lucroDe(pior.sale_price, pior.cost).sobra)}.</span>}
+              </div>
+              <div className="flex flex-col items-end shrink-0">
+                <span className="text-[20px] font-black tabular-nums" style={{ color: "#3DD68C" }}>+{reais(lucroDe(melhor.sale_price, melhor.cost).sobra)}</span>
+                <span className="text-[10.5px] font-extrabold" style={{ color: "#8a857b" }}>sobra por unidade</span>
+              </div>
             </div>
           )}
-          {lista.map((p, i) => <ProdutoCard key={p.id} p={p} i={i} onClick={() => navigate(`/products/${p.id}`)} />)}
+          <div className="grid gap-2.5 md:grid-cols-2">
+            {lista.map((p, i) => <ProdutoCard key={p.id} p={p} i={i} painel={painel.get(p.id)} onClick={() => navigate(`/products/${p.id}`)} />)}
+          </div>
         </>
       ) : (
         <AbaEstoque produtos={lista} userId={user?.id} onRepor={(id) => setChegou({ aberto: true, id })} />
       )}
 
-      <div className="fixed left-0 right-0 z-40 px-4 max-w-md mx-auto" style={{ bottom: "calc(env(safe-area-inset-bottom) + 6rem)", paddingRight: 88 }}>
-        <button type="button" onClick={() => navigate("/products/mercado")} className="w-full rounded-2xl p-3.5 flex items-center gap-2.5 text-left"
-          style={{ border: "1px solid transparent", background: "linear-gradient(#171206,#0f0d08) padding-box, linear-gradient(135deg,#FFE27A,#B88E00 60%,#FFC800) border-box" }}>
-          <span className="text-xl">🛒</span>
-          <span className="flex-1 flex flex-col"><span className="text-sm font-black">Tô no mercado</span><span className="text-[11.5px] font-bold" style={{ color: "#7b766e" }}>os ingredientes entram no estoque</span></span>
-          <span className="font-black" style={{ color: "#F5B800" }}>›</span>
-        </button>
-      </div>
-
+      <RegistrarCompra />
       <ChegouMercadoria key={chegou.id ?? "todos"} aberto={chegou.aberto} inicial={chegou.id} produtos={lista} userId={user?.id} onFechar={() => setChegou({ aberto: false })} />
     </div>
   );

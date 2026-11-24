@@ -1,44 +1,75 @@
-/* Linha da lista de Produtos: preço, combo, estoque e o lucro em cada venda. */
+/* Produtos e Estoque (24/11/2026): one product as a panel card. Photo (or an elegant placeholder), name,
+   flavours, price, cost, what is left per unit, real stock and the recipe / stock status. The whole card
+   opens the product sheet (edit). A cost that depends on an incomplete recipe is never shown as exact. */
+import { ChevronRight } from "lucide-react";
 import { lucroDe } from "../lib/conta";
+import { situacaoDoEstoque, type PainelDoProduto } from "../lib/painel";
 import type { ProdutoComFaixas } from "../types";
 import { reais } from "./campos";
+import { FotoOuMarca } from "./foto-produto";
 
-const FUNDOS = ["#3a2a0a,#161005", "#3a1420,#170a0e", "#2a0a3a,#100516", "#2a1a0e,#120b06", "#0a2a3a,#05101a"];
-
+/** kept for the "Estoque •" tab dot */
 export function estoqueBaixo(p: ProdutoComFaixas): boolean {
-  if (p.controla_estoque === false) return false;
-  return p.stock_quantity <= Math.max(3, p.stock_min || 0);
+  const s = situacaoDoEstoque(p);
+  return s === "baixo" || s === "sem";
 }
 
-export function ProdutoCard({ p, i, onClick }: { p: ProdutoComFaixas; i: number; onClick: () => void }) {
-  const l = lucroDe(p.sale_price, p.cost);
-  const combo = p.faixas[0];
-  const baixo = estoqueBaixo(p);
-  const preco = p.open_price ? "preço na hora" : reais(p.sale_price) + (combo ? ` · ${combo.qty} por ${reais(combo.price).replace(",00", "")}` : "");
-  const linhaEstoque = p.controla_estoque === false ? (p.origem === "faz" ? "feito na hora" : "sem controle de estoque")
-    : baixo ? (p.stock_quantity > 0 ? `só ${p.stock_quantity} un · repor` : "acabou · repor") : `${p.stock_quantity} un`;
+const VERDE = "#3DD68C", OURO = "#F5B800", VERM = "#FF6B5E", CINZA = "#8a857b";
+function Selo({ cor, children }: { cor: string; children: string }) {
+  return <span className="rounded-full px-2 py-[3px] text-[10.5px] font-extrabold whitespace-nowrap" style={{ color: cor, background: `${cor}1f` }}>{children}</span>;
+}
+function Dado({ rotulo, valor, cor }: { rotulo: string; valor: string; cor?: string }) {
   return (
-    <button type="button" onClick={onClick} className="w-full rounded-[18px] px-3.5 py-3 flex items-center gap-3 text-left"
-      style={{ background: "#0f0f10", border: `1px solid ${baixo ? "rgba(255,154,77,.45)" : "#26241f"}` }}>
-      {p.photo_url ? <img src={p.photo_url} alt="" className="w-[46px] h-[46px] rounded-xl object-cover shrink-0" />
-        : <span className="w-[46px] h-[46px] rounded-xl shrink-0 flex items-center justify-center text-[22px]" style={{ background: `linear-gradient(160deg,${FUNDOS[i % FUNDOS.length]})` }}>{p.emoji ?? "📦"}</span>}
-      <span className="flex-1 min-w-0 flex flex-col gap-[3px]">
-        <span className="text-[15px] font-black truncate">{p.name}</span>
-        <span className="text-xs font-bold truncate" style={{ color: "#b9b3a6" }}>{preco}</span>
-        <span className="text-[11.5px] font-extrabold" style={{ color: baixo ? "#ff9a4d" : "#7b766e" }}>{linhaEstoque}</span>
-      </span>
-      {!p.open_price && p.sale_price > 0 && (
-        <span className="flex flex-col items-end gap-0.5 shrink-0">
-          {p.cost > 0 ? (
-            <>
-              <span className="text-[15px] font-black" style={{ color: l.sobra > 0 ? "#3DD68C" : "#ff7a6b" }}>{l.sobra > 0 ? "+" : ""}{reais(l.sobra)}</span>
-              <span className="text-[10.5px] font-extrabold" style={{ color: "#7b766e" }}>lucro · {l.pct}%</span>
-            </>
-          ) : (
-            <span className="text-[11px] font-extrabold" style={{ color: "#F5B800" }}>falta o custo</span>
+    <span className="flex flex-col gap-0.5 min-w-0">
+      <span className="text-[10px] font-extrabold tracking-[.08em] uppercase" style={{ color: CINZA }}>{rotulo}</span>
+      <span className="text-[14px] font-black tabular-nums truncate" style={{ color: cor ?? "#F4F1EA" }}>{valor}</span>
+    </span>
+  );
+}
+
+export function ProdutoCard({ p, i, painel, onClick }: { p: ProdutoComFaixas; i: number; painel?: PainelDoProduto; onClick: () => void }) {
+  const est = situacaoDoEstoque(p);
+  const combo = p.faixas[0];
+  const confiavel = painel ? painel.custoConfiavel : p.cost > 0;
+  const l = lucroDe(p.sale_price, p.cost);
+  const temPreco = !p.open_price && p.sale_price > 0;
+  const preco = p.open_price ? "na hora" : temPreco ? reais(p.sale_price) : "—";
+  const custo = p.cost > 0 ? (confiavel ? reais(p.cost) : "parcial") : "—";
+  const sobra = temPreco && confiavel ? `${l.sobra > 0 ? "+" : ""}${reais(l.sobra)}` : temPreco && p.cost > 0 ? "parcial" : "—";
+  const sabores = painel?.sabores ?? [];
+  const estoqueTxt = est === "sem_controle" ? (p.origem === "faz" ? "feito na hora" : "sem controle") : `${p.stock_quantity} un`;
+  return (
+    <button type="button" onClick={onClick} aria-label={`Abrir ${p.name}`}
+      className="w-full rounded-[20px] p-3.5 flex flex-col gap-3 text-left transition-colors hover:border-[#3a3630] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F5B800]"
+      style={{ background: "#151515", border: `1px solid ${est === "sem" ? "rgba(255,107,94,.4)" : est === "baixo" ? "rgba(245,184,0,.35)" : "#24221e"}` }}>
+      <span className="flex items-start gap-3">
+        <FotoOuMarca foto={p.photo_url} emoji={p.emoji} i={i} tamanho={60} />
+        <span className="flex-1 min-w-0 flex flex-col gap-1">
+          <span className="flex items-center gap-2">
+            <span className="text-[16px] font-black truncate">{p.name}</span>
+            <ChevronRight className="w-4 h-4 ml-auto shrink-0" style={{ color: "#5c5850" }} />
+          </span>
+          {(sabores.length > 0 || combo) && (
+            <span className="text-[11.5px] font-bold truncate" style={{ color: "#b9b3a6" }}>
+              {sabores.length > 0 ? `${sabores.length} ${sabores.length === 1 ? "sabor" : "sabores"}: ${sabores.join(", ")}` : ""}
+              {sabores.length > 0 && combo ? " · " : ""}{combo ? `${combo.qty} por ${reais(combo.price).replace(",00", "")}` : ""}
+            </span>
           )}
+          <span className="flex flex-wrap gap-1.5 pt-0.5">
+            {painel?.receita === "completa" && <Selo cor={VERDE}>Receita completa</Selo>}
+            {painel?.receita === "incompleta" && <Selo cor={OURO}>Receita incompleta</Selo>}
+            {painel?.receita === "sem_receita" && p.origem === "faz" && <Selo cor={CINZA}>Sem receita</Selo>}
+            {est === "baixo" && <Selo cor={OURO}>Estoque baixo</Selo>}
+            {est === "sem" && <Selo cor={VERM}>Sem estoque</Selo>}
+          </span>
         </span>
-      )}
+      </span>
+      <span className="grid grid-cols-4 gap-2 pt-2.5" style={{ borderTop: "1px solid #211f1b" }}>
+        <Dado rotulo="Preço" valor={preco} />
+        <Dado rotulo="Custo" valor={custo} cor={custo === "parcial" ? OURO : undefined} />
+        <Dado rotulo="Sobra" valor={sobra} cor={sobra.startsWith("+") ? VERDE : sobra === "parcial" ? OURO : sobra.startsWith("-") || (temPreco && confiavel && l.sobra <= 0) ? VERM : undefined} />
+        <Dado rotulo="Estoque" valor={estoqueTxt} cor={est === "sem" ? VERM : est === "baixo" ? OURO : undefined} />
+      </span>
     </button>
   );
 }

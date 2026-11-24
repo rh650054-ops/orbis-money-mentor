@@ -15,16 +15,19 @@ const extraSchema = z.object({ id: z.string(), nome: z.string(), qtd: num, preco
 const saborSchema = z.object({ id: z.string(), nome: z.string(), emoji: z.string().catch("🥤"), estoque: num, custo: num, extras: z.array(extraSchema).catch([]) });
 
 export interface ExtraDoSabor { id: string; nome: string; qtd: number; preco: number; unidade: Unidade; pacote: number; estoque: number; aprender?: boolean }
-export interface Sabor { id: string; nome: string; emoji: string; estoque: number; custo: number; extras: ExtraDoSabor[]; rende?: number | null; usaBase?: boolean }
+export interface Sabor { id: string; nome: string; emoji: string; estoque: number; custo: number; extras: ExtraDoSabor[]; rende?: number | null; usaBase?: boolean; foto?: string | null }
 
 type Linhas = PromiseLike<{ data: unknown[] | null; error: unknown }>;
 type Tabela = { select: (c: string) => { eq: (c: string, v: string) => Linhas } };
-const extraVariante = z.object({ id: z.string(), batch_yield: z.coerce.number().nullable().catch(null), usa_base: z.boolean().catch(true) });
+const extraVariante = z.object({ id: z.string(), batch_yield: z.coerce.number().nullable().catch(null), usa_base: z.boolean().catch(true), photo_url: z.string().nullable().catch(null).optional() });
 /** 23/11: each flavour's own yield and "usa a base" (before the migration the columns do not exist: defaults). */
-async function rendimentos(produtoId: string): Promise<Map<string, { rende: number | null; usaBase: boolean }>> {
-  const r = await (supabase as unknown as { from: (t: string) => Tabela }).from("product_variants").select("id, batch_yield, usa_base").eq("product_id", produtoId);
+async function rendimentos(produtoId: string): Promise<Map<string, { rende: number | null; usaBase: boolean; foto?: string | null }>> {
+  const de = (cols: string) => (supabase as unknown as { from: (t: string) => Tabela }).from("product_variants").select(cols).eq("product_id", produtoId);
+  // 24/11: the flavour's own photo; a database without the column answers with an error -> read without it
+  let r = await de("id, batch_yield, usa_base, photo_url");
+  if (r.error) r = await de("id, batch_yield, usa_base");
   if (r.error) return new Map();
-  return new Map(z.array(extraVariante).parse(r.data ?? []).map((v) => [v.id, { rende: v.batch_yield, usaBase: v.usa_base }]));
+  return new Map(z.array(extraVariante).parse(r.data ?? []).map((v) => [v.id, { rende: v.batch_yield, usaBase: v.usa_base, foto: v.photo_url ?? null }]));
 }
 
 export const saboresKey = (produtoId: string) => produtosKeys.detail(`${produtoId}:sabores`);

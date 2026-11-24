@@ -5,12 +5,15 @@
 export interface ProdutoProducao {
   id: string; name: string; emoji: string | null; recipe_mode: string | null; batch_yield: number;
   origem: "compra" | "faz" | null; stock_quantity: number;
+  photo_url?: string | null;
 }
 export interface SaborProducao {
   id: string; product_id: string; name: string; emoji: string; stock_quantity: number;
   /** null = the product's yield */
   batch_yield: number | null;
   usa_base: boolean;
+  /** 24/11: the flavour's own photo; none = the product's */
+  photo_url?: string | null;
 }
 export interface LinhaReceitaProducao {
   product_id: string; variant_id: string | null; ingredient_id: string; quantity: number; aprender: boolean;

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import type { ItemProducao } from "../lib/producao";
 import { VANT } from "../lib/visual";
 import { Contador } from "./campos";
+import { FotoOuMarca } from "./foto-produto";
 
 const MOTIVO: Record<Exclude<ItemProducao["situacao"], "pronta">, string> = {
   incompleta: "Receita incompleta: tem ingrediente sem quantidade.",
@@ -31,8 +32,11 @@ export function ProducaoItem({ item, valor, onMudar }: { item: ItemProducao; val
   }
   return (
     <div className="rounded-[14px] px-3 py-2.5 flex flex-col gap-1.5" style={{ background: VANT.cartao, border: `1px solid ${valor > 0 ? VANT.ouro : VANT.borda}` }}>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[14px] font-black">{nome}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2 min-w-0">
+          {(item.sabor?.photo_url || item.produto.photo_url) && <FotoOuMarca foto={item.sabor?.photo_url || item.produto.photo_url} emoji={null} tamanho={30} />}
+          <span className="text-[14px] font-black truncate">{nome}</span>
+        </span>
         <span className="text-[11.5px] font-bold" style={{ color: VANT.cinza }}>tem {estoque} · rende {item.rende.toLocaleString("pt-BR")} por leva</span>
       </div>
       <Contador valor={valor} onChange={onMudar} unidade="un" />
