@@ -51,6 +51,19 @@ export function useFotoSaborDisponivel() {
   });
 }
 
+/** The product's photo, straight from the product card (24/11): saved right away, old file cleaned. */
+export function useFotoProdutoMutation(userId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { produtoId: string; foto: string | null; anterior: string | null }) => {
+      const { error } = await supabase.from("products").update({ photo_url: v.foto }).eq("id", v.produtoId);
+      if (error) throw error;
+      await apagarFotosOrfas([v.anterior], userId);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: produtosKeys.all }),
+  });
+}
+
 /** A flavour's own photo: set (url) or removed (null), right away, then the old file is cleaned. */
 export function useFotoSaborMutation(userId: string | undefined) {
   const qc = useQueryClient();

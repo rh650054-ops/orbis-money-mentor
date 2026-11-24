@@ -76,6 +76,7 @@ export default function ProdutosPage() {
               </div>
             </div>
           )}
+          <h2 className="text-[19px] font-black mt-1">Seus produtos</h2>
           <div className="grid gap-2.5 md:grid-cols-2">
             {lista.map((p, i) => <ProdutoCard key={p.id} p={p} i={i} painel={painel.get(p.id)} onClick={() => navigate(`/products/${p.id}`)} />)}
           </div>
