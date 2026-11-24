@@ -8,6 +8,7 @@ import { mapSupabaseError } from "@/shared/api";
 import { useProdutosQuery } from "../api/use-produtos-query";
 import { useSalvarProdutoMutation } from "../api/use-produto-mutations";
 import { useSubirFotoMutation } from "../api/use-subir-foto-mutation";
+import { apagarFotosOrfas } from "../api/fotos";
 import { rascunhoDe, TOTAL_PASSOS, useQuizProduto } from "../hooks/use-quiz-produto";
 import type { RascunhoProduto } from "../types";
 import { rascunhoDaReceita } from "../lib/receitas";
@@ -45,6 +46,7 @@ function Quiz({ inicial, userId }: { inicial?: RascunhoProduto; userId?: string 
   const salvarSabores = useSalvarSaboresMutation();
   const salvar = useSalvarProdutoMutation(userId, inicial);
   const foto = useSubirFotoMutation(userId);
+  const [enviadas, setEnviadas] = useState<string[]>([]);
   const sair = () => navigate("/products");
   const voltar = () => { if (!q.voltar()) sair(); };
   const r = q.r;
@@ -62,6 +64,7 @@ function Quiz({ inicial, userId }: { inicial?: RascunhoProduto; userId?: string 
       if (!rascunho.id && rascunho.sabores.some((x) => x.nome.trim())) {
         await salvarSabores.mutateAsync({ produtoId: id, sabores: rascunho.sabores });
       }
+      void apagarFotosOrfas([...enviadas, inicial?.foto].filter((u) => u && u !== rascunho.foto), userId);
       q.terminou(); setSalvo(id); q.ir("pronto");
     } catch (e) {
       const msg = mapSupabaseError(e).message;
@@ -72,9 +75,9 @@ function Quiz({ inicial, userId }: { inicial?: RascunhoProduto; userId?: string 
 
   switch (q.passo) {
     case "nome":
-      return <PassoNome total={TOTAL_PASSOS} nome={r.nome} foto={r.foto} enviandoFoto={foto.isPending} onNome={q.setNome} onVoltar={voltar}
+      return <PassoNome total={TOTAL_PASSOS} nome={r.nome} foto={r.foto} enviandoFoto={foto.isPending} onNome={q.setNome} onVoltar={voltar} onRemoverFoto={() => q.setFoto(null)}
         onFoto={(f) => foto.mutate(f, {
-          onSuccess: q.setFoto,
+          onSuccess: (url) => { setEnviadas((x) => [...x, url]); q.setFoto(url); },
           onError: () => toast({ title: "Não consegui enviar a foto", description: "Tenta outra foto (até 5 MB).", variant: "destructive" }),
         })}
         onContinuar={q.avancar} />;

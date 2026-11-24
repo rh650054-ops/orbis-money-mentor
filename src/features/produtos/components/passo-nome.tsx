@@ -1,14 +1,12 @@
 /* Passo 1 — "O que você vende?" (nome, foto opcional, atalhos). */
-import { useRef } from "react";
-import { Loader2 } from "lucide-react";
 import { emojiDoNome, SUGESTOES_NOME } from "../lib/conta";
 import { BotaoOuro, QuizCasca } from "./quiz-casca";
+import { FotoPicker } from "./foto-produto";
 
-export function PassoNome({ nome, foto, enviandoFoto, onNome, onFoto, onContinuar, onVoltar, total }: {
+export function PassoNome({ nome, foto, enviandoFoto, onNome, onFoto, onRemoverFoto, onContinuar, onVoltar, total }: {
   nome: string; foto: string | null; enviandoFoto: boolean; total: number;
-  onNome: (n: string) => void; onFoto: (f: File) => void; onContinuar: () => void; onVoltar: () => void;
+  onNome: (n: string) => void; onFoto: (f: File) => void; onRemoverFoto?: () => void; onContinuar: () => void; onVoltar: () => void;
 }) {
-  const arquivo = useRef<HTMLInputElement>(null);
   return (
     <QuizCasca passo={1} total={total} onVoltar={onVoltar}
       titulo="O que você vende?" sub="Começa pelo que mais sai. Os outros você cadastra depois."
@@ -17,15 +15,7 @@ export function PassoNome({ nome, foto, enviandoFoto, onNome, onFoto, onContinua
         <BotaoOuro onClick={onContinuar} disabled={nome.trim().length < 2}>CONTINUAR</BotaoOuro>
       </>}>
       <div className="flex gap-3 items-center mt-2">
-        <button type="button" onClick={() => arquivo.current?.click()} aria-label="Foto do produto"
-          className="w-[74px] h-[74px] rounded-[18px] shrink-0 flex flex-col items-center justify-center gap-0.5 overflow-hidden"
-          style={{ border: "1.5px dashed #3a3833", color: "#7b766e" }}>
-          {enviandoFoto ? <Loader2 className="w-5 h-5 animate-spin" />
-            : foto ? <img src={foto} alt="" className="w-full h-full object-cover" />
-            : <><span className="text-[22px]">📷</span><span className="text-[10px] font-extrabold">foto</span></>}
-        </button>
-        <input ref={arquivo} type="file" accept="image/*" className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) onFoto(f); e.target.value = ""; }} />
+        <FotoPicker foto={foto} enviando={enviandoFoto} onEscolher={onFoto} onRemover={onRemoverFoto} />
         <input value={nome} onChange={(e) => onNome(e.target.value)} placeholder="Ex.: Mentos" maxLength={60} autoFocus
           className="flex-1 min-w-0 h-14 rounded-2xl px-4 text-lg font-extrabold outline-none bg-[#0f0d08]"
           style={{ border: "1.5px solid #F5B800" }} aria-label="Nome do produto" />

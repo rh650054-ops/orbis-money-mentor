@@ -15,6 +15,8 @@ export interface SaborRascunho {
   usaBase?: boolean;
   /** 23/11: ready units the seller already has when registering (new products only) */
   estoque?: number;
+  /** 24/11: the flavour's own photo (saved right away, apart from the sheet); none = the product's */
+  foto?: string | null;
 }
 
 const EMOJIS: [RegExp, string][] = [

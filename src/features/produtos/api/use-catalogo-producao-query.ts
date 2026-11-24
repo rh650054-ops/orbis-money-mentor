@@ -10,10 +10,12 @@ const num = z.coerce.number().catch(0);
 const produto = z.object({
   id: z.string(), name: z.string(), emoji: z.string().nullable().catch(null), recipe_mode: z.string().nullable().catch(null),
   batch_yield: num, origem: z.enum(["compra", "faz"]).nullable().catch(null), stock_quantity: num,
+  photo_url: z.string().nullable().catch(null).optional(),
 });
 const sabor = z.object({
   id: z.string(), product_id: z.string(), name: z.string(), emoji: z.string().catch("🥤"), stock_quantity: num,
   batch_yield: z.coerce.number().nullable().catch(null), usa_base: z.boolean().catch(true),
+  photo_url: z.string().nullable().catch(null).optional(),
 });
 const linha = z.object({ product_id: z.string(), variant_id: z.string().nullable().catch(null), ingredient_id: z.string(), quantity: num, aprender: z.boolean().catch(false) });
 const ingrediente = z.object({ id: z.string(), name: z.string(), unit: z.string().nullable().catch("un").transform((u) => u ?? "un"), stock_quantity: num });
@@ -25,6 +27,9 @@ async function saboresDe(uid: string) {
   // product_variants is not in the generated Supabase types yet
   type Tabela = { select: (c: string) => { eq: (c: string, v: string) => { order: (c: string) => Linhas } } };
   const de = (cols: string) => (supabase as unknown as { from: (t: string) => Tabela }).from("product_variants").select(cols).eq("user_id", uid).order("posicao");
+  // 24/11: the flavour's own photo; an older database without the column answers with an error
+  const f = await de("id, product_id, name, emoji, stock_quantity, batch_yield, usa_base, photo_url");
+  if (!f.error) return f.data ?? [];
   const r = await de("id, product_id, name, emoji, stock_quantity, batch_yield, usa_base");
   if (!r.error) return r.data ?? [];
   const velho = await de("id, product_id, name, emoji, stock_quantity");
@@ -40,7 +45,7 @@ export function useCatalogoProducaoQuery(userId: string | undefined) {
     queryFn: async (): Promise<CatalogoProducao> => {
       const uid = userId ?? "";
       const [prods, sabs, recs, ings] = await Promise.all([
-        supabase.from("products").select("id, name, emoji, recipe_mode, batch_yield, origem, stock_quantity").eq("user_id", uid).eq("is_active", true).order("name"),
+        supabase.from("products").select("id, name, emoji, recipe_mode, batch_yield, origem, stock_quantity, photo_url").eq("user_id", uid).eq("is_active", true).order("name"),
         saboresDe(uid),
         supabase.from("product_recipes").select("product_id, variant_id, ingredient_id, quantity, aprender").eq("user_id", uid),
         supabase.from("ingredients").select("id, name, unit, stock_quantity").eq("user_id", uid).order("name"),

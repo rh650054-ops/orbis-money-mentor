@@ -8,6 +8,7 @@ import { custoDoSabor, emojiDoSabor, novoSabor, rendeDoSabor, type SaborRascunho
 import { Contador } from "./campos";
 import { reais } from "./campos";
 import { LinhaIngrediente } from "./linha-ingrediente";
+import { FotoDoSabor } from "./foto-do-sabor";
 
 const OURO = "#F5B800";
 
@@ -51,6 +52,7 @@ export function EditorSabores({ sabores, base, rende, preco, estoques, onMudar, 
       {s && (
         <div className="flex flex-col gap-2 rounded-[16px] px-3 py-3" style={{ background: "#0e0e10", border: "1px solid #26241f" }}>
           <div className="flex items-center gap-2">
+            <FotoDoSabor s={s} onFoto={(foto) => mudarSabor(ativo, { foto })} />
             <input value={s.emoji} onChange={(e) => mudarSabor(ativo, { emoji: e.target.value.slice(0, 4) })} aria-label="Emoji do sabor"
               className="w-11 h-10 rounded-[10px] bg-[#1a1a19] text-center outline-none text-[18px]" />
             <input value={s.nome} placeholder="Nome do sabor (ex.: Morango)" aria-label="Nome do sabor"

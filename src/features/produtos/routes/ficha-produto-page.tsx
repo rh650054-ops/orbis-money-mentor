@@ -11,6 +11,7 @@ import { useSaboresQuery } from "../api/use-sabores";
 import { useApagarProdutoMutation } from "../api/use-produto-mutations";
 import { useSalvarFichaMutation } from "../api/use-salvar-ficha-mutation";
 import { useSubirFotoMutation } from "../api/use-subir-foto-mutation";
+import { apagarFotosOrfas } from "../api/fotos";
 import { custoDaFicha, fichaDe, problemaDaFicha, type Ficha } from "../lib/ficha";
 import { levasPossiveis } from "../lib/receitas";
 import { CarregandoProdutos } from "../components/carregando-produtos";
@@ -45,6 +46,8 @@ function Tela({ id, inicial, estoques, userId }: { id: string; inicial: Ficha; e
   const [confirmaTirar, setConfirmaTirar] = useState(false);
   const salvar = useSalvarFichaMutation(userId, id, inicial);
   const foto = useSubirFotoMutation(userId);
+  // photos sent on this screen: the ones not kept are deleted once the sheet is saved
+  const [enviadas, setEnviadas] = useState<string[]>([]);
   const apagar = useApagarProdutoMutation();
   const problema = problemaDaFicha(f);
   const custo = custoDaFicha(f);
@@ -53,7 +56,10 @@ function Tela({ id, inicial, estoques, userId }: { id: string; inicial: Ficha; e
     ? levasPossiveis(usados.map((i) => ({ qtd: i.qtd, estoque: estoques.get(i.nome.trim().toLowerCase()) ?? 0 }))) : null;
 
   const gravar = () => salvar.mutate(f, {
-    onSuccess: () => { toast({ title: `${f.nome.trim()} salvo` }); navigate("/products"); },
+    onSuccess: () => {
+      void apagarFotosOrfas([...enviadas, inicial.foto].filter((u) => u && u !== f.foto), userId);
+      toast({ title: `${f.nome.trim()} salvo` }); navigate("/products");
+    },
     onError: (e) => toast({ title: "Não consegui salvar", description: mapSupabaseError(e).message, variant: "destructive" }),
   });
 
@@ -61,8 +67,9 @@ function Tela({ id, inicial, estoques, userId }: { id: string; inicial: Ficha; e
     <div className="text-[#F4F1EA] max-w-md mx-auto flex flex-col gap-3 pt-2 pb-48">
       <FichaCabecalho nome={f.nome} foto={f.foto} emoji={f.emoji} enviandoFoto={foto.isPending} onVoltar={() => navigate("/products")}
         onNome={(nome, emoji) => mudar({ nome, emoji })}
+        onRemoverFoto={() => mudar({ foto: null })}
         onFoto={(file) => foto.mutate(file, {
-          onSuccess: (url) => mudar({ foto: url }),
+          onSuccess: (url) => { setEnviadas((x) => [...x, url]); mudar({ foto: url }); },
           onError: () => toast({ title: "Não consegui enviar a foto", description: "Tenta outra foto (até 5 MB).", variant: "destructive" }),
         })} />
       <FichaPreco f={f} onMudar={mudar} />
