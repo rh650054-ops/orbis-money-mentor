@@ -24,4 +24,8 @@ describe("cobrança no app da loja", () => {
     plataforma.mockReturnValue("android");
     expect(modoCobranca("fora")).toBe("fora");
   });
+  it("fallback do Assinar é /assinar (paga a conta que já existe), não a landing de teste grátis", async () => {
+    const { LINK_ASSINAR_SITE } = await import("./cobranca-loja");
+    expect(LINK_ASSINAR_SITE).toBe("https://app.vantapp.com.br/assinar");
+  });
 });

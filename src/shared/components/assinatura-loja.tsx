@@ -6,19 +6,25 @@ import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { ExternalLink, LogOut, RefreshCw } from "lucide-react";
 import { EVENTO_ASSINATURA_LOJA, assinaPeloSite, podeMostrarAssinatura } from "@/shared/lib/cobranca-loja";
 import { abrirLinkExterno } from "@/shared/lib/link-externo";
-import { abrirAssinarNoSite } from "@/shared/lib/assinar-no-site";
+import { abrirAssinarNoSite, abrirRenovarNoSite } from "@/shared/lib/assinar-no-site";
 
 const SUPORTE = "https://wa.me/5511915054830?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20com%20a%20minha%20conta%20da%20Vant";
 const GOLD = "#F5B800";
 
 const btn = (extra: string) => `w-full h-[50px] rounded-[14px] inline-flex items-center justify-center gap-2 text-[14.5px] font-black ${extra}`;
 
-/** Néctar-style block: "Assinatura inválida" + Assinar (site) · Tentar novamente · Sair. */
-export function TelaAssinarPeloSite({ titulo, texto, onTentar, tentando, onSair, renovacao }: {
+/** Store app, no access (Rick, 24/11/2026):
+ *  - ex-subscriber ("renovar"): yellow RENOVAR ASSINATURA → Hotmart checkout of the plan they had;
+ *  - trial ended / never paid ("assinar"): yellow VER PLANOS E ASSINAR → /assinar (all plans);
+ *  then "Já paguei, verificar acesso", "Falar com o suporte" and "Sair da conta". */
+export function TelaAssinarPeloSite({ titulo, texto, onTentar, tentando, onSair, renovacao, modo = "assinar" }: {
   titulo?: string; texto?: ReactNode; onTentar?: () => void; tentando?: boolean; onSair?: () => void;
-  /** Pix da renovação em aberto: vira o botão principal; "Assinar" vira "Trocar de plano" */
+  /** Pix da renovação em aberto: vira o botão principal; o amarelo vira "Trocar de plano" */
   renovacao?: ReactNode;
+  modo?: "assinar" | "renovar";
 }) {
+  const principal = renovacao ? "Trocar de plano" : modo === "renovar" ? "RENOVAR ASSINATURA" : "VER PLANOS E ASSINAR";
+  const abrir = () => void (modo === "renovar" && !renovacao ? abrirRenovarNoSite() : abrirAssinarNoSite());
   return (
     <div className="rounded-[22px] border px-5 py-6 text-center text-[#F4F1EA]" style={{ background: "#0b0b0d", borderColor: "rgba(255,90,69,.55)" }}>
       <span className="mx-auto w-14 h-14 rounded-full flex items-center justify-center text-[26px] font-black" style={{ background: "rgba(255,90,69,.14)", color: "#ff7d6b" }}>!</span>
@@ -28,15 +34,18 @@ export function TelaAssinarPeloSite({ titulo, texto, onTentar, tentando, onSair,
       </p>
       <div className="mt-5 space-y-2.5">
         {renovacao}
-        <button type="button" onClick={() => void abrirAssinarNoSite()} className={btn("")}
+        <button type="button" onClick={abrir} className={btn("")}
           style={renovacao ? { background: "#121211", border: "1px solid #2a2823" } : { background: GOLD, color: "#1A1200" }}>
-          <ExternalLink className="w-4 h-4" strokeWidth={2.6} /> {renovacao ? "Trocar de plano" : "Assinar"}
+          <ExternalLink className="w-4 h-4" strokeWidth={2.6} /> {principal}
         </button>
         {onTentar && (
           <button type="button" onClick={onTentar} disabled={tentando} className={btn("disabled:opacity-60")} style={{ background: "#121211", border: "1px solid #2a2823" }}>
-            <RefreshCw className={`w-4 h-4 ${tentando ? "animate-spin" : ""}`} /> {tentando ? "Verificando..." : "Tentar novamente"}
+            <RefreshCw className={`w-4 h-4 ${tentando ? "animate-spin" : ""}`} /> {tentando ? "Verificando..." : "Já paguei, verificar acesso"}
           </button>
         )}
+        <button type="button" onClick={() => void abrirLinkExterno(SUPORTE)} className={btn("")} style={{ background: "transparent", border: "1px solid #2a2823", color: "#b9b3a6" }}>
+          Falar com o suporte
+        </button>
         {onSair && (
           <button type="button" onClick={onSair} className={btn("")} style={{ background: "transparent", border: "1px solid rgba(255,90,69,.55)", color: "#ff7d6b" }}>
             <LogOut className="w-4 h-4" /> Sair da conta

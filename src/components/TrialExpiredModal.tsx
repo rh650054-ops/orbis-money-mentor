@@ -85,11 +85,11 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
         <div className="relative overflow-y-auto max-h-[92dvh] px-5 py-6 sm:px-7 sm:py-7 text-[#F4F1EA]" style={{ background: "#000" }}>
           {/* App da loja (modelo Néctar, 23/10/2026): sem preço; Assinar abre o site */}
           {assinaPeloSite() ? (
-            <TelaAssinarPeloSite
-              titulo={exAssinante ? "Assinatura inválida" : "Seu teste acabou"}
+            <TelaAssinarPeloSite modo={exAssinante ? "renovar" : "assinar"}
+              titulo={exAssinante ? "Sua assinatura venceu" : "Seu teste encerrou"}
               texto={exAssinante
-                ? <>Sua assinatura não está ativa ou expirou.<br />Para continuar na VANT você precisa de uma assinatura ativa.</>
-                : <>Seus 3 dias de teste terminaram.<br />Pra continuar vendendo com a VANT, assine pelo site.</>}
+                ? <>Você está sem acesso à VANT.<br />Renove pra voltar de onde parou, com a mesma conta.</>
+                : <>Você está sem acesso à VANT.<br />Veja os planos e escolha o seu pra continuar vendendo.</>}
               onTentar={handleCheckAccess} tentando={isChecking} onSair={handleLogout}
               /* 28/10: modelo Néctar completo — no app da loja, sem Pix; "Assinar" abre o site */ />
           ) : (<>
