@@ -11,7 +11,8 @@ const ingredienteSchema = z.object({
   id: z.string(), name: z.string(), unit: z.string().nullable().catch("un").transform((u) => u ?? "un"),
   stock_quantity: num, cost_per_unit: num, pacote_qtd: z.coerce.number().catch(1),
 });
-const receitaSchema = z.object({ product_id: z.string(), ingredient_id: z.string(), quantity: num });
+const receitaSchema = z.object({ product_id: z.string(), ingredient_id: z.string(), quantity: num, variant_id: z.string().nullable().catch(null) });
+const variante = z.object({ product_id: z.string(), batch_yield: z.coerce.number().nullable().catch(null), usa_base: z.boolean().catch(true) });
 const produtoSchema = z.object({
   id: z.string(), name: z.string(), emoji: z.string().nullable().catch(null), cost: num, stock_quantity: num,
   recipe_mode: z.string().nullable().catch(null), batch_yield: num,
@@ -29,6 +30,13 @@ const comprasDigitadas = (uid: string) => (supabase as unknown as { from: (t: st
   .from("mercado_compras").select("id, itens").eq("user_id", uid).not("itens", "is", null)
   .order("criada_em", { ascending: false }).limit(60);
 
+/** Flavours' own yield / usa_base (23/11). Read errors are not fatal: the preview then counts like before. */
+async function variantesDe(uid: string): Promise<unknown[]> {
+  type Tabela = { select: (c: string) => { eq: (c: string, v: string) => Lista } };
+  const r = await (supabase as unknown as { from: (t: string) => Tabela }).from("product_variants").select("product_id, batch_yield, usa_base").eq("user_id", uid);
+  return r.error ? [] : r.data ?? [];
+}
+
 /** Tudo que o "Tô no mercado" precisa: ingredientes, receitas, produtos ativos e o
  *  último preço pago por ingrediente (pra dizer se ficou mais caro). */
 export function useMercadoQuery(userId: string | undefined) {
@@ -39,15 +47,16 @@ export function useMercadoQuery(userId: string | undefined) {
     refetchOnMount: "always",
     queryFn: async (): Promise<BaseMercado> => {
       const uid = userId ?? "";
-      const [ings, recs, prods, ults, compras] = await Promise.all([
+      const [ings, recs, prods, ults, compras, vars] = await Promise.all([
         supabase.from("ingredients").select("id, name, unit, stock_quantity, cost_per_unit, pacote_qtd").eq("user_id", uid).order("name"),
-        supabase.from("product_recipes").select("product_id, ingredient_id, quantity").eq("user_id", uid),
+        supabase.from("product_recipes").select("product_id, ingredient_id, quantity, variant_id").eq("user_id", uid),
         supabase.from("products").select("id, name, emoji, cost, stock_quantity, recipe_mode, batch_yield, origem, sale_price")
           .eq("user_id", uid).eq("is_active", true).order("name"),
         supabase.from("compras_mercadoria").select("ingredient_id, custo_unitario, mercado_compra_id").eq("user_id", uid)
           .not("ingredient_id", "is", null).gt("custo_unitario", 0).order("created_at", { ascending: false }).limit(300),
         // itens como foram digitados (preço de prateleira, antes do desconto do caixa)
         comprasDigitadas(uid),
+        variantesDe(uid),
       ]);
       if (ings.error) throw ings.error;
       if (recs.error) throw recs.error;
@@ -61,6 +70,7 @@ export function useMercadoQuery(userId: string | undefined) {
         receitas: z.array(receitaSchema).parse(recs.data ?? []).filter((r) => ativos.has(r.product_id)),
         produtos,
         ultimos,
+        porSabor: [...new Set(z.array(variante).parse(vars).filter((v) => v.batch_yield !== null || !v.usa_base).map((v) => v.product_id))],
       };
     },
   });

@@ -15,6 +15,8 @@ export function MiniNumero({ valor, onChange, rotulo, largura = 64, exemplo = "1
   return (
     <input type="text" inputMode="decimal" placeholder={exemplo} value={t} aria-label={rotulo}
       onFocus={(e) => e.currentTarget.select()}
+      // left empty while the value stayed (a field that ignores zero): show the value that counts again
+      onBlur={() => { if (!t && valor > 0) setT(fmt(valor)); }}
       onChange={(e) => { const v = e.target.value.replace(/[^\d.,]/g, "").slice(0, 8); setT(v); onChange(reaisDeTexto(v)); }}
       style={{ width: largura }} className="h-9 rounded-[10px] text-center bg-[#1a1a19] outline-none text-sm font-black tabular-nums text-[#F4F1EA]" />
   );

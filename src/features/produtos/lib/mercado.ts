@@ -30,7 +30,11 @@ export function emUnidades(l: LinhaMercado, base: BaseMercado): LinhaMercado {
   if (!(pac > 1)) return l;
   return { ...l, qtd: l.qtd * pac, precoUnit: l.precoUnit != null ? l.precoUnit / pac : null };
 }
-export interface ReceitaMercado { product_id: string; ingredient_id: string; quantity: number }
+export interface ReceitaMercado {
+  product_id: string; ingredient_id: string; quantity: number;
+  /** null = base row; a flavour row only goes into that flavour (the purchase counts base rows, like mercado_concluir) */
+  variant_id?: string | null;
+}
 export interface ProdutoMercado {
   id: string; name: string; emoji: string | null; cost: number; stock_quantity: number;
   recipe_mode: string | null; batch_yield: number; origem: "compra" | "faz" | null;
@@ -42,9 +46,15 @@ export interface BaseMercado {
   ingredientes: IngredienteMercado[]; receitas: ReceitaMercado[]; produtos: ProdutoMercado[];
   /** último preço pago por ingrediente, na unidade de medida (compras_mercadoria) */
   ultimos?: Record<string, number>;
+  /** products with a flavour that has its own yield or skips the base: units are counted per flavour */
+  porSabor?: string[];
 }
 
-export interface ResultadoProduto { id: string; nome: string; receitas: number; unidades: number; faltam: string[] }
+export interface ResultadoProduto {
+  id: string; nome: string; receitas: number; unidades: number; faltam: string[];
+  /** each flavour has its own yield: `unidades` is not meaningful, the production screen counts per flavour */
+  porSabor: boolean;
+}
 export interface PreviaMercado {
   produtos: ResultadoProduto[];
   prontos: { id: string; nome: string; unidades: number }[];
@@ -99,7 +109,7 @@ export function calcularMercado(linhas: LinhaMercado[], base: BaseMercado): Prev
   for (const pid of cands) {
     const p = base.produtos.find((x) => x.id === pid);
     if (!p || !ehLote(p)) continue;
-    const rec = base.receitas.filter((r) => r.product_id === pid && r.quantity > 0);
+    const rec = base.receitas.filter((r) => r.product_id === pid && r.quantity > 0 && !r.variant_id);
     const disp = (iid: string) => (aloc.get(`${iid}:${pid}`) ?? 0) + (pool.get(iid) ?? 0);
     let receitas = rec.length ? Math.min(...rec.map((r) => Math.floor(disp(r.ingredient_id) / r.quantity + EPS))) : 0;
     receitas = Math.max(receitas, 0);
@@ -110,7 +120,7 @@ export function calcularMercado(linhas: LinhaMercado[], base: BaseMercado): Prev
       const need = receitas * r.quantity - Math.min(aloc.get(`${r.ingredient_id}:${pid}`) ?? 0, receitas * r.quantity);
       if (need > 0) pool.set(r.ingredient_id, Math.max((pool.get(r.ingredient_id) ?? 0) - need, 0));
     }
-    produtos.push({ id: pid, nome: p.name, receitas, unidades: Math.round(receitas * p.batch_yield), faltam });
+    produtos.push({ id: pid, nome: p.name, receitas, unidades: Math.round(receitas * p.batch_yield), faltam, porSabor: base.porSabor?.includes(pid) ?? false });
   }
 
   const prontosMap = new Map<string, number>();

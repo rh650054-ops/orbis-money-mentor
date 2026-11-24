@@ -92,7 +92,9 @@ export function MercadoPrevia({ previa, custos }: { previa: PreviaMercado; custo
           <div key={p.id} className="flex flex-col gap-0.5">
             <div className="flex justify-between items-baseline gap-2">
               <span className="text-[14px] font-extrabold">{p.nome} · {receitasTxt(p.receitas)}</span>
-              <span className="text-[16px] font-black tabular-nums" style={{ color: "#F5B800" }}>dá pra fazer {un(p.unidades)}</span>
+              {p.porSabor
+                ? <span className="text-[13px] font-black text-right" style={{ color: "#F5B800" }}>cada sabor rende o seu</span>
+                : <span className="text-[16px] font-black tabular-nums" style={{ color: "#F5B800" }}>dá pra fazer {un(p.unidades)}</span>}
             </div>
             {c && <CustoDeCada c={c} />}
           </div>
