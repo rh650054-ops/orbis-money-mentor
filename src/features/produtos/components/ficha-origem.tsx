@@ -21,7 +21,7 @@ export function FichaOrigem({ f, estoques, onMudar }: {
         <CampoDinheiro rotulo="Custo de 1 unidade" valor={f.custo} onChange={(c) => onMudar({ custo: c })} />
       ) : (
         <>
-          <EditorReceita itens={f.itens} rende={f.rende} estoques={estoques} nomeProduto={plural(f.nome)}
+          <EditorReceita itens={f.itens} rende={f.rende} estoques={estoques} nomeProduto={plural(f.nome)} precoVenda={f.precoLivre ? 0 : f.preco}
             onItens={(itens) => onMudar({ itens })} onRende={(rende) => onMudar({ rende })} />
           {!custo.pelaReceita && f.custo > 0 && (
             <p className="text-[11.5px] font-bold px-1" style={{ color: "#7b766e" }}>Custo salvo hoje: {reais(f.custo)} cada.</p>

@@ -18,7 +18,11 @@ export function ProducaoItem({ item, valor, onMudar }: { item: ItemProducao; val
     return (
       <div className="rounded-[14px] px-3 py-2.5 flex flex-col gap-1" style={{ background: VANT.cartao, border: `1px solid ${VANT.borda}` }}>
         <span className="text-[14px] font-black">{nome}</span>
-        <span className="text-[12px] font-bold" style={{ color: VANT.cinza }}>{MOTIVO[item.situacao]}</span>
+        <span className="text-[12px] font-bold" style={{ color: VANT.cinza }}>
+          {item.situacao === "incompleta" && item.pendentes.length > 0
+            ? `Falta saber quanto usa de ${item.pendentes.join(", ")}. Quando fizer, anote quanto usou e salve na receita.`
+            : MOTIVO[item.situacao]}
+        </span>
         <Link to={`/products/${item.produto.id}`} className="text-[12.5px] font-black self-start" style={{ color: VANT.ouro }}>
           {item.situacao === "sem_receita" ? "Abrir produto" : "Completar receita"} ›
         </Link>
