@@ -78,6 +78,8 @@ describe("Produzir — vários produtos e sabores", () => {
     fireEvent.change(campos()[0]!, { target: { value: "6" } });
     fireEvent.click(screen.getByText("REGISTRAR PRODUÇÃO"));
     act(() => mutate.mock.calls[0]![1].onError({ hint: "VANT_RECEITA_REDUZIDA", message: "A receita de Batida foi alterada" }));
+    // opened above the full-screen shell (z-60), never hidden behind it
+    expect(screen.getByRole("dialog").className).toContain("z-[70]");
     fireEvent.change(screen.getByLabelText("Motivo"), { target: { value: "forma nova rende mais" } });
     fireEvent.click(screen.getByText("REGISTRAR"));
     expect(mutate.mock.calls[1]![0].justificativa).toBe("forma nova rende mais");

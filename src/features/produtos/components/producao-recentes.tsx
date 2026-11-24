@@ -10,6 +10,7 @@ import { VANT } from "../lib/visual";
 import { Contador } from "./campos";
 import { ProducaoMotivo } from "./producao-motivo";
 import { BotaoOuro } from "./quiz-casca";
+import { ACIMA_DA_CASCA } from "./mercado-casca";
 
 const quando = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 const STATUS: Record<string, string> = { ativa: "", corrigida: "corrigida", desfeita: "desfeita" };
@@ -28,7 +29,7 @@ function Corrigir({ r, onFechar }: { r: ProducaoRecente; onFechar: () => void })
   });
   return (
     <Dialog open onOpenChange={(v) => { if (!v) onFechar(); }}>
-      <DialogContent className="bg-[#0b0b0c] text-[#F4F1EA] border-[#26241f] max-w-sm">
+      <DialogContent overlayClassName={ACIMA_DA_CASCA} className={`bg-[#0b0b0c] text-[#F4F1EA] border-[#26241f] max-w-sm ${ACIMA_DA_CASCA}`}>
         <DialogHeader><DialogTitle className="text-[19px] font-black">Corrigir produção</DialogTitle></DialogHeader>
         {r.itens.map((i, k) => (
           <Contador key={`${i.produto}:${i.sabor ?? "-"}`} rotulo={`${i.produto_nome}${i.sabor_nome ? ` · ${i.sabor_nome}` : ""}`} valor={qtd[k] ?? 0}
