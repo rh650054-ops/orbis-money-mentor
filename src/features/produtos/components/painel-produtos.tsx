@@ -2,23 +2,28 @@
    navigation (Produtos / Estoque are tabs here; Produção and Mercado open their existing screens) and the
    "Registrar compra" action at the end of the list (no longer a floating button over the content). */
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, ShoppingCart } from "lucide-react";
+import { Box, ChevronRight, Factory, Layers, ShoppingCart } from "lucide-react";
 
 const OURO = "#F5B800";
 
 export function ResumoPainel({ produtos, unidades, podeProduzir, calculando }: { produtos: number; unidades: number; podeProduzir: number; calculando: boolean }) {
-  const Card = ({ rotulo, valor, sub }: { rotulo: string; valor: string; sub: string }) => (
-    <div className="rounded-[18px] px-3 py-3 flex flex-col gap-1 min-w-0" style={{ background: "#151515", border: "1px solid #24221e" }}>
-      <span className="text-[10px] font-extrabold tracking-[.1em] uppercase leading-tight" style={{ color: "#8a857b" }}>{rotulo}</span>
-      <span className="text-[24px] font-black tabular-nums leading-none">{valor}</span>
-      <span className="text-[10.5px] font-bold leading-tight" style={{ color: "#6f6a61" }}>{sub}</span>
+  const Card = ({ Icone, rotulo, valor, sufixo, cor }: { Icone: typeof Box; rotulo: string; valor: string; sufixo?: string; cor?: string }) => (
+    <div className="rounded-[18px] px-3 py-3 flex flex-col gap-2 min-w-0" style={{ background: "#151515", border: "1px solid #2a2722" }}>
+      <span className="flex items-start gap-2">
+        <Icone className="w-5 h-5 shrink-0" style={{ color: cor ?? OURO }} strokeWidth={2} />
+        <span className="text-[11.5px] font-bold leading-tight" style={{ color: "#d8d2c4" }}>{rotulo}</span>
+      </span>
+      <span className="text-[26px] font-black tabular-nums leading-none mt-auto" style={{ color: cor ?? "#F4F1EA" }}>
+        {valor}{sufixo && <span className="text-[13px] font-extrabold"> {sufixo}</span>}
+      </span>
     </div>
   );
   return (
     <div className="grid grid-cols-3 gap-2">
-      <Card rotulo="Produtos" valor={String(produtos)} sub="cadastrados" />
-      <Card rotulo="Em estoque" valor={unidades.toLocaleString("pt-BR")} sub="unidades prontas" />
-      <Card rotulo="Pode produzir" valor={calculando ? "…" : String(podeProduzir)} sub={podeProduzir === 1 ? "produto hoje" : "produtos hoje"} />
+      <Card Icone={Box} rotulo="Produtos cadastrados" valor={String(produtos)} />
+      <Card Icone={Layers} rotulo="Unidades em estoque" valor={unidades.toLocaleString("pt-BR")} />
+      {/* products whose ingredients cover at least one batch (never a sum of flavours sharing stock) */}
+      <Card Icone={Factory} rotulo="Pode produzir hoje" valor={calculando ? "…" : String(podeProduzir)} sufixo={podeProduzir === 1 ? "produto" : "produtos"} cor="#3DD68C" />
     </div>
   );
 }

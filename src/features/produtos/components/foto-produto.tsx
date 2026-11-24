@@ -1,7 +1,7 @@
 /* Product and flavour photos (24/11/2026). One picker for the registration, the product sheet and the
    flavours: take a photo (when the phone allows) or pick from the gallery, see it framed as it will
    appear (square, centred) before using it, change or remove it later. The photo is optional. */
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Camera, ImageIcon, Loader2, Trash2, X } from "lucide-react";
 
 const FUNDOS = ["#3a2a0a,#161005", "#3a1420,#170a0e", "#2a0a3a,#100516", "#2a1a0e,#120b06", "#0a2a3a,#05101a"];
@@ -22,9 +22,11 @@ export function problemaDoArquivo(f: File): string | null {
   return null;
 }
 
-export function FotoPicker({ foto, emoji, enviando, tamanho = 74, rotulo = "Adicionar foto", onEscolher, onRemover }: {
+export function FotoPicker({ foto, emoji, enviando, tamanho = 74, rotulo = "Adicionar foto", onEscolher, onRemover, gatilho }: {
   foto: string | null | undefined; emoji?: string | null; enviando?: boolean; tamanho?: number; rotulo?: string;
   onEscolher: (f: File) => void; onRemover?: () => void;
+  /** a custom trigger (e.g. the photo column of a product card) instead of the square tile */
+  gatilho?: (abrir: () => void) => ReactNode;
 }) {
   const [aberto, setAberto] = useState(false);
   const [previa, setPrevia] = useState<{ arquivo: File; url: string } | null>(null);
@@ -45,13 +47,13 @@ export function FotoPicker({ foto, emoji, enviando, tamanho = 74, rotulo = "Adic
   const opcao = "h-12 rounded-2xl px-4 flex items-center gap-3 text-[15px] font-extrabold text-left";
   return (
     <>
-      <button type="button" onClick={() => setAberto(true)} aria-label={foto ? "Trocar foto" : rotulo}
+      {gatilho ? gatilho(() => setAberto(true)) : <button type="button" onClick={() => setAberto(true)} aria-label={foto ? "Trocar foto" : rotulo}
         className="shrink-0 flex flex-col items-center justify-center gap-0.5 overflow-hidden"
         style={{ width: tamanho, height: tamanho, borderRadius: Math.round(tamanho * 0.25), border: foto ? "1px solid #2a2722" : "1.5px dashed #3a3833", color: "#7b766e", background: "#0f0f10" }}>
         {enviando ? <Loader2 className="w-5 h-5 animate-spin" />
           : foto ? <img src={foto} alt="" className="w-full h-full object-cover" />
           : <><Camera className="w-5 h-5" /><span className="text-[9.5px] font-extrabold leading-tight text-center px-1">{emoji ? `${emoji} foto` : "foto"}</span></>}
-      </button>
+      </button>}
       {entrada(camera, true)}{entrada(galeria, false)}
       {aberto && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70" onClick={fechar}>
