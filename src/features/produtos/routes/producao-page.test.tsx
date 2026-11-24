@@ -50,7 +50,7 @@ describe("Produzir — vários produtos e sabores", () => {
     abrir();
     expect(screen.getByText("🍓 Morango")).toBeInTheDocument();
     expect(screen.getByText(/rende 6 por leva/)).toBeInTheDocument();
-    expect(screen.getByText(/Receita incompleta/)).toBeInTheDocument();
+    expect(screen.getByText(/Falta saber quanto usa/)).toBeInTheDocument();
     expect(screen.getByText("Completar receita ›")).toBeInTheDocument();
     expect(campos()).toHaveLength(2);   // Trufa has no counter
   });

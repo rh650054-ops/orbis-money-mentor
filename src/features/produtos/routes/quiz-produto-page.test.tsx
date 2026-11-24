@@ -31,7 +31,7 @@ describe("cadastro inteligente (Etapa 2)", () => {
     abrir();
     nome("Batida");
     clicar("Eu mesmo produzo");
-    clicar("Montar minha receita");
+    clicar("Montar minha receita ›");
     digitar("Quanto a receita rende", "20");
     // the suggested names come without quantity: fill the first, leave the others as draft
     digitar("Quanto usa na leva", "1");
@@ -60,7 +60,7 @@ describe("cadastro inteligente (Etapa 2)", () => {
     abrir();
     nome("Água");
     clicar("Compro pronto para revender");
-    expect(screen.queryByText("Montar minha receita")).toBeNull();
+    expect(screen.queryByText("Montar minha receita ›")).toBeNull();
     clicar("Sei o preço de 1");
     digitar("Quanto pagou em 1", "1,20");
     clicar("CONTINUAR");
@@ -91,7 +91,7 @@ describe("cadastro inteligente (Etapa 2)", () => {
     const tela = abrir();
     nome("Brigadeiro");
     clicar("Eu mesmo produzo");
-    clicar("Montar minha receita");
+    clicar("Montar minha receita ›");
     digitar("Quanto a receita rende", "30");
     clicar("CONTINUAR");
     fireEvent.click(screen.getByLabelText("Voltar")); // back to the recipe: what he typed is there
@@ -110,7 +110,7 @@ describe("cadastro inteligente (Etapa 2)", () => {
     const tela = abrir();
     nome("Geladinho");
     clicar("Eu mesmo produzo");
-    clicar("Montar minha receita");
+    clicar("Montar minha receita ›");
     digitar("Quanto a receita rende", "40");
     digitar("Quanto usa na leva", "2");
     digitar("Quanto paga nessa compra", "6,50");
@@ -159,7 +159,7 @@ describe("cadastro inteligente (Etapa 2)", () => {
     abrir();
     nome("Batida");
     clicar("Eu mesmo produzo");
-    clicar("Montar minha receita");
+    clicar("Montar minha receita ›");
     digitar("Quanto a receita rende", "20");
     digitar("Quanto usa na leva", "1");
     clicar("CONTINUAR");
@@ -177,7 +177,7 @@ describe("cadastro inteligente (Etapa 2)", () => {
     abrir();
     nome("Brigadeiro");
     clicar("Eu mesmo produzo");
-    clicar("Montar minha receita");
+    clicar("Montar minha receita ›");
     digitar("Quanto a receita rende", "20");
     screen.getAllByLabelText("Quanto usa na leva").forEach((c, i) => fireEvent.change(c, { target: { value: String(i + 1) } }));
     clicar("CONTINUAR");

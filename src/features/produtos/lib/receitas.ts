@@ -179,3 +179,37 @@ export function linhasRepetidas(itens: IngredienteRascunho[]): Set<number> {
   });
   return rep;
 }
+
+/* 24/11 — VANT Receita Inteligente. */
+
+/** How a line says what it uses: the whole package, half of it, a typed amount, or "ainda não sei". */
+export type AtalhoUso = "inteira" | "metade" | "informar" | "naosei";
+const quase = (a: number, b: number) => Math.abs(a - b) < 1e-9;
+export function atalhoDoUso(i: Pick<IngredienteRascunho, "qtd" | "pacote" | "aprender">): AtalhoUso {
+  if (i.aprender) return "naosei";
+  const pac = i.pacote > 0 ? i.pacote : 1;
+  if (i.qtd > 0 && quase(i.qtd, pac)) return "inteira";
+  if (i.qtd > 0 && quase(i.qtd, pac / 2)) return "metade";
+  return "informar";
+}
+/** What each shortcut writes. Always in the purchase's own unit: a whole 395 g box uses 395 g, a whole
+ *  "1 un" uses 1 un. Nothing is converted or invented. */
+export function usoDoAtalho(a: AtalhoUso, i: Pick<IngredienteRascunho, "pacote">): Partial<IngredienteRascunho> {
+  const pac = i.pacote > 0 ? i.pacote : 1;
+  if (a === "inteira") return { qtd: pac, aprender: false };
+  if (a === "metade") return { qtd: Math.round((pac / 2) * 1000) / 1000, aprender: false };
+  if (a === "naosei") return { qtd: 0, aprender: true };
+  return { aprender: false };
+}
+
+/** The live cost of a recipe. It is PARTIAL while a used line has no quantity ("ainda não sei") or no
+ *  price: then the per-unit value is shown as partial, never as the final cost. */
+export interface ResumoCusto { total: number; porUnidade: number; faltaQtd: string[]; faltaPreco: string[]; completo: boolean }
+export function resumoDoCusto(itens: IngredienteRascunho[], rende: number): ResumoCusto {
+  const ativos = itens.filter((i) => i.usa && i.nome.trim() !== "");
+  const faltaQtd = ativos.filter((i) => i.aprender || !(i.qtd > 0)).map((i) => i.nome.trim());
+  const faltaPreco = ativos.filter((i) => !i.aprender && i.qtd > 0 && !(precoDe1(i) > 0)).map((i) => i.nome.trim());
+  const total = totalDaReceita(ativos);
+  const porUnidade = rende >= 1 ? total / rende : 0;
+  return { total, porUnidade, faltaQtd, faltaPreco, completo: rende >= 1 && ativos.length > 0 && faltaQtd.length === 0 && faltaPreco.length === 0 };
+}

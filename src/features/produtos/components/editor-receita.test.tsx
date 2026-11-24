@@ -21,7 +21,7 @@ const ing = (m: Partial<IngredienteRascunho>): IngredienteRascunho => ({ nome: "
 describe("EditorReceita — rendimento é do vendedor (Etapa 2, 22/11)", () => {
   it("rendimento válido: ele digita quanto rende; o custo é a leva ÷ esse número", () => {
     render(<Harness rende={0} inicial={[ing({ nome: "Leite em pó", unidade: "g", pacote: 1000, precoPacote: 35.99, qtd: 200 })]} />);
-    expect(screen.getByText(/Diga quantas saem de uma leva/)).toBeInTheDocument();
+    expect(screen.getByText(/Só você sabe esse número/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Quanto a receita rende"), { target: { value: "20" } });
     // 200 g of a 1 kg pack at R$ 35,99 = R$ 7,20 per batch ÷ 20 = R$ 0,36
     expect(screen.getByText("R$ 0,36")).toBeInTheDocument();
@@ -56,12 +56,12 @@ describe("EditorReceita — rendimento é do vendedor (Etapa 2, 22/11)", () => {
 
   it("preço é opcional: sem preço a receita continua e o custo vem do mercado depois", () => {
     render(<Harness rende={20} inicial={[ing({ nome: "Maracujá", qtd: 500, unidade: "g", pacote: 1000 })]} />);
-    expect(screen.getByText(/o custo aparece quando você anotar a compra/)).toBeInTheDocument();
+    expect(screen.getByText(/Falta o preço de/)).toBeInTheDocument();
   });
 
   it("ingrediente sem quantidade aparece como rascunho e é salvo como rascunho, sem consumo", () => {
     render(<Harness rende={20} inicial={[ing({ nome: "Fruta / polpa" })]} />);
-    expect(screen.getByText(/rascunho: falta quanto usa/)).toBeInTheDocument();
+    expect(screen.getByText(/pendente: falta quanto usa/)).toBeInTheDocument();
     expect(receitaDoRascunho(ultimo.itens)).toEqual([expect.objectContaining({ nome: "Fruta / polpa", qtd: 0, aprender: true })]);
   });
 });

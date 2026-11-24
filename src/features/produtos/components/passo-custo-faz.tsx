@@ -30,9 +30,12 @@ export function PassoCustoFaz({ nome, custo, total, receitaInicial, rendeInicial
       <QuizCasca passo={3} total={total} onVoltar={onVoltar} titulo={`Como você faz ${nome}?`}
         sub="Com a sua receita, a VANT calcula o custo e sabe quantas saem de cada compra do mercado." rodape={null}>
         <div className="flex flex-col gap-3 mt-3">
-          <button type="button" onClick={() => setCaminho("receita")} className="rounded-[20px] px-4 py-[18px] text-left flex flex-col gap-1" style={OURO_BORDA}>
-            <span className="text-[17px] font-black">Montar minha receita</span>
-            <span className="text-[12.5px]" style={{ color: "#b9b3a6" }}>"1 leite condensado + 1 creme de leite rende 20." Preço é opcional.</span>
+          {/* 24/11: the recipe path, highlighted as VANT Receita Inteligente (same editor behind it) */}
+          <button type="button" onClick={() => setCaminho("receita")} className="rounded-[20px] px-4 py-5 text-left flex flex-col gap-1.5" style={OURO_BORDA}>
+            <span className="text-[10.5px] font-black tracking-[.16em]" style={{ color: "#F5B800" }}>VANT RECEITA INTELIGENTE</span>
+            <span className="text-[18px] font-black leading-tight">Vamos descobrir quanto custa produzir seu produto.</span>
+            <span className="text-[12.5px]" style={{ color: "#b9b3a6" }}>Adicione os ingredientes que você utiliza. A VANT calcula os custos para você.</span>
+            <span className="text-[13px] font-black mt-1" style={{ color: "#F5B800" }}>Montar minha receita ›</span>
           </button>
           {custo > 0 && (
             <button type="button" onClick={() => { onReceita(null, 0); onContinuar(); }} className="rounded-[20px] px-4 py-[18px] text-left flex flex-col gap-1" style={CARD}>
@@ -75,10 +78,10 @@ export function PassoCustoFaz({ nome, custo, total, receitaInicial, rendeInicial
   // an incomplete recipe may go on as a draft; the yield is what makes it a recipe
   const valida = receitaDoRascunho(itens).length > 0 && rende >= 1;
   return (
-    <QuizCasca passo={3} total={total} onVoltar={voltar} titulo={`O que vai em ${nome}?`}
-      sub="Diga quanto rende e quanto usa de cada coisa. Preço é opcional: pode vir depois, do mercado."
+    <QuizCasca passo={3} total={total} onVoltar={voltar} titulo={`Receita de ${nome}`}
+      sub={"Primeiro quanto rende, depois cada ingrediente. Não sabe uma quantidade? Marque \"Ainda não sei\" e complete depois."}
       rodape={<BotaoOuro onClick={() => { aplicar(itens, rende); onContinuar(); }} disabled={!valida}>CONTINUAR</BotaoOuro>}>
-      <EditorReceita itens={itens} rende={rende} nomeProduto={plural(nome)} onItens={(n) => aplicar(n, rende)} onRende={(r) => aplicar(itens, r)} />
+      <EditorReceita resumoFixo itens={itens} rende={rende} nomeProduto={plural(nome)} onItens={(n) => aplicar(n, rende)} onRende={(r) => aplicar(itens, r)} />
     </QuizCasca>
   );
 }

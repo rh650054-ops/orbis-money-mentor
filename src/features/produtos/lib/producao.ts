@@ -25,6 +25,8 @@ export interface ItemProducao {
   produto: ProdutoProducao; sabor: SaborProducao | null; situacao: SituacaoItem;
   /** units per batch used for this item */
   rende: number;
+  /** 24/11: ingredients of this item still without a quantity ("ainda não sei"), by name */
+  pendentes: string[];
 }
 
 const porUnidade = (p: ProdutoProducao) => p.recipe_mode === "per_unit";
@@ -45,6 +47,12 @@ export function situacaoDoItem(c: CatalogoProducao, p: ProdutoProducao, s: Sabor
   return "pronta";
 }
 
+/** Names of the ingredients an item still lacks a quantity for (the reason a recipe is incomplete). */
+export function pendentesDoItem(c: CatalogoProducao, p: ProdutoProducao, s: SaborProducao | null): string[] {
+  const nomes = new Map(c.ingredientes.map((i) => [i.id, i.name]));
+  return [...new Set(linhasDoItem(c, p, s).filter((r) => r.quantity <= 0 || r.aprender).map((r) => nomes.get(r.ingredient_id) ?? "ingrediente"))];
+}
+
 /** Products the seller makes, each with one line per flavour (or one line when it has none). */
 export function itensDeProducao(c: CatalogoProducao): { produto: ProdutoProducao; itens: ItemProducao[] }[] {
   return c.produtos
@@ -55,7 +63,7 @@ export function itensDeProducao(c: CatalogoProducao): { produto: ProdutoProducao
       const lista = sabores.length > 0 ? sabores : [null];
       return {
         produto: p,
-        itens: lista.map((s) => ({ produto: p, sabor: s, situacao: situacaoDoItem(c, p, s), rende: s?.batch_yield ?? p.batch_yield })),
+        itens: lista.map((s) => ({ produto: p, sabor: s, situacao: situacaoDoItem(c, p, s), rende: s?.batch_yield ?? p.batch_yield, pendentes: pendentesDoItem(c, p, s) })),
       };
     });
 }
