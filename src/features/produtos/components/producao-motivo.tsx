@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { BotaoOuro } from "./quiz-casca";
+import { ACIMA_DA_CASCA } from "./mercado-casca";
 
 export function ProducaoMotivo({ aberto, titulo, explicacao, botao, minimo = 5, enviando, onEnviar, onFechar }: {
   aberto: boolean; titulo: string; explicacao: string; botao: string; minimo?: number; enviando?: boolean;
@@ -11,7 +12,7 @@ export function ProducaoMotivo({ aberto, titulo, explicacao, botao, minimo = 5, 
   const ok = texto.trim().length >= minimo && texto.length <= 300;
   return (
     <Dialog open={aberto} onOpenChange={(v) => { if (!v) onFechar(); }}>
-      <DialogContent className="bg-[#0b0b0c] text-[#F4F1EA] border-[#26241f] max-w-sm">
+      <DialogContent overlayClassName={ACIMA_DA_CASCA} className={`bg-[#0b0b0c] text-[#F4F1EA] border-[#26241f] max-w-sm ${ACIMA_DA_CASCA}`}>
         <DialogHeader><DialogTitle className="text-[19px] font-black">{titulo}</DialogTitle></DialogHeader>
         <p className="text-[13px] font-bold" style={{ color: "#b9b3a6" }}>{explicacao}</p>
         <textarea value={texto} onChange={(e) => setTexto(e.target.value.slice(0, 300))} rows={3} aria-label="Motivo"

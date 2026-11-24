@@ -29,8 +29,8 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, style, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { overlayClassName?: string }
+>(({ className, overlayClassName, children, style, ...props }, ref) => {
   // Mantém o popup visível e bem posicionado no mobile: sobe quando o teclado abre
   // e nunca estoura a tela (corrige o bug de "abrir fora de posição / sumir atrás
   // do teclado"). Usa a Visual Viewport API. Vale pra TODOS os dialogs do app.
@@ -52,7 +52,7 @@ const DialogContent = React.forwardRef<
   }, []);
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         ref={ref}
         style={{ ...style, marginTop: kbShift ? -kbShift : undefined }}

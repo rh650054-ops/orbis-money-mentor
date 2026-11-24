@@ -123,6 +123,17 @@ describe("conversão de unidades na linha do ingrediente (kg/g e L/ml)", () => {
     expect(receitaDoRascunho(ultimo.itens)[0]).toMatchObject({ unidade: "g", pacote: 1000, qtd: 200, preco: 0.03599, precoEditado: true });
   });
 
+  it("apagar a quantidade comprada não troca a unidade: 1 kg, apaga, digita 2 = 2 kg", () => {
+    render(<Harness rende={20} inicial={[ing({ nome: "Morango" })]} />);
+    fireEvent.change(screen.getByLabelText("Unidade da compra"), { target: { value: "kg" } });
+    fireEvent.change(screen.getByLabelText("Quanto compra"), { target: { value: "" } });
+    expect(ultimo.itens[0]).toMatchObject({ unidade: "g", pacote: 1000 });
+    expect(screen.getByLabelText("Unidade da compra")).toHaveValue("kg");
+    fireEvent.change(screen.getByLabelText("Quanto compra"), { target: { value: "2" } });
+    expect(ultimo.itens[0]).toMatchObject({ unidade: "g", pacote: 2000 });
+    expect(screen.getByLabelText("Unidade da compra")).toHaveValue("kg");
+  });
+
   it("compra em litro: 1,5 l vira 1500 ml; uso 300 ml de R$ 9 = R$ 1,80", () => {
     render(<Harness rende={20} inicial={[ing({ nome: "Leite" })]} />);
     fireEvent.change(screen.getByLabelText("Unidade da compra"), { target: { value: "l" } });

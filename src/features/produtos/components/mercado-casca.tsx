@@ -5,6 +5,10 @@ const DIGITA = (el: EventTarget | null): el is HTMLElement =>
   el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
 import { ChevronLeft } from "lucide-react";
 
+/** The shell covers the app at z-60; a dialog opened from inside it must sit above (the shared
+ *  dialog layer is z-50, so it would open hidden behind the screen, with the focus trapped in it). */
+export const ACIMA_DA_CASCA = "z-[70]";
+
 export function MercadoCasca({ titulo, sub, onVoltar, children, rodape }: {
   titulo: ReactNode; sub?: ReactNode; onVoltar: () => void; children: ReactNode; rodape?: ReactNode;
 }) {

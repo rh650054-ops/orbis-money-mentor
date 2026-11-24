@@ -23,9 +23,23 @@ const batida: BaseMercado = {
 };
 
 describe("calcularMercado", () => {
+  it("23/11: a flavour's own rows do not limit the purchase, and per-flavour products are flagged", () => {
+    const base: BaseMercado = {
+      ingredientes: [ing("LC"), ing("Morango")],
+      receitas: [
+        { product_id: "Batida", ingredient_id: "LC", quantity: 1, variant_id: null },
+        { product_id: "Batida", ingredient_id: "Morango", quantity: 300, variant_id: "mor" },
+      ],
+      produtos: [lote("Batida", 10)],
+      porSabor: ["Batida"],
+    };
+    const r = calcularMercado([linha("LC", 5, { para: ["Batida"] }), linha("Morango", 300, { para: ["Batida"] })], base);
+    expect(r.produtos[0]).toMatchObject({ receitas: 5, porSabor: true });
+  });
+
   it("57 LC + 57 CL -> 57 receitas, 1.140 batidas", () => {
     const r = calcularMercado([linha("Leite condensado", 57), linha("Creme de leite", 57)], batida);
-    expect(r.produtos).toEqual([{ id: "Batida", nome: "Batida", receitas: 57, unidades: 1140, faltam: [] }]);
+    expect(r.produtos).toEqual([{ id: "Batida", nome: "Batida", receitas: 57, unidades: 1140, faltam: [], porSabor: false }]);
     expect(r.pendentes).toEqual([]);
   });
 
@@ -62,7 +76,7 @@ describe("calcularMercado", () => {
 
   it("missing ingredient -> 0 receitas with a hint", () => {
     const r = calcularMercado([linha("Leite condensado", 10)], batida);
-    expect(r.produtos[0]).toMatchObject({ receitas: 0, unidades: 0, faltam: ["Creme de leite"] });
+    expect(r.produtos[0]).toMatchObject({ receitas: 0, unidades: 0, faltam: ["Creme de leite"], porSabor: false });
   });
 
   it("bought-ready products just add units", () => {
