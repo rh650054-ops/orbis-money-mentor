@@ -26,7 +26,7 @@ export function FotoDoCard({ produtoId, foto, emoji, nome, i, onAbrir }: {
     <FotoPicker foto={foto} rotulo={`Foto de ${nome}`} onEscolher={escolher}
       onRemover={() => gravar.mutate({ produtoId, foto: null, anterior: foto }, { onError: falhou })}
       gatilho={(abrir) => (
-        <div className="relative w-[29%] max-w-[140px] min-h-[140px] shrink-0 overflow-hidden" style={{ background: `linear-gradient(160deg,${FUNDOS[i % FUNDOS.length]})` }}>
+        <div className="relative w-[28%] min-w-[88px] max-w-[120px] min-h-[156px] shrink-0 overflow-hidden" style={{ background: `linear-gradient(160deg,${FUNDOS[i % FUNDOS.length]})` }}>
           {foto ? (
             <>
               <button type="button" onClick={onAbrir} aria-label={`Abrir ${nome}`} className="absolute inset-0">
@@ -40,8 +40,8 @@ export function FotoDoCard({ produtoId, foto, emoji, nome, i, onAbrir }: {
           ) : (
             <button type="button" onClick={abrir} className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-2 text-center">
               {enviando ? <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#F5B800" }} /> : <span className="text-[30px] leading-none">{emoji ?? "📦"}</span>}
-              <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10.5px] font-black whitespace-nowrap" style={{ background: "rgba(0,0,0,.5)", color: "#F5B800" }}>
-                <Camera className="w-3 h-3" /> Adicionar foto
+              <span className="flex flex-col items-center gap-0.5 rounded-[10px] px-2 py-1.5 text-[11px] font-black leading-tight" style={{ background: "rgba(0,0,0,.55)", color: "#F5B800" }}>
+                <Camera className="w-4 h-4" /> Adicionar foto
               </span>
             </button>
           )}
