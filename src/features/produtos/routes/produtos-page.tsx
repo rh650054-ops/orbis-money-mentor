@@ -47,14 +47,14 @@ export default function ProdutosPage() {
   const resumo = resumoDoPainel(lista, [...painel.values()]);
 
   return (
-    <div className="text-[#F4F1EA] max-w-md md:max-w-2xl mx-auto flex flex-col gap-4 pt-2 pb-36">
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-start gap-2">
-          <button type="button" onClick={() => navigate(-1)} aria-label="Voltar" className="-ml-1 p-1 mt-0.5" style={{ color: "#7b766e" }}><ChevronLeft className="w-6 h-6" /></button>
-          <h1 className="flex-1 min-w-0 text-[24px] font-black leading-[1.15] tracking-tight">Produtos e Estoque</h1>
-          <button type="button" onClick={() => navigate("/products/novo")} className="shrink-0 rounded-full px-3.5 h-10 text-[13.5px] font-black whitespace-nowrap" style={{ background: OURO, color: "#1A1200" }}>+ Novo produto</button>
+    <div className="text-[#F4F1EA] max-w-md md:max-w-2xl mx-auto flex flex-col gap-3 pt-2 pb-36">
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-1.5">
+          <button type="button" onClick={() => navigate(-1)} aria-label="Voltar" className="-ml-1.5 p-0.5" style={{ color: "#7b766e" }}><ChevronLeft className="w-5 h-5" /></button>
+          <h1 className="flex-1 min-w-0 text-[21px] min-[380px]:text-[22px] font-extrabold leading-tight tracking-tight">Produtos e Estoque</h1>
+          <button type="button" onClick={() => navigate("/products/novo")} className="shrink-0 rounded-full px-3 h-[34px] text-[12.5px] font-extrabold whitespace-nowrap" style={{ background: OURO, color: "#1A1200" }}>+ Novo<span className="max-[379px]:hidden"> produto</span></button>
         </div>
-        <p className="text-[13px] font-bold leading-snug pl-8" style={{ color: "#9a958b" }}>Cadastre, acompanhe e produza com controle.</p>
+        <p className="text-[12px] font-medium leading-snug pl-[22px]" style={{ color: "#a19b90" }}>Controle sua operação em um só lugar.</p>
       </div>
 
       <ResumoPainel produtos={resumo.produtos} unidades={resumo.unidades} podeProduzir={resumo.podeProduzir} calculando={catalogo.isLoading} />
@@ -63,21 +63,21 @@ export default function ProdutosPage() {
       {aba === "produtos" ? (
         <>
           {melhor && (
-            <div className="rounded-[18px] px-4 py-3.5 flex items-center gap-3" style={{ background: "linear-gradient(110deg, rgba(61,214,140,.13), #121211 65%)", border: "1px solid rgba(61,214,140,.3)" }}>
+            <div className="rounded-[14px] px-3 py-2.5 flex items-center gap-3" style={{ background: "linear-gradient(110deg, rgba(61,214,140,.13), #121211 65%)", border: "1px solid rgba(61,214,140,.3)" }}>
               <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                <span className="text-[11px] font-black tracking-[.12em]" style={{ color: "#3DD68C" }}>SEU PRODUTO QUE MAIS DÁ LUCRO</span>
-                <span className="text-[17px] font-black truncate">{melhor.name}</span>
-                <span className="text-[12.5px] font-bold" style={{ color: "#9a958b" }}><span className="whitespace-nowrap">{reais(melhor.sale_price)} de venda</span> · <span className="whitespace-nowrap">{reais(melhor.cost)} de custo</span></span>
-                {pior && <span className="text-[12px] font-bold" style={{ color: "#8a857b" }}>{pior.name} é o que menos dá lucro: <span className="whitespace-nowrap">{reais(lucroDe(pior.sale_price, pior.cost).sobra)}.</span></span>}
+                <span className="text-[10px] font-extrabold tracking-[.1em]" style={{ color: "#3DD68C" }}>SEU PRODUTO QUE MAIS DÁ LUCRO</span>
+                <span className="text-[15px] font-extrabold leading-tight truncate">{melhor.name}</span>
+                <span className="text-[11px] font-semibold" style={{ color: "#9a958b" }}><span className="whitespace-nowrap">{reais(melhor.sale_price)} de venda</span> · <span className="whitespace-nowrap">{reais(melhor.cost)} de custo</span></span>
+                {pior && <span className="text-[11px] font-semibold" style={{ color: "#8a857b" }}>{pior.name} é o que menos dá lucro: <span className="whitespace-nowrap">{reais(lucroDe(pior.sale_price, pior.cost).sobra)}.</span></span>}
               </div>
               <div className="flex flex-col items-end shrink-0">
-                <span className="text-[22px] font-black tabular-nums whitespace-nowrap" style={{ color: "#3DD68C" }}>+{reais(lucroDe(melhor.sale_price, melhor.cost).sobra)}</span>
-                <span className="text-[11.5px] font-extrabold whitespace-nowrap" style={{ color: "#9a958b" }}>sobra por unidade</span>
+                <span className="text-[18px] font-extrabold tabular-nums whitespace-nowrap" style={{ color: "#3DD68C" }}>+{reais(lucroDe(melhor.sale_price, melhor.cost).sobra)}</span>
+                <span className="text-[10.5px] font-semibold whitespace-nowrap" style={{ color: "#9a958b" }}>sobra por unidade</span>
               </div>
             </div>
           )}
-          <h2 className="text-[20px] font-black mt-1 -mb-1">Seus produtos</h2>
-          <div className="grid gap-3 md:grid-cols-2">
+          <h2 className="text-[18px] font-extrabold mt-1 -mb-0.5">Seus produtos</h2>
+          <div className="grid gap-2.5 md:grid-cols-2">
             {lista.map((p, i) => <ProdutoCard key={p.id} p={p} i={i} painel={painel.get(p.id)} onClick={() => navigate(`/products/${p.id}`)} />)}
           </div>
         </>

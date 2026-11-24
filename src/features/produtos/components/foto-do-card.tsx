@@ -26,22 +26,22 @@ export function FotoDoCard({ produtoId, foto, emoji, nome, i, onAbrir }: {
     <FotoPicker foto={foto} rotulo={`Foto de ${nome}`} onEscolher={escolher}
       onRemover={() => gravar.mutate({ produtoId, foto: null, anterior: foto }, { onError: falhou })}
       gatilho={(abrir) => (
-        <div className="relative w-[28%] min-w-[88px] max-w-[120px] min-h-[156px] shrink-0 overflow-hidden" style={{ background: `linear-gradient(160deg,${FUNDOS[i % FUNDOS.length]})` }}>
+        <div className="relative w-[84px] min-h-[104px] shrink-0 overflow-hidden" style={{ background: `linear-gradient(160deg,${FUNDOS[i % FUNDOS.length]})` }}>
           {foto ? (
             <>
               <button type="button" onClick={onAbrir} aria-label={`Abrir ${nome}`} className="absolute inset-0">
                 <img src={foto} alt="" loading="lazy" className="w-full h-full object-cover" />
               </button>
-              <button type="button" onClick={abrir} aria-label="Trocar foto" className="absolute left-2 bottom-2 w-8 h-8 rounded-full flex items-center justify-center"
+              <button type="button" onClick={abrir} aria-label="Trocar foto" className="absolute left-1.5 bottom-1.5 w-7 h-7 rounded-full flex items-center justify-center"
                 style={{ background: "rgba(0,0,0,.6)", border: "1px solid rgba(255,255,255,.18)" }}>
-                {enviando ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Camera className="w-4 h-4 text-white" />}
+                {enviando ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Camera className="w-3.5 h-3.5 text-white" />}
               </button>
             </>
           ) : (
-            <button type="button" onClick={abrir} className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-2 text-center">
-              {enviando ? <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#F5B800" }} /> : <span className="text-[30px] leading-none">{emoji ?? "📦"}</span>}
-              <span className="flex flex-col items-center gap-0.5 rounded-[10px] px-2 py-1.5 text-[11px] font-black leading-tight" style={{ background: "rgba(0,0,0,.55)", color: "#F5B800" }}>
-                <Camera className="w-4 h-4" /> Adicionar foto
+            <button type="button" onClick={abrir} className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-1.5 text-center">
+              {enviando ? <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#F5B800" }} /> : <span className="text-[24px] leading-none">{emoji ?? "📦"}</span>}
+              <span className="flex flex-col items-center gap-0.5 rounded-[8px] px-1.5 py-1 text-[10px] font-extrabold leading-tight" style={{ background: "rgba(0,0,0,.55)", color: "#F5B800" }}>
+                <Camera className="w-3.5 h-3.5" /> Adicionar foto
               </span>
             </button>
           )}
