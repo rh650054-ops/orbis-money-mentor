@@ -17,11 +17,12 @@
 #   Secrets:   ASC_KEY_ID, ASC_ISSUER_ID,
 #              ASC_KEY_P8_BASE64   (the .p8 App Store Connect API key, base64; role Admin,
 #                                   so Xcode can create the signing certificate itself)
-#   Optional:  VITE_COBRANCA_LOJA_IOS = link   (Néctar model: "Assinar" opens the site).
-#              Unset = "fora": the iPhone app shows no price, no link, no checkout.
-#              This is iOS-only on purpose: the shared VITE_COBRANCA_LOJA variable (Android)
-#              is NOT read here, and cobranca-loja.ts falls back to "link" when the value is
-#              empty, so the safe default has to be forced in this file.
+#   Billing:   "link" by default since 24/11/2026 (Rick's decision, all store versions):
+#              no access -> yellow "VER PLANOS E ASSINAR" / "RENOVAR ASSINATURA" opening the
+#              site / Hotmart checkout. Known risk: in Brazil Apple allows link-outs only with
+#              the StoreKit External Purchase entitlement and IAP shown alongside (guideline
+#              3.1.1) -> rejection risk on the next submission.
+#              Kill switch without code: variable VITE_COBRANCA_LOJA_IOS = fora, then rebuild.
 name: iOS build
 
 on:
@@ -66,7 +67,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_COBRANCA_LOJA: ${{ vars.VITE_COBRANCA_LOJA_IOS || 'fora' }}
+          VITE_COBRANCA_LOJA: ${{ vars.VITE_COBRANCA_LOJA_IOS || 'link' }}
         run: |
           test -n "$VITE_SUPABASE_URL" || { echo "Missing repo variable VITE_SUPABASE_URL"; exit 1; }
           case "$VITE_COBRANCA_LOJA" in fora|link) ;; *) echo "VITE_COBRANCA_LOJA_IOS must be fora or link"; exit 1;; esac

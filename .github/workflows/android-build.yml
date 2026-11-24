@@ -12,12 +12,11 @@
 # Without the keystore secrets the run still builds, but the .aab is unsigned
 # (useful to check the build; Play only accepts signed bundles).
 #
-# Billing (23/11/2026): optional variable VITE_COBRANCA_LOJA_ANDROID = link turns on the
-# "Assinar" button that opens the site. Unset = "fora": no price, no link, no checkout —
-# Google Play's payments policy forbids linking out to buy a digital subscription unless the
-# app is enrolled in an external-offers program for the country. cobranca-loja.ts falls back
-# to "link" when the value is empty, so the safe default has to be forced here. The shared
-# VITE_COBRANCA_LOJA variable is no longer read.
+# Billing: "link" by default since 24/11/2026 (Rick's decision): no access → yellow
+# "VER PLANOS E ASSINAR" / "RENOVAR ASSINATURA" opening the site / Hotmart checkout.
+# Known risk: Google Play's payments policy forbids linking out to buy a digital subscription
+# unless the app is enrolled in an alternative-billing / external-offers program for Brazil.
+# Kill switch without code: set the variable VITE_COBRANCA_LOJA_ANDROID = fora and rebuild.
 name: Android build
 
 on:
@@ -59,7 +58,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_COBRANCA_LOJA: ${{ vars.VITE_COBRANCA_LOJA_ANDROID || 'fora' }}
+          VITE_COBRANCA_LOJA: ${{ vars.VITE_COBRANCA_LOJA_ANDROID || 'link' }}
         run: |
           test -n "$VITE_SUPABASE_URL" || { echo "Missing repo variable VITE_SUPABASE_URL"; exit 1; }
           case "$VITE_COBRANCA_LOJA" in fora|link) ;; *) echo "VITE_COBRANCA_LOJA_ANDROID must be fora or link"; exit 1;; esac

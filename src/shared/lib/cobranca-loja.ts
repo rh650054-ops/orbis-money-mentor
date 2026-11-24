@@ -12,8 +12,11 @@ import { plataforma } from "./platform";
 export type ModoCobranca = "web" | "fora" | "link";
 export const EVENTO_ASSINATURA_LOJA = "vant:assinatura-loja";
 
-/** Onde o app da loja manda assinar: a página de planos do site (abre no navegador). */
-export const LINK_ASSINAR_SITE = "https://beta.vantapp.com.br/#planos";
+/** Fallback when the token cannot be created: /assinar without a token (3 plans, straight to
+ *  Hotmart). Not the landing (beta.vantapp.com.br/#planos): its buttons are "Começar 3 dias
+ *  grátis", which starts a NEW account instead of paying for the one the vendor already has
+ *  (24/11/2026). */
+export const LINK_ASSINAR_SITE = "https://app.vantapp.com.br/assinar";
 
 export function modoCobranca(env: string | undefined = import.meta.env.VITE_COBRANCA_LOJA): ModoCobranca {
   if (plataforma() === "web") return "web";
