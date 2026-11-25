@@ -103,6 +103,7 @@ describe("Aba Estoque — atenção e ingredientes (25/11)", () => {
     expect(qtdNaTela(1000, "g", 1000)).toEqual({ principal: "1 kg", sub: "1 embalagem de 1 kg" });
     expect(qtdNaTela(1500, "ml")).toEqual({ principal: "1,5 L" });
     expect(qtdNaTela(100, "un", 100)).toEqual({ principal: "100 un", sub: "1 pacote de 100 un" });
+    expect(qtdNaTela(350, "g", 650)).toEqual({ principal: "350 g" });   // no "0,54 embalagens"
     expect(qtdNaTela(18, "un")).toEqual({ principal: "18 un" });
     expect(pareceCusto("Produção")).toBe(true);
     expect(pareceCusto("Mão de obra")).toBe(true);
