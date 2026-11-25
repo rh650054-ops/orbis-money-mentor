@@ -43,10 +43,15 @@ export default function AceiteTermosModal({ userId }: { userId: string }) {
       .select("termos_aceitos_versao")
       .eq("user_id", userId)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (!vivo) return;
-        const versao = (data as { termos_aceitos_versao?: string | null } | null)?.termos_aceitos_versao;
-        setAberto(versao !== TERMOS_VERSAO);
+        // 25/11 (Rick: "toda hora aparece o pop-up Seus dados com transparência"): a failed read
+        // (expired token, no signal — 401s seen in the logs) came back as "no data" and the screen
+        // reopened for someone who had already accepted. Unknown = do not ask now. And a NEWER
+        // acceptance than this app's version also counts (an older cached app saved its own).
+        if (error || !data) return;
+        const versao = (data as { termos_aceitos_versao?: string | null }).termos_aceitos_versao;
+        setAberto(!versao || versao < TERMOS_VERSAO);
       });
     return () => { vivo = false; };
   }, [userId]);
