@@ -138,6 +138,8 @@ export function qtdNaTela(estoque: number, unidade: string, pacote = 1): { princ
   if (!(pacote > 1) || e <= 0) return { principal };
   const tam = u === "g" && pacote >= 1000 ? `${f(pacote / 1000)} kg` : u === "ml" && pacote >= 1000 ? `${f(pacote / 1000)} L` : `${f(pacote)} ${u}`;
   const qtd = e / pacote;
+  // "0,54 embalagens" confuses more than it helps: only whole purchases are counted
+  if (Math.abs(qtd - Math.round(qtd)) > 1e-6) return { principal };
   return { principal, sub: `${f(qtd)} ${u === "un" ? (qtd === 1 ? "pacote" : "pacotes") : (qtd === 1 ? "embalagem" : "embalagens")} de ${tam}` };
 }
 
