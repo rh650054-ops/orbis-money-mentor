@@ -1,8 +1,9 @@
 /* Passo 3 (eu mesmo faço) — monta a receita (recomendado: ela é salva e alimenta o
    "Tô no mercado"), "sei mais ou menos" (leva ÷ rendimento) ou descobrir depois. */
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useReceitaPorUnidadeDisponivel } from "../api/use-receita-por-unidade";
 import { custoPorUnidade } from "../lib/conta";
-import { ingredientesSugeridos, receitaDoRascunho, totalDaReceita, type IngredienteRascunho } from "../lib/receitas";
+import { ingredientesSugeridos, receitaDoRascunho, resumoDoCusto, type CustoExtra, type IngredienteRascunho } from "../lib/receitas";
 import type { ItemReceita } from "../types";
 import { CampoDinheiro, Contador, reais } from "./campos";
 import { EditorReceita } from "./editor-receita";
@@ -13,16 +14,25 @@ import { BotaoOuro, QuizCasca, ResultadoOuro } from "./quiz-casca";
 const CARD = { background: "#0f0f10", border: "1px solid #26241f" };
 const OURO_BORDA = { border: "1px solid transparent", background: "linear-gradient(#171206,#0f0d08) padding-box, linear-gradient(135deg,#FFE27A,#B88E00 60%,#FFC800) border-box" };
 
-export function PassoCustoFaz({ nome, custo, total, receitaInicial, rendeInicial, onCusto, onRende, onReceita, onContinuar, onVoltar }: {
+export function PassoCustoFaz({ nome, custo, total, receitaInicial, rendeInicial, extrasIniciais = [], onCusto, onRende, onReceita, onContinuar, onVoltar }: {
   nome: string; custo: number; total: number; receitaInicial: IngredienteRascunho[] | null; rendeInicial: number;
   onCusto: (n: number) => void; onRende: (n: number) => void;
-  onReceita: (r: ItemReceita[] | null, rende: number) => void; onContinuar: () => void; onVoltar: () => void;
+  onReceita: (r: ItemReceita[] | null, rende: number, extras?: CustoExtra[]) => void; onContinuar: () => void; onVoltar: () => void;
+  /** 25/11: costs without stock already typed in this registration */
+  extrasIniciais?: CustoExtra[];
 }) {
   const [caminho, setCaminho] = useState<null | "sei" | "receita">(receitaInicial ? "receita" : null);
   const [gasto, setGasto] = useState(0);
   // 22/11: the yield is HIS number: it starts empty instead of an assumed 20
   const [rende, setRende] = useState(rendeInicial > 0 ? rendeInicial : 0);
   const [itens, setItens] = useState<IngredienteRascunho[]>(() => receitaInicial ?? ingredientesSugeridos(nome));
+  const [extras, setExtras] = useState<CustoExtra[]>(extrasIniciais);
+  const porUnidade = useReceitaPorUnidadeDisponivel().data === true;
+  // the suggestions were made before we knew the database has per-unit lines: redo them, untouched only
+  const [sugeridos, setSugeridos] = useState(() => (receitaInicial ? null : itens));
+  useEffect(() => {
+    if (porUnidade && sugeridos && itens === sugeridos) { const n = ingredientesSugeridos(nome, 20, true); setItens(n); setSugeridos(null); }
+  }, [porUnidade, sugeridos, itens, nome]);
   const voltar = () => (caminho ? setCaminho(null) : onVoltar());
 
   if (!caminho) {
@@ -69,11 +79,15 @@ export function PassoCustoFaz({ nome, custo, total, receitaInicial, rendeInicial
     );
   }
 
-  const aplicar = (novos: IngredienteRascunho[], r: number) => {
-    setItens(novos); setRende(r);
-    onCusto(custoPorUnidade(totalDaReceita(novos), r));
+  const aplicar = (n: IngredienteRascunho[], r: number, ext: CustoExtra[] = extras) => {
+    // before the migration every line is per recipe (the old database would read per unit as per batch)
+    const novos = porUnidade ? n : n.map((i) => ({ ...i, por: "receita" as const }));
+    if (!porUnidade) ext = [];
+    setItens(novos); setRende(r); setExtras(ext);
+    // 25/11: batch lines + per-unit lines × yield + costs without stock, ÷ yield
+    onCusto(r >= 1 ? Math.round(resumoDoCusto(novos, r, ext).porUnidade * 100) / 100 : 0);
     onRende(r);
-    onReceita(receitaDoRascunho(novos), r);
+    onReceita(receitaDoRascunho(novos), r, ext);
   };
   // an incomplete recipe may go on as a draft; the yield is what makes it a recipe
   const valida = receitaDoRascunho(itens).length > 0 && rende >= 1;
@@ -81,7 +95,8 @@ export function PassoCustoFaz({ nome, custo, total, receitaInicial, rendeInicial
     <QuizCasca passo={3} total={total} onVoltar={voltar} titulo={`Receita de ${nome}`}
       sub={"Primeiro quanto rende, depois cada ingrediente. Não sabe uma quantidade? Marque \"Ainda não sei\" e complete depois."}
       rodape={<BotaoOuro onClick={() => { aplicar(itens, rende); onContinuar(); }} disabled={!valida}>CONTINUAR</BotaoOuro>}>
-      <EditorReceita resumoFixo itens={itens} rende={rende} nomeProduto={plural(nome)} onItens={(n) => aplicar(n, rende)} onRende={(r) => aplicar(itens, r)} />
+      <EditorReceita resumoFixo itens={itens} rende={rende} nomeProduto={plural(nome)} onItens={(n) => aplicar(n, rende)} onRende={(r) => aplicar(itens, r)}
+        extras={extras} onExtras={(e) => aplicar(itens, rende, e)} />
     </QuizCasca>
   );
 }

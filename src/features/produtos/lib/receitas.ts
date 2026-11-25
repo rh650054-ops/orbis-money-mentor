@@ -23,7 +23,29 @@ export interface IngredienteRascunho {
   precoEditado?: boolean;
   /** 26/10 (Rick): "compro 1 kg por R$ 35,99 e dá pra 100 garrafinhas". qtd por leva = pacote × rende ÷ daPra */
   daPra?: number;
+  /** 25/11: how `qtd` is counted — per recipe/batch (1 box) or per unit produced (1 bottle). Default: receita */
+  por?: PorConsumo;
+  /** 25/11: an old line (saved before per-unit existed) whose name looks per unit: the seller confirms */
+  confirmar?: boolean;
 }
+
+export type PorConsumo = "receita" | "unidade";
+/** How much of a line goes into ONE batch: per-unit lines × the yield. */
+export const qtdNaLeva = (i: Pick<IngredienteRascunho, "qtd" | "por">, rende: number) =>
+  i.por === "unidade" ? i.qtd * (rende > 0 ? rende : 0) : i.qtd;
+/** Names that are usually one per unit produced (packaging, labels, straws). Only a suggestion. */
+export const pareceUnidade = (nome: string) =>
+  /garraf|copo|canudo|adesiv|r[oó]tulo|etiquet|tampa|embalag|forminha|saquinho|pote|colher|lacre|sacola|guardanapo/i.test(nome);
+
+/** 25/11: a cost without physical stock (labour, fees): it adds to the cost and never leaves any stock. */
+export interface CustoExtra { nome: string; valor: number; por: PorConsumo }
+/** The extras' share of one unit: per unit as is, per recipe ÷ the yield (0 without a valid yield). */
+export function extrasPorUnidade(extras: CustoExtra[], rende: number): number {
+  return extras.reduce((s, e) => s + (e.valor > 0 ? (e.por === "receita" ? (rende >= 1 ? e.valor / rende : 0) : e.valor) : 0), 0);
+}
+/** The extras of one whole recipe: per unit × the yield + per recipe. */
+export const extrasDaReceita = (extras: CustoExtra[], rende: number) =>
+  extras.reduce((s, e) => s + (e.valor > 0 ? (e.por === "unidade" ? e.valor * (rende >= 1 ? rende : 0) : e.valor) : 0), 0);
 
 /** Quanto vai numa leva, pelo "dá pra N": compro 1 kg (1000 g) que dá pra 100; leva de 100 → 1000 g. */
 export function qtdPorDaPra(i: Pick<IngredienteRascunho, "pacote" | "daPra">, rende: number): number {
@@ -75,16 +97,18 @@ const BASE: [RegExp, string[]][] = [
 /** Embalagem vai 1 por unidade: numa leva que rende 20, vão 20 copos. */
 export const ehEmbalagem = (nome: string) => /copo|canudo|embalage|forminha|saquinho|pote|tampa/i.test(nome);
 
-export const novoIngrediente = (nome = "", qtd = 1): IngredienteRascunho =>
-  ({ nome, qtd, unidade: "un", pacote: 1, precoPacote: 0, usa: true, daPra: undefined });
+export const novoIngrediente = (nome = "", qtd = 1, por: PorConsumo = "receita"): IngredienteRascunho =>
+  ({ nome, qtd, unidade: "un", pacote: 1, precoPacote: 0, usa: true, daPra: undefined, por });
 
-export function ingredientesSugeridos(nomeProduto: string, rende = 20): IngredienteRascunho[] {
+export function ingredientesSugeridos(nomeProduto: string, rende = 20, porUnidade = false): IngredienteRascunho[] {
   const achou = BASE.find(([re]) => re.test(nomeProduto));
   const nomes = achou ? achou[1] : ["Ingrediente principal", "Embalagem"];
   // 22/11: only NAMES are suggested; quantities start empty (nothing is invented). The packaging keeps
   // "compro 100" as a purchase size, and the seller says how many go in the batch.
   void rende;
-  return nomes.map((nome) => ({ ...novoIngrediente(nome, 0), ...(ehEmbalagem(nome) ? { pacote: 100 } : {}) }));
+  // 25/11: with the per-unit migration, packaging is suggested as "1 em cada unidade" (he can change it)
+  return nomes.map((nome) => (!ehEmbalagem(nome) ? novoIngrediente(nome, 0)
+    : porUnidade ? { ...novoIngrediente(nome, 1, "unidade"), pacote: 100 } : { ...novoIngrediente(nome, 0), pacote: 100 }));
 }
 
 /** Tamanho de compra que faz sentido ao trocar a unidade (26/10, bug do R$ 404 por garrafinha:
@@ -128,9 +152,10 @@ export function precoDe1(i: Pick<IngredienteRascunho, "pacote" | "precoPacote">)
   return i.precoPacote > 0 && i.pacote > 0 ? i.precoPacote / i.pacote : 0;
 }
 
-/** Quanto custa UMA leva: soma qtd × preço de 1 do que ele marcou. */
-export function totalDaReceita(itens: Pick<IngredienteRascunho, "qtd" | "pacote" | "precoPacote" | "usa">[]): number {
-  const soma = itens.filter((i) => i.usa && i.qtd > 0).reduce((s, i) => s + i.qtd * precoDe1(i), 0);
+/** Quanto custa UMA leva: soma (quanto vai na leva) × preço de 1 do que ele marcou.
+ *  25/11: a per-unit line goes in the batch × the yield (1 bottle per unit in a recipe of 5 = 5 bottles). */
+export function totalDaReceita(itens: Pick<IngredienteRascunho, "qtd" | "pacote" | "precoPacote" | "usa" | "por">[], rende: number): number {
+  const soma = itens.filter((i) => i.usa && i.qtd > 0).reduce((s, i) => s + qtdNaLeva(i, rende) * precoDe1(i), 0);
   return Math.round(soma * 100) / 100;
 }
 
@@ -148,17 +173,22 @@ export function receitaDoRascunho(itens: IngredienteRascunho[]): ItemReceita[] {
         // 10 decimals only drops binary float noise (35.99 / 1000 = 0.035990000000000004)
         preco: Math.round(precoDe1(i) * 1e10) / 1e10, unidade: i.unidade, pacote: i.pacote > 0 ? i.pacote : 1,
         ...(rascunho ? { aprender: true } : {}), ...(i.precoEditado ? { precoEditado: true } : {}),
+        // an old line still waiting for "por receita ou por unidade?" stays unclassified (as it is today)
+        ...(i.confirmar ? {} : { por: i.por ?? "receita" }),
       };
     });
 }
 
 /** Volta da receita salva pro rascunho editável: exatamente o que está salvo (22/11: no "dá pra" is
  *  derived any more, so opening a recipe never rescales its quantities). */
-export function rascunhoDaReceita(r: ItemReceita[], _rende?: number): IngredienteRascunho[] {
+export function rascunhoDaReceita(r: ItemReceita[], _rende?: number, opts?: { confirmarAntigas?: boolean }): IngredienteRascunho[] {
   return r.map((i) => ({
     ...(i.id ? { id: i.id } : {}), nome: i.nome, qtd: i.qtd, unidade: i.unidade, pacote: i.pacote,
     precoPacote: Math.round(i.preco * i.pacote * 100) / 100, usa: true, ...(i.aprender ? { aprender: true } : {}),
     ...(i.precoEditado ? { precoEditado: true } : {}),
+    // 25/11: an old line keeps working per recipe; if its name looks per unit, the seller confirms
+    // (only when the database knows per-unit lines: before the migration nothing is asked)
+    por: i.por ?? "receita", ...(opts?.confirmarAntigas && !i.por && pareceUnidade(i.nome) ? { confirmar: true } : {}),
   }));
 }
 
@@ -202,14 +232,27 @@ export function usoDoAtalho(a: AtalhoUso, i: Pick<IngredienteRascunho, "pacote">
   return { aprender: false };
 }
 
-/** The live cost of a recipe. It is PARTIAL while a used line has no quantity ("ainda não sei") or no
- *  price: then the per-unit value is shown as partial, never as the final cost. */
-export interface ResumoCusto { total: number; porUnidade: number; faltaQtd: string[]; faltaPreco: string[]; completo: boolean }
-export function resumoDoCusto(itens: IngredienteRascunho[], rende: number): ResumoCusto {
+/** The live cost of a recipe (25/11: batch lines + per-unit lines × yield + costs without stock).
+ *  It is PARTIAL while a used line has no quantity ("ainda não sei"), no price, an old line waits for
+ *  "por receita ou por unidade?", or the yield is missing: then no per-unit cost is given as final. */
+export interface ResumoCusto {
+  total: number; porUnidade: number; lote: number; unidades: number; extras: number;
+  faltaQtd: string[]; faltaPreco: string[]; confirmar: string[]; completo: boolean;
+}
+export function resumoDoCusto(itens: IngredienteRascunho[], rende: number, extras: CustoExtra[] = []): ResumoCusto {
   const ativos = itens.filter((i) => i.usa && i.nome.trim() !== "");
   const faltaQtd = ativos.filter((i) => i.aprender || !(i.qtd > 0)).map((i) => i.nome.trim());
   const faltaPreco = ativos.filter((i) => !i.aprender && i.qtd > 0 && !(precoDe1(i) > 0)).map((i) => i.nome.trim());
-  const total = totalDaReceita(ativos);
-  const porUnidade = rende >= 1 ? total / rende : 0;
-  return { total, porUnidade, faltaQtd, faltaPreco, completo: rende >= 1 && ativos.length > 0 && faltaQtd.length === 0 && faltaPreco.length === 0 };
+  const confirmar = ativos.filter((i) => i.confirmar).map((i) => i.nome.trim());
+  const valido = rende >= 1;
+  const lote = totalDaReceita(ativos.filter((i) => i.por !== "unidade"), rende);
+  const unidades = totalDaReceita(ativos.filter((i) => i.por === "unidade"), rende);
+  const ext = Math.round(extrasDaReceita(extras, rende) * 100) / 100;
+  const total = Math.round((lote + unidades + ext) * 100) / 100;
+  // no yield = no division: never a made-up unit cost
+  const porUnidade = valido ? total / rende : 0;
+  return {
+    total, porUnidade, lote, unidades, extras: ext, faltaQtd, faltaPreco, confirmar,
+    completo: valido && ativos.length > 0 && faltaQtd.length === 0 && faltaPreco.length === 0 && confirmar.length === 0,
+  };
 }

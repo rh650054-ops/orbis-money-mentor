@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { useIngredientesGuardadosQuery } from "../api/use-ingredientes-guardados-query";
-import { ehRascunho, linhasRepetidas, novoIngrediente, type IngredienteRascunho } from "../lib/receitas";
+import { ehRascunho, linhasRepetidas, novoIngrediente, type IngredienteRascunho , type CustoExtra } from "../lib/receitas";
 import { custoDoSabor, emojiDoSabor, novoSabor, rendeDoSabor, type SaborRascunho } from "../lib/sabores";
 import { Contador } from "./campos";
 import { reais } from "./campos";
@@ -12,8 +12,10 @@ import { FotoDoSabor } from "./foto-do-sabor";
 
 const OURO = "#F5B800";
 
-export function EditorSabores({ sabores, base, rende, preco, estoques, onMudar, nomeProduto = "unidades", comEstoque }: {
+export function EditorSabores({ sabores, base, extras = [], rende, preco, estoques, onMudar, nomeProduto = "unidades", comEstoque }: {
   sabores: SaborRascunho[]; base: IngredienteRascunho[]; rende: number; preco: number;
+  /** 25/11: costs without stock of the product (labour) also go into each flavour's cost */
+  extras?: CustoExtra[];
   estoques?: Map<string, number>; onMudar: (s: SaborRascunho[]) => void; nomeProduto?: string;
   /** 23/11: registration of a new product: asks the ready units of each flavour */
   comEstoque?: boolean;
@@ -25,7 +27,7 @@ export function EditorSabores({ sabores, base, rende, preco, estoques, onMudar, 
   const adicionar = () => { onMudar([...sabores, novoSabor()]); setAtivo(sabores.length); };
   const tirar = (i: number) => { onMudar(sabores.filter((_, j) => j !== i)); setAtivo(Math.max(0, Math.min(ativo, sabores.length - 2))); };
   const temBase = base.some((i) => i.usa && i.nome.trim());
-  const comCusto = sabores.filter((x) => x.nome.trim()).map((x) => ({ ...x, custo: custoDoSabor(base, x, rende) }));
+  const comCusto = sabores.filter((x) => x.nome.trim()).map((x) => ({ ...x, custo: custoDoSabor(base, x, rende, extras) }));
 
   return (
     <div className="flex flex-col gap-2.5">

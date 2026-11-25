@@ -8,7 +8,7 @@ import { fmt } from "../lib/formato";
 import { reais } from "./campos";
 import { MiniNumero } from "./mini-campos";
 
-type Modo = "peso" | "unidade" | "rende";
+type Modo = "peso" | "unidade" | "rende" | "pct";
 const CHIP = (sel: boolean) => (sel ? { background: "#F5B800", color: "#1A1200" } : { background: "#1a1a19", color: "#d8d2c4", border: "1px solid #2c2a25" });
 
 export function UsoPorPeso({ it, aberto, onAbrir, onMudar }: {
@@ -34,22 +34,26 @@ export function UsoPorPeso({ it, aberto, onAbrir, onMudar }: {
   const aplicar = (v: number) => {
     setN(v);
     if (!(v > 0)) return;
-    onMudar(modo === "unidade" ? { unidade: "un", pacote: Math.round(v), qtd: 0, aprender: false } : { unidade: "g", pacote: v, qtd: 0, aprender: false });
+    // 25/11: "aproveito 40%" of 1 kg = 400 g of pulp; never 1 kg of fruit = 1 kg of pulp
+    const util = modo === "pct" ? Math.round(peso * Math.min(v, 100) / 100) : v;
+    if (modo === "pct" && !(util > 0)) return;
+    onMudar(modo === "unidade" ? { unidade: "un", pacote: Math.round(v), qtd: 0, aprender: false } : { unidade: "g", pacote: util, qtd: 0, aprender: false });
   };
-  const cada = n > 0 && it.precoPacote > 0 ? precoDe1({ pacote: modo === "unidade" ? Math.round(n) : n, precoPacote: it.precoPacote }) : 0;
+  const util = modo === "pct" ? Math.round(peso * Math.min(n, 100) / 100) : modo === "unidade" ? Math.round(n) : n;
+  const cada = n > 0 && util > 0 && it.precoPacote > 0 ? precoDe1({ pacote: util, precoPacote: it.precoPacote }) : 0;
   return (
     <div className="flex flex-col gap-2 pl-[30px]">
       <span className="text-[11.5px] font-black" style={{ color: "#d8d2c4" }}>Como você mede o que usa?</span>
       <div className="flex flex-wrap gap-1.5">
-        {([["peso", "Pelo peso da fruta"], ["unidade", "Por fruta / unidade"], ["rende", "Pela polpa que rende"]] as [Modo, string][]).map(([m, r]) => (
+        {([["peso", "Pelo peso da fruta"], ["unidade", "Por fruta / unidade"], ["rende", "Pela polpa que rende"], ["pct", "Pelo aproveitamento (%)"]] as [Modo, string][]).map(([m, r]) => (
           <button key={m} type="button" aria-pressed={modo === m} onClick={() => escolher(m)} className="rounded-full px-3 py-2 text-[12px] font-extrabold min-h-[36px]" style={CHIP(modo === m)}>{r}</button>
         ))}
       </div>
       {modo !== "peso" && (peso > 0 ? (
         <div className="flex items-center gap-1.5 flex-wrap text-[12px] font-bold" style={{ color: "#b9b3a6" }}>
-          <span>{modo === "unidade" ? `Nessa compra de ${pesoTxt} vieram` : `Essa compra de ${pesoTxt} deu`}</span>
-          <MiniNumero valor={n} exemplo="?" rotulo={modo === "unidade" ? "Quantas unidades vieram" : "Quanto de polpa rendeu"} onChange={aplicar} />
-          <span>{modo === "unidade" ? "frutas" : "g de polpa"}</span>
+          <span>{modo === "unidade" ? `Nessa compra de ${pesoTxt} vieram` : modo === "pct" ? `Dessa compra de ${pesoTxt} aproveito` : `Essa compra de ${pesoTxt} deu`}</span>
+          <MiniNumero valor={n} exemplo="?" rotulo={modo === "unidade" ? "Quantas unidades vieram" : modo === "pct" ? "Quanto aproveita em %" : "Quanto de polpa rendeu"} onChange={aplicar} />
+          <span>{modo === "unidade" ? "frutas" : modo === "pct" ? `%${util > 0 ? ` = ${fmt(util)} g de polpa` : ""}` : "g de polpa"}</span>
           {cada > 0 && <span className="font-black" style={{ color: "#F5B800" }}>= {reais(cada)} {modo === "unidade" ? "cada" : "o grama"}</span>}
         </div>
       ) : (

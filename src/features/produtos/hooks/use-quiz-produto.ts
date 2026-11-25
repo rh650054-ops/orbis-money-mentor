@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { emojiDoNome } from "../lib/conta";
 import { apagarRascunho, guardarRascunho, lerRascunho } from "../lib/rascunho-cadastro";
 import type { SaborRascunho } from "../lib/sabores";
+import type { CustoExtra } from "../lib/receitas";
 import { RASCUNHO_VAZIO, type ItemReceita, type ProdutoComFaixas, type RascunhoProduto } from "../types";
 
 /* 22/11 (Etapa 2): 6 questions — what, how he gets it, recipe (makes) or cost (buys), flavours,
@@ -69,7 +70,7 @@ export function useQuizProduto(inicial?: RascunhoProduto, userId?: string) {
     setPreco: (preco: number) => mudar({ preco, precoLivre: false }),
     setPrecoLivre: () => { mudar({ precoLivre: true, preco: 0, combo: null }); ir("revisao"); },
     setCombo: (combo: RascunhoProduto["combo"]) => mudar({ combo }),
-    setReceita: (receita: ItemReceita[] | null, rende: number) => mudar({ receita, rende }),
+    setReceita: (receita: ItemReceita[] | null, rende: number, extras: CustoExtra[] = []) => mudar({ receita, rende, extras }),
     setSabores: (sabores: SaborRascunho[]) => mudar({ sabores }),
     setEstoque: (estoque: number) => mudar({ estoque, controlaEstoque: true }),
     semEstoque: () => mudar({ controlaEstoque: false, estoque: 0 }),

@@ -22,13 +22,14 @@ export function FichaOrigem({ f, estoques, onMudar }: {
       ) : (
         <>
           <EditorReceita itens={f.itens} rende={f.rende} estoques={estoques} nomeProduto={plural(f.nome)} precoVenda={f.precoLivre ? 0 : f.preco}
-            onItens={(itens) => onMudar({ itens })} onRende={(rende) => onMudar({ rende })} />
+            onItens={(itens) => onMudar({ itens })} onRende={(rende) => onMudar({ rende })}
+            extras={f.extras} onExtras={(extras) => onMudar({ extras })} />
           {!custo.pelaReceita && f.custo > 0 && (
             <p className="text-[11.5px] font-bold px-1" style={{ color: "#7b766e" }}>Custo salvo hoje: {reais(f.custo)} cada.</p>
           )}
           <div className="mt-1 pt-3" style={{ borderTop: "1px solid #1c1a16" }}>
             <p className="text-[10.5px] font-black tracking-[.14em] mb-2" style={{ color: "#F5B800" }}>SABORES</p>
-            <EditorSabores sabores={f.sabores} base={f.itens} rende={f.rende} preco={f.precoLivre ? 0 : f.preco} estoques={estoques} nomeProduto={plural(f.nome)}
+            <EditorSabores sabores={f.sabores} base={f.itens} extras={f.extras} rende={f.rende} preco={f.precoLivre ? 0 : f.preco} estoques={estoques} nomeProduto={plural(f.nome)}
               onMudar={(sabores) => onMudar({ sabores })} />
           </div>
         </>

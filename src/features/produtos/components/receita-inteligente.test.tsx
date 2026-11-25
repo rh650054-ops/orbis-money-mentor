@@ -4,6 +4,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { atalhoDoUso, resumoDoCusto, usoDoAtalho, type IngredienteRascunho } from "../lib/receitas";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
+const porUnidade = vi.hoisted(() => ({ v: false }));
+vi.mock("../api/use-receita-por-unidade", () => ({ useReceitaPorUnidadeDisponivel: () => ({ data: porUnidade.v }) }));
 vi.mock("../api/use-ingredientes-guardados-query", () => ({ useIngredientesGuardadosQuery: () => ({ data: [] }) }));
 import { EditorReceita } from "./editor-receita";
 
@@ -35,12 +37,15 @@ describe("VANT Receita Inteligente (24/11)", () => {
 
   it("'Uso a embalagem inteira' preenche o uso; faltando quantidade o custo é parcial e diz o que falta; margem não é lucro", () => {
     render(<Harness precoVenda={12} inicial={[ing({ nome: "Leite condensado", precoPacote: 3.79 }), ing({ nome: "Maracujá", unidade: "g", pacote: 1000, precoPacote: 17.99 })]} />);
+    // 25/11: the package shortcuts are under "Mais opções"
+    fireEvent.click(screen.getAllByRole("button", { name: /Mais opções/ })[0]!);
     fireEvent.click(screen.getAllByRole("button", { name: /Uso a embalagem inteira/ })[0]!);
     expect(ultimo[0]).toMatchObject({ qtd: 1, aprender: false });
     expect(screen.getByText("Custo parcial por unidade")).toBeInTheDocument();
-    expect(screen.getByText(/Custo parcial — faltam ingredientes/)).toBeInTheDocument();
+    // 25/11 (Rick, item 6): a partial cost never shows a "sobra" or a margin as a definitive result
+    expect(screen.getByText(/Custo parcial — faltam informações para calcular sua margem real/)).toBeInTheDocument();
     expect(screen.getByText(/Falta quanto usa de Maracujá/)).toBeInTheDocument();
-    expect(screen.getByText(/não é o lucro líquido/)).toBeInTheDocument();
+    expect(screen.queryByText("Sobra por unidade")).toBeNull();
     fireEvent.click(screen.getAllByRole("button", { name: "Ainda não sei" })[1]!);
     expect(ultimo[1]).toMatchObject({ aprender: true, qtd: 0 });
     expect(screen.getByText(/Fica pendente na receita/)).toBeInTheDocument();
@@ -48,6 +53,7 @@ describe("VANT Receita Inteligente (24/11)", () => {
 
   it("maracujá: compra 2 kg, vieram 12 frutas → passa a usar por fruta (R$ 35,98 ÷ 12); sem o número nada muda", () => {
     render(<Harness inicial={[ing({ nome: "Maracujá", unidade: "g", pacote: 2000, precoPacote: 35.98 })]} />);
+    fireEvent.click(screen.getByRole("button", { name: /Mais opções/ }));
     fireEvent.click(screen.getByText(/compra por peso e usa por unidade/));
     fireEvent.click(screen.getByRole("button", { name: "Por fruta / unidade" }));
     expect(ultimo[0]).toMatchObject({ unidade: "g", pacote: 2000 });

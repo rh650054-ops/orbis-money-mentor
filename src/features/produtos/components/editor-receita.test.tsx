@@ -4,6 +4,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { receitaDoRascunho, rascunhoDaReceita, type IngredienteRascunho } from "../lib/receitas";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
+const porUnidade = vi.hoisted(() => ({ v: false }));
+vi.mock("../api/use-receita-por-unidade", () => ({ useReceitaPorUnidadeDisponivel: () => ({ data: porUnidade.v }) }));
 const guardados = vi.hoisted(() => ({ lista: [] as { id: string; nome: string; unidade: "un" | "g" | "ml"; pacote: number; precoPacote: number }[] }));
 vi.mock("../api/use-ingredientes-guardados-query", () => ({ useIngredientesGuardadosQuery: () => ({ data: guardados.lista }) }));
 import { EditorReceita } from "./editor-receita";
@@ -30,6 +32,7 @@ describe("EditorReceita — rendimento é do vendedor (Etapa 2, 22/11)", () => {
 
   it("o maior 'dá pra' NÃO muda o rendimento (antes: a leva virava 100)", () => {
     render(<Harness rende={20} inicial={[ing({ nome: "Leite em pó", unidade: "g", pacote: 1000, precoPacote: 35.99 })]} />);
+    fireEvent.click(screen.getByRole("button", { name: /Mais opções/ }));
     fireEvent.change(screen.getByLabelText("Dá pra quantas garrafinhas"), { target: { value: "100" } });
     expect(ultimo.rende).toBe(20);                          // his yield stays
     expect(ultimo.itens[0]!.qtd).toBe(200);                 // the shortcut only filled "Uso": 1000 g × 20 ÷ 100
@@ -113,13 +116,13 @@ describe("campos continuam livres (12/11)", () => {
 });
 
 describe("conversão de unidades na linha do ingrediente (kg/g e L/ml)", () => {
-  it("compra em kg: 1 kg vira 1000 g; uso 200 g de R$ 35,99 = R$ 7,20 na leva", () => {
+  it("compra em kg: 1 kg vira 1000 g; uso 200 g de R$ 35,99 = R$ 7,20 na receita", () => {
     render(<Harness rende={20} inicial={[ing({ nome: "Leite em pó" })]} />);
     fireEvent.change(screen.getByLabelText("Unidade da compra"), { target: { value: "kg" } });
     expect(ultimo.itens[0]).toMatchObject({ unidade: "g", pacote: 1000 });
     fireEvent.change(screen.getByLabelText("Quanto paga nessa compra"), { target: { value: "35,99" } });
     fireEvent.change(screen.getByLabelText("Quanto usa na leva"), { target: { value: "200" } });
-    expect(screen.getByText("= R$ 7,20 na leva")).toBeInTheDocument();
+    expect(screen.getByText("= R$ 7,20 na receita")).toBeInTheDocument();
     expect(receitaDoRascunho(ultimo.itens)[0]).toMatchObject({ unidade: "g", pacote: 1000, qtd: 200, preco: 0.03599, precoEditado: true });
   });
 
@@ -141,7 +144,7 @@ describe("conversão de unidades na linha do ingrediente (kg/g e L/ml)", () => {
     expect(ultimo.itens[0]).toMatchObject({ unidade: "ml", pacote: 1500 });
     fireEvent.change(screen.getByLabelText("Quanto paga nessa compra"), { target: { value: "9" } });
     fireEvent.change(screen.getByLabelText("Quanto usa na leva"), { target: { value: "300" } });
-    expect(screen.getByText("= R$ 1,80 na leva")).toBeInTheDocument();
+    expect(screen.getByText("= R$ 1,80 na receita")).toBeInTheDocument();
   });
 
   it("compra pequena fica na unidade pequena (500 g não vira 0,5 kg); ml idem", () => {

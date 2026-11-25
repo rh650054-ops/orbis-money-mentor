@@ -4,8 +4,17 @@ import { lucroDe, precosVizinhos } from "../lib/conta";
 import { CampoDinheiro, Contador, reais } from "./campos";
 import { BotaoOuro, LinkCinza, QuizCasca } from "./quiz-casca";
 
-export function CardLucro({ preco, custo }: { preco: number; custo: number }) {
+export function CardLucro({ preco, custo, parcial }: { preco: number; custo: number; parcial?: boolean }) {
   const l = lucroDe(preco, custo);
+  // 25/11 (Rick, item 6): an incomplete recipe never shows its "sobra" as a definitive result
+  if (parcial) {
+    return (
+      <div className="rounded-[18px] px-4 py-3.5 flex flex-col gap-1" style={{ background: "rgba(245,184,0,.07)", border: "1px solid rgba(245,184,0,.38)" }}>
+        <span className="text-[13px] font-extrabold" style={{ color: "#F5B800" }}>Custo parcial — faltam informações para calcular sua margem real.</span>
+        <span className="text-[11.5px] font-bold" style={{ color: "#b9b3a6" }}>Complete a receita para ver quanto sobra em cada uma.</span>
+      </div>
+    );
+  }
   const pctCusto = preco > 0 ? Math.min(100, Math.max(0, Math.round((custo / preco) * 100))) : 0;
   const ruim = l.sobra <= 0;
   return (
@@ -23,7 +32,8 @@ export function CardLucro({ preco, custo }: { preco: number; custo: number }) {
           </div>
           <div className="flex justify-between text-[11px] font-extrabold">
             <span style={{ color: "#ff7a6b" }}>custo {reais(custo)}</span>
-            <span style={{ color: "#3DD68C" }}>{Math.max(0, l.pct)}% é lucro</span>
+            {/* 25/11: contribution margin, not net profit */}
+            <span style={{ color: "#3DD68C" }}>{Math.max(0, l.pct)}% de margem</span>
           </div>
         </>
       )}
@@ -31,8 +41,10 @@ export function CardLucro({ preco, custo }: { preco: number; custo: number }) {
   );
 }
 
-export function PassoPreco({ nome, custo, preco, combo, total, onPreco, onCombo, onPrecoLivre, onContinuar, onVoltar }: {
+export function PassoPreco({ nome, custo, preco, combo, total, parcial, onPreco, onCombo, onPrecoLivre, onContinuar, onVoltar }: {
   nome: string; custo: number; preco: number; combo: { qty: number; price: number } | null; total: number;
+  /** 25/11: the recipe is incomplete (its cost is partial) */
+  parcial?: boolean;
   onPreco: (n: number) => void; onCombo: (c: { qty: number; price: number } | null) => void;
   onPrecoLivre: () => void; onContinuar: () => void; onVoltar: () => void;
 }) {
@@ -46,7 +58,7 @@ export function PassoPreco({ nome, custo, preco, combo, total, onPreco, onCombo,
         <LinkCinza onClick={onPrecoLivre}>o preço muda todo dia (combino na hora)</LinkCinza>
       </>}>
       <CampoDinheiro key={chave} valor={preco} onChange={onPreco} grande autoFocus />
-      {preco > 0 && <CardLucro preco={preco} custo={custo} />}
+      {preco > 0 && <CardLucro preco={preco} custo={custo} parcial={parcial} />}
       {preco > 0 && custo > 0 && (
         <>
           <span className="text-[11px] font-black tracking-[.14em] mt-1" style={{ color: "#7b766e" }}>E SE VOCÊ COBRAR…</span>

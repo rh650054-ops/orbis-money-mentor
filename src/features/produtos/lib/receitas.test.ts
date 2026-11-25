@@ -33,8 +33,8 @@ describe("receita de quem faz", () => {
       ing("Canudo", 20, 8, 100),            // 20 de um pacote de 100 por R$ 8
       ing("Granulado", 1, 9, 1, false),
     ];
-    expect(totalDaReceita(itens)).toBe(26.06); // 4,50 + 2,46 + 10 + 7,50 + 1,60
-    expect(custoPorUnidade(totalDaReceita(itens), 20)).toBe(1.3);
+    expect(totalDaReceita(itens, 20)).toBe(26.06); // 4,50 + 2,46 + 10 + 7,50 + 1,60
+    expect(custoPorUnidade(totalDaReceita(itens, 20), 20)).toBe(1.3);
   });
 
   it("salva só o marcado e com nome; sem quantidade vira rascunho (e volta igual)", () => {
@@ -46,10 +46,10 @@ describe("receita de quem faz", () => {
       ing("Fruta", 0, 2),
     ]);
     expect(r).toEqual([
-      { nome: "Leite em pó", qtd: 200, preco: 0.0375, unidade: "g", pacote: 800 },
-      { nome: "Copo", qtd: 20, preco: 0, unidade: "un", pacote: 50 },
+      { nome: "Leite em pó", qtd: 200, preco: 0.0375, unidade: "g", pacote: 800, por: "receita" },
+      { nome: "Copo", qtd: 20, preco: 0, unidade: "un", pacote: 50, por: "receita" },
       // 22/11: before, "Fruta" without quantity vanished on save; now it is kept as a draft (no consumption)
-      { nome: "Fruta", qtd: 0, preco: 2, unidade: "un", pacote: 1, aprender: true },
+      { nome: "Fruta", qtd: 0, preco: 2, unidade: "un", pacote: 1, aprender: true, por: "receita" },
     ]);
     expect(receitaDoRascunho(rascunhoDaReceita(r))).toEqual(r);
   });
