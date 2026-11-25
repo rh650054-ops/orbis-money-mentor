@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CatalogoProducao } from "./producao";
-import { alertasDoEstoque, listaDeCompras, pareceCusto, qtdNaTela, receitasComAtencao, situacaoDosIngredientes } from "./estoque";
+import { alertasDoEstoque, listaDeCompras, pareceCusto, qtdNaTela, receitasComAtencao, situacaoDosIngredientes, textoDaLista } from "./estoque";
 
 // Fictional data shaped like a real Cremo catalogue: two products, one with a flavour that has its own
 // recipe and yield; "Produção" (labour) typed as an ingredient with stock 0.
@@ -17,7 +17,7 @@ const c: CatalogoProducao = {
     r("mor", "lc", 1, "vmor"), r("mor", "garrafa", 6, "vmor"), r("mor", "adesivo", 6, "vmor"), r("mor", "canudo", 6, "vmor"), r("mor", "morango", 300, "vmor"), r("mor", "prod", 6, "vmor"),
   ],
   ingredientes: [
-    ing("lc", "Leite condensado", "un", 114), ing("garrafa", "Garrafa 300ml", "un", 100), ing("adesivo", "Adesivo", "un", 0),
+    ing("lc", "Leite condensado", "un", 114), { ...ing("garrafa", "Garrafa 300ml", "un", 100), cost_per_unit: 1.19 }, ing("adesivo", "Adesivo", "un", 0),
     ing("canudo", "Canudo", "un", 100, 100), ing("polpa", "Maracujá", "g", 1000, 1000), ing("morango", "Morando congelado", "g", 2000, 1000), ing("prod", "Produção", "un", 0),
   ],
 };
@@ -41,7 +41,7 @@ describe("Aba Estoque — o que preciso comprar (25/11)", () => {
     expect(por.get("Canudo")).toMatchObject({ precisa: 76, tem: 100, falta: 0 });
     expect(por.get("Adesivo")).toMatchObject({ precisa: 76, falta: 76 });
     expect(por.get("Garrafa 300ml")).toMatchObject({ precisa: 76, tem: 100, falta: 0 });
-    expect(por.get("Adesivo")!.usadoEm).toEqual(["Cremo Maracujá", "Cremo Morango Morango"]);
+    expect(por.get("Adesivo")!.usadoEm).toEqual(["Cremo Maracujá", "Cremo Morango"]);
   });
 
   it("receita incompleta: a previsão é parcial e não inventa a quantidade que falta", () => {
@@ -59,12 +59,27 @@ describe("Aba Estoque — o que preciso comprar (25/11)", () => {
   });
 });
 
+describe("Lista de compras completa (25/11, refino)", () => {
+  it("50 + 50: garrafa precisa 50 + 60 = 110, tem 100, comprar 10 ≈ R$ 11,90; lista TODOS os ingredientes; texto para compartilhar", () => {
+    // maracujá yields 5 (5 bottles per recipe) → 50; morango flavour yields 6 (6 per recipe) → 50
+    const l = listaDeCompras(c, [{ produto: "mar", sabor: null, unidades: 50 }, { produto: "mor", sabor: "vmor", unidades: 50 }]);
+    const g = l.linhas.find((x) => x.nome === "Garrafa 300ml")!;
+    expect(g).toMatchObject({ precisa: 100, tem: 100, falta: 0, custoCompra: null });
+    expect(l.linhas.map((x) => x.nome).sort()).toEqual(["Adesivo", "Canudo", "Garrafa 300ml", "Leite condensado", "Maracujá", "Morando congelado", "Produção"].sort());
+    const l2 = listaDeCompras(c, [{ produto: "mar", sabor: null, unidades: 60 }, { produto: "mor", sabor: "vmor", unidades: 50 }]);
+    expect(l2.linhas.find((x) => x.nome === "Garrafa 300ml")).toMatchObject({ precisa: 110, tem: 100, falta: 10, custoCompra: 11.9 });
+    const t = textoDaLista([{ nome: "Cremo Maracujá", unidades: 60 }], l2, new Set());
+    expect(t).toMatch(/Garrafa 300ml: comprar 10 un \(precisa 110, tem 100 un\) ≈ R\$\s?11,90/);
+    expect(t).not.toMatch(/Produção/);
+  });
+});
+
 describe("Aba Estoque — atenção e ingredientes (25/11)", () => {
   it("diz qual ingrediente falta, quanto tem, quanto 1 receita precisa e quem é afetado; custo é apontado à parte", () => {
     const a = alertasDoEstoque(c);
     const adesivo = a.find((x) => x.ingrediente === "Adesivo")!;
     expect(adesivo).toMatchObject({ tipo: "esgotado", tem: 0, precisa: 6, falta: 6 });
-    expect(adesivo.afetados).toEqual(["Cremo Maracujá", "Cremo Morango Morango"]);
+    expect(adesivo.afetados).toEqual(["Cremo Maracujá", "Cremo Morango"]);
     expect(a.find((x) => x.ingrediente === "Produção")!.tipo).toBe("custo");
     expect(a.some((x) => x.ingrediente === "Leite condensado")).toBe(false);
     expect(receitasComAtencao(a)).toBe(2);   // two items, counted once each

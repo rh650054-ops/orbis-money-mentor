@@ -52,14 +52,14 @@ export function RegistrarCompra() {
   const navigate = useNavigate();
   // the main action of the screen: solid VANT yellow, dark text (24/11 mockup)
   return (
-    <button type="button" onClick={() => navigate("/products/mercado")} className="w-full min-h-[58px] rounded-[16px] px-4 py-2.5 flex items-center gap-3 text-left active:scale-[.99] transition-transform"
+    <button type="button" onClick={() => navigate("/products/mercado")} className="w-full min-h-[50px] rounded-[15px] px-3.5 py-2 flex items-center gap-2.5 text-left active:scale-[.99] transition-transform"
       style={{ background: OURO, color: "#1A1200", boxShadow: "0 8px 24px rgba(245,184,0,.18)" }}>
-      <ShoppingCart className="w-6 h-6 shrink-0 mx-1" strokeWidth={2.4} />
+      <ShoppingCart className="w-5 h-5 shrink-0 mx-0.5" strokeWidth={2.4} />
       <span className="flex-1 min-w-0 flex flex-col gap-0.5">
-        <span className="text-[16.5px] font-extrabold leading-tight">Registrar compra</span>
-        <span className="text-[12px] font-semibold leading-snug" style={{ color: "#3d3000" }}>Os ingredientes entram no estoque.</span>
+        <span className="text-[15px] font-extrabold leading-tight">Registrar compra</span>
+        <span className="text-[11.5px] font-semibold leading-snug" style={{ color: "#3d3000" }}>Os ingredientes entram no estoque.</span>
       </span>
-      <ChevronRight className="w-6 h-6 shrink-0" strokeWidth={2.6} />
+      <ChevronRight className="w-5 h-5 shrink-0" strokeWidth={2.6} />
     </button>
   );
 }

@@ -45,7 +45,10 @@ const mutate = vi.fn((_c: ConcluirCompra, opts: { onSuccess: (r: ResultadoCompra
   }));
 vi.mock("../api/use-compra-mercado", () => ({
   useCompraAbertaQuery: () => ({ data: null, isLoading: false }),
+  // 25/11: the purchase history now lives on this page
+  useComprasMercadoQuery: () => ({ data: [] }),
 }));
+vi.mock("../components/compra-detalhe", () => ({ CompraDetalhe: () => null }));
 vi.mock("../api/use-concluir-compra-mutation", () => ({
   useConcluirCompraMutation: () => ({ mutate, isPending: false }),
 }));

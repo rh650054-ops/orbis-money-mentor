@@ -3,6 +3,7 @@
    preço, vê o custo de cada unidade e se pagou mais caro, e ao concluir o
    estoque sobe na hora e a VANT confere a compra no banco. */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { HistoricoCompras } from "../components/historico-compras";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
@@ -27,7 +28,7 @@ import { MercadoTotal } from "../components/mercado-total";
 export default function MercadoPage() {
   const navigate = useNavigate();
   // veio do "Tô no mercado" do Foco: voltar e concluir devolvem pro Foco (Rick, 19/10)
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const doFoco = params.get("de") === "foco";
   const { user } = useAuth();
   const { data: base, isLoading, isError, refetch } = useMercadoQuery(user?.id);
@@ -164,6 +165,7 @@ export default function MercadoPage() {
           }))} />
       )}
       {!m.primeiraVez && m.temItem && <MercadoPrevia previa={m.previa} custos={m.custos} />}
+      {!editId && <HistoricoCompras userId={user?.id} onEditar={(id) => { carregou.current = false; setParams({ editar: id }, { replace: true }); setEditId(id); window.scrollTo(0, 0); }} />}
       {perguntando && (
         <MercadoDesconto total={m.totalCompra} inicial={desconto} salvando={concluir.isPending}
           onConcluir={fechar} onFechar={() => setPerguntando(false)} />

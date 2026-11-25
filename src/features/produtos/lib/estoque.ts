@@ -10,13 +10,17 @@ import { itensDeProducao, linhasDoItem, type CatalogoProducao, type ItemProducao
 export const pareceCusto = (nome: string) =>
   /m[aã]o\s*de\s*obra|^\s*produ[cç][aã]o\s*$|trabalho|sal[aá]rio|di[aá]ria|^\s*g[aá]s\s*$|energia|\bluz\b|taxa|comiss[aã]o|frete/i.test(nome);
 
-export const nomeDoItem = (i: Pick<ItemProducao, "produto" | "sabor">) => (i.sabor ? `${i.produto.name} ${i.sabor.name}` : i.produto.name);
+/** "Batida Morango"; "Cremo Morango" (not "Cremo Morango Morango") when the product already says it */
+export const nomeDoItem = (i: Pick<ItemProducao, "produto" | "sabor">) =>
+  !i.sabor || i.produto.name.toLowerCase().includes(i.sabor.name.trim().toLowerCase()) ? i.produto.name : `${i.produto.name} ${i.sabor.name}`;
 
 export interface Pedido { produto: string; sabor: string | null; unidades: number }
 export interface LinhaCompra {
   ingrediente: string; nome: string; unidade: string; precisa: number; tem: number; falta: number;
   /** a cost typed as an ingredient (labour…): it is not bought; listed apart */
   custo: boolean; usadoEm: string[];
+  /** estimated cost of what is missing, only with a known price (last purchase / recipe) */
+  custoCompra: number | null;
 }
 export interface ListaCompras {
   linhas: LinhaCompra[];
@@ -54,7 +58,12 @@ export function listaDeCompras(c: CatalogoProducao, pedidos: Pedido[]): ListaCom
     const tem = Math.max(0, g?.stock_quantity ?? 0);
     const precisa = arred(v.precisa);
     const custo = pareceCusto(g?.name ?? "");
-    return { ingrediente: id, nome: g?.name ?? "ingrediente", unidade: g?.unit ?? "un", precisa, tem, falta: custo ? 0 : arred(Math.max(0, precisa - tem)), custo, usadoEm: [...v.usadoEm] };
+    // things bought by the unit (bottles, boxes) are bought whole: 0,33 box missing = buy 1
+    const bruto = Math.max(0, precisa - tem);
+    const falta = custo ? 0 : (g?.unit ?? "un") === "un" ? Math.max(0, Math.ceil(bruto - 1e-9)) : arred(bruto);
+    const preco = g?.cost_per_unit ?? 0;
+    return { ingrediente: id, nome: g?.name ?? "ingrediente", unidade: g?.unit ?? "un", precisa, tem, falta, custo, usadoEm: [...v.usadoEm],
+      custoCompra: falta > 0 && preco > 0 ? Math.round(falta * preco * 100) / 100 : null };
   }).sort((a, b) => Number(b.falta > 0) - Number(a.falta > 0) || a.nome.localeCompare(b.nome, "pt-BR"));
   return { linhas, parciais };
 }
@@ -130,4 +139,15 @@ export function qtdNaTela(estoque: number, unidade: string, pacote = 1): { princ
   const tam = u === "g" && pacote >= 1000 ? `${f(pacote / 1000)} kg` : u === "ml" && pacote >= 1000 ? `${f(pacote / 1000)} L` : `${f(pacote)} ${u}`;
   const qtd = e / pacote;
   return { principal, sub: `${f(qtd)} ${u === "un" ? (qtd === 1 ? "pacote" : "pacotes") : (qtd === 1 ? "embalagem" : "embalagens")} de ${tam}` };
+}
+
+/** The list as text to copy or share (WhatsApp, notes). */
+export function textoDaLista(pedidos: { nome: string; unidades: number }[], l: ListaCompras, feitos: Set<string>): string {
+  const reais = (x: number) => x.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const linhas = l.linhas.filter((x) => !x.custo && x.falta > 0).map((x) =>
+    `${feitos.has(x.ingrediente) ? "✅" : "⬜"} ${x.nome}: comprar ${qtdNaTela(x.falta, x.unidade).principal} (precisa ${f(x.precisa)}, tem ${f(x.tem)} ${x.unidade})${x.custoCompra ? ` ≈ ${reais(x.custoCompra)}` : ""}`);
+  const total = l.linhas.reduce((t, x) => t + (x.custoCompra ?? 0), 0);
+  return [`Lista de compras VANT — para ${pedidos.map((p) => `${p.unidades} ${p.nome}`).join(", ")}`, ...linhas,
+    ...(total > 0 ? [`Estimativa: ${reais(total)} (pelos últimos preços)`] : []),
+    ...l.parciais.map((p) => `⚠️ ${p.item}: previsão parcial (${p.motivo})`)].join("\n");
 }

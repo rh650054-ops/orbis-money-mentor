@@ -18,7 +18,7 @@ export interface SaborProducao {
 export interface LinhaReceitaProducao {
   product_id: string; variant_id: string | null; ingredient_id: string; quantity: number; aprender: boolean;
 }
-export interface IngredienteProducao { id: string; name: string; unit: string; stock_quantity: number; pacote_qtd?: number }
+export interface IngredienteProducao { id: string; name: string; unit: string; stock_quantity: number; pacote_qtd?: number; cost_per_unit?: number }
 export interface CatalogoProducao {
   produtos: ProdutoProducao[]; sabores: SaborProducao[]; receitas: LinhaReceitaProducao[]; ingredientes: IngredienteProducao[];
 }
