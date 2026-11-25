@@ -6,7 +6,8 @@
 import { Plus } from "lucide-react";
 import { useReceitaPorUnidadeDisponivel } from "../api/use-receita-por-unidade";
 import { useIngredientesGuardadosQuery } from "../api/use-ingredientes-guardados-query";
-import { linhasRepetidas, novoIngrediente, resumoDoCusto, type CustoExtra, type IngredienteRascunho, type PorConsumo } from "../lib/receitas";
+import { pareceCusto } from "../lib/estoque";
+import { linhasRepetidas, novoIngrediente, precoDe1, qtdNaLeva, resumoDoCusto, type CustoExtra, type IngredienteRascunho, type PorConsumo } from "../lib/receitas";
 import { CustosSemEstoque } from "./custos-sem-estoque";
 import { LinhaIngrediente } from "./linha-ingrediente";
 import { MiniNumero } from "./mini-campos";
@@ -51,10 +52,25 @@ export function EditorReceita({ itens, rende, onItens, onRende, estoques, nomePr
   // before the migration nothing is per unit and nothing is asked
   const contas = porUnidade ? itens : itens.map((i) => ({ ...i, por: "receita" as const, confirmar: false }));
   const resumo = resumoDoCusto(contas, rende, porUnidade ? extras : []);
+  // 25/11 (Rick, Estoque): labour typed as an ingredient ("Produção", stock 0) blocks every production.
+  // One tap moves it to the costs without stock, keeping its cost (per unit when the yield is known).
+  const paraCusto = (i: number) => {
+    const it = itens[i]!;
+    const total = qtdNaLeva(it, rende) * precoDe1(it);
+    onItens(itens.filter((_, j) => j !== i));
+    onExtras?.([...extras, rende >= 1 ? { nome: it.nome.trim(), valor: Math.round((total / rende) * 100) / 100, por: "unidade" } : { nome: it.nome.trim(), valor: Math.round(total * 100) / 100, por: "receita" }]);
+  };
   const linha = (it: IngredienteRascunho, i: number) => (
-    <LinhaIngrediente key={i} it={porUnidade ? it : { ...it, por: "receita", confirmar: false }} rende={rende} nomeProduto={nomeProduto} repetido={repetidas.has(i)}
+    <div key={i} className="flex flex-col gap-1">
+    {porUnidade && it.usa && pareceCusto(it.nome) && (
+      <button type="button" onClick={() => paraCusto(i)} className="self-start rounded-full px-3 py-1.5 text-[12px] font-extrabold" style={{ background: "#1a1305", border: "1px solid rgba(245,184,0,.45)", color: "#F5B800" }}>
+        {it.nome.trim()} é custo, não ingrediente: mover para custos sem estoque
+      </button>
+    )}
+    <LinhaIngrediente it={porUnidade ? it : { ...it, por: "receita", confirmar: false }} rende={rende} nomeProduto={nomeProduto} repetido={repetidas.has(i)}
       estoque={estoques?.get(it.nome.trim().toLowerCase())} onMudar={(m) => mudar(i, m)} {...(porUnidade ? { onMover: (p: PorConsumo) => mover(i, p) } : {})}
       sugestoes={guardados.filter((g) => !itens.some((x, j) => j !== i && x.id === g.id))} />
+    </div>
   );
   const adicionar = (por: PorConsumo, rotulo: string) => (
     <button type="button" onClick={() => onItens([...itens, novoIngrediente("", por === "unidade" ? 1 : 0, por)])}

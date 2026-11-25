@@ -1,94 +1,96 @@
-/* Aba Estoque: quanto tem em mercadoria, o que precisa repor e os ingredientes
-   guardados (antes escondidos na "Ficha técnica", agora aqui — Rick, 12/10/2026). */
+/* Aba Estoque — gerente de estoque (25/11/2026, Rick): what I have, what is running out and what I
+   need to buy for the next production. A · summary, B · ready products (with "Produzi" / "+ chegou"
+   as before), C · what needs attention, D · ingredients, "O que preciso comprar?", E · purchases.
+   Read-only except the actions it already had (Produzi, + chegou, which use the existing flows). */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ProdutoComFaixas } from "../types";
 import { useAProduzirQuery } from "../api/use-producao-mutations";
 import { useCatalogoProducaoQuery } from "../api/use-catalogo-producao-query";
-import { usaProducaoNova } from "../lib/producao";
+import { useSaboresDeVariosQuery } from "../api/use-sabores";
+import { itensDeProducao, linhasDoItem, usaProducaoNova } from "../lib/producao";
+import { levasPossiveis } from "../lib/receitas";
+import { alertasDoEstoque, nomeDoItem, receitasComAtencao, situacaoDosIngredientes } from "../lib/estoque";
 import { ComprasRecentes } from "./compras-recentes";
 import { CompraDetalhe } from "./compra-detalhe";
-import { useSaboresDeVariosQuery } from "../api/use-sabores";
 import { Produzi } from "./produzi";
-import { IngredientesGuardados } from "./ingredientes-guardados";
-import { reais } from "./campos";
 import { estoqueBaixo } from "./produto-card";
+import { EstoqueResumo } from "./estoque-resumo";
+import { EstoqueProntos } from "./estoque-prontos";
+import { EstoqueAtencao } from "./estoque-atencao";
+import { EstoqueIngredientes } from "./estoque-ingredientes";
+import { ListaCompras } from "./lista-compras";
+
+const Titulo = ({ t, sub }: { t: string; sub?: string }) => (
+  <div className="flex flex-col mt-2 px-0.5">
+    <h3 className="text-[16px] font-extrabold">{t}</h3>
+    {sub && <span className="text-[12px] font-semibold" style={{ color: "#8f897e" }}>{sub}</span>}
+  </div>
+);
 
 export function AbaEstoque({ produtos, userId, onRepor }: {
   produtos: ProdutoComFaixas[]; userId: string | undefined; onRepor: (id: string) => void;
 }) {
   const navigate = useNavigate();
   const [produzindo, setProduzindo] = useState<ProdutoComFaixas | null>(null);
-  // 26/10: tocar numa compra antiga abre o detalhe (antes ia direto pra editar)
   const [compraAberta, setCompraAberta] = useState<string | null>(null);
   const { data: aProduzir = [] } = useAProduzirQuery(true);
+  const catalogo = useCatalogoProducaoQuery(userId);
+  const c = catalogo.data;
   const faz = (p: ProdutoComFaixas) => p.origem === "faz" || p.recipe_mode === "batch";
   const pendenteDe = (id: string) => aProduzir.find((a) => a.produto_id === id);
-  // 23/11: a recipe that can produce goes to the new screen; without recipe / incomplete keeps this one
-  const catalogo = useCatalogoProducaoQuery(userId);
   const produzir = (p: ProdutoComFaixas) => {
-    if (!pendenteDe(p.id) && catalogo.data && usaProducaoNova(catalogo.data, p.id)) navigate(`/products/produzir?p=${p.id}`);
+    if (!pendenteDe(p.id) && c && usaProducaoNova(c, p.id)) navigate(`/products/produzir?p=${p.id}`);
     else setProduzindo(p);
   };
   const controlados = produtos.filter((p) => p.controla_estoque !== false || faz(p));
+  // products.stock_quantity already includes its flavours: counted once
+  const prontos = controlados.reduce((s, p) => s + Math.max(0, p.stock_quantity), 0);
   const valor = controlados.reduce((s, p) => s + Math.max(0, p.stock_quantity) * Math.max(0, p.cost), 0);
-  // sabores (26/10): "🍓 40 · 🥭 38" embaixo do produto
   const sabores = useSaboresDeVariosQuery(controlados.filter(faz).map((p) => p.id));
   const ordem = [...controlados].sort((a, b) => Number(estoqueBaixo(b)) - Number(estoqueBaixo(a)) || a.stock_quantity - b.stock_quantity);
+  const alertas = c ? alertasDoEstoque(c) : [];
+  const itens = c ? itensDeProducao(c).flatMap((g) => g.itens) : [];
+  const usadoEm = (id: string) => (c ? itens.filter((it) => linhasDoItem(c, it.produto, it.sabor).some((r) => r.ingredient_id === id)).map(nomeDoItem) : []);
+  const idDoProduto = (nome: string) => itens.find((it) => nomeDoItem(it) === nome)?.produto.id;
+  // kept from the old "Ingredientes guardados": how many more units the stored ingredients make
+  const daPraMais = (p: ProdutoComFaixas) => {
+    if (!c || !(p.batch_yield > 0)) return null;
+    const rec = c.receitas.filter((r) => r.product_id === p.id && r.variant_id === null && r.quantity > 0);
+    if (rec.length === 0) return null;
+    return levasPossiveis(rec.map((r) => ({ qtd: r.quantity, estoque: c.ingredientes.find((g) => g.id === r.ingredient_id)?.stock_quantity ?? 0 }))) * p.batch_yield;
+  };
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="rounded-[18px] px-4 py-3.5 flex justify-between items-center" style={{ background: "#0f0f10", border: "1px solid #26241f" }}>
-        <span className="text-[13px] font-extrabold" style={{ color: "#b9b3a6" }}>Você tem em mercadoria</span>
-        <span className="text-xl font-black">{reais(valor)}</span>
-      </div>
+      <EstoqueResumo prontos={prontos} valor={valor} atencao={receitasComAtencao(alertas)} />
+
+      <Titulo t="Produtos prontos" sub="Unidades prontas para vender" />
+      <EstoqueProntos produtos={ordem} sabores={sabores.data} faz={faz} daPraMais={daPraMais} destaque={(p) => !!pendenteDe(p.id) || estoqueBaixo(p)}
+        onAcao={(p) => (faz(p) ? produzir(p) : onRepor(p.id))} />
       {controlados.some(faz) && (
-        <button type="button" onClick={() => navigate("/products/produzir")} className="rounded-[16px] px-4 py-3 flex items-center justify-between text-left"
-          style={{ background: "#0f0d08", border: "1px solid #F5B800" }}>
-          <span className="flex flex-col"><span className="text-sm font-black">Produzir</span>
-            <span className="text-xs font-bold" style={{ color: "#7b766e" }}>vários produtos e sabores de uma vez</span></span>
+        <button type="button" onClick={() => navigate("/products/produzir")} className="rounded-[14px] px-3.5 py-2.5 flex items-center justify-between text-left"
+          style={{ background: "#0f0d08", border: "1px solid rgba(245,184,0,.6)" }}>
+          <span className="flex flex-col"><span className="text-[13.5px] font-extrabold">Produzir</span>
+            <span className="text-[11.5px] font-semibold" style={{ color: "#8f897e" }}>vários produtos e sabores de uma vez</span></span>
           <span className="font-black" style={{ color: "#F5B800" }}>›</span>
         </button>
       )}
-      {ordem.map((p) => {
-        const baixo = estoqueBaixo(p);
-        return (
-          <div key={p.id} className="rounded-2xl px-3.5 py-3 flex items-center gap-3"
-            style={{ background: "#0f0f10", border: `1px solid ${baixo ? "rgba(255,154,77,.45)" : "#26241f"}` }}>
-            <span className="text-xl">{p.emoji ?? "📦"}</span>
-            <span className="flex-1 min-w-0 flex flex-col">
-              <span className="text-sm font-black truncate">{p.name}</span>
-              <span className="text-xs font-bold" style={{ color: baixo ? "#ff9a4d" : "#7b766e" }}>
-                {p.stock_quantity} un{p.cost > 0 ? ` · ${reais(p.stock_quantity * p.cost)}` : ""}
-              </span>
-              {sabores.data?.[p.id] && (
-                <span className="text-xs font-bold truncate" style={{ color: "#b9b3a6" }}>
-                  {sabores.data[p.id]!.map((s) => `${s.emoji} ${s.estoque}`).join(" · ")}
-                  {(() => { const semSabor = p.stock_quantity - sabores.data![p.id]!.reduce((t, s) => t + s.estoque, 0); return semSabor > 0 ? ` · ${semSabor} sem sabor` : ""; })()}
-                </span>
-              )}
-            </span>
-            {faz(p) ? (
-              <button type="button" onClick={() => produzir(p)} className="rounded-full px-3 py-1.5 text-xs font-black"
-                style={pendenteDe(p.id) || baixo ? { background: "#F5B800", color: "#1A1200" } : { background: "#121211", border: "1px solid #26241f" }}>
-                Produzi
-              </button>
-            ) : (
-              <button type="button" onClick={() => onRepor(p.id)} className="rounded-full px-3 py-1.5 text-xs font-black"
-                style={baixo ? { background: "#F5B800", color: "#1A1200" } : { background: "#121211", border: "1px solid #26241f" }}>
-                + chegou
-              </button>
-            )}
-          </div>
-        );
-      })}
-      {controlados.length === 0 && (
-        <p className="text-sm text-center py-6" style={{ color: "#7b766e" }}>Nenhum produto com controle de estoque.</p>
-      )}
-      <IngredientesGuardados userId={userId} />
+
+      {c && <>
+        <Titulo t="O que precisa de atenção?" sub="O que impede a próxima receita de cada produto" />
+        <EstoqueAtencao alertas={alertas} idDoProduto={idDoProduto} />
+
+        <Titulo t="O que preciso comprar?" sub="Diga quanto quer produzir" />
+        <ListaCompras c={c} />
+
+        <Titulo t="Ingredientes" />
+        <EstoqueIngredientes c={c} situacao={situacaoDosIngredientes(c)} usadoEm={usadoEm} />
+      </>}
+
       <ComprasRecentes userId={userId} onAbrir={setCompraAberta} />
       <CompraDetalhe id={compraAberta} onFechar={() => setCompraAberta(null)} onEditar={(id) => navigate(`/products/mercado?editar=${id}`)} />
       <Produzi key={produzindo?.id ?? "x"} produto={produzindo} pendente={produzindo ? pendenteDe(produzindo.id) : undefined}
-        incompleta={!!produzindo && !!catalogo.data && catalogo.data.receitas.some((r) => r.product_id === produzindo.id && (r.quantity <= 0 || r.aprender))}
+        incompleta={!!produzindo && !!c && c.receitas.some((r) => r.product_id === produzindo.id && (r.quantity <= 0 || r.aprender))}
         onFechar={() => setProduzindo(null)} />
     </div>
   );
