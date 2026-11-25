@@ -156,6 +156,8 @@ select t.verdade('E5 ...the sample covers the three old functions working',
 
 -- ---------------------------------------------------------------- applies again; identical objects
 \ir ../../migrations/20261123120000_rendimento_por_sabor.sql
+-- 25/11: the per-unit migration patches producao_estado_alvo after this one; re-apply it too
+\ir ../../migrations/20261125120000_receita_por_unidade.sql
 select t.verdade('R4 re-applied: same objects as the first application', pg_temp.objetos() = :'obj_novo');
 
 -- ---------------------------------------------------------------- the rollback refuses instead of deleting

@@ -1,7 +1,7 @@
 /* SABORES (Rick, 26/10/2026): um produto, uma receita BASE (vai em todos) e, em cada
    sabor, só o que muda. Custo de cada unidade do sabor = base ÷ rende + extras ÷ rende. */
 import { custoPorUnidade } from "./conta";
-import { precoDe1, receitaDoRascunho, totalDaReceita, type IngredienteRascunho } from "./receitas";
+import { extrasPorUnidade, precoDe1, receitaDoRascunho, totalDaReceita, type CustoExtra, type IngredienteRascunho } from "./receitas";
 import type { ItemReceita } from "../types";
 
 export interface SaborRascunho {
@@ -38,10 +38,12 @@ export const rendeDoSabor = (s: SaborRascunho, rende: number) => (s.rende && s.r
 
 /** Custo de 1 unidade de cada sabor: (base, se o sabor usa a base) + extras, ÷ o rendimento do sabor.
  *  Null quando falta preço. */
-export function custoDoSabor(base: IngredienteRascunho[], sabor: SaborRascunho, rende: number): number | null {
+export function custoDoSabor(base: IngredienteRascunho[], sabor: SaborRascunho, rende: number, extras: CustoExtra[] = []): number | null {
   const usados = [...(sabor.usaBase === false ? [] : base), ...sabor.itens].filter((i) => i.usa && i.qtd > 0 && i.nome.trim());
   if (usados.length === 0 || usados.some((i) => precoDe1(i) <= 0)) return null;
-  return custoPorUnidade(totalDaReceita(usados), rendeDoSabor(sabor, rende));
+  // 25/11: per-unit lines and costs without stock follow the flavour's own yield
+  const r = rendeDoSabor(sabor, rende);
+  return Math.round((custoPorUnidade(totalDaReceita(usados, r), r) + extrasPorUnidade(extras, r)) * 100) / 100;
 }
 
 export interface SaborParaSalvar { id?: string; nome: string; emoji: string; itens: ItemReceita[]; rende: number | null; usaBase: boolean }

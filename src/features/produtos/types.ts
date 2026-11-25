@@ -17,6 +17,8 @@ export const produtoSchema = z.object({
   origem: z.enum(["compra", "faz"]).nullable().catch(null),
   emoji: z.string().nullable().catch(null),
   controla_estoque: z.boolean().nullable().catch(true),
+  /** 25/11: costs without stock (labour, fees); absent before the migration */
+  custos_extras: z.array(z.object({ nome: z.string(), valor: num, por: z.enum(["receita", "unidade"]).catch("unidade") })).catch([]).optional(),
 });
 export type Produto = z.infer<typeof produtoSchema>;
 
@@ -44,6 +46,8 @@ export interface RascunhoProduto {
    *  null = sem receita salva (custo digitado direto). */
   receita: ItemReceita[] | null;
   rende: number;
+  /** 25/11: costs without physical stock (labour, fees) of the recipe */
+  extras?: { nome: string; valor: number; por: "receita" | "unidade" }[];
   /** 23/11: id chosen by the phone for a NEW product, kept in the draft: a retry after a lost answer
    *  hits "already exists" and updates the same row instead of creating a second product */
   novoId?: string;
@@ -66,6 +70,8 @@ export interface ItemReceita {
   aprender?: boolean;
   /** 23/11: price typed on the screen (only then it is sent; see salvarReceita) */
   precoEditado?: boolean;
+  /** 25/11: `qtd` per recipe (default) or per unit produced; undefined = old line, not classified */
+  por?: "receita" | "unidade";
 }
 
 export const UNIDADES = ["un", "g", "kg", "ml", "l"] as const;

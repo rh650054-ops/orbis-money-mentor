@@ -7,13 +7,14 @@ import { toast } from "@/shared/hooks/use-toast";
 import { mapSupabaseError } from "@/shared/api";
 import { useProdutosQuery } from "../api/use-produtos-query";
 import { useReceitaQuery } from "../api/use-receita-query";
+import { useReceitaPorUnidadeDisponivel } from "../api/use-receita-por-unidade";
 import { useSaboresQuery } from "../api/use-sabores";
 import { useApagarProdutoMutation } from "../api/use-produto-mutations";
 import { useSalvarFichaMutation } from "../api/use-salvar-ficha-mutation";
 import { useSubirFotoMutation } from "../api/use-subir-foto-mutation";
 import { apagarFotosOrfas } from "../api/fotos";
 import { custoDaFicha, fichaDe, problemaDaFicha, type Ficha } from "../lib/ficha";
-import { levasPossiveis } from "../lib/receitas";
+import { levasPossiveis, qtdNaLeva, resumoDoCusto } from "../lib/receitas";
 import { CarregandoProdutos } from "../components/carregando-produtos";
 import { FichaCabecalho } from "../components/ficha-cabecalho";
 import { FichaPreco } from "../components/ficha-preco";
@@ -28,13 +29,14 @@ export default function FichaProdutoPage() {
   const lista = useProdutosQuery(user?.id, { sempreFresco: true });
   const receita = useReceitaQuery(id);
   const sabores = useSaboresQuery(id);
+  const porUnidade = useReceitaPorUnidadeDisponivel();
   const produto = useMemo(() => lista.data?.find((p) => p.id === id), [id, lista.data]);
   if (lista.isError || receita.isError || sabores.isError) {
     return <p className="text-center font-bold py-16 text-[#F4F1EA]">Não consegui abrir o produto. Volta e tenta de novo.</p>;
   }
-  if (!lista.isFetchedAfterMount || !receita.data || !sabores.data) return <CarregandoProdutos />;
+  if (!lista.isFetchedAfterMount || !receita.data || !sabores.data || porUnidade.data === undefined) return <CarregandoProdutos />;
   if (!produto) return <Navigate to="/products" replace />;
-  const inicial = fichaDe(produto, receita.data, sabores.data);
+  const inicial = fichaDe(produto, receita.data, sabores.data, porUnidade.data);
   const estoques = new Map([...receita.data, ...sabores.data.flatMap((s) => s.extras)].map((i) => [i.nome.trim().toLowerCase(), i.estoque]));
   return <Tela key={produto.id} id={produto.id} inicial={inicial} estoques={estoques} userId={user?.id} />;
 }
@@ -53,7 +55,7 @@ function Tela({ id, inicial, estoques, userId }: { id: string; inicial: Ficha; e
   const custo = custoDaFicha(f);
   const usados = f.itens.filter((i) => i.usa && i.qtd > 0);
   const levas = f.origem === "faz" && usados.length > 0
-    ? levasPossiveis(usados.map((i) => ({ qtd: i.qtd, estoque: estoques.get(i.nome.trim().toLowerCase()) ?? 0 }))) : null;
+    ? levasPossiveis(usados.map((i) => ({ qtd: qtdNaLeva(i, f.rende), estoque: estoques.get(i.nome.trim().toLowerCase()) ?? 0 }))) : null;
 
   const gravar = () => salvar.mutate(f, {
     onSuccess: () => {
@@ -74,7 +76,8 @@ function Tela({ id, inicial, estoques, userId }: { id: string; inicial: Ficha; e
         })} />
       <FichaPreco f={f} onMudar={mudar} />
       <FichaOrigem f={f} estoques={estoques} onMudar={mudar} />
-      {!f.precoLivre && f.preco > 0 && custo.valor > 0 && <CardLucro preco={f.preco} custo={custo.valor} />}
+      {!f.precoLivre && f.preco > 0 && custo.valor > 0 && <CardLucro preco={f.preco} custo={custo.valor}
+        parcial={f.origem === "faz" && f.itens.some((i) => i.usa && i.nome.trim()) && !resumoDoCusto(f.itens, f.rende, f.extras).completo} />}
       <FichaEstoque f={f} levas={levas} onMudar={mudar} />
       <button type="button" onClick={() => navigate("/products/mercado")} className="rounded-2xl px-3.5 py-3 text-left text-[13px] font-extrabold"
         style={{ background: "#0f0f10", border: "1px dashed #3a3833", color: "#d8d2c4" }}>

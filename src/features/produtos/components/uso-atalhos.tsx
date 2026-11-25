@@ -6,14 +6,16 @@ import { fmt } from "../lib/formato";
 
 const OPCOES: [AtalhoUso, string][] = [["inteira", "Uso a embalagem inteira"], ["metade", "Uso metade"], ["informar", "Informar quantidade"], ["naosei", "Ainda não sei"]];
 
-export function UsoAtalhos({ it, onMudar, onInformar }: {
+export function UsoAtalhos({ it, onMudar, onInformar, semNaoSei }: {
   it: IngredienteRascunho; onMudar: (m: Partial<IngredienteRascunho>) => void; onInformar: () => void;
+  /** 25/11: "Ainda não sei" already sits outside "Mais opções" */
+  semNaoSei?: boolean;
 }) {
   const ativo = atalhoDoUso(it);
   const pac = it.pacote > 0 ? it.pacote : 1;
   return (
     <div className="grid grid-cols-2 gap-1.5 pl-[30px]" role="group" aria-label="Quanto usa">
-      {OPCOES.map(([a, rotulo]) => {
+      {OPCOES.filter(([a]) => !(semNaoSei && a === "naosei")).map(([a, rotulo]) => {
         const sel = a === ativo && (a !== "informar" || it.qtd > 0);
         const extra = a === "inteira" ? `${fmt(pac)} ${it.unidade}` : a === "metade" ? `${fmt(pac / 2)} ${it.unidade}` : "";
         return (

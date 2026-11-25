@@ -4,6 +4,8 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { Ficha } from "../lib/ficha";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
+const porUnidade = vi.hoisted(() => ({ v: false }));
+vi.mock("../api/use-receita-por-unidade", () => ({ useReceitaPorUnidadeDisponivel: () => ({ data: porUnidade.v }) }));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "u1" } }) }));
 vi.mock("@/shared/hooks/use-toast", () => ({ toast: vi.fn() }));
 vi.mock("../api/use-produtos-query", () => ({

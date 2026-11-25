@@ -11,7 +11,7 @@ import { useSubirFotoMutation } from "../api/use-subir-foto-mutation";
 import { apagarFotosOrfas } from "../api/fotos";
 import { rascunhoDe, TOTAL_PASSOS, useQuizProduto } from "../hooks/use-quiz-produto";
 import type { RascunhoProduto } from "../types";
-import { rascunhoDaReceita } from "../lib/receitas";
+import { rascunhoDaReceita, resumoDoCusto } from "../lib/receitas";
 import { PassoNome } from "../components/passo-nome";
 import { PassoOrigem } from "../components/passo-origem";
 import { PassoCustoCompra } from "../components/passo-custo-compra";
@@ -86,13 +86,13 @@ function Quiz({ inicial, userId }: { inicial?: RascunhoProduto; userId?: string 
     case "custo":
       return r.origem === "faz"
         ? <PassoCustoFaz total={TOTAL_PASSOS} nome={r.nome} custo={r.custo} receitaInicial={r.receita ? rascunhoDaReceita(r.receita, r.rende) : null}
-            rendeInicial={r.rende} onCusto={q.setCusto} onRende={(n) => q.setPacote(n)} onReceita={q.setReceita} onContinuar={q.avancar} onVoltar={voltar} />
+            rendeInicial={r.rende} extrasIniciais={r.extras ?? []} onCusto={q.setCusto} onRende={(n) => q.setPacote(n)} onReceita={q.setReceita} onContinuar={q.avancar} onVoltar={voltar} />
         : <PassoCustoCompra total={TOTAL_PASSOS} nome={r.nome} custo={r.custo} onCusto={q.setCusto} onPacote={(n) => q.setPacote(n)}
             onFaco={() => q.setOrigem("faz")} onContinuar={q.avancar} onVoltar={voltar} />;
     case "sabores":
       return <PassoSabores r={r} total={TOTAL_PASSOS} onSabores={q.setSabores} onContinuar={q.avancar} onVoltar={voltar} />;
     case "preco":
-      return <PassoPreco total={TOTAL_PASSOS} nome={r.nome} custo={r.custo} preco={r.preco} combo={r.combo}
+      return <PassoPreco total={TOTAL_PASSOS} parcial={!!r.receita && r.receita.length > 0 && !resumoDoCusto(rascunhoDaReceita(r.receita), r.rende, r.extras ?? []).completo} nome={r.nome} custo={r.custo} preco={r.preco} combo={r.combo}
         onPreco={q.setPreco} onCombo={q.setCombo} onPrecoLivre={q.setPrecoLivre} onContinuar={q.avancar} onVoltar={voltar} />;
     case "revisao":
       return <PassoRevisao r={comEstoqueDosSabores(r)} total={TOTAL_PASSOS} pacote={q.pacote} salvando={salvar.isPending || salvarSabores.isPending} falha={falha} onIr={q.ir}

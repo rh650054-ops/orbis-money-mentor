@@ -3,8 +3,7 @@
    como consegue (compra pronto / faz com receita), custo, estoque. Puro: sem React. */
 import type { IngredienteDaReceita } from "../api/use-receita-query";
 import type { ProdutoComFaixas } from "../types";
-import { custoPorUnidade } from "./conta";
-import { precoDe1, rascunhoDaReceita, receitaDoRascunho, totalDaReceita, type IngredienteRascunho } from "./receitas";
+import { precoDe1, rascunhoDaReceita, receitaDoRascunho, resumoDoCusto, type CustoExtra, type IngredienteRascunho } from "./receitas";
 import type { Sabor } from "../api/use-sabores";
 import type { SaborRascunho } from "./sabores";
 
@@ -23,19 +22,22 @@ export interface Ficha {
   controlaEstoque: boolean;
   itens: IngredienteRascunho[];
   rende: number;
+  /** 25/11: costs without physical stock (labour, fees) */
+  extras: CustoExtra[];
   /** sabores (26/10): só o que muda em cada um; a base está em `itens` */
   sabores: SaborRascunho[];
 }
 
-export function fichaDe(p: ProdutoComFaixas, receita: IngredienteDaReceita[], sabores: Sabor[] = []): Ficha {
+export function fichaDe(p: ProdutoComFaixas, receita: IngredienteDaReceita[], sabores: Sabor[] = [], porUnidade = false): Ficha {
   const faz = p.origem === "faz" || receita.length > 0;
   return {
     nome: p.name, emoji: p.emoji ?? "📦", foto: p.photo_url, origem: faz ? "faz" : "compra",
     preco: p.sale_price, precoLivre: !!p.open_price,
     combos: p.faixas.filter((f) => f.qty >= 2).map((f) => ({ qty: f.qty, price: f.price })),
     custo: p.cost, estoque: p.stock_quantity, estoqueMin: p.stock_min, controlaEstoque: p.controla_estoque !== false,
-    itens: rascunhoDaReceita(receita, p.batch_yield),
+    itens: rascunhoDaReceita(receita, p.batch_yield, { confirmarAntigas: porUnidade }),
     rende: p.batch_yield > 0 ? p.batch_yield : 20,
+    extras: p.custos_extras ?? [],
     sabores: sabores.map((s) => ({ id: s.id, nome: s.nome, emoji: s.emoji, itens: rascunhoDaReceita(s.extras, s.rende ?? p.batch_yield), rende: s.rende ?? null, usaBase: s.usaBase !== false, foto: s.foto ?? null })),
   };
 }
@@ -46,7 +48,10 @@ export function custoDaFicha(f: Ficha): { valor: number; pelaReceita: boolean } 
   if (f.origem === "faz") {
     const usados = f.itens.filter((i) => i.usa && i.qtd > 0 && i.nome.trim());
     if (usados.length > 0 && usados.every((i) => precoDe1(i) > 0)) {
-      return { valor: custoPorUnidade(totalDaReceita(usados), f.rende), pelaReceita: true };
+      if (!(f.rende >= 1) || usados.some((i) => i.confirmar)) return { valor: f.custo, pelaReceita: false };
+      // 25/11: batch + per-unit lines × yield + costs without stock, ÷ yield
+      const r = resumoDoCusto(usados, f.rende, f.extras);
+      return { valor: Math.round(r.porUnidade * 100) / 100, pelaReceita: true };
     }
   }
   return { valor: f.custo, pelaReceita: false };

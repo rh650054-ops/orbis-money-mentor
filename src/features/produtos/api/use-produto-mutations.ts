@@ -55,7 +55,7 @@ export function useSalvarProdutoMutation(userId: string | undefined, inicial?: R
       }
       if (r.receita) {
         try {
-          await salvarReceita(id, r.receita, r.rende);
+          await salvarReceita(id, r.receita, r.rende, r.extras?.length ? r.extras : undefined);
         } catch (e) {
           // 26/10: produto novo cuja receita falhou não fica pela metade — cada "Salvar" de novo
           // criava outra Batida sem receita (5 iguais no estoque). Apaga e devolve o erro.

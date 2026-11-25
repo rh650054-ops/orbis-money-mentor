@@ -41,7 +41,10 @@ export function useSalvarFichaMutation(userId: string | undefined, produtoId: st
       if (del.error) throw del.error;
       // receita: grava quando tem; tira quando ele passou a comprar pronto ou esvaziou
       const tinha = inicial.origem === "faz" && receitaDoRascunho(inicial.itens).length > 0;
-      if (receita.length > 0 || tinha) await salvarReceita(produtoId, receita, f.rende);
+      // 25/11: costs without stock only when there are some (or there were): an app talking to a database
+      // without the per-unit migration never sends the new argument
+      const extras = f.extras.length > 0 || inicial.extras.length > 0 ? f.extras : undefined;
+      if (receita.length > 0 || tinha) await salvarReceita(produtoId, receita, f.rende, extras);
       // sabores (26/10): grava quando tem; lista vazia apaga os que existiam
       const sabores = f.origem === "faz" ? saboresParaSalvar(f.sabores) : [];
       if (sabores.length > 0 || inicial.sabores.length > 0) await salvarSabores(produtoId, sabores);
