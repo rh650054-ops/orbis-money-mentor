@@ -57,7 +57,8 @@ export function ProdutoCard({ p, i, painel, onClick }: { p: ProdutoComFaixas; i:
   const sabores = painel?.sabores ?? [];
   const combo = p.faixas[0];
   const corEstoque = est === "sem" ? VERM : est === "baixo" ? LARANJA : "#F4F1EA";
-  const borda = est === "sem" ? "rgba(255,107,94,.45)" : est === "baixo" ? "rgba(255,154,61,.5)" : painel?.podeProduzir ? "rgba(61,214,140,.45)" : "#2a2722";
+  // 25/11 (Rick): stock in order = green outline, like the approved mockup; low = orange; out = red
+  const borda = est === "sem" ? "rgba(255,107,94,.55)" : est === "baixo" ? "rgba(255,154,61,.6)" : est === "ok" || painel?.podeProduzir ? "rgba(61,214,140,.6)" : "#2a2722";
   // sizes taken from the approved mockup at 390 px: a card is ~106 px tall, photo column 84 px
   return (
     <article className="w-full rounded-[16px] overflow-hidden flex" style={{ background: "#151515", border: `1px solid ${borda}` }}>
