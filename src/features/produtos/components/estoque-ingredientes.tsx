@@ -20,7 +20,9 @@ export function EstoqueIngredientes({ c, situacao, usadoEm }: { c: CatalogoProdu
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [aberto, setAberto] = useState<string | null>(null);
   const t = busca.trim().toLowerCase();
-  const lista = c.ingredientes.filter((i) => (!t || i.name.toLowerCase().includes(t)) && (filtro === "todos" || situacao.get(i.id) === filtro));
+  // 25/11 (Rick): a cost typed as an ingredient ("Produção") is not goods: out of the list, named below
+  const custos = c.ingredientes.filter((i) => pareceCusto(i.name));
+  const lista = c.ingredientes.filter((i) => !pareceCusto(i.name) && (!t || i.name.toLowerCase().includes(t)) && (filtro === "todos" || situacao.get(i.id) === filtro));
   if (c.ingredientes.length === 0) return <p className="text-[12.5px] px-1" style={{ color: "#7b766e" }}>Nenhum ingrediente ainda. Eles aparecem quando você monta a receita na ficha do produto.</p>;
   return (
     <div className="flex flex-col gap-2">
@@ -53,6 +55,11 @@ export function EstoqueIngredientes({ c, situacao, usadoEm }: { c: CatalogoProdu
           );
         })}
       </div>
+      {custos.length > 0 && (
+        <p className="text-[12px] font-semibold leading-snug px-1" style={{ color: "#8f897e" }}>
+          {custos.map((i) => i.name).join(", ")} não {custos.length === 1 ? "aparece" : "aparecem"} aqui: é custo (mão de obra), não mercadoria. Está na receita como ingrediente; ajuste na ficha do produto.
+        </p>
+      )}
       {aberto && <Detalhe c={c} id={aberto} usadoEm={usadoEm(aberto)} onFechar={() => setAberto(null)} />}
     </div>
   );
