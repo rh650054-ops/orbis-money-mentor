@@ -7,6 +7,7 @@ import {
 } from "../lib/receitas";
 import { custoDoSabor } from "../lib/sabores";
 
+vi.mock("../api/use-medidas", () => ({ useMedidaDeUsoDisponivel: () => ({ data: false }) }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 const porUnidade = vi.hoisted(() => ({ v: true }));
 vi.mock("../api/use-receita-por-unidade", () => ({ useReceitaPorUnidadeDisponivel: () => ({ data: porUnidade.v }) }));

@@ -72,6 +72,12 @@ export interface ItemReceita {
   precoEditado?: boolean;
   /** 25/11: `qtd` per recipe (default) or per unit produced; undefined = old line, not classified */
   por?: "receita" | "unidade";
+  /** 25/11 (medida de uso): unit he typed the line in (display only; `qtd` is always in `unidade`) */
+  unidadeUso?: "un" | "g" | "kg" | "ml" | "l" | null;
+  /** what one unit of a "un" ingredient holds ("each caixinha has 395 g"), reused by every recipe */
+  conteudo?: { qtd: number; unidade: "g" | "ml" } | null;
+  /** "caixinha", "lata"… (wording only); undefined = the database has no such column */
+  embalagem?: string | null;
 }
 
 export const UNIDADES = ["un", "g", "kg", "ml", "l"] as const;

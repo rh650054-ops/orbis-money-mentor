@@ -1,6 +1,7 @@
 import { supabase } from "@/shared/api";
 import type { ItemReceita } from "../types";
 import type { CustoExtra } from "../lib/receitas";
+import { salvarMedidas } from "./medidas";
 
 type Rpc = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: unknown }>;
 
@@ -35,5 +36,7 @@ export async function salvarReceita(produtoId: string, receita: ItemReceita[], r
   if (receita.length > 0) {
     const r = await (supabase.rpc as unknown as Rpc)("ingredientes_definir_compra", compra);
     if (r.error) throw r.error;
+    // 25/11: how each line was measured ("200 g" of a 395 g box); display and reuse only
+    await salvarMedidas(produtoId, receita);
   }
 }

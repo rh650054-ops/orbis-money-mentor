@@ -1,7 +1,7 @@
 /* One ingredient of a recipe (quiz, product sheet and flavours). Approved design kept: dark card,
    yellow check, compact fields. 25/11 (Rick): only three questions are open — Quanto compro? Quanto
-   pago? Quanto uso? — and the VANT does the rest. "Ainda não sei" stays in sight; the shortcuts
-   (whole package, "dá pra", by weight) are under "Mais opções". A line is used per recipe or in each
+   pago? Quanto uso? — and the VANT does the rest. "Quanto uso?" offers Inteira / Metade / Quantidade /
+   Não sei in one compact row (QuantoUsa); "dá pra" and by weight stay under "Mais opções". A line is used per recipe or in each
    unit produced, and can move between the two without being typed again. */
 import { useRef, useState } from "react";
 import { ArrowDownUp, Check } from "lucide-react";
@@ -12,6 +12,9 @@ import { reais } from "./campos";
 import { fmt } from "../lib/formato";
 import { MiniDinheiro, MiniNumero } from "./mini-campos";
 import { LinhaConfirmar, LinhaMaisOpcoes } from "./linha-mais-opcoes";
+import { QuantoUsa } from "./quanto-usa";
+import { useMedidaDeUsoDisponivel } from "../api/use-medidas";
+import { EMBALAGENS } from "../lib/medidas";
 import { Sugestoes } from "./sugestoes-ingrediente";
 
 /** purchase unit on screen → batch unit + factor */
@@ -21,7 +24,7 @@ const COMPRA: { rotulo: string; leva: Unidade; fator: number }[] = [
 ];
 const CINZA = "#8A8A8A";
 const LINHA = "flex items-center gap-1.5 flex-wrap text-[12px] font-bold pl-[30px]";
-const PERGUNTA = "w-[100px] shrink-0 text-[12px] font-extrabold whitespace-nowrap";
+const PERGUNTA = "w-[91px] min-[380px]:w-[96px] shrink-0 text-[11.5px] min-[380px]:text-[12px] font-extrabold whitespace-nowrap";
 
 export function LinhaIngrediente({ it, rende, nomeProduto = "unidades", estoque, sugestoes, repetido, avisoRepetido = "esse ingrediente já está na receita", onMudar, onMover }: {
   it: IngredienteRascunho; rende: number; nomeProduto?: string; estoque?: number; sugestoes: IngredienteGuardado[];
@@ -34,6 +37,7 @@ export function LinhaIngrediente({ it, rende, nomeProduto = "unidades", estoque,
   onMover?: (por: PorConsumo) => void;
 }) {
   const [editando, setEditando] = useState(false);
+  const medidas = useMedidaDeUsoDisponivel().data === true;
   const caixa = useRef<HTMLDivElement>(null);
   // 24/11: an ingredient already saved keeps its measure (its stock and cost are counted in it): only
   // the sizes of the same measure are offered (g ↔ kg, ml ↔ l). One bought "un" can still become g/ml.
@@ -44,7 +48,9 @@ export function LinhaIngrediente({ it, rende, nomeProduto = "unidades", estoque,
   const custoLeva = it.qtd > 0 ? qtdNaLeva(it, rende) * precoDe1(it) : 0;
   const usar = (g: IngredienteGuardado) => {
     // same ingredient, one row in the database: shared by every recipe and by the market purchases
-    onMudar({ id: g.id, nome: g.nome, unidade: g.unidade, pacote: g.pacote, ...(g.precoPacote > 0 && !(it.precoPacote > 0) ? { precoPacote: g.precoPacote } : {}) });
+    onMudar({ id: g.id, nome: g.nome, unidade: g.unidade, pacote: g.pacote, ...(g.precoPacote > 0 && !(it.precoPacote > 0) ? { precoPacote: g.precoPacote } : {}),
+      // 25/11: what its package holds is known: never asked again
+      ...(g.embalagem !== undefined ? { embalagem: g.embalagem, conteudo: g.conteudo ?? null } : {}) });
     setEditando(false);
   };
   const aoSair = () => {
@@ -78,45 +84,36 @@ export function LinhaIngrediente({ it, rende, nomeProduto = "unidades", estoque,
         <>
           <div className={LINHA} style={{ color: "#b9b3a6" }}>
             <span className={PERGUNTA}>Quanto compro?</span>
-            <MiniNumero key={`q-${compra.unidade}`} valor={compra.valor} rotulo="Quanto compra"
+            <MiniNumero key={`q-${compra.unidade}`} valor={compra.valor} rotulo="Quanto compra" largura={it.embalagem && it.unidade === "un" ? 40 : 64}
               onChange={(v) => {
                 // an empty or zero field while typing keeps the last purchase
                 if (!(v > 0)) return;
                 onMudar({ pacote: pacoteDaCompra(v, compra.unidade, it.unidade), ...(it.precoPacote > 0 ? { precoEditado: true } : {}) });
               }} />
-            <select value={compra.unidade} aria-label="Unidade da compra"
-              onChange={(e) => { const c = COMPRA.find((x) => x.rotulo === e.target.value) ?? COMPRA[0]!; onMudar({ unidade: c.leva, pacote: Math.max(1, compra.valor) * c.fator, ...(it.precoPacote > 0 ? { precoEditado: true } : {}) }); }}
-              className="h-9 rounded-[10px] bg-[#1a1a19] px-2 outline-none text-sm font-black text-[#F4F1EA]">
+            <select value={it.unidade === "un" && it.embalagem ? it.embalagem : compra.unidade} aria-label="Unidade da compra"
+              onChange={(e) => {
+                const v = e.target.value;
+                // 25/11: "caixinha", "lata"… are a "un" with a name: nothing about the stock changes
+                if ((EMBALAGENS as readonly string[]).includes(v)) return onMudar({ unidade: "un", pacote: it.unidade === "un" ? Math.max(1, compra.valor) : 1, embalagem: v, ...(it.precoPacote > 0 && it.unidade !== "un" ? { precoEditado: true } : {}) });
+                const c = COMPRA.find((x) => x.rotulo === v) ?? COMPRA[0]!;
+                onMudar({ unidade: c.leva, pacote: Math.max(1, compra.valor) * c.fator, ...(medidas ? { embalagem: null } : {}), uso: undefined, ...(it.precoPacote > 0 ? { precoEditado: true } : {}) });
+              }}
+              className="h-9 rounded-[10px] bg-[#1a1a19] px-1.5 outline-none text-[13px] font-black text-[#F4F1EA] max-w-[96px]">
               {opcoes.map((u) => <option key={u.rotulo} value={u.rotulo}>{u.rotulo}</option>)}
+              {medidas && (it.unidade === "un" || !it.id) && EMBALAGENS.map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
           <div className={LINHA} style={{ color: "#b9b3a6" }}>
             <span className={PERGUNTA}>Quanto pago?</span>
             <MiniDinheiro valor={it.precoPacote} onChange={(precoPacote) => onMudar({ precoPacote, precoEditado: true })} />
           </div>
-          <div className={LINHA} style={{ color: "#b9b3a6" }}>
-            <span className={PERGUNTA}>Quanto uso?</span>
-            {it.aprender ? (
-              <span className="h-9 rounded-[10px] px-2.5 inline-flex items-center text-[12px] font-black" style={{ background: "#1a1305", color: "#F5B800" }}>? pendente: você completa depois</span>
-            ) : (
-              <>
-                <MiniNumero valor={it.qtd} exemplo="?" rotulo="Quanto usa na leva" onChange={(qtd) => onMudar({ qtd })} />
-                <span className="whitespace-nowrap">{it.unidade} {porUnidade ? "por unidade" : "na receita"}</span>
-              </>
-            )}
-          </div>
+          <QuantoUsa key={it.id ?? "novo"} it={it} porUnidade={porUnidade} medidas={medidas} onMudar={onMudar} />
           {custoLeva > 0 && (
             <span className="text-[12px] font-black pl-[30px]" style={{ color: "#F5B800" }}>
               {porUnidade ? `= ${reais(custoUso)} cada · ${rende >= 1 ? `${reais(custoLeva)} na receita (× ${fmt(rende)})` : "falta quanto a receita rende"}` : `= ${reais(custoLeva)} na receita`}
             </span>
           )}
-          <LinhaMaisOpcoes it={it} rende={rende} nomeProduto={nomeProduto} onMudar={onMudar}
-            onInformar={() => window.setTimeout(() => caixa.current?.querySelector<HTMLInputElement>('input[aria-label="Quanto usa na leva"]')?.focus(), 0)} />
-          {it.aprender && (
-            <span className="text-[11px] font-bold pl-[30px] leading-snug" style={{ color: "#b9b3a6" }}>
-              Fica pendente na receita. Enquanto estiver assim, ele não sai do estoque na produção e o custo fica parcial. Você completa depois, na ficha do produto.
-            </span>
-          )}
+          <LinhaMaisOpcoes it={it} rende={rende} nomeProduto={nomeProduto} onMudar={onMudar} />
           <span className="text-[10.5px] font-bold pl-[30px]" style={{ color: !it.aprender && !(it.qtd > 0) ? "#F5B800" : CINZA }}>
             {!it.aprender && !(it.qtd > 0) ? "pendente: falta quanto usa · " : ""}
             {estoque !== undefined ? `tem ${fmt(estoque)} ${it.unidade} guardado · ` : ""}pode ser aproximado

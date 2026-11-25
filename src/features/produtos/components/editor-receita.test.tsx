@@ -3,6 +3,7 @@ import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { receitaDoRascunho, rascunhoDaReceita, type IngredienteRascunho } from "../lib/receitas";
 
+vi.mock("../api/use-medidas", () => ({ useMedidaDeUsoDisponivel: () => ({ data: false }) }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 const porUnidade = vi.hoisted(() => ({ v: false }));
 vi.mock("../api/use-receita-por-unidade", () => ({ useReceitaPorUnidadeDisponivel: () => ({ data: porUnidade.v }) }));
