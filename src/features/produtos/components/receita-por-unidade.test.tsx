@@ -113,4 +113,11 @@ describe("Editor — três etapas e duas listas (25/11)", () => {
     expect(screen.getByText(/Custo parcial — faltam informações para calcular sua margem real/)).toBeInTheDocument();
     expect(screen.queryByText("Sobra por unidade")).toBeNull();
   });
+
+  it("'Produção' digitada como ingrediente vira custo sem estoque com um toque (R$ 0,70 × 5 = R$ 3,50 → R$ 0,70 por unidade)", () => {
+    render(<Harness inicial={[...lote, ing("Produção", 5, 0.7)]} />);
+    fireEvent.click(screen.getByRole("button", { name: /Produção é custo, não ingrediente/ }));
+    expect(screen.getByLabelText("Valor de Produção")).toHaveValue("0,70");
+    expect(screen.queryByDisplayValue("Produção")).toHaveAttribute("aria-label", "Nome do custo");
+  });
 });
