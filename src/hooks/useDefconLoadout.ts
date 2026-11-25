@@ -114,6 +114,34 @@ export function useDefconLoadout(userId: string | undefined, date?: string) {
     await salvar(qty);
   };
 
+  /** 25/11 (Rick): several products in one go — none replaces another. Each item saves its own row;
+   *  above the stock only when he said "tenho mais" (then the stock is set to what he has, as the
+   *  single-product warning does). Returns the names that could not be saved. */
+  const levarVarios = async (itens: { product: ProductOption; qty: number; tenhoMais?: boolean }[]): Promise<string[]> => {
+    if (!userId) return [];
+    const falhas: string[] = [];
+    for (const { product, qty, tenhoMais } of itens) {
+      if (!(qty > 0)) continue;
+      const jaVendido = Number(loadout.find((l) => l.product_id === product.id)?.qty_sold || 0);
+      const podeLevar = Math.max(0, Number(product.stock_quantity || 0)) + jaVendido;
+      let q = qty;
+      if (product.controla_estoque !== false && qty > podeLevar) {
+        if (tenhoMais) {
+          const { error } = await supabase.from("products").update({ stock_quantity: qty - jaVendido }).eq("id", product.id);
+          if (error) { falhas.push(product.name); continue; }
+        } else q = podeLevar;
+      }
+      if (!(q > 0)) continue;
+      const { error } = await supabase.from("defcon_daily_loadout").upsert(
+        { user_id: userId, date: day, product_id: product.id, product_name: product.name, qty_initial: q },
+        { onConflict: "user_id,date,product_id" });
+      if (error) falhas.push(product.name);
+    }
+    if (falhas.length) avisar.usuario(`Não consegui adicionar ${falhas.join(", ")} na carga. Tenta de novo.`, null, "useDefconLoadout: levar vários");
+    await load();
+    return falhas;
+  };
+
   /** Chegou mais do que o estoque dizia: acerta o estoque e leva. */
   const confirmarAviso = async () => {
     const a = aviso;
@@ -132,7 +160,7 @@ export function useDefconLoadout(userId: string | undefined, date?: string) {
   };
 
   return {
-    loadout, products, loading, reload: load, addProduct, updateQty,
+    loadout, products, loading, reload: load, addProduct, updateQty, levarVarios,
     aviso, confirmarAviso, levarSoOQueTem, fecharAviso: () => setAviso(null),
   };
 }
