@@ -34,7 +34,7 @@ export function CargaResumo({ itens, produtos, potencial, custo, sobra, meta, un
     <div className="relative overflow-hidden rounded-[26px] mt-5 px-5 pt-5 pb-5"
       style={{ border: "1px solid rgba(245,184,0,.32)", background: "radial-gradient(120% 90% at 50% -10%, rgba(245,184,0,.18), transparent 60%), linear-gradient(170deg,#1a1408 0%,#0c0c0c 70%)", boxShadow: "0 20px 40px -24px rgba(245,184,0,.35)" }}>
       <p className="text-[10.5px] font-black uppercase tracking-[.16em]" style={{ color: "var(--orbis-gold)" }}>Essa carga rende</p>
-      <p className="text-[42px] font-extrabold leading-none mt-2 tracking-[-1px] tabular-nums">{brl0(potencial)}</p>
+      <p className="text-[32px] font-extrabold leading-none mt-2 tracking-[-.5px] tabular-nums">{brl0(potencial)}</p>
       <p className="text-[13px] mt-2 leading-relaxed" style={{ color: "var(--orbis-fg-2)" }}>
         {custo > 0
           ? <>Você investiu <b className="text-foreground">{brl0(custo)}</b>. Se vender tudo, sobram <b style={{ color: "#3DD68C" }}>{brl0(sobra)}</b>.</>
