@@ -20,7 +20,9 @@ const sabor = z.object({
 const linha = z.object({ product_id: z.string(), variant_id: z.string().nullable().catch(null), ingredient_id: z.string(), quantity: num, aprender: z.boolean().catch(false) });
 const ingrediente = z.object({ id: z.string(), name: z.string(), unit: z.string().nullable().catch("un").transform((u) => u ?? "un"), stock_quantity: num,
   // 25/11 (aba Estoque): how one purchase comes ("pacote de 100", "caixa de 395 g"), to show the stock right
-  pacote_qtd: z.coerce.number().catch(1).optional() });
+  pacote_qtd: z.coerce.number().catch(1).optional(),
+  // 25/11 (lista de compras): last known price of 1 unit of measure, for the estimated cost
+  cost_per_unit: z.coerce.number().catch(0).optional() });
 
 type Linhas = PromiseLike<{ data: unknown[] | null; error: { message?: string } | null }>;
 
@@ -50,7 +52,7 @@ export function useCatalogoProducaoQuery(userId: string | undefined) {
         supabase.from("products").select("id, name, emoji, recipe_mode, batch_yield, origem, stock_quantity, photo_url").eq("user_id", uid).eq("is_active", true).order("name"),
         saboresDe(uid),
         supabase.from("product_recipes").select("product_id, variant_id, ingredient_id, quantity, aprender").eq("user_id", uid),
-        supabase.from("ingredients").select("id, name, unit, stock_quantity, pacote_qtd").eq("user_id", uid).order("name"),
+        supabase.from("ingredients").select("id, name, unit, stock_quantity, pacote_qtd, cost_per_unit").eq("user_id", uid).order("name"),
       ]);
       if (prods.error) throw prods.error;
       if (recs.error) throw recs.error;

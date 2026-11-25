@@ -8,7 +8,7 @@ import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProdutosQuery } from "../api/use-produtos-query";
 import { useCatalogoProducaoQuery } from "../api/use-catalogo-producao-query";
-import { lucroDe, ordenarPorLucro } from "../lib/conta";
+import { ordenarPorLucro } from "../lib/conta";
 import { painelDoProduto, resumoDoPainel } from "../lib/painel";
 import { AbaEstoque } from "../components/aba-estoque";
 import { ChegouMercadoria } from "../components/chegou-mercadoria";
@@ -16,7 +16,6 @@ import { CarregandoProdutos } from "../components/carregando-produtos";
 import { IntroProdutos } from "../components/intro-produtos";
 import { estoqueBaixo, ProdutoCard } from "../components/produto-card";
 import { NavPainel, RegistrarCompra, ResumoPainel, type Aba } from "../components/painel-produtos";
-import { reais } from "../components/campos";
 import { OURO } from "../components/quiz-casca";
 
 export default function ProdutosPage() {
@@ -43,14 +42,10 @@ export default function ProdutosPage() {
   }
   if (lista.length === 0) return <IntroProdutos onComecar={() => navigate("/products/novo")} onVoltar={() => navigate(-1)} />;
 
-  // "the one that makes the most" only among products whose cost is reliable (complete recipe or typed cost)
-  const comLucro = lista.filter((p) => !p.open_price && p.sale_price > 0 && p.cost > 0 && painel.get(p.id)?.custoConfiavel);
-  const melhor = comLucro[0];
-  const pior = comLucro.length > 1 ? comLucro[comLucro.length - 1] : undefined;
   const resumo = resumoDoPainel(lista, [...painel.values()]);
 
   return (
-    <div className="text-[#F4F1EA] max-w-md md:max-w-2xl mx-auto flex flex-col gap-3 pt-2 pb-52">
+    <div className="text-[#F4F1EA] max-w-md md:max-w-2xl mx-auto flex flex-col gap-3 pt-2 pb-28">
       {/* iPhone status bar is translucent: scrolled cards no longer show under the clock */}
       <div aria-hidden className="fixed top-0 inset-x-0 z-40 pointer-events-none" style={{ height: "env(safe-area-inset-top)", background: "#000" }} />
       <div className="flex flex-col gap-0.5">
@@ -67,34 +62,18 @@ export default function ProdutosPage() {
 
       {aba === "produtos" ? (
         <>
-          {melhor && (
-            <div className="rounded-[14px] px-3 py-2.5 flex items-center gap-3" style={{ background: "linear-gradient(110deg, rgba(61,214,140,.13), #121211 65%)", border: "1px solid rgba(61,214,140,.3)" }}>
-              <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                <span className="text-[10px] font-extrabold tracking-[.1em]" style={{ color: "#3DD68C" }}>SEU PRODUTO QUE MAIS DÁ LUCRO</span>
-                <span className="text-[15px] font-extrabold leading-tight truncate">{melhor.name}</span>
-                <span className="text-[11px] font-semibold" style={{ color: "#9a958b" }}><span className="whitespace-nowrap">{reais(melhor.sale_price)} de venda</span> · <span className="whitespace-nowrap">{reais(melhor.cost)} de custo</span></span>
-                {pior && <span className="text-[11px] font-semibold" style={{ color: "#8a857b" }}>{pior.name} é o que menos dá lucro: <span className="whitespace-nowrap">{reais(lucroDe(pior.sale_price, pior.cost).sobra)}.</span></span>}
-              </div>
-              <div className="flex flex-col items-end shrink-0">
-                <span className="text-[18px] font-extrabold tabular-nums whitespace-nowrap" style={{ color: "#3DD68C" }}>+{reais(lucroDe(melhor.sale_price, melhor.cost).sobra)}</span>
-                <span className="text-[10.5px] font-semibold whitespace-nowrap" style={{ color: "#9a958b" }}>sobra por unidade</span>
-              </div>
-            </div>
-          )}
           <h2 className="text-[18px] font-extrabold mt-1 -mb-0.5">Seus produtos</h2>
           <div className="grid gap-2.5 md:grid-cols-2">
             {lista.map((p, i) => <ProdutoCard key={p.id} p={p} i={i} painel={painel.get(p.id)} onClick={() => navigate(`/products/${p.id}`)} />)}
           </div>
+          {/* 25/11 (Rick, approved mockup): only on this tab, in the page flow (never floating over cards,
+              the assistant or the bottom bar), centred and compact */}
+          <div className="w-full max-w-[360px] mx-auto mt-1"><RegistrarCompra /></div>
         </>
       ) : (
         <AbaEstoque produtos={lista} userId={user?.id} onRepor={(id) => setChegou({ aberto: true, id })} />
       )}
 
-      {/* 25/11 (Rick): "Registrar compra" stays fixed above the bottom bar while the cards scroll
-          (right padding leaves room for the assistant's round button) */}
-      <div className="fixed left-0 right-0 z-30 px-4 max-w-md md:max-w-2xl mx-auto" style={{ bottom: "calc(env(safe-area-inset-bottom) + 6rem)", paddingRight: 88 }}>
-        <RegistrarCompra />
-      </div>
       <ChegouMercadoria key={chegou.id ?? "todos"} aberto={chegou.aberto} inicial={chegou.id} produtos={lista} userId={user?.id} onFechar={() => setChegou({ aberto: false })} />
     </div>
   );

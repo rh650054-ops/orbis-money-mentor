@@ -25,12 +25,11 @@ function Status({ p, painel }: { p: ProdutoComFaixas; painel?: PainelDoProduto }
       <Icone className="w-3 h-3 shrink-0" strokeWidth={2.5} /> {texto}
     </span>
   );
-  if (painel?.receita === "incompleta") return pill(OURO, FileText, "Receita incompleta");
-  if (est === "sem") return pill(VERM, AlertCircle, "Sem estoque");
-  if (est === "baixo") return pill(LARANJA, AlertCircle, "Repor estoque");
-  if (painel?.podeProduzir) return pill(VERDE, Check, "Pronto para produzir");
-  if (painel?.receita === "completa") return pill(VERDE, Check, "Receita completa");
-  return null;
+  // 25/11 (Rick): stock and recipe are different things — one discrete pill for each, when it matters
+  const estoque = est === "ok" ? pill(VERDE, Check, "Em estoque") : est === "baixo" ? pill(LARANJA, AlertCircle, "Estoque baixo") : est === "sem" ? pill(VERM, AlertCircle, "Sem estoque") : null;
+  const receita = painel?.receita === "incompleta" ? pill(CINZA, FileText, "Receita incompleta") : null;
+  if (!estoque && !receita) return null;
+  return <span className="inline-flex flex-wrap gap-1">{estoque}{receita}</span>;
 }
 
 /** "R$" small, the number big: three values fit side by side on a 360 px phone */
