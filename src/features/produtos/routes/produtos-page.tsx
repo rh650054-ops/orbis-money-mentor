@@ -2,7 +2,7 @@
    navigation, the product cards with the recipe / stock status and "Registrar compra" at the end of the
    list. Same data, same rules: costs that depend on an incomplete recipe are never shown as exact.
    Sem produto ainda → a introdução que chama o quiz. */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -25,6 +25,9 @@ export default function ProdutosPage() {
   const { data, isLoading, isError, refetch } = useProdutosQuery(user?.id);
   const catalogo = useCatalogoProducaoQuery(user?.id);
   const [aba, setAba] = useState<Aba>("produtos");
+  // 25/11 (Rick, iPhone): after saving a product sheet the list opened at the sheet's scroll position,
+  // with the cards under the status bar. The list always opens at the top.
+  useEffect(() => { window.scrollTo(0, 0); }, []);
   const [chegou, setChegou] = useState<{ aberto: boolean; id?: string }>({ aberto: false });
   const lista = useMemo(() => ordenarPorLucro(data ?? []), [data]);
   const painel = useMemo(() => new Map(lista.map((p) => [p.id, painelDoProduto(catalogo.data, p)])), [lista, catalogo.data]);
@@ -47,7 +50,9 @@ export default function ProdutosPage() {
   const resumo = resumoDoPainel(lista, [...painel.values()]);
 
   return (
-    <div className="text-[#F4F1EA] max-w-md md:max-w-2xl mx-auto flex flex-col gap-3 pt-2 pb-36">
+    <div className="text-[#F4F1EA] max-w-md md:max-w-2xl mx-auto flex flex-col gap-3 pt-2 pb-52">
+      {/* iPhone status bar is translucent: scrolled cards no longer show under the clock */}
+      <div aria-hidden className="fixed top-0 inset-x-0 z-40 pointer-events-none" style={{ height: "env(safe-area-inset-top)", background: "#000" }} />
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center gap-1.5">
           <button type="button" onClick={() => navigate(-1)} aria-label="Voltar" className="-ml-1.5 p-0.5" style={{ color: "#7b766e" }}><ChevronLeft className="w-5 h-5" /></button>
@@ -85,7 +90,11 @@ export default function ProdutosPage() {
         <AbaEstoque produtos={lista} userId={user?.id} onRepor={(id) => setChegou({ aberto: true, id })} />
       )}
 
-      <RegistrarCompra />
+      {/* 25/11 (Rick): "Registrar compra" stays fixed above the bottom bar while the cards scroll
+          (right padding leaves room for the assistant's round button) */}
+      <div className="fixed left-0 right-0 z-30 px-4 max-w-md md:max-w-2xl mx-auto" style={{ bottom: "calc(env(safe-area-inset-bottom) + 6rem)", paddingRight: 88 }}>
+        <RegistrarCompra />
+      </div>
       <ChegouMercadoria key={chegou.id ?? "todos"} aberto={chegou.aberto} inicial={chegou.id} produtos={lista} userId={user?.id} onFechar={() => setChegou({ aberto: false })} />
     </div>
   );
