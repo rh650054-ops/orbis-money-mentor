@@ -12,15 +12,17 @@ import { FotoDoSabor } from "./foto-do-sabor";
 
 const OURO = "#F5B800";
 
-export function EditorSabores({ sabores, base, extras = [], rende, preco, estoques, onMudar, nomeProduto = "unidades", comEstoque }: {
+export function EditorSabores({ sabores, base, extras = [], rende, preco, estoques, onMudar, nomeProduto = "unidades", comEstoque, ativoInicial = 0 }: {
   sabores: SaborRascunho[]; base: IngredienteRascunho[]; rende: number; preco: number;
   /** 25/11: costs without stock of the product (labour) also go into each flavour's cost */
   extras?: CustoExtra[];
+  /** 25/11: which flavour starts open (the new one, when coming from "Adicionar sabores") */
+  ativoInicial?: number;
   estoques?: Map<string, number>; onMudar: (s: SaborRascunho[]) => void; nomeProduto?: string;
   /** 23/11: registration of a new product: asks the ready units of each flavour */
   comEstoque?: boolean;
 }) {
-  const [ativo, setAtivo] = useState(0);
+  const [ativo, setAtivo] = useState(ativoInicial);
   const guardados = useIngredientesGuardadosQuery().data ?? [];
   const s = sabores[ativo];
   const mudarSabor = (i: number, m: Partial<SaborRascunho>) => onMudar(sabores.map((x, j) => (j === i ? { ...x, ...m } : x)));

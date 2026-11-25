@@ -1,7 +1,7 @@
 /* /products/:id — a ficha completa do produto numa tela só (Rick, 12/10/2026).
    Substitui a edição pelo quiz e a "Ficha técnica" escondida em /products/ficha. */
 import { useMemo, useState } from "react";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
 import { mapSupabaseError } from "@/shared/api";
@@ -19,6 +19,8 @@ import { CarregandoProdutos } from "../components/carregando-produtos";
 import { FichaCabecalho } from "../components/ficha-cabecalho";
 import { FichaPreco } from "../components/ficha-preco";
 import { FichaOrigem } from "../components/ficha-origem";
+import { FichaSoSabores } from "../components/ficha-so-sabores";
+import { novoSabor } from "../lib/sabores";
 import { FichaEstoque } from "../components/ficha-estoque";
 import { CardLucro } from "../components/passo-preco";
 import { BotaoOuro } from "../components/quiz-casca";
@@ -43,7 +45,10 @@ export default function FichaProdutoPage() {
 
 function Tela({ id, inicial, estoques, userId }: { id: string; inicial: Ficha; estoques: Map<string, number>; userId?: string }) {
   const navigate = useNavigate();
-  const [f, setF] = useState<Ficha>(inicial);
+  // 25/11: "Adicionar sabores" (after registering) opens only this product's flavours, a new one open
+  const [busca, setBusca] = useSearchParams();
+  const soSabores = busca.get("sabores") === "novo";
+  const [f, setF] = useState<Ficha>(() => (soSabores ? { ...inicial, sabores: [...inicial.sabores, novoSabor()] } : inicial));
   const mudar = (m: Partial<Ficha>) => setF((x) => ({ ...x, ...m }));
   const [confirmaTirar, setConfirmaTirar] = useState(false);
   const salvar = useSalvarFichaMutation(userId, id, inicial);
@@ -67,6 +72,7 @@ function Tela({ id, inicial, estoques, userId }: { id: string; inicial: Ficha; e
 
   return (
     <div className="text-[#F4F1EA] max-w-md mx-auto flex flex-col gap-3 pt-2 pb-48">
+      {soSabores ? <FichaSoSabores f={f} estoques={estoques} onMudar={mudar} onFichaCompleta={() => setBusca({}, { replace: true })} /> : <>
       <FichaCabecalho nome={f.nome} foto={f.foto} emoji={f.emoji} enviandoFoto={foto.isPending} onVoltar={() => navigate("/products")}
         onNome={(nome, emoji) => mudar({ nome, emoji })}
         onRemoverFoto={() => mudar({ foto: null })}
@@ -90,6 +96,7 @@ function Tela({ id, inicial, estoques, userId }: { id: string; inicial: Ficha; e
         }}>
         {confirmaTirar ? "Toca de novo pra tirar (as vendas antigas continuam)" : "Tirar da lista"}
       </button>
+      </>}
       <div className="fixed left-0 right-0 z-40 px-4 max-w-md mx-auto flex flex-col gap-1.5" style={{ bottom: "calc(env(safe-area-inset-bottom) + 6rem)", paddingRight: 88 }}>
         {problema && <p className="text-center text-[12px] font-bold" style={{ color: "#F5B800" }}>{problema}</p>}
         <BotaoOuro onClick={gravar} disabled={!!problema || salvar.isPending}>{salvar.isPending ? "SALVANDO…" : "SALVAR"}</BotaoOuro>
