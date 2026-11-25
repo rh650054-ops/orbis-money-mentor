@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { SaborRascunho } from "../lib/sabores";
 import type { IngredienteRascunho } from "../lib/receitas";
 
+vi.mock("../api/use-medidas", () => ({ useMedidaDeUsoDisponivel: () => ({ data: false }) }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 vi.mock("../api/use-ingredientes-guardados-query", () => ({ useIngredientesGuardadosQuery: () => ({ data: [] }) }));
 import { EditorSabores } from "./editor-sabores";

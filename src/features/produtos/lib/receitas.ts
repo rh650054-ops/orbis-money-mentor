@@ -4,6 +4,7 @@
    Cada ingrediente diz COMO é comprado (Rick, 13/10): "pacote de 100 canudos por R$ 8",
    "lata de 800 g por R$ 30", "15 maracujás por uns R$ 10" — tudo pode ser aproximado. */
 import type { ItemReceita, Unidade } from "../types";
+import { daBase, type Conteudo, type UnidadeUso } from "./medidas";
 
 export interface IngredienteRascunho {
   id?: string;
@@ -27,7 +28,17 @@ export interface IngredienteRascunho {
   por?: PorConsumo;
   /** 25/11: an old line (saved before per-unit existed) whose name looks per unit: the seller confirms */
   confirmar?: boolean;
+  /** 25/11 (medida de uso): what he typed when it is NOT in the ingredient's unit ("200 g" of a box).
+   *  `qtd` is then that, converted (0 = conversion not possible yet: pending) */
+  uso?: { qtd: number; unidade: UnidadeUso };
+  /** what one unit holds ("each caixinha has 395 g") */
+  conteudo?: Conteudo | null;
+  /** "caixinha", "lata"… for a "un" ingredient; undefined = not known (old database) */
+  embalagem?: string | null;
 }
+/** One package: a named package ("1 caixinha") is one unit; otherwise the whole purchase (1000 g, 100 un). */
+export const tamanhoEmbalagem = (i: Pick<IngredienteRascunho, "pacote" | "embalagem" | "unidade">) =>
+  i.unidade === "un" && i.embalagem ? 1 : i.pacote > 0 ? i.pacote : 1;
 
 export type PorConsumo = "receita" | "unidade";
 /** How much of a line goes into ONE batch: per-unit lines × the yield. */
@@ -175,6 +186,8 @@ export function receitaDoRascunho(itens: IngredienteRascunho[]): ItemReceita[] {
         ...(rascunho ? { aprender: true } : {}), ...(i.precoEditado ? { precoEditado: true } : {}),
         // an old line still waiting for "por receita ou por unidade?" stays unclassified (as it is today)
         ...(i.confirmar ? {} : { por: i.por ?? "receita" }),
+        // 25/11 (medida de uso): only known when the database has the columns (embalagem !== undefined)
+        ...(i.embalagem !== undefined || i.uso || i.conteudo ? { unidadeUso: i.uso?.unidade ?? null, conteudo: i.conteudo ?? null, embalagem: i.embalagem ?? null } : {}),
       };
     });
 }
@@ -189,7 +202,16 @@ export function rascunhoDaReceita(r: ItemReceita[], _rende?: number, opts?: { co
     // 25/11: an old line keeps working per recipe; if its name looks per unit, the seller confirms
     // (only when the database knows per-unit lines: before the migration nothing is asked)
     por: i.por ?? "receita", ...(opts?.confirmarAntigas && !i.por && pareceUnidade(i.nome) ? { confirmar: true } : {}),
+    ...medidaDaLinha(i),
   }));
+}
+/** 25/11: the unit he typed comes back as he typed it ("200 g", not "0,506 caixinha"). */
+function medidaDaLinha(i: ItemReceita): Partial<IngredienteRascunho> {
+  if (i.embalagem === undefined && !i.conteudo && !i.unidadeUso) return {};
+  const base = { conteudo: i.conteudo ?? null, embalagem: i.embalagem ?? null };
+  const u = i.unidadeUso;
+  const v = u && u !== i.unidade ? daBase(i.qtd, u, i.unidade, i.conteudo) : null;
+  return v !== null && u ? { ...base, uso: { qtd: v, unidade: u } } : base;
 }
 
 /** Quantas levas dá pra fazer com o estoque de ingredientes (a menor de todas). */
@@ -215,20 +237,22 @@ export function linhasRepetidas(itens: IngredienteRascunho[]): Set<number> {
 /** How a line says what it uses: the whole package, half of it, a typed amount, or "ainda não sei". */
 export type AtalhoUso = "inteira" | "metade" | "informar" | "naosei";
 const quase = (a: number, b: number) => Math.abs(a - b) < 1e-9;
-export function atalhoDoUso(i: Pick<IngredienteRascunho, "qtd" | "pacote" | "aprender">): AtalhoUso {
+export function atalhoDoUso(i: Pick<IngredienteRascunho, "qtd" | "pacote" | "aprender" | "uso" | "embalagem" | "unidade">): AtalhoUso {
   if (i.aprender) return "naosei";
-  const pac = i.pacote > 0 ? i.pacote : 1;
+  if (i.uso) return "informar";
+  const pac = tamanhoEmbalagem(i);
   if (i.qtd > 0 && quase(i.qtd, pac)) return "inteira";
   if (i.qtd > 0 && quase(i.qtd, pac / 2)) return "metade";
   return "informar";
 }
 /** What each shortcut writes. Always in the purchase's own unit: a whole 395 g box uses 395 g, a whole
  *  "1 un" uses 1 un. Nothing is converted or invented. */
-export function usoDoAtalho(a: AtalhoUso, i: Pick<IngredienteRascunho, "pacote">): Partial<IngredienteRascunho> {
-  const pac = i.pacote > 0 ? i.pacote : 1;
-  if (a === "inteira") return { qtd: pac, aprender: false };
-  if (a === "metade") return { qtd: Math.round((pac / 2) * 1000) / 1000, aprender: false };
-  if (a === "naosei") return { qtd: 0, aprender: true };
+export function usoDoAtalho(a: AtalhoUso, i: Pick<IngredienteRascunho, "pacote"> & Partial<Pick<IngredienteRascunho, "embalagem" | "unidade">>): Partial<IngredienteRascunho> {
+  // 25/11: whole or half of ONE package, in its own unit: no weight is asked (half a R$ 3,79 box = 1,895)
+  const pac = tamanhoEmbalagem({ pacote: i.pacote, embalagem: i.embalagem, unidade: i.unidade ?? "un" });
+  if (a === "inteira") return { qtd: pac, aprender: false, uso: undefined };
+  if (a === "metade") return { qtd: pac / 2, aprender: false, uso: undefined };
+  if (a === "naosei") return { qtd: 0, aprender: true, uso: undefined };
   return { aprender: false };
 }
 

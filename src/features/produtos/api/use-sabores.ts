@@ -1,6 +1,8 @@
 /* Sabores de um produto (26/10/2026): lista com estoque e custo, salvar, produzir por
    sabor e distribuir o que já está no estoque entre os sabores. */
 import { precoParaGravar } from "./salvar-receita";
+import { lerMedidasDosIngredientes, lerUnidadesDeUso, salvarMedidas } from "./medidas";
+import type { ItemReceita } from "../types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { supabase } from "@/shared/api";
@@ -14,7 +16,7 @@ const rpc: Rpc = (fn, args) => (supabase as unknown as { rpc: Rpc }).rpc(fn, arg
 const extraSchema = z.object({ id: z.string(), nome: z.string(), qtd: num, preco: num, unidade: z.string().nullable().catch("un"), pacote: num, estoque: num, aprender: z.boolean().catch(false) });
 const saborSchema = z.object({ id: z.string(), nome: z.string(), emoji: z.string().catch("🥤"), estoque: num, custo: num, extras: z.array(extraSchema).catch([]) });
 
-export interface ExtraDoSabor { id: string; nome: string; qtd: number; preco: number; unidade: Unidade; pacote: number; estoque: number; aprender?: boolean }
+export interface ExtraDoSabor extends Pick<ItemReceita, "unidadeUso" | "conteudo" | "embalagem"> { id: string; nome: string; qtd: number; preco: number; unidade: Unidade; pacote: number; estoque: number; aprender?: boolean }
 export interface Sabor { id: string; nome: string; emoji: string; estoque: number; custo: number; extras: ExtraDoSabor[]; rende?: number | null; usaBase?: boolean; foto?: string | null }
 
 type Linhas = PromiseLike<{ data: unknown[] | null; error: unknown }>;
@@ -37,10 +39,16 @@ export function useSaboresQuery(produtoId: string | undefined, ativo = true) {
     queryKey: saboresKey(produtoId ?? ""),
     enabled: !!produtoId && ativo,
     queryFn: async (): Promise<Sabor[]> => {
-      const [{ data, error }, extra] = await Promise.all([rpc("produto_sabores", { p_produto: produtoId }), rendimentos(produtoId ?? "")]);
+      const [{ data, error }, extra, usos] = await Promise.all([rpc("produto_sabores", { p_produto: produtoId }), rendimentos(produtoId ?? ""), lerUnidadesDeUso(produtoId ?? "")]);
       if (error) throw error;
-      return z.array(saborSchema).parse(data ?? []).map((s) => ({
-        ...s, ...(extra.get(s.id) ?? {}), extras: s.extras.map((e) => ({ ...e, unidade: unidadeDe(e.unidade), pacote: e.pacote > 0 ? e.pacote : 1 })),
+      const lista = z.array(saborSchema).parse(data ?? []);
+      // 25/11 (medida de uso): what each package holds and the unit typed; absent before the migration
+      const med = usos ? await lerMedidasDosIngredientes([...new Set(lista.flatMap((s) => s.extras.map((e) => e.id)))]) : null;
+      return lista.map((s) => ({
+        ...s, ...(extra.get(s.id) ?? {}), extras: s.extras.map((e) => ({
+          ...e, unidade: unidadeDe(e.unidade), pacote: e.pacote > 0 ? e.pacote : 1,
+          ...(usos && med ? { unidadeUso: usos.get(`${s.id}:${e.id}`) ?? null, conteudo: med.get(e.id)?.conteudo ?? null, embalagem: med.get(e.id)?.embalagem ?? null } : {}),
+        })),
       }));
     },
   });
@@ -65,7 +73,7 @@ export function useSaboresDeVariosQuery(produtoIds: string[]) {
   });
 }
 
-export async function salvarSabores(produtoId: string, sabores: { id?: string; nome: string; emoji: string; rende?: number | null; usaBase?: boolean; itens: { id?: string; nome: string; qtd: number; preco: number; unidade: Unidade; pacote: number; aprender?: boolean; precoEditado?: boolean }[] }[]) {
+export async function salvarSabores(produtoId: string, sabores: { id?: string; nome: string; emoji: string; rende?: number | null; usaBase?: boolean; itens: (Pick<ItemReceita, "unidadeUso" | "conteudo" | "embalagem"> & { id?: string; nome: string; qtd: number; preco: number; unidade: Unidade; pacote: number; aprender?: boolean; precoEditado?: boolean })[] }[]) {
   const { error } = await rpc("produto_sabores_salvar", {
     p_produto: produtoId,
     // 23/11: rende (null = the product's) and usa_base go too; a database before the
@@ -82,6 +90,7 @@ export async function salvarSabores(produtoId: string, sabores: { id?: string; n
   if (itens.length > 0) {
     const r = await rpc("ingredientes_definir_compra", { p_itens: itens });
     if (r.error) throw r.error;
+    await salvarMedidas(produtoId, sabores.flatMap((s) => s.itens.map((i) => ({ ...i, sabor: s.nome }))));
   }
 }
 

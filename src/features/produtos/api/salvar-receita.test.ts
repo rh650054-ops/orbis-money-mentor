@@ -18,6 +18,23 @@ describe("salvarReceita", () => {
   });
 });
 
+describe("medida de uso (25/11): 200 g de uma caixinha de 395 g", () => {
+  it("grava a quantidade na unidade do estoque (0,5063 caixinha) e depois lembra o conteúdo e o 'g' digitado", async () => {
+    const tela = { ...novoIngrediente("Leite condensado", 200 / 395), precoPacote: 3.79, embalagem: "caixinha", conteudo: { qtd: 395, unidade: "g" as const }, uso: { qtd: 200, unidade: "g" as const } };
+    const salvo = receitaDoRascunho([tela]);
+    await salvarReceita("p1", salvo, 1);
+    expect(chamadas.map((c) => c.fn)).toEqual(["ingredientes_definir_compra", "produto_salvar_receita", "ingredientes_definir_compra", "receita_definir_medidas"]);
+    expect((enviado()[0] as unknown as { qtd: number }).qtd).toBeCloseTo(200 / 395, 12);
+    expect(chamadas[3]!.args.p_itens).toEqual([{ nome: "Leite condensado", unidade_uso: "g", conteudo_qtd: 395, conteudo_unidade: "g", embalagem: "caixinha" }]);
+    // opened again: "200 g", not "0,506 caixinha"
+    expect(rascunhoDaReceita([{ ...salvo[0]!, preco: 3.79 / 1 }])[0]!.uso).toEqual({ qtd: 200, unidade: "g" });
+  });
+  it("receita de um banco sem a migração: nada novo é enviado", async () => {
+    await salvarReceita("p1", receitaDoRascunho([{ ...novoIngrediente("Leite condensado", 1), precoPacote: 3.79 }]), 1);
+    expect(chamadas.some((c) => c.fn === "receita_definir_medidas")).toBe(false);
+  });
+});
+
 describe("precisão do preço (23/11): o que ele digita é o que fica", () => {
   const tela = (precoPacote: number, pacote: number) => ({ ...novoIngrediente("Leite em pó", 200), unidade: "g" as const, pacote, precoPacote, precoEditado: true });
   it.each([

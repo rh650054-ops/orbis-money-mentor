@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { Ficha } from "../lib/ficha";
 
+vi.mock("../api/use-medidas", () => ({ useMedidaDeUsoDisponivel: () => ({ data: false }) }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 const porUnidade = vi.hoisted(() => ({ v: false }));
 vi.mock("../api/use-receita-por-unidade", () => ({ useReceitaPorUnidadeDisponivel: () => ({ data: porUnidade.v }) }));

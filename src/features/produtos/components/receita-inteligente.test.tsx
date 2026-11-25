@@ -7,6 +7,8 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 const porUnidade = vi.hoisted(() => ({ v: false }));
 vi.mock("../api/use-receita-por-unidade", () => ({ useReceitaPorUnidadeDisponivel: () => ({ data: porUnidade.v }) }));
 vi.mock("../api/use-ingredientes-guardados-query", () => ({ useIngredientesGuardadosQuery: () => ({ data: [] }) }));
+const medidas = vi.hoisted(() => ({ v: false }));
+vi.mock("../api/use-medidas", () => ({ useMedidaDeUsoDisponivel: () => ({ data: medidas.v }) }));
 import { EditorReceita } from "./editor-receita";
 
 let ultimo: IngredienteRascunho[] = [];
@@ -20,12 +22,12 @@ const ing = (m: Partial<IngredienteRascunho>): IngredienteRascunho => ({ nome: "
 
 describe("VANT Receita Inteligente (24/11)", () => {
   it("atalhos usam a unidade da compra: caixa de 395 g inteira = 395 g, metade = 197,5 g, 'ainda não sei' fica pendente", () => {
-    const caixa = { pacote: 395, qtd: 0 };
+    const caixa = { pacote: 395, qtd: 0, unidade: "g" as const };
     expect(usoDoAtalho("inteira", caixa)).toEqual({ qtd: 395, aprender: false });
     expect(usoDoAtalho("metade", caixa)).toEqual({ qtd: 197.5, aprender: false });
     expect(usoDoAtalho("naosei", caixa)).toEqual({ qtd: 0, aprender: true });
-    expect(atalhoDoUso({ pacote: 1, qtd: 1 })).toBe("inteira");
-    expect(atalhoDoUso({ pacote: 1000, qtd: 200 })).toBe("informar");
+    expect(atalhoDoUso({ pacote: 1, qtd: 1, unidade: "un" })).toBe("inteira");
+    expect(atalhoDoUso({ pacote: 1000, qtd: 200, unidade: "g" })).toBe("informar");
   });
 
   it("custo ao vivo: leite condensado R$ 3,79 inteiro + leite 1 l R$ 4,89 usando 200 ml, rende 5", () => {
@@ -37,18 +39,53 @@ describe("VANT Receita Inteligente (24/11)", () => {
 
   it("'Uso a embalagem inteira' preenche o uso; faltando quantidade o custo é parcial e diz o que falta; margem não é lucro", () => {
     render(<Harness precoVenda={12} inicial={[ing({ nome: "Leite condensado", precoPacote: 3.79 }), ing({ nome: "Maracujá", unidade: "g", pacote: 1000, precoPacote: 17.99 })]} />);
-    // 25/11: the package shortcuts are under "Mais opções"
-    fireEvent.click(screen.getAllByRole("button", { name: /Mais opções/ })[0]!);
-    fireEvent.click(screen.getAllByRole("button", { name: /Uso a embalagem inteira/ })[0]!);
+    // 25/11 (medida de uso): Inteira / Metade / Quantidade / Não sei in "Quanto uso?", no weight asked
+    fireEvent.click(screen.getAllByRole("button", { name: "Inteira" })[0]!);
     expect(ultimo[0]).toMatchObject({ qtd: 1, aprender: false });
     expect(screen.getByText("Custo parcial por unidade")).toBeInTheDocument();
     // 25/11 (Rick, item 6): a partial cost never shows a "sobra" or a margin as a definitive result
     expect(screen.getByText(/Custo parcial — faltam informações para calcular sua margem real/)).toBeInTheDocument();
     expect(screen.getByText(/Falta quanto usa de Maracujá/)).toBeInTheDocument();
     expect(screen.queryByText("Sobra por unidade")).toBeNull();
-    fireEvent.click(screen.getAllByRole("button", { name: "Ainda não sei" })[1]!);
+    fireEvent.click(screen.getAllByRole("button", { name: "Não sei" })[1]!);
     expect(ultimo[1]).toMatchObject({ aprender: true, qtd: 0 });
-    expect(screen.getByText(/Fica pendente na receita/)).toBeInTheDocument();
+    expect(screen.getByText(/Fica pendente\. Enquanto estiver assim/)).toBeInTheDocument();
+  });
+
+  it("vendedor 1: caixinha inteira R$ 3,79 → custo R$ 3,79 sem pergunta de peso; metade R$ 1,90", () => {
+    render(<Harness rende={1} inicial={[ing({ nome: "Leite condensado", precoPacote: 3.79 })]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Inteira" }));
+    expect(screen.getByText("= R$ 3,79 na receita")).toBeInTheDocument();
+    expect(screen.queryByText(/Quanto vem em cada/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Metade" }));
+    expect(ultimo[0]).toMatchObject({ qtd: 0.5 });
+    expect(screen.getByText("= R$ 1,90 na receita")).toBeInTheDocument();
+  });
+
+  it("vendedor 2: compra 1 caixinha, usa 200 g → pergunta o conteúdo uma vez (395 g) → R$ 1,92; o estoque sai em caixinhas", () => {
+    medidas.v = true;
+    render(<Harness rende={1} inicial={[ing({ nome: "Leite condensado", precoPacote: 3.79, embalagem: "caixinha" })]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Informar" }));
+    fireEvent.change(screen.getByLabelText("Quanto usa na leva"), { target: { value: "200" } });
+    fireEvent.change(screen.getByLabelText("Unidade do que usa"), { target: { value: "g" } });
+    expect(ultimo[0]).toMatchObject({ qtd: 0, uso: { qtd: 200, unidade: "g" } });   // pending until the content is told
+    fireEvent.change(screen.getByLabelText("Quanto vem em cada caixinha"), { target: { value: "395" } });
+    expect(ultimo[0]!.unidade).toBe("un");
+    expect(ultimo[0]!.qtd).toBeCloseTo(200 / 395, 10);
+    expect(ultimo[0]!.conteudo).toEqual({ qtd: 395, unidade: "g" });
+    expect(screen.getByText("= R$ 1,92 na receita")).toBeInTheDocument();
+    // never g ↔ ml: the same box used in ml is refused
+    fireEvent.change(screen.getByLabelText("Unidade do que usa"), { target: { value: "ml" } });
+    expect(ultimo[0]!.qtd).toBe(0);
+    expect(screen.getByText(/g e ml não se convertem/)).toBeInTheDocument();
+    medidas.v = false;
+  });
+
+  it("antes da migração uma caixinha só é usada em caixinhas (o conteúdo não poderia ser lembrado)", () => {
+    medidas.v = false;
+    render(<Harness rende={1} inicial={[ing({ nome: "Leite condensado", precoPacote: 3.79 })]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Informar" }));
+    expect(screen.queryByLabelText("Unidade do que usa")).toBeNull();
   });
 
   it("maracujá: compra 2 kg, vieram 12 frutas → passa a usar por fruta (R$ 35,98 ÷ 12); sem o número nada muda", () => {

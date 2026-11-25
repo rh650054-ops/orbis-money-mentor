@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { supabase } from "@/shared/api";
 import { produtosKeys } from "./use-produtos-query";
-import { unidadeDe, type Unidade } from "../types";
+import { unidadeDe, type ItemReceita, type Unidade } from "../types";
+import { lerMedidasDosIngredientes, lerUnidadesDeUso } from "./medidas";
 
 const num = z.coerce.number().catch(0);
 const linhaSchema = z.object({
@@ -16,7 +17,7 @@ const ingSchema = z.object({
   unit: z.string().nullable().catch("un"), pacote_qtd: z.coerce.number().catch(1),
 });
 
-export interface IngredienteDaReceita {
+export interface IngredienteDaReceita extends Pick<ItemReceita, "unidadeUso" | "conteudo" | "embalagem"> {
   id: string; nome: string; qtd: number; preco: number; estoque: number; unidade: Unidade; pacote: number; aprender?: boolean;
   /** 25/11: per recipe or per unit produced; undefined = an old line, not classified (works per recipe) */
   por?: "receita" | "unidade";
@@ -40,6 +41,9 @@ export function useReceitaQuery(produtoId: string | undefined) {
         .in("id", linhas.map((l) => l.ingredient_id));
       if (ing.error) throw ing.error;
       const porId = new Map(z.array(ingSchema).parse(ing.data ?? []).map((i) => [i.id, i]));
+      // 25/11 (medida de uso): tolerant extra read; before the migration nothing is added
+      const usos = await lerUnidadesDeUso(produtoId!);
+      const med = usos ? await lerMedidasDosIngredientes([...porId.keys()]) : null;
       return linhas.flatMap((l) => {
         const i = porId.get(l.ingredient_id);
         return i ? [{
@@ -47,6 +51,7 @@ export function useReceitaQuery(produtoId: string | undefined) {
           // a per-unit line shows what he typed per unit (the batch quantity is that × the yield)
           ...(l.base === "unidade" && l.qtd_por_unidade != null ? { qtd: l.qtd_por_unidade, por: "unidade" as const } : { qtd: l.quantity, ...(l.base ? { por: l.base } : {}) }),
           unidade: unidadeDe(i.unit), pacote: i.pacote_qtd > 0 ? i.pacote_qtd : 1, ...(l.aprender ? { aprender: true } : {}),
+          ...(usos && med ? { unidadeUso: usos.get(`-:${i.id}`) ?? null, conteudo: med.get(i.id)?.conteudo ?? null, embalagem: med.get(i.id)?.embalagem ?? null } : {}),
         }] : [];
       });
     },
