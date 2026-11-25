@@ -100,6 +100,6 @@ function Quiz({ inicial, userId }: { inicial?: RascunhoProduto; userId?: string 
         onSemEstoque={() => { q.semEstoque(); void gravar({ ...r, controlaEstoque: false, estoque: 0 }); }} />;
     case "pronto":
       return <QuizPronto r={r} onComecarDia={() => navigate("/daily-goals")} onOutro={q.recomecar} onLista={sair}
-        onFicha={salvo ? () => navigate(`/products/${salvo}`) : undefined} />;
+        onFicha={salvo ? () => navigate(`/products/${salvo}${r.receita ? "?sabores=novo" : ""}`) : undefined} />;
   }
 }

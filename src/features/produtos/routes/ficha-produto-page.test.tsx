@@ -48,4 +48,14 @@ describe("ficha do produto", () => {
     expect(enviado.combos).toEqual([{ qty: 2, price: 35 }]);
     expect(enviado.itens[0]).toMatchObject({ nome: "Leite condensado", qtd: 1 });
   });
+
+  it("25/11: 'Adicionar sabores' abre só os sabores do produto, com um sabor novo aberto; o nome do produto não é editável ali", () => {
+    render(<MemoryRouter initialEntries={["/products/b?sabores=novo"]}><Routes><Route path="/products/:id" element={<FichaProdutoPage />} /></Routes></MemoryRouter>);
+    expect(screen.getByText("SABORES DE")).toBeInTheDocument();
+    expect(screen.getByLabelText("Nome do sabor")).toHaveValue("");
+    expect(screen.queryByText("QUANTO VOCÊ COBRA")).toBeNull();
+    expect(screen.getByText(/Cadastrar outro produto/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/ver ficha completa/));
+    expect(screen.getByText("QUANTO VOCÊ COBRA")).toBeInTheDocument();
+  });
 });
