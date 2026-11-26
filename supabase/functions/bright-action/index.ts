@@ -1,7 +1,9 @@
-// Vant — bright-action (chat do mentor de rua, 100% Gemini)
+// Vant — bright-action (chat do mentor de rua). Texto: só Claude (Anthropic).
 // Recebe { messages: [{ role, content }] } e devolve { success, message }.
-// Tambem aceita { tts } (voz do servidor: OpenAI "Jarvis" -> Gemini -> Edge)
-// e { stt } (transcricao de audio pra navegador sem reconhecimento de voz).
+// Tambem aceita { tts } (voz do servidor: OpenAI "Jarvis"; se falhar, o app usa a voz do aparelho)
+// e { stt } (transcricao de audio pela OpenAI, pra navegador sem reconhecimento de voz).
+// 26/11/2026 (Rick): só dois provedores na VANT — Anthropic e OpenAI. Gemini, Cerebras e a voz
+// do Edge (Microsoft) saíram daqui.
 // FASE 1 do AGENTE: memoria permanente por vendedor (ai_memoria) — carrega no contexto
 // e aprende fatos novos apos cada resposta, em segundo plano.
 // FASE 2 do AGENTE: ferramentas — consulta vendas/estoque/financeiro/ranking com o token
@@ -18,10 +20,11 @@
 // v52: criar_adesivo gera a arte NA HORA e mostra no chat ([[adesivo:URL]]); cache do
 // prompt do Claude (menos 429 em conta nova + ~90% mais barato); Opus nas conversas de
 // marca/nome; rede de seguranca gera a arte mesmo se um modelo reserva vazar JSON.
-// Precisa do secret GEMINI_API_KEY.
+// Precisa dos secrets ANTHROPIC_API_KEY (texto) e OPENAI_API_KEY (voz).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { iaPermitidaNoServidor, respostaSemConsentimentoIa } from "../_shared/consentimento-ia.ts";
+import { transcreverOpenAi } from "../_shared/ia-openai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -186,8 +189,9 @@ FORMATO DA SUGESTÃO: 3 nomes em direções CRIATIVAS diferentes (não 3 variaç
 - Você só fala de venda, rotina, disciplina e cabeça pro corre. Se perguntarem algo fora disso, responde em 1 linha curta e puxa de volta pro corre.
 `.trim();
 
-// Regras extras SÓ pro chat no Cerebras (gpt-oss tende a ser prolixo e a "recitar" o método).
-const CEREBRAS_CHAT_EXTRA = `
+// Regras extras do modo conversa (nasceram pro modelo reserva antigo; hoje vão no prompt do Claude:
+// o texto NÃO mudou em 26/11, só o nome da constante).
+const CHAT_EXTRA = `
 
 MODO CONVERSA (regras extras, valem acima de tudo):
 - Responda como numa conversa de WhatsApp com um amigo que entende muito do assunto: 1 a 4 frases, natural, reagindo ao que ele ACABOU de dizer.
@@ -217,23 +221,7 @@ nasce aqui, não no motor de fala):
 - Sem palavra empolada: nada de "portanto", "todavia", "com relação a", "aproximadamente", "utilize". Fala de gente: "então", "mas", "sobre", "mais ou menos", "usa".
 - Nunca escreva abreviação que a voz vai soletrar errado (ex.: "qtd", "vc", "kg", "1º").`;
 
-// ---- Helpers de audio: o Gemini TTS devolve PCM cru; o navegador toca WAV ----
-function pcmToWav(pcm: Uint8Array, sampleRate: number): Uint8Array {
-  const numChannels = 1, bitsPerSample = 16;
-  const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
-  const blockAlign = (numChannels * bitsPerSample) / 8;
-  const dataSize = pcm.length;
-  const buf = new ArrayBuffer(44 + dataSize);
-  const v = new DataView(buf);
-  const ws = (o: number, str: string) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
-  ws(0, "RIFF"); v.setUint32(4, 36 + dataSize, true); ws(8, "WAVE"); ws(12, "fmt ");
-  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, numChannels, true);
-  v.setUint32(24, sampleRate, true); v.setUint32(28, byteRate, true);
-  v.setUint16(32, blockAlign, true); v.setUint16(34, bitsPerSample, true);
-  ws(36, "data"); v.setUint32(40, dataSize, true);
-  new Uint8Array(buf, 44).set(pcm);
-  return new Uint8Array(buf);
-}
+// ---- Helpers de base64 (áudio e imagem) ----
 function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
@@ -247,7 +235,6 @@ function bytesToB64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
-// ---- VOZ NEURAL GRÁTIS via Microsoft Edge (edge-tts) — sem chave, sem cartão ----
 // ===== MEDIDOR DE GASTO: toda chamada de IA vira uma linha em ai_custos =====
 // Roda em segundo plano e NUNCA derruba o app se falhar. Preços de ago/2026:
 // claude-sonnet-5 US$2/M entrada, US$10/M saída (promo até 31/08; depois 3/15 —
@@ -268,66 +255,6 @@ async function registrarCusto(linha: { user_id?: string | null; servico: string;
     const er = (globalThis as any).EdgeRuntime;
     if (er?.waitUntil) er.waitUntil(p); else await p;
   } catch { /* medidor nunca atrapalha o vendedor */ }
-}
-
-const EDGE_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
-const EDGE_GEC_VERSION = "1-143.0.3650.75";
-function xmlEscape(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
-}
-function edgeDateString(): string {
-  const d = new Date();
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${days[d.getUTCDay()]} ${mon[d.getUTCMonth()]} ${p(d.getUTCDate())} ${d.getUTCFullYear()} ` +
-    `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} GMT+0000 (Coordinated Universal Time)`;
-}
-async function edgeSecToken(): Promise<string> {
-  let ticks = (BigInt(Math.floor(Date.now() / 1000)) + 11644473600n) * 10000000n;
-  ticks = ticks - (ticks % 3000000000n);
-  const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${ticks}${EDGE_TOKEN}`)));
-  return [...hash].map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
-}
-async function edgeTTS(text: string, voice: string, pitch: string, rate: string, volume: string): Promise<Uint8Array> {
-  const gec = await edgeSecToken();
-  const connId = crypto.randomUUID().replace(/-/g, "");
-  const url = `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1` +
-    `?TrustedClientToken=${EDGE_TOKEN}&ConnectionId=${connId}&Sec-MS-GEC=${gec}&Sec-MS-GEC-Version=${EDGE_GEC_VERSION}`;
-  const ws = new WebSocket(url);
-  ws.binaryType = "arraybuffer";
-  const chunks: Uint8Array[] = [];
-  return await new Promise<Uint8Array>((resolve, reject) => {
-    const timer = setTimeout(() => { try { ws.close(); } catch { /*noop*/ } reject(new Error("edge_timeout")); }, 8000);
-    ws.onopen = () => {
-      const date = edgeDateString();
-      ws.send(`X-Timestamp:${date}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n` +
-        `{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}\r\n`);
-      const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>` +
-        `<voice name='${voice}'><prosody pitch='${pitch}' rate='${rate}' volume='${volume}'>${xmlEscape(text)}</prosody></voice></speak>`;
-      ws.send(`X-RequestId:${connId}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:${date}Z\r\nPath:ssml\r\n\r\n${ssml}`);
-    };
-    ws.onmessage = (ev) => {
-      if (typeof ev.data === "string") {
-        if (ev.data.includes("Path:turn.end")) {
-          clearTimeout(timer);
-          let total = 0; for (const c of chunks) total += c.length;
-          const out = new Uint8Array(total);
-          let off = 0; for (const c of chunks) { out.set(c, off); off += c.length; }
-          try { ws.close(); } catch { /*noop*/ }
-          resolve(out);
-        }
-      } else {
-        const buf = new Uint8Array(ev.data as ArrayBuffer);
-        if (buf.length > 2) {
-          const headerLen = (buf[0] << 8) | buf[1];
-          if (2 + headerLen <= buf.length) chunks.push(buf.slice(2 + headerLen));
-        }
-      }
-    };
-    ws.onerror = () => { clearTimeout(timer); reject(new Error("edge_ws_error")); };
-  });
 }
 
 async function memoriaClaude(prompt: string, userId: string): Promise<string | null> {
@@ -357,24 +284,6 @@ async function memoriaClaude(prompt: string, userId: string): Promise<string | n
   }
 }
 
-async function memoriaGemini(prompt: string): Promise<string | null> {
-  const key = Deno.env.get("GEMINI_API_KEY");
-  if (!key) return null;
-  const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    signal: AbortSignal.timeout(15000),
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0, maxOutputTokens: 400, responseMimeType: "application/json" },
-    }),
-  });
-  if (!r.ok) { console.error("extractMemory gemini http", r.status); return null; }
-  const j = await r.json();
-  return j?.candidates?.[0]?.content?.parts?.[0]?.text?.toString() ?? null;
-}
-
 // ===== FASE 1 do Agente: extrai MEMÓRIA de longo prazo da conversa (roda DEPOIS da
 // resposta, sem atrasar o vendedor). Só grava o que o VENDEDOR afirmou. =====
 async function extractMemory(userId: string, userMsg: string, reply: string, existing: string[]) {
@@ -391,10 +300,8 @@ Mentor respondeu: ${reply}
 
 Liste APENAS fatos NOVOS e DURÁVEIS afirmados PELO PRÓPRIO VENDEDOR sobre ele ou o negócio dele: o que vende, onde vende, rotina, dificuldade recorrente, vitória com número, compromisso que ele assumiu, preferência. NADA passageiro (clima, humor do dia), NADA inventado, NADA que veio só do mentor. No máximo 3 fatos, cada um numa frase curta e objetiva em português. Se não houver fato novo durável, devolva a lista vazia.
 Responda SOMENTE com JSON neste formato: {"fatos":[{"tipo":"perfil|dificuldade|vitoria|combinado|preferencia|outro","fato":"..."}]}`;
-    // Claude Haiku primeiro (rápido e barato, ~US$ 0,001 por troca). O Gemini grátis
-    // respondia 429 em quase toda mensagem (logs de 04/10) — o mentor não guardava
-    // nada do que o vendedor contava e as respostas ficavam genéricas.
-    const raw = await memoriaClaude(prompt, userId) ?? await memoriaGemini(prompt);
+    // Claude Haiku (rápido e barato, ~US$ 0,001 por troca). 26/11: sem reserva no Gemini.
+    const raw = await memoriaClaude(prompt, userId);
     if (!raw) return;
     let fatos: { tipo?: string; fato?: string }[] = [];
     try { fatos = (JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] ?? "{}")?.fatos ?? []) as typeof fatos; } catch { return; }
@@ -792,7 +699,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
 
     // ===== VOZ (STT): transcreve áudio gravado no aparelho (fallback pra navegador sem
-    // reconhecimento de voz — Firefox, WebViews). Usa o Gemini com a MESMA chave do chat. =====
+    // reconhecimento de voz — Firefox, WebViews). Usa a OpenAI. =====
     if (body?.stt && typeof body.stt === "string" && body.stt.length > 100) {
       // exige login (protege a chave contra abuso)
       const authH = req.headers.get("Authorization") ?? "";
@@ -802,40 +709,20 @@ Deno.serve(async (req) => {
         const { data: u } = await supa.auth.getUser();
         if (!u?.user?.id) return json({ error: "sessao_expirada" }, 401);
       } catch { return json({ error: "sessao_expirada" }, 401); }
-      const key = Deno.env.get("GEMINI_API_KEY");
-      if (!key) return json({ error: "sem_chave" });
-      try {
-        const mime = typeof body.mime === "string" && body.mime ? body.mime.split(";")[0] : "audio/webm";
-        const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: AbortSignal.timeout(20000),
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [
-              { text: "Transcreva EXATAMENTE o que foi falado neste áudio, em português do Brasil. Responda SÓ com a transcrição, sem comentários. Se não houver fala, responda com texto vazio." },
-              { inlineData: { mimeType: mime, data: body.stt } },
-            ] }],
-            generationConfig: { temperature: 0, maxOutputTokens: 500 },
-          }),
-        });
-        if (r.ok) {
-          const j = await r.json();
-          const t = (j?.candidates?.[0]?.content?.parts?.[0]?.text?.toString() ?? "").trim();
-          registrarCusto({ servico: "stt_gemini", modelo: model, qtd: 1, unidade: "transcricao", custo_usd: 0 });
-          return json({ text: t });
-        }
-        console.error("Gemini STT erro", r.status, await r.text().catch(() => ""));
-      } catch (e) {
-        console.error("Gemini STT falhou:", String(e).slice(0, 200));
+      // 26/11 (Rick): quem ouve o vendedor é a OpenAI (antes era o Gemini). O áudio só chega aqui
+      // depois do portão de consentimento lá em cima; a linha "Mentor (chat e voz)" cita a OpenAI.
+      const mime = typeof body.mime === "string" && body.mime ? body.mime.split(";")[0] : "audio/webm";
+      const dito = await transcreverOpenAi({ quem: "bright-action", audio: b64ToBytes(body.stt), mime, timeoutMs: 20000 });
+      if (dito !== null) {
+        registrarCusto({ servico: "stt_openai", modelo: "transcricao", qtd: 1, unidade: "transcricao", custo_usd: 0.003 });
+        return json({ text: dito });
       }
       return json({ error: "stt_indisponivel" });
     }
 
-    // ===== VOZ (TTS): 1) OpenAI (JARVIS) -> 2) Gemini -> 3) Edge -> voz do aparelho =====
+    // ===== VOZ (TTS): OpenAI (JARVIS) -> voz do aparelho =====
     // Medido em 11/08/2026 com o mesmo texto:
     //   OpenAI gpt-4o-mini-tts "onyx" .... 1,3s / 126 KB (mp3)
-    //   Gemini 2.5 flash TTS "Charon" .... 4,2s / 410 KB (wav)  <- era o 1o da fila
     //   StreamElements ................... 401 (morreu) -> removido da fila
     // O mp3 é 3x menor: no 4G da rua isso é MAIS tempo economizado que o próprio
     // tempo de geração. E só a OpenAI aceita "instructions" — é o que deixa a voz
@@ -906,68 +793,18 @@ Deno.serve(async (req) => {
               registrarCusto({ servico: "tts_openai", modelo: oModel, qtd: text.length, unidade: "caracteres", custo_usd: (text.length / 900) * 0.015 });
               return json({ audio: bytesToB64(buf), mime: "audio/mpeg", voz: `openai:${oVoice}` });
             }
-            console.error("OpenAI TTS áudio vazio (cai pro Gemini)");
+            console.error("OpenAI TTS áudio vazio (cai pra voz do aparelho)");
           } else {
             console.error("OpenAI TTS erro", r.status, (await r.text().catch(() => "")).slice(0, 200));
           }
         }
       } catch (e) {
-        console.error("OpenAI TTS falhou (cai pro Gemini):", String(e).slice(0, 200));
+        console.error("OpenAI TTS falhou (cai pra voz do aparelho):", String(e).slice(0, 200));
       }
 
-      // 2) Gemini TTS oficial — mesma chave do chat. Devolve PCM 24kHz -> WAV.
-      try {
-        const key = Deno.env.get("GEMINI_API_KEY");
-        if (key) {
-          const ttsModel = Deno.env.get("GEMINI_TTS_MODEL") ?? "gemini-2.5-flash-preview-tts";
-          const ttsVoice = vozFeminina
-            ? (Deno.env.get("GEMINI_TTS_VOICE_F") ?? "Kore")   // feminina natural do Gemini
-            : (Deno.env.get("GEMINI_TTS_VOICE") ?? "Charon"); // grave, estilo mentor
-          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${ttsModel}:generateContent?key=${key}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(15000),
-            body: JSON.stringify({
-              // O prefixo é ESSENCIAL: sem ele, o modelo de TTS às vezes "responde" ao texto
-              // em vez de lê-lo (falava conteúdo inventado, principalmente em perguntas).
-              contents: [{ role: "user", parts: [{ text: `Leia em voz alta, em português do Brasil, com tom natural de conversa, EXATAMENTE o texto a seguir, sem adicionar, responder ou comentar nada: ${text}` }] }],
-              generationConfig: {
-                responseModalities: ["AUDIO"],
-                speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: ttsVoice } } },
-              },
-            }),
-          });
-          if (r.ok) {
-            const j = await r.json();
-            const part = j?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data);
-            if (part?.inlineData?.data) {
-              const rateMatch = /rate=(\d+)/.exec(part.inlineData.mimeType ?? "");
-              const rate = rateMatch ? parseInt(rateMatch[1]) : 24000;
-              const wav = pcmToWav(b64ToBytes(part.inlineData.data), rate);
-              return json({ audio: bytesToB64(wav), mime: "audio/wav", voz: "gemini" });
-            }
-            console.error("Gemini TTS sem áudio na resposta (cai pro Edge)");
-          } else {
-            console.error("Gemini TTS erro", r.status, (await r.text().catch(() => "")).slice(0, 200));
-          }
-        }
-      } catch (e) {
-        console.error("Gemini TTS falhou (cai pro Edge):", String(e).slice(0, 200));
-      }
-      // 3) Edge TTS (neural, grave) — grátis, sem chave (endpoint não-oficial)
-      try {
-        const voice = vozFeminina
-          ? (Deno.env.get("EDGE_TTS_VOICE_F") ?? "pt-BR-FranciscaNeural")
-          : (Deno.env.get("EDGE_TTS_VOICE") ?? "pt-BR-AntonioNeural");
-        const pitch = Deno.env.get("EDGE_TTS_PITCH") ?? "-5Hz";
-        const rate = Deno.env.get("EDGE_TTS_RATE") ?? "-3%";
-        const volume = Deno.env.get("EDGE_TTS_VOLUME") ?? "+0%";
-        const audio = await edgeTTS(text, voice, pitch, rate, volume);
-        if (audio.length > 800) return json({ audio: bytesToB64(audio), mime: "audio/mpeg", voz: "edge" });
-        console.error("Edge TTS vazio (cai pra voz do aparelho)");
-      } catch (e) {
-        console.error("Edge TTS falhou (cai pra voz do aparelho):", String(e).slice(0, 200));
-      }
+      // 26/11 (Rick): só a OpenAI fala. As vozes reserva do Gemini e do Edge (Microsoft, endpoint
+      // não-oficial e nunca divulgado ao vendedor) saíram: se a OpenAI falhar, o app usa a voz do
+      // próprio aparelho, que não manda o texto pra ninguém.
       // O StreamElements (Amazon Polly) saiu da fila: passou a devolver 401 em
       // 11/08/2026 — endpoint não-oficial que fechou. Ficava só gastando ~15s de
       // espera antes de cair na voz do aparelho.
@@ -1205,7 +1042,7 @@ Deno.serve(async (req) => {
     // Cliente com o token do PRÓPRIO vendedor: as ferramentas do agente rodam com ele (RLS).
     const userSupa = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? "", { global: { headers: { Authorization: reqAuthH } } });
 
-    // ===== TEXTO: tenta CLAUDE (Anthropic) primeiro; cai no Cerebras/Gemini (gratis) se faltar chave/erro/credito. =====
+    // ===== TEXTO: só CLAUDE (Anthropic). Sem reserva em outro modelo (decisão do Rick, 25/08). =====
     try {
       const akey = Deno.env.get("ANTHROPIC_API_KEY");
       if (akey) {
@@ -1278,7 +1115,7 @@ Deno.serve(async (req) => {
                     // leituras. Secret ANTHROPIC_CACHE_TTL: "1h" (padrão) ou "5m".
                     {
                       type: "text",
-                      text: ORBIS_BRAIN + cofre + CEREBRAS_CHAT_EXTRA + AGENT_TOOLS_RULES,
+                      text: ORBIS_BRAIN + cofre + CHAT_EXTRA + AGENT_TOOLS_RULES,
                       cache_control: { type: "ephemeral", ttl: (Deno.env.get("ANTHROPIC_CACHE_TTL") ?? "1h") },
                     },
                     ...(fullCtx ? [{ type: "text", text: fullCtx }] : []),
@@ -1355,7 +1192,7 @@ Deno.serve(async (req) => {
         }
       }
     } catch (e) {
-      console.error("Claude chat exceção (cai pro Cerebras)", e);
+      console.error("Claude chat exceção", String(e).slice(0, 200));
       try {
         const adminD = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
         await adminD.from("ai_diag").insert({ info: { onde: "claude_excecao", erro: String(e).slice(0, 300) } });
@@ -1363,7 +1200,7 @@ Deno.serve(async (req) => {
     }
 
     // ===== SÓ CLAUDE (25/08/2026, decisão do Rick) =====
-    // Antes, se o Claude falhasse, respondiam Cerebras/Gemini gratuitos. Parecia
+    // Antes, se o Claude falhasse, respondiam modelos gratuitos de outros provedores. Parecia
     // rede de segurança, mas na prática era rede de VERGONHA: eles inventavam nome
     // de marca, escreviam JSON no meio do chat e mudavam o tom do mentor. O vendedor
     // não sabia que estava falando com outro modelo — só achava que a IA piorou.
@@ -1375,7 +1212,6 @@ Deno.serve(async (req) => {
       message: "Opa, meu cérebro tá fora do ar nesse instante — não é problema no teu aparelho. Tenta de novo em 1 minuto que eu volto. Se continuar, avisa o suporte da Vant.",
       degradado: true,
     });
-    return await finishChat(text);
   } catch (e) {
     console.error("bright-action erro", e);
     return json({ success: false, error: "erro_interno" });

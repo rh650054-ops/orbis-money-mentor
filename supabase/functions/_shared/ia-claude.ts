@@ -1,6 +1,6 @@
-// VANT — one small text request to Anthropic (Claude), for the functions that only need text back.
-// 26/11/2026: the profit mission and the DEFCON coach now try Anthropic first. Cerebras was out of
-// quota (402) and Gemini on a 20-requests/day free tier (429), so both features had no AI for days.
+// VANT — one request to Anthropic (Claude) for text back (optionally reading an image or a PDF).
+// Anthropic is the first provider of every text feature of the VANT; OpenAI is the reserve
+// (_shared/ia-openai.ts). Gemini and Cerebras are gone (Rick, 26/11/2026).
 // Rules for the caller:
 //   - it has already passed the consent gate (_shared/consentimento-ia.ts);
 //   - its feature names Anthropic in the disclosure (texto-ia.tsx and Privacidade.tsx).
@@ -17,6 +17,8 @@ export interface PedidoClaude {
   temperature?: number;
   /** overrides the default model (secret ANTHROPIC_MODEL, else Haiku) */
   modelo?: string;
+  /** an image or a PDF the model has to read */
+  arquivo?: { b64: string; mime: string };
 }
 export interface DepsClaude { chave?: string; modeloPadrao?: string; fetchFn?: typeof fetch; aviso?: (m: string) => void }
 
@@ -27,13 +29,19 @@ export const aceitaTemperatura = (modelo: string): boolean => /haiku-4|sonnet-4|
 const env = (k: string): string | undefined =>
   (globalThis as { Deno?: { env: { get(k: string): string | undefined } } }).Deno?.env.get(k);
 
+function parteDoArquivo(a: { b64: string; mime: string }): Record<string, unknown> {
+  if (a.mime.includes("pdf")) return { type: "document", source: { type: "base64", media_type: "application/pdf", data: a.b64 } };
+  const mime = ["image/jpeg", "image/png", "image/gif", "image/webp"].includes(a.mime) ? a.mime : "image/jpeg";
+  return { type: "image", source: { type: "base64", media_type: mime, data: a.b64 } };
+}
+
 export function corpoClaude(p: PedidoClaude, modelo: string): Record<string, unknown> {
   return {
     model: modelo,
     max_tokens: p.maxTokens,
     ...(p.temperature !== undefined && aceitaTemperatura(modelo) ? { temperature: p.temperature } : {}),
     ...(p.system ? { system: p.system } : {}),
-    messages: [{ role: "user", content: p.user }],
+    messages: [{ role: "user", content: p.arquivo ? [{ type: "text", text: p.user }, parteDoArquivo(p.arquivo)] : p.user }],
   };
 }
 

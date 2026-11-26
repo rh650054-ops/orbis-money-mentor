@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
-import { iaPermitidaNoServidor, respostaSemConsentimentoIa } from "../_shared/consentimento-ia.ts";
+import { permissaoIaNoServidor, respostaSemConsentimentoIa } from "../_shared/consentimento-ia.ts";
+import { pedirOpenAi } from "../_shared/ia-openai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -30,84 +31,9 @@ function extrairDica(raw: string): { titulo: string; texto: string } {
   return { titulo, texto: partes.join(" ").slice(0, 400) || limpo.slice(0, 400) };
 }
 
-// Chama o Gemini (mesma chave gratis do chat). Recebe system + user prompt e devolve texto.
-async function callGemini(systemPrompt: string, userPrompt: string, jsonMode = false): Promise<string> {
-  const key = Deno.env.get("GEMINI_API_KEY");
-  if (!key) throw new Error("GEMINI_API_KEY não está configurada no backend.");
-  const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-  const payload = JSON.stringify({
-    systemInstruction: { parts: [{ text: systemPrompt }] },
-    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-    generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: jsonMode ? 2048 : 1024,
-      ...(jsonMode ? { responseMimeType: "application/json" } : {}),
-    },
-  });
-
-  // Até 3 tentativas: o plano grátis do Gemini estoura o limite por minuto (429) fácil.
-  // Em 429/503/500, espera um pouco e tenta de novo antes de desistir.
-  let lastStatus = 0;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      signal: AbortSignal.timeout(jsonMode ? 30000 : 20000),
-      body: payload,
-    });
-
-    if (res.ok) {
-      const json = await res.json();
-      const content = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!content) throw new Error("Resposta inválida da IA.");
-      return content;
-    }
-
-    lastStatus = res.status;
-    const err = await res.text();
-    if ((res.status === 429 || res.status === 503 || res.status === 500) && attempt < 2) {
-      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1))); // 1.5s, depois 3s
-      continue;
-    }
-    if (res.status === 429) throw new Error("Limite do Gemini (plano grátis) atingido. Espere ~1 min e tente de novo.");
-    throw new Error(`Erro na IA (${res.status}): ${err.substring(0, 200)}`);
-  }
-  throw new Error(`Limite do Gemini (plano grátis) atingido (${lastStatus}). Espere ~1 min e tente de novo.`);
-}
-
-// ---- Cerebras (texto, grátis 1M tokens/dia). Tenta primeiro; cai no Gemini se faltar chave/erro. ----
-async function callCerebras(systemPrompt: string, userPrompt: string): Promise<string> {
-  const key = Deno.env.get("CEREBRAS_API_KEY");
-  if (!key) throw new Error("sem_cerebras_key");
-  const model = Deno.env.get("CEREBRAS_MODEL") ?? "gpt-oss-120b";
-  const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-    method: "POST",
-    headers: { "content-type": "application/json", "authorization": `Bearer ${key}` },
-    signal: AbortSignal.timeout(20000),
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.7,
-      max_tokens: 2000,
-    }),
-  });
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => "");
-    throw new Error(`cerebras_${res.status}: ${errBody.slice(0, 250)}`);
-  }
-  const j = await res.json();
-  const content = j?.choices?.[0]?.message?.content?.toString().trim();
-  if (!content) throw new Error("cerebras_vazio");
-  return content;
-}
-
 let custoUser: string | null = null; // dono do relatório, pro medidor de gasto
 
-// ---- Claude (Anthropic, texto). Primeiro da fila; cai no Cerebras/Gemini se faltar chave/erro/credito. ----
+// ---- Claude (Anthropic, texto). Primeiro da fila; a OpenAI é a reserva (26/11: Gemini e Cerebras saíram). ----
 async function callClaude(systemPrompt: string, userPrompt: string): Promise<string> {
   const key = Deno.env.get("ANTHROPIC_API_KEY");
   if (!key) throw new Error("sem_anthropic_key");
@@ -217,18 +143,18 @@ async function historicoVendedor(sb: any, userId: string): Promise<string> {
 }
 
 
-// Texto: Claude primeiro; Cerebras de reserva; Gemini por último.
-async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
+// Texto: Claude primeiro; OpenAI de reserva, só pra quem autorizou o texto que cita a OpenAI
+// como reserva (permissao.textoAtual). A falha fica no log só com o provedor e o código.
+async function callAI(systemPrompt: string, userPrompt: string, reservaOpenAi: boolean): Promise<string> {
   try {
     return await callClaude(systemPrompt, userPrompt);
   } catch (e) {
-    console.error("CLAUDE_FALHOU (caindo no Cerebras):", String(e));
-    try {
-      return await callCerebras(systemPrompt, userPrompt);
-    } catch (e2) {
-      console.error("CEREBRAS_FALHOU (caindo no Gemini):", String(e2));
-      return await callGemini(systemPrompt, userPrompt);
-    }
+    console.error("generate-insights: claude falhou", String((e as Error)?.message ?? e).slice(0, 40));
+    const doOpenAi = reservaOpenAi
+      ? await pedirOpenAi({ quem: "generate-insights", system: systemPrompt, user: userPrompt, maxTokens: 1500, timeoutMs: 40000, temperature: 0.7 })
+      : null;
+    if (doOpenAi) return doOpenAi;
+    throw new Error("ia_indisponivel");
   }
 }
 
@@ -253,7 +179,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
   // No third-party AI without the vendor's explicit, current permission (fails closed) — _shared/consentimento-ia.ts
-  if (!(await iaPermitidaNoServidor(req.headers.get("Authorization") ?? ""))) return respostaSemConsentimentoIa(corsHeaders);
+  const permissao = await permissaoIaNoServidor(req.headers.get("Authorization") ?? "");
+  if (!permissao.permitida) return respostaSemConsentimentoIa(corsHeaders);
+  const ia = (systemPrompt: string, userPrompt: string) => callAI(systemPrompt, userPrompt, permissao.textoAtual);
 
   try {
     const authHeader = req.headers.get("authorization");
@@ -306,7 +234,7 @@ serve(async (req) => {
 - Vendas: ${body.sales}
 - Conversão: ${conv}%${goalLine}${ticketLine}
 Dê no máximo 2 dicas curtas e práticas, ANCORADAS no ticket real dele, pra ele vender mais AMANHÃ (caminho real: mais abordagens + combo realista, NUNCA ticket de fantasia). Máximo 3 linhas no total. Compare com a média dele e diga se hoje foi acima ou abaixo do normal.${hist}`;
-      const tip = await callAI(ORBIS_COACH, prompt);
+      const tip = await ia(ORBIS_COACH, prompt);
       return new Response(JSON.stringify({ tip }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -320,7 +248,7 @@ Dê no máximo 2 dicas curtas e práticas, ANCORADAS no ticket real dele, pra el
 - Conversão: ${conv}%
 - Vendido na hora: R$ ${Number(body.soldAmount ?? 0).toFixed(0)}
 Dê 1 dica curta e afiada, baseada NESSES números, pra ele melhorar JÁ na PRÓXIMA hora. Máximo 2 linhas. Sem rodeio.${hist}`;
-      const tip = await callAI(ORBIS_COACH, prompt);
+      const tip = await ia(ORBIS_COACH, prompt);
       return new Response(JSON.stringify({ tip }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -367,8 +295,8 @@ FOCO AGORA: 1 frase direta.
 
 Não use asteriscos, markdown nem outros títulos além desses cinco.${hist}`;
 
-      // Texto puro (mesmo método da dica do dia). Cerebras primeiro, Gemini de reserva.
-      const analise = await callAI(
+      // Texto puro (mesmo método da dica do dia). Claude primeiro, OpenAI de reserva.
+      const analise = await ia(
         ORBIS_COACH + "\nVocê está analisando o relatório do vendedor. Texto puro, direto, sem markdown.",
         userPrompt,
       );
@@ -403,7 +331,7 @@ ${caixinhasLinhas}
 
 Escreva UMA dica pra ele, específica, citando os números acima. Prioridade: conta vencida > conta que vence nos próximos 5 dias e ainda falta dinheiro > contas maiores que o lucro > caixinha. Se está tudo em dia, elogia e aponta o próximo passo concreto.
 Responda SOMENTE em JSON: {"titulo": "uma frase de impacto, até 80 caracteres", "texto": "2 ou 3 frases, até 320 caracteres, sem markdown"}.${hist}`;
-      const raw = await callAI(
+      const raw = await ia(
         ORBIS_COACH + "\nAgora você é o mentor FINANCEIRO dele: contas primeiro, caixinha depois. Nunca sugira crédito/empréstimo. Responda só o JSON pedido.",
         userPrompt,
       );
@@ -457,7 +385,7 @@ Retorne SOMENTE este JSON preenchido:
   "improvement": "sugestão acionável em 2-3 frases"
 }`;
 
-    const aiText = await callAI(systemPrompt, userPrompt);
+    const aiText = await ia(systemPrompt, userPrompt);
 
     let parsedReport;
     try {

@@ -118,8 +118,8 @@ export default function AceiteTermosModal({ userId }: { userId: string }) {
         <div className="rounded-xl border border-border bg-background/60 p-3 space-y-2">
           <p className="text-[11px] font-black tracking-[.14em] text-primary">INTELIGÊNCIA ARTIFICIAL</p>
           <p className="text-sm text-muted-foreground leading-snug">
-            Mentor, dicas, relatórios, clima, leitura de nota e de extrato usam IA da <b className="text-foreground">Anthropic</b>,{" "}
-            <b className="text-foreground">OpenAI</b>, <b className="text-foreground">Google</b> e <b className="text-foreground">Cerebras</b>, que recebem dados como suas vendas, metas, gastos, mensagens e as fotos que você escolher. Sem a sua autorização, nada é enviado e só essas funções ficam desligadas.
+            Mentor, dicas, relatórios, clima, leitura de nota e de extrato usam IA da <b className="text-foreground">Anthropic</b>{" "}
+            e da <b className="text-foreground">OpenAI</b>, que recebem dados como suas vendas, metas, gastos, mensagens e as fotos que você escolher. Sem a sua autorização, nada é enviado e só essas funções ficam desligadas.
           </p>
           <label className="flex items-start gap-2.5 text-sm text-foreground cursor-pointer">
             <input type="checkbox" checked={ia} onChange={(e) => setIa(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[hsl(var(--primary))]" />

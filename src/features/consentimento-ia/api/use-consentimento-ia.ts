@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { createQueryKeys, supabase } from "@/shared/api";
-import { definirConsentimentoIa, VERSAO_DIVULGACAO_IA } from "@/shared/lib/consentimento-ia";
+import { definirConsentimentoIa, estadoDoConsentimento, VERSAO_DIVULGACAO_IA, type EstadoConsentimentoIa } from "@/shared/lib/consentimento-ia";
 
 export const consentimentoIaKeys = createQueryKeys("consentimento-ia");
 
@@ -14,22 +14,23 @@ type Tabela = {
 type Rpc = (fn: string, args: Record<string, unknown>) => PromiseLike<{ error: unknown }>;
 const tabela = () => (supabase as unknown as { from: (t: string) => Tabela }).from("consentimento_ia");
 
-/** null = not answered on the CURRENT disclosure (no answer, or an answer to an older text).
- *  Also feeds the fetch gate (consentimento-ia.ts). */
+/** data: true = allowed, false = refused, null = not answered on a text that counts (no answer,
+ *  or an answer to a text that no longer covers what the app sends).
+ *  textoAtual: the answer is on the current text. Also feeds the fetch gate (consentimento-ia.ts). */
 export function useConsentimentoIa(userId: string | undefined) {
   const q = useQuery({
     queryKey: consentimentoIaKeys.byUser(userId ?? ""),
     enabled: !!userId,
-    queryFn: async (): Promise<boolean | null> => {
+    queryFn: async (): Promise<EstadoConsentimentoIa> => {
       const { data, error } = await tabela().select("permitido, versao").eq("user_id", userId!).maybeSingle();
       if (error) throw error;
-      const linha = linhaSchema.parse(data);
-      if (!linha || linha.versao !== VERSAO_DIVULGACAO_IA) return null;
-      return linha.permitido;
+      return estadoDoConsentimento(linhaSchema.parse(data));
     },
   });
-  useEffect(() => { definirConsentimentoIa(q.data === true); }, [q.data]);
-  return q;
+  const resposta = q.data?.resposta;
+  const textoAtual = q.data?.textoAtual === true;
+  useEffect(() => { definirConsentimentoIa(resposta === true, textoAtual); }, [resposta, textoAtual]);
+  return { isSuccess: q.isSuccess, isLoading: q.isLoading, isError: q.isError, data: resposta, textoAtual };
 }
 
 export function useResponderConsentimentoIa(userId: string | undefined) {
@@ -43,7 +44,7 @@ export function useResponderConsentimentoIa(userId: string | undefined) {
       return permitido;
     },
     onSuccess: (permitido) => {
-      definirConsentimentoIa(permitido);
+      definirConsentimentoIa(permitido, true);
       void qc.invalidateQueries({ queryKey: consentimentoIaKeys.byUser(userId ?? "") });
     },
   });

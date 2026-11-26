@@ -1,7 +1,7 @@
 // Vant — verificar-extrato
 // A IA le um EXTRATO (print ou PDF) e separa as VENDAS (dinheiro que ENTROU/foi recebido)
 // das DESPESAS e dos itens SUSPEITOS DE FRAUDE (auto-transferencia, duplicata).
-// PRIMARIO: Claude (visao). FALLBACK: Gemini.
+// PRIMARIO: Claude (visao). RESERVA: OpenAI (26/11: o Gemini saiu).
 // Recebe { file: base64, mime, salvar?, dia?, tipo?, modo? }.
 // modo "dia" (padrao): audita SO o dia informado.
 // modo "mes": le o extrato do MES/SEMANA e PREENCHE os dias esquecidos — so dias
@@ -10,7 +10,8 @@
 // Devolve (mes): { ok, motor, modo, dias_salvos[], dias_pulados[], total_salvo }.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { iaPermitidaNoServidor, respostaSemConsentimentoIa } from "../_shared/consentimento-ia.ts";
+import { permissaoIaNoServidor, respostaSemConsentimentoIa } from "../_shared/consentimento-ia.ts";
+import { pedirOpenAi } from "../_shared/ia-openai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -246,46 +247,11 @@ async function callClaude(key: string, model: string, promptEstatico: string, pr
   return (data?.content ?? []).map((b: any) => b?.text || "").join("").trim();
 }
 
-// ---- Gemini (fallback): varios modelos em ordem, desvia do que estiver lotado ----
-async function callGemini(key: string, prompt: string, fileB64: string, mime: string): Promise<string> {
-  const models = (Deno.env.get("GEMINI_VISION_MODELS") ?? "gemini-2.0-flash,gemini-2.5-flash,gemini-flash-latest,gemini-1.5-flash")
-    .split(",").map((s) => s.trim()).filter(Boolean);
-  const reqBody = JSON.stringify({
-    contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: mime, data: fileB64 } }] }],
-    generationConfig: { temperature: 0, responseMimeType: "application/json" },
-  });
-  for (const m of models) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${key}`;
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      let r: Response;
-      try {
-        r = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: AbortSignal.timeout(35000),
-          body: reqBody,
-        });
-      } catch (e) {
-        console.error("Gemini extrato fetch erro", m, String(e).slice(0, 150));
-        break;
-      }
-      if (r.ok) {
-        const data = await r.json();
-        return data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || "").join("") ?? "";
-      }
-      const errTxt = await r.text().catch(() => "");
-      console.error("Gemini extrato erro", m, r.status, errTxt.slice(0, 200));
-      if (r.status === 400 || r.status === 404) break;
-      if (attempt < 2) await new Promise((res2) => setTimeout(res2, 1500));
-    }
-  }
-  throw new Error("gemini_ocupado");
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   // No third-party AI without the vendor's explicit, current permission (fails closed) — _shared/consentimento-ia.ts
-  if (!(await iaPermitidaNoServidor(req.headers.get("Authorization") ?? ""))) return respostaSemConsentimentoIa(corsHeaders);
+  const permissao = await permissaoIaNoServidor(req.headers.get("Authorization") ?? "");
+  if (!permissao.permitida) return respostaSemConsentimentoIa(corsHeaders);
 
   const json = (obj: unknown, status = 200) =>
     new Response(JSON.stringify(obj), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -354,7 +320,9 @@ Deno.serve(async (req) => {
       ? buildPromptMesDinamico(nome, iniJanela, hojeBR)
       : buildPromptDinamico(nome, dia);
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-    const geminiKey = Deno.env.get("GEMINI_API_KEY");
+    // 26/11 (Rick): the reserve is OpenAI (Gemini is gone), and only for a vendor whose answer is on
+    // the text that names OpenAI as the reserve for reading documents.
+    const reservaOpenAi = permissao.textoAtual && !!Deno.env.get("OPENAI_API_KEY");
     const model = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
     // Dia cheio de vendedor de rua = 60+ Pix pequenos -> o JSON nao pode truncar
     // (1800 cortava a lista no meio e sumia com metade das vendas do dia).
@@ -372,18 +340,14 @@ Deno.serve(async (req) => {
         lastErr = String((e as Error)?.message || e);
       }
     }
-    if (!text && geminiKey) {
-      try {
-        // Gemini nao tem cache_control: manda os dois blocos concatenados.
-        text = await callGemini(geminiKey, `${promptEstatico}\n\n${promptDinamico}`, fileB64, mime);
-        motor = "gemini";
-      } catch (e) {
-        lastErr = String((e as Error)?.message || e);
-      }
+    if (!text && reservaOpenAi) {
+      // A OpenAI nao usa cache_control: manda os dois blocos concatenados.
+      const doOpenAi = await pedirOpenAi({ quem: "verificar-extrato", user: `${promptEstatico}\n\n${promptDinamico}`, arquivo: { b64: fileB64, mime }, maxTokens, timeoutMs: 110000, temperature: 0, json: true });
+      if (doOpenAi) { text = doOpenAi; motor = "openai"; } else if (!lastErr) lastErr = "openai_indisponivel";
     }
 
     if (!text) {
-      if (!anthropicKey && !geminiKey) return json({ error: "sem_chave_ia" }, 500);
+      if (!anthropicKey && !reservaOpenAi) return json({ error: "sem_chave_ia" }, 500);
       return json({ error: lastErr || "leitura_indisponivel", dica: "tente de novo em instantes" }, 503);
     }
 

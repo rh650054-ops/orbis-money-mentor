@@ -14,7 +14,9 @@
 // Resposta: { tempo, opiniao, fonteOpiniao, atualizadoEm, cell, rede, feedbackOk, modelos }
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
-import { iaPermitidaNoServidor } from "../_shared/consentimento-ia.ts";
+import { permissaoIaNoServidor } from "../_shared/consentimento-ia.ts";
+import { pedirClaude } from "../_shared/ia-claude.ts";
+import { pedirOpenAi } from "../_shared/ia-openai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -22,63 +24,17 @@ const corsHeaders = {
 };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-// ---------------------------------------------------------------- IA (mesma fila do generate-insights)
-async function callClaude(system: string, user: string): Promise<string> {
-  const key = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!key) throw new Error("sem_anthropic_key");
-  const model = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-    signal: AbortSignal.timeout(30000),
-    body: JSON.stringify({ model, max_tokens: 1200, temperature: 0.7, system, messages: [{ role: "user", content: user }] }),
-  });
-  if (!res.ok) throw new Error(`claude_${res.status}`);
-  const j = await res.json();
-  const content = ((j?.content ?? []).map((b: { text?: string }) => b?.text || "").join("")).trim();
-  if (!content) throw new Error("claude_vazio");
-  return content;
-}
-async function callCerebras(system: string, user: string): Promise<string> {
-  const key = Deno.env.get("CEREBRAS_API_KEY");
-  if (!key) throw new Error("sem_cerebras_key");
-  const model = Deno.env.get("CEREBRAS_MODEL") ?? "gpt-oss-120b";
-  const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-    method: "POST",
-    headers: { "content-type": "application/json", "authorization": `Bearer ${key}` },
-    signal: AbortSignal.timeout(20000),
-    body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: user }], temperature: 0.7, max_tokens: 1200 }),
-  });
-  if (!res.ok) throw new Error(`cerebras_${res.status}`);
-  const j = await res.json();
-  const content = j?.choices?.[0]?.message?.content?.toString().trim();
-  if (!content) throw new Error("cerebras_vazio");
-  return content;
-}
-async function callGemini(system: string, user: string): Promise<string> {
-  const key = Deno.env.get("GEMINI_API_KEY");
-  if (!key) throw new Error("sem_gemini_key");
-  const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    signal: AbortSignal.timeout(25000),
-    body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts: [{ text: user }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 1200 } }),
-  });
-  if (!res.ok) throw new Error(`gemini_${res.status}`);
-  const j = await res.json();
-  const content = j?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!content) throw new Error("gemini_vazio");
-  return content;
-}
-async function callAI(system: string, user: string): Promise<string> {
-  try { return await callClaude(system, user); } catch (e) {
-    console.error("CLAUDE_FALHOU:", String(e));
-    try { return await callCerebras(system, user); } catch (e2) {
-      console.error("CEREBRAS_FALHOU:", String(e2));
-      return await callGemini(system, user);
-    }
-  }
+// ---------------------------------------------------------------- IA
+// 26/11 (Rick): só dois provedores — Anthropic primeiro, OpenAI de reserva (só pra quem autorizou
+// o texto que cita a OpenAI como reserva). Gemini e Cerebras saíram.
+async function callAI(system: string, user: string, reservaOpenAi: boolean): Promise<string> {
+  const doClaude = await pedirClaude({ quem: "clima-vendedor", system, user, maxTokens: 1200, timeoutMs: 30000, temperature: 0.7 });
+  if (doClaude) return doClaude;
+  const doOpenAi = reservaOpenAi
+    ? await pedirOpenAi({ quem: "clima-vendedor", system, user, maxTokens: 1200, timeoutMs: 20000, temperature: 0.7 })
+    : null;
+  if (doOpenAi) return doOpenAi;
+  throw new Error("ia_indisponivel");
 }
 
 // ---------------------------------------------------------------- tempo
@@ -551,7 +507,7 @@ export function falaCoerente(f: string, d: Fatos["decisao"]): boolean {
   return d === "parar" || !manda;
 }
 
-async function opiniaoIA(t: Tempo, c: Contexto, rede: Rede | null = null): Promise<Opiniao> {
+async function opiniaoIA(t: Tempo, c: Contexto, rede: Rede | null = null, reservaOpenAi = false): Promise<Opiniao> {
   const ag = agoraSP();
   const fatos = fatosDoDia(t, ag);
   const noturno = ehNoturno(c.melhorHora);
@@ -584,7 +540,7 @@ Responda SOMENTE este JSON:
  "sair":{"hora":"ex: 9h–12h (ou 'amanhã 9h')","txt":"até 70 caracteres"},
  "pausa":{"hora":"ex: 13h–14h","txt":"até 70 caracteres"},
  "volta":{"hora":"ex: 17h30","txt":"até 70 caracteres"}}`;
-  const raw = await callAI(MENTOR, user);
+  const raw = await callAI(MENTOR, user, reservaOpenAi);
   const m = raw.match(/\{[\s\S]*\}/);
   if (!m) throw new Error("ia_sem_json");
   const j = JSON.parse(m[0]);
@@ -702,12 +658,13 @@ serve(async (req) => {
     let fonteOpiniao: "ia" | "local" | "nenhuma" = "nenhuma";
     // The forecast is for everyone; the AI opinion (meta, sales, bills, city) only with the vendor's
     // permission — without it the local, no-AI opinion is used (_shared/consentimento-ia.ts).
-    const iaOk = user ? await iaPermitidaNoServidor(authHeader) : false;
+    const permissao = user ? await permissaoIaNoServidor(authHeader) : { permitida: false, textoAtual: false };
+    const iaOk = permissao.permitida;
     if (user && !body?.semIA) {
       const { data: usage, error: usageErr } = iaOk ? await supabase.rpc("bump_ai_usage", { p_feature: "clima", p_limit: 6 }) : { data: null, error: null };
       const over = usageErr || (usage as { over?: boolean } | null)?.over;
       if (iaOk && !over) {
-        try { opiniao = await opiniaoIA(tempo, (body?.contexto ?? {}) as Contexto, rede); fonteOpiniao = "ia"; }
+        try { opiniao = await opiniaoIA(tempo, (body?.contexto ?? {}) as Contexto, rede, permissao.textoAtual); fonteOpiniao = "ia"; }
         catch (e) { console.error("OPINIAO_IA_FALHOU:", String(e)); }
       }
       if (!opiniao) { opiniao = opiniaoLocal(tempo, (body?.contexto ?? {}) as Contexto); fonteOpiniao = "local"; }
