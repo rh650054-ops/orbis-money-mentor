@@ -50,7 +50,7 @@ async function quemENoServidor(authorization: string): Promise<Quem> {
 const depsDoServidor: Deps = {
   quemE: quemENoServidor,
   token: () => tokenHotmart((k) => Deno.env.get(k)),
-  busca: (...a) => fetch(...a),
+  busca: (input, init) => fetch(input, init),
 };
 
 export async function tratarReceita(req: Request, deps: Deps = depsDoServidor): Promise<Response> {
