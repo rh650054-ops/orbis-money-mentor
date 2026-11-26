@@ -7,6 +7,7 @@ import { Loader2, Upload, Trash2, CheckCircle2, AlertTriangle, Sparkles, Message
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatCurrency } from "@/shared/lib/utils";
+import { iaPermitidaPara } from "@/shared/lib/consentimento-ia";
 
 interface DiaImport {
   data: string;
@@ -58,7 +59,10 @@ export default function ImportPdfDialog({ open, onOpenChange, userId, onImported
       setDias(lista);
       setStep("review");
     } catch (e) {
-      toast({ title: "Erro na importação", description: e instanceof Error ? e.message : "Tente de novo.", variant: "destructive" });
+      // blocked for lack of AI permission: the permission sheet is already on screen and explains it
+      if (iaPermitidaPara("import-financial-pdf")) {
+        toast({ title: "Erro na importação", description: e instanceof Error ? e.message : "Tente de novo.", variant: "destructive" });
+      }
       setStep("idle");
     }
   };

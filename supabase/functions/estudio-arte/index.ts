@@ -1,10 +1,9 @@
-// Vant — estudio-arte v24 (caixinha/frase/contato do papo do estúdio; v23: (ordem dos provedores pelo banco: OpenAI primeiro, Gemini de rede): gera o ADESIVO do vendedor com IA. O briefing vem da
+// Vant — estudio-arte v24 (caixinha/frase/contato do papo do estúdio): gera o ADESIVO do vendedor com IA. O briefing vem da
 // GALERIA (modelo_id da biblioteca estudio_modelos) OU do CHAT da Orbis IA (estilo em
 // texto + referência opcional enviada pelo PRÓPRIO usuário). Deixa ÁREA BRANCA pro app
 // colocar o QR Pix REAL.
-// PROVEDORES (em ordem): 1) Gemini (GEMINI_IMAGE_MODEL, padrao gemini-3.1-flash-image;
-// exige billing ativado na conta Google) → 2) OpenAI GPT Image (se OPENAI_API_KEY
-// existir nos secrets) — o MESMO gerador de imagem do ChatGPT.
+// PROVEDOR: só a OpenAI GPT Image (secret OPENAI_API_KEY) — o MESMO gerador de imagem do ChatGPT.
+// 26/11/2026 (Rick): o Gemini saiu da VANT; não há segundo provedor de imagem.
 // v5: OpenAI usa gpt-image-2 (o mesmo do ChatGPT atual) com fallback 1.5 -> 1;
 // qualidade via OPENAI_IMAGE_QUALITY ("medium" — ~US$0,041 por arte 1024x1536).
 // v9 (custo + funil):
@@ -233,7 +232,7 @@ Deno.serve(async (req) => {
         catch { /* auditoria nunca derruba a entrega da arte */ }
       }
       // MEDIDOR DE GASTO: preço por imagem 1024x1536 no gpt-image (ago/2026):
-      // low US$0,005 | medium US$0,041 | high US$0,165. Gemini/fallbacks: 0.
+      // low US$0,005 | medium US$0,041 | high US$0,165.
       try {
         // Precos conferidos em 25/08/2026, ja' ajustados pro retrato 1024x1536 (~1,5x
         // o preco do quadrado). Sem isto o medidor mentia: cobrava preco de modelo
@@ -245,16 +244,7 @@ Deno.serve(async (req) => {
         };
         const usadoAgora = provedor.replace("openai:", "");
         const tab = tabelaPorModelo[usadoAgora] ?? tabelaPorModelo["gpt-image-1.5"]!;
-        // ATENCAO: aqui morava o mesmo buraco que fechamos hoje de manha, so' que
-        // pro Gemini. A conta gemini custava ZERO no medidor — e no dia em que o
-        // Gemini virasse o motor principal (faturamento ativado), o disjuntor
-        // global ficaria cego de novo, exatamente como estava pras imagens.
-        // Preco do Gemini: US$60 por milhao de tokens de imagem; uma arte retrato
-        // gasta ~1.900 tokens => ~US$0,11. E' ESTIMATIVA: da' pra calibrar no banco
-        // (chave imagem_preco_gemini_usd) depois de ver a fatura real do Google.
-        const usd = provedor.startsWith("openai")
-          ? (tab[qualidadeImagem] ?? 0.20)
-          : limNum("imagem_preco_gemini_usd", 0.11);
+        const usd = tab[qualidadeImagem] ?? 0.20;
         await admin.from("ai_custos").insert({
           user_id: userId, servico: "imagem", modelo: `${provedor}:${qualidadeImagem}`,
           qtd: 1, unidade: "imagem", custo_usd: usd,
@@ -319,40 +309,10 @@ ${caixinha ? `- Bem ao lado da área branca do Pix, uma faixa curta "CAIXINHA" c
 REGRAS OBRIGATÓRIAS:
 ${REGRAS_COMUNS}`;
 
-    // ===== ORDEM DOS PROVEDORES, ESCOLHIDA NO BANCO (25/08/2026) =====
-    // Antes o Gemini vinha SEMPRE primeiro e a OpenAI era so' reserva. Isso brigava
-    // com a estrategia: o Rick quer a qualidade do gpt-image enquanto houver credito,
-    // e o Gemini como rede pra arte NUNCA parar quando a OpenAI secar.
-    // Chave imagem_provedor: 1 = OpenAI primeiro (padrao)  2 = Gemini primeiro
-    //                        3 = so' OpenAI               4 = so' Gemini
-    const ordemProvedor = limNum("imagem_provedor", 1);
-
-    const tentarGemini = async (): Promise<Response | null> => {
-    const gkey = Deno.env.get("GEMINI_API_KEY");
-    if (gkey) {
-      try {
-        const model = Deno.env.get("GEMINI_IMAGE_MODEL") ?? "gemini-3.1-flash-image";
-        const parts: unknown[] = [{ text: prompt }];
-        if (refB64) parts.push({ inlineData: { mimeType: refMime, data: refB64 } });
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${gkey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: AbortSignal.timeout(60000),
-          body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { responseModalities: ["TEXT", "IMAGE"] } }),
-        });
-        if (r.ok) {
-          const j = await r.json();
-          const part = j?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data);
-          if (part?.inlineData?.data) return await okResp(part.inlineData.data, part.inlineData.mimeType || "image/png", "gemini");
-          console.error("gemini sem imagem", JSON.stringify(j?.candidates?.[0]?.finishReason ?? "").slice(0, 120));
-        } else {
-          console.error("gemini imagem erro", r.status, (await r.text().catch(() => "")).slice(0, 200));
-        }
-      } catch (e) { console.error("gemini imagem excecao", String(e).slice(0, 150)); }
-    }
-
-      return null;
-    };
+    // ===== PROVEDOR DE IMAGEM: só a OpenAI (26/11/2026, Rick) =====
+    // Antes a ordem OpenAI/Gemini vinha da chave imagem_provedor (ai_limites). O Gemini saiu da
+    // VANT, então a chave não é mais lida: a arte é sempre da OpenAI. Se ela falhar, o vendedor
+    // vê o erro e a geração do dia não é gasta.
 
     const tentarOpenAI = async (): Promise<Response | null> => {
     const okey = Deno.env.get("OPENAI_API_KEY");
@@ -407,21 +367,12 @@ ${REGRAS_COMUNS}`;
       return null;
     };
 
-    // Roda na ordem escolhida. Se o primeiro nao entregar, o segundo cobre sozinho —
-    // e' isso que faz a arte continuar saindo no minuto em que um saldo acabar.
-    const fila: Array<() => Promise<Response | null>> =
-      ordemProvedor === 4 ? [tentarGemini]
-      : ordemProvedor === 3 ? [tentarOpenAI]
-      : ordemProvedor === 2 ? [tentarGemini, tentarOpenAI]
-      : [tentarOpenAI, tentarGemini];
-    for (const tentar of fila) {
-      const resp = await tentar();
-      if (resp) return resp;
-    }
+    const resp = await tentarOpenAI();
+    if (resp) return resp;
 
     // Nenhum provedor disponível/funcionando
     if (geracaoId) { try { await admin.from("estudio_geracoes").update({ provedor: "falhou" }).eq("id", geracaoId); } catch { /* noop */ } }
-    const temChave = !!(Deno.env.get("GEMINI_API_KEY") || Deno.env.get("OPENAI_API_KEY"));
+    const temChave = !!Deno.env.get("OPENAI_API_KEY");
     return json({ error: temChave ? "geracao_falhou" : "sem_chave", detalhe: "provedor_de_imagem_indisponivel" });
   } catch (e) {
     console.error("estudio-arte erro", e);

@@ -1,14 +1,15 @@
 // Vant — defcon-coach
 // Reescreve a mensagem do coach de conversão com "voz da rua".
-// 26/11/2026: ordem Anthropic → Cerebras → Gemini (Rick). Cerebras estava sem cota (402) e o Gemini
-// no plano gratuito de 20 pedidos/dia (429): o coach caía sempre no template sem ninguém ver.
+// 26/11/2026 (Rick): só dois provedores — Anthropic primeiro, OpenAI de reserva. Gemini e Cerebras
+// saíram (Cerebras sem cota, Gemini no plano gratuito: o coach caía sempre no template sem ninguém ver).
 // Recebe a mensagem-template (que já traz os números) e devolve uma versão mais
 // natural e motivadora MANTENDO os números. Se faltar chave/cota ou der qualquer
 // erro, devolve o próprio template — nunca quebra e nunca deixa o vendedor sem mensagem.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
-import { iaPermitidaNoServidor } from "../_shared/consentimento-ia.ts";
+import { permissaoIaNoServidor } from "../_shared/consentimento-ia.ts";
 import { pedirClaude } from "../_shared/ia-claude.ts";
+import { pedirOpenAi } from "../_shared/ia-openai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -45,12 +46,12 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supa.auth.getUser();
     if (!user) return semIA();
     // no AI permission → the plain template, never sent to the AI (_shared/consentimento-ia.ts)
-    if (!(await iaPermitidaNoServidor(authHeader))) return semIA();
+    const permissao = await permissaoIaNoServidor(authHeader);
+    if (!permissao.permitida) return semIA();
     const { data: uso, error: usoErr } = await supa.rpc("bump_ai_usage", { p_feature: "defcon_coach", p_limit: 60 });
     if (usoErr || (uso as { over?: boolean } | null)?.over) return semIA();
     if (template.length > 600) template = template.slice(0, 600);
 
-    const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
     const prompt =
       `Você é o "mentor de rua" do app Vant, falando com um vendedor ambulante brasileiro DURANTE o corre de vendas.\n` +
       `Reescreva a mensagem abaixo em no máximo 2 frases bem curtas, em voz da rua: direta, de parceiro, motivadora, sem ser fofa nem corporativa.\n` +
@@ -68,71 +69,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 2) Cerebras
-    try {
-      const ckey = Deno.env.get("CEREBRAS_API_KEY");
-      if (ckey) {
-        const cmodel = Deno.env.get("CEREBRAS_MODEL") ?? "gpt-oss-120b";
-        const cRes = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-          method: "POST",
-          headers: { "content-type": "application/json", "authorization": `Bearer ${ckey}` },
-          signal: AbortSignal.timeout(7000),
-          body: JSON.stringify({
-            model: cmodel,
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.95,
-            max_tokens: 256,
-          }),
+    // 2) OpenAI (reserva) — só pra quem autorizou o texto que cita a OpenAI como reserva
+    if (permissao.textoAtual) {
+      const doOpenAi = await pedirOpenAi({ quem: "defcon-coach", user: prompt, maxTokens: 120, timeoutMs: 7000, temperature: 0.95 });
+      if (doOpenAi) {
+        return new Response(JSON.stringify({ message: doOpenAi.replace(/^["']|["']$/g, ""), source: "openai" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-        if (cRes.ok) {
-          const cj = await cRes.json();
-          const ct = cj?.choices?.[0]?.message?.content?.toString().trim();
-          if (ct && ct.length > 0) {
-            return new Response(JSON.stringify({ message: ct.replace(/^["']|["']$/g, ""), source: "cerebras" }), {
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-        } else {
-          // 26/11: logged with the HTTP status only (never the message): 402 = no quota left
-          console.warn(`defcon-coach: cerebras ${cRes.status}`);
-        }
       }
-    } catch (e) { console.warn("defcon-coach: cerebras sem resposta", (e as Error)?.name); /* cai pro Gemini */ }
-
-    // 3) Gemini (reserva) — se não tiver chave, usa o template
-    const key = Deno.env.get("GEMINI_API_KEY");
-    if (!key) {
-      return new Response(JSON.stringify({ message: template, source: "template" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
-    const ctrl = AbortSignal.timeout(7000);
-    const gRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: ctrl,
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.95, maxOutputTokens: 90, topP: 0.95 },
-        }),
-      },
-    );
-
-    if (!gRes.ok) {
-      console.warn(`defcon-coach: gemini ${gRes.status}`);
-      return new Response(JSON.stringify({ message: template, source: "template_fallback" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const data = await gRes.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.toString().trim();
-    const message = text && text.length > 0 ? text.replace(/^["']|["']$/g, "") : template;
-
-    return new Response(JSON.stringify({ message, source: text ? "ai" : "template" }), {
+    // 3) nenhuma IA respondeu: a mensagem pronta (o coach nunca quebra o DEFCON)
+    return new Response(JSON.stringify({ message: template, source: "template_fallback" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (_e) {

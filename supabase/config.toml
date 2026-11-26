@@ -21,7 +21,7 @@ verify_jwt = true
 [functions.chat-with-ai]
 verify_jwt = true
 
-# Chat REAL do app (mentor de rua, Gemini + cerebro do Ricardo). Substitui chat-with-ai.
+# Chat REAL do app (mentor de rua: Claude no texto, OpenAI na voz). Substitui chat-with-ai.
 [functions.bright-action]
 verify_jwt = true
 
@@ -49,3 +49,11 @@ verify_jwt = false   # link de 1 clique vindo do e-mail; a prova e o token (sha2
 
 [functions.hotmart-simular]
 verify_jwt = false
+
+# Importar historico (Financas): so usuario logado, e so com a autorizacao de IA no texto atual.
+[functions.import-financial-pdf]
+verify_jwt = true
+
+# Aposentada em 26/11/2026 (copia antiga dos relatorios que chamava o Gemini). Responde 410.
+[functions.smooth-worker]
+verify_jwt = true

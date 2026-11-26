@@ -2,16 +2,17 @@
 // "Quero R$ 5.000 de lucro em 15 dias": the AI reads the seller's last 60 days
 // (Open Finance outflows by category, DEFCON sales, calotes, products with cost/price,
 // weekday rhythm, trend) and returns a structured plan. The numbers come from the
-// database (objetivo_lucro_base); the AI interprets and advises. Anthropic first, then Cerebras,
-// then Gemini; if all fail the app falls back to its own calculation (the 502 below carries no
-// error on screen: the mission opens without the AI text).
-// 26/11: Anthropic became the first provider (Rick): Cerebras (402, no quota) and Gemini (429,
-// free tier, 20 requests/day) had both been failing unseen for days. A provider that fails is now
-// logged with its HTTP status — never the prompt or the answer. The disclosure names the three.
+// database (objetivo_lucro_base); the AI interprets and advises. Anthropic first, OpenAI as the
+// reserve; if both fail the app falls back to its own calculation (the 502 below carries no error
+// on screen: the mission opens without the AI text).
+// 26/11 (Rick): two providers only. Gemini and Cerebras are gone (Cerebras had no quota, Gemini
+// was on a free tier: both failed unseen for days). A provider that fails is logged with its HTTP
+// status — never the prompt or the answer.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
-import { iaPermitidaNoServidor, respostaSemConsentimentoIa } from "../_shared/consentimento-ia.ts";
+import { permissaoIaNoServidor, respostaSemConsentimentoIa } from "../_shared/consentimento-ia.ts";
 import { pedirClaude } from "../_shared/ia-claude.ts";
+import { pedirOpenAi } from "../_shared/ia-openai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -83,48 +84,9 @@ function claude(prompt: string): Promise<string | null> {
   return pedirClaude({ quem: "objetivo-lucro-ia", system: SYSTEM, user: prompt, maxTokens: 1500, timeoutMs: 25000, temperature: 0.5, modelo: Deno.env.get("ANTHROPIC_MODEL_MISSAO") });
 }
 
-async function cerebras(prompt: string): Promise<string | null> {
-  const key = Deno.env.get("CEREBRAS_API_KEY");
-  if (!key) return null;
-  const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-    signal: AbortSignal.timeout(15000),
-    body: JSON.stringify({
-      model: Deno.env.get("CEREBRAS_MODEL") ?? "gpt-oss-120b",
-      messages: [{ role: "system", content: SYSTEM }, { role: "user", content: prompt }],
-      temperature: 0.5, max_tokens: 1200, response_format: { type: "json_object" },
-    }),
-  });
-  if (!res.ok) { console.warn(`objetivo-lucro-ia: cerebras ${res.status}`); return null; }
-  const j = await res.json();
-  return j?.choices?.[0]?.message?.content?.toString() ?? null;
-}
-
-async function gemini(prompt: string): Promise<string | null> {
-  const key = Deno.env.get("GEMINI_API_KEY");
-  if (!key) return null;
-  const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
-  for (let tentativa = 0; tentativa < 2; tentativa++) {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      signal: AbortSignal.timeout(25000),
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM }] },
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.5, maxOutputTokens: 1500, responseMimeType: "application/json" },
-      }),
-    });
-    if (res.ok) {
-      const j = await res.json();
-      return j?.candidates?.[0]?.content?.parts?.[0]?.text?.toString() ?? null;
-    }
-    console.warn(`objetivo-lucro-ia: gemini ${res.status} (tentativa ${tentativa + 1})`);
-    if (res.status !== 429 && res.status !== 503) return null;
-    await new Promise((r) => setTimeout(r, 1500));
-  }
-  return null;
+// Reserve: only for a vendor whose answer is on the text that names OpenAI as the reserve.
+function openai(prompt: string): Promise<string | null> {
+  return pedirOpenAi({ quem: "objetivo-lucro-ia", system: SYSTEM, user: prompt, maxTokens: 1500, timeoutMs: 25000, temperature: 0.5, json: true });
 }
 
 function limpar(raw: string): Record<string, unknown> | null {
@@ -152,7 +114,8 @@ function limpar(raw: string): Record<string, unknown> | null {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   // No third-party AI without the vendor's explicit, current permission (fails closed) — _shared/consentimento-ia.ts
-  if (!(await iaPermitidaNoServidor(req.headers.get("Authorization") ?? ""))) return respostaSemConsentimentoIa(corsHeaders);
+  const permissao = await permissaoIaNoServidor(req.headers.get("Authorization") ?? "");
+  if (!permissao.permitida) return respostaSemConsentimentoIa(corsHeaders);
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) return json({ error: "sem login" }, 401);
@@ -180,7 +143,8 @@ Deno.serve(async (req) => {
     const diasTrabalho = pedido ?? (freq > 0 ? Math.min(dias, Math.max(1, Math.round(dias * freq))) : dias);
     const prompt = montarPrompt(base as Record<string, unknown>, alvo, dias, diasTrabalho);
     // first provider that hands back a plan in the expected shape wins
-    const fila: [string, () => Promise<string | null>][] = [["claude", () => claude(prompt)], ["cerebras", () => cerebras(prompt)], ["gemini", () => gemini(prompt)]];
+    const fila: [string, () => Promise<string | null>][] = [["claude", () => claude(prompt)]];
+    if (permissao.textoAtual) fila.push(["openai", () => openai(prompt)]);
     let ia: Record<string, unknown> | null = null; let fonte = "";
     for (const [nome, pedir] of fila) {
       let raw: string | null = null;

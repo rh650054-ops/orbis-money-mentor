@@ -1,7 +1,9 @@
 /* AI permission (23/11/2026, all platforms). Normally asked on the Terms acceptance screen
    (AceiteTermosModal, separate unchecked box). This sheet covers the rest:
    - Terms already current but AI never answered (e.g. accepted at sign-up) → asks once;
-   - EVENTO_IA_DESLIGADA: a user-started AI feature was blocked → explain and offer to turn it on. */
+   - EVENTO_IA_DESLIGADA: a user-started AI feature was blocked → explain and offer to turn it on.
+     A vendor who allowed an older text that still counts is only asked here, when using a feature
+     that entered the text later (never out of the blue). */
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -33,6 +35,8 @@ export function ConsentimentoIaGate() {
   // Terms not current → AceiteTermosModal asks both on one screen; never two screens in a row.
   const naoRespondeu = !!user && consentimento.isSuccess && consentimento.data === null && termos.data === true && !FORA.includes(pathname);
   const aberta = naoRespondeu || desligadaAberta;
+  // already allowed, but on an older text: the blocked feature is one the current text added
+  const funcaoNova = desligadaAberta && consentimento.data === true && !consentimento.textoAtual;
   // iPhone: a text field still focused underneath kept the keyboard up behind the sheet
   useEffect(() => { if (aberta) (document.activeElement as HTMLElement | null)?.blur?.(); }, [aberta]);
 
@@ -49,8 +53,8 @@ export function ConsentimentoIaGate() {
 
   return (
     <Folha aberta={aberta} onFechar={() => setDesligadaAberta(false)}
-      titulo={naoRespondeu ? "A VANT usa IA. Você autoriza?" : "A IA está desligada"}
-      sub={naoRespondeu ? "Sua escolha vale pra esta conta." : "Essa função usa IA. Pra usar, autorize abaixo."}>
+      titulo={naoRespondeu ? "A VANT usa IA. Você autoriza?" : funcaoNova ? "Essa função é nova na IA" : "A IA está desligada"}
+      sub={naoRespondeu ? "Sua escolha vale pra esta conta." : funcaoNova ? "Ela entrou na lista abaixo depois da sua autorização. Pra usar, autorize de novo." : "Essa função usa IA. Pra usar, autorize abaixo."}>
       <TextoIa />
       <div className="grid grid-cols-2 gap-2">
         <Botao onClick={() => escolher(false)} disabled={responder.isPending}>Agora não</Botao>

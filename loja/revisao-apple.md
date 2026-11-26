@@ -39,8 +39,8 @@ camera/photos (profile picture and receipts).
 
 AI features and consent (Guidelines 5.1.1(i) and 5.1.2(i)):
 - Right after the first login the app shows "Seus dados, com transparência". It has a separate
-  section "INTELIGÊNCIA ARTIFICIAL" that names the four recipients (Anthropic, OpenAI, Google,
-  Cerebras) and the kinds of data sent, a link "Ver o que é enviado e pra quem" (each feature,
+  section "INTELIGÊNCIA ARTIFICIAL" that names the two recipients (Anthropic and OpenAI) and the
+  kinds of data sent, a link "Ver o que é enviado e pra quem" (each feature,
   the data it sends and to which company), and a checkbox that is UNCHECKED by default:
   "Autorizo a VANT a enviar meus dados a essas empresas de IA pra usar essas funções."
 - Nothing is sent to any AI service unless that box is checked. The rule is enforced on our
@@ -65,39 +65,43 @@ Support: https://app.vantapp.com.br/suporte · suporte@vantapp.com.br
 
 ## Reenvio depois da recusa de 26/11 (5.1.1(i) / 5.1.2(i))
 
-### O que mudou no servidor e no app em 26/11
+### O que mudou em 26/11
 - Consentimento de IA por versão do texto, conferido no servidor (migração
-  `20261126160000_consentimento_ia_versao`, PR #363). Sem "Permitir" no texto atual, nenhuma função
+  `20261126160000_consentimento_ia_versao`). Sem "Permitir" num texto que vale, nenhuma função
   envia dado a IA.
-- Segunda rodada (mesmo dia): a Missão de Lucro e a Mensagem do DEFCON estavam sem IA porque a
-  conta da Cerebras ficou sem cota (HTTP 402) e a chave do Gemini está no plano gratuito de 20
-  pedidos por dia (HTTP 429). A Anthropic passou a ser a primeira nas duas. Como o texto dizia,
-  função por função, quem recebe, as duas linhas passaram a citar a Anthropic e a versão do
-  consentimento subiu para `2026-11-27`: **todo mundo autoriza a IA de novo**. Os Termos
-  continuam na versão `2026-11-26`.
-- A análise de bug por IA (`analisar-bug`) foi desligada: o relato não tem conta por trás, então
-  não há autorização para conferir, e filtro de texto não é garantia de anonimização.
+- **Só dois provedores de IA (decisão do Rick): Anthropic e OpenAI.** A Anthropic é a primeira em
+  todo texto, análise, recomendação, Mentor, Missão de Lucro e Coach. A OpenAI faz a voz do Mentor
+  (ouvir e falar), as imagens do Estúdio de Marca e é a reserva em texto e leitura de documento.
+  Google (Gemini), Cerebras e a voz do Edge (Microsoft) saíram de todas as funções.
+- Texto de divulgação `2026-11-28`: cita só os dois provedores e ganhou a linha "Importar
+  histórico". Quem autorizou o texto `2026-11-27` **não é perguntado de novo** (tudo que
+  autorizou continua igual ou diminuiu); para essa pessoa a OpenAI não entra como reserva de texto
+  e a importação de histórico pede a autorização quando ela usa.
+- "Importar histórico" (`import-financial-pdf`) existia só em produção, mandava o arquivo ao
+  Gemini e não conferia o consentimento. Entrou no repositório com o portão.
+- `smooth-worker` (cópia antiga dos relatórios, só em produção, Gemini sem portão): aposentada.
+- A análise de bug por IA (`analisar-bug`) está desligada.
 - A `verificar-deposito` não é republicada: em produção ela é a versão fechada do X1 (não usa IA)
   e a main ainda tem o leitor antigo (PR #111 em aberto).
 
 ### Checklist final (nesta ordem)
-1. [ ] **Gemini no plano pago** (Google AI Studio > faturamento do projeto da chave). No plano
-       gratuito o Google pode usar o que recebe para melhorar produtos, e a nossa política diz que
-       não. Só o Rick consegue fazer. Sem isso, a frase da política sobre o Google não é verdade.
-2. [ ] PR desta rodada na main e site no ar (a política mostra a Anthropic nas duas linhas).
-3. [ ] Funções de IA republicadas, fixadas no commit da main: bright-action, generate-insights,
+1. [ ] PR desta rodada na main e site no ar (a política cita só Anthropic e OpenAI).
+2. [ ] Funções republicadas, fixadas no commit da main: bright-action, generate-insights,
        objetivo-lucro-ia, verificar-extrato, extrato-analisar, nota-ler, estudio-arte, defcon-coach,
-       clima-vendedor, analisar-anomalia, analisar-bug.
-4. [ ] Teste real com a conta de teste do Google (`revisao@vantapp.com.br`), devolvida ao estado
-       original depois: autorização antiga bloqueia; autorização atual libera e a Missão e o
-       Coach respondem pela Anthropic; recusa e revogação bloqueiam na hora.
-5. [ ] **Build novo do iOS, gerado da main depois do passo 2.** O build 10 (26/11) carrega o texto
-       de 26/11 e grava a versão antiga: não serve mais. Usar o build seguinte.
+       clima-vendedor, analisar-anomalia, analisar-bug, import-financial-pdf, smooth-worker.
+3. [ ] Teste real com a conta de teste do Google (`revisao@vantapp.com.br`), devolvida ao estado
+       original depois: sem autorização nada sai; texto de 27/11 libera a Anthropic e bloqueia a
+       importação; texto atual libera tudo; recusa e revogação bloqueiam na hora. Conferir na
+       conta da OpenAI quais modelos de texto e de transcrição a chave aceita.
+4. [ ] **Apagar no painel do Supabase os segredos `GEMINI_API_KEY` e `CEREBRAS_API_KEY`** (e os
+       `GEMINI_*`/`CEREBRAS_*`/`EDGE_TTS_*` que existirem). Sem a chave, nenhuma função, nem uma
+       antiga esquecida, consegue chamar esses provedores. Só o Rick consegue fazer.
+5. [ ] **Build novo do iOS (12), gerado da main depois do passo 1.** Os builds 10 e 11 carregam
+       textos antigos de divulgação: não servem.
 6. [ ] No TestFlight, com uma conta que NÃO seja a da Apple: a tela "Seus dados, com
-       transparência" aparece com a caixa de IA desmarcada; aceitar sem marcar deixa a IA
-       desligada; marcar liga; Perfil > Minha Conta > "Usar IA na VANT" desliga e liga de novo;
-       "Ver o que é enviado e pra quem" mostra a Anthropic em "Objetivo de lucro" e "Mensagem do
-       DEFCON".
+       transparência" aparece com a caixa de IA desmarcada e cita só Anthropic e OpenAI; aceitar
+       sem marcar deixa a IA desligada; marcar liga; Perfil > Minha Conta > "Usar IA na VANT"
+       desliga e liga de novo; o Mentor ouve e fala.
 7. [ ] Conta do App Store Connect: **`revisao.apple@vant.com.br`** (as sessões dela vêm da rede
        da Apple, 17.x.x.x, em iPhone; a `revisao@vantapp.com.br` é a do Google Play). Conferir no
        campo "App Review Information" que é essa mesma. Estado dela em 26/11: assinatura ativa,
@@ -123,10 +127,11 @@ Resposta para o Resolution Center (colar em inglês):
 
 > Thank you for the review. We changed the app and our servers:
 > 1. Before any personal data is sent to a third-party AI service, the user sees a disclosure that
->    names every recipient (Anthropic, OpenAI, Google and Cerebras), the data each feature sends and
->    the purpose, with a checkbox that is unchecked by default.
+>    names every recipient, the data each feature sends and the purpose, with a checkbox that is
+>    unchecked by default. We also reduced the recipients to two: Anthropic and OpenAI.
 > 2. Consent is enforced on our servers: without it, no AI request is processed. Consent is tied to
->    the version of the disclosure, so it is asked again whenever the recipients or the data change.
+>    the version of the disclosure, so it is asked again whenever a recipient or a kind of data is
+>    added.
 > 3. Users can withdraw consent at any time in Perfil > Minha Conta > "Usar IA na VANT". The
 >    app remains fully usable without AI.
 > 4. The privacy policy (https://app.vantapp.com.br/privacidade) lists the same recipients, data and

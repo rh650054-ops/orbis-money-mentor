@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EVENTO_IA_DESLIGADA, bloqueioIa, definirConsentimentoIa, nomeDaFuncao } from "./consentimento-ia";
+import { EVENTO_IA_DESLIGADA, VERSAO_DIVULGACAO_IA, bloqueioIa, definirConsentimentoIa, estadoDoConsentimento, iaPermitidaPara, nomeDaFuncao } from "./consentimento-ia";
 
 const URL_BASE = "https://x.supabase.co/functions/v1/";
 
@@ -34,6 +34,34 @@ describe("gate de IA de terceiros (App Store 5.1.2(i))", () => {
     expect(bloqueioIa("https://x.supabase.co/rest/v1/sales")).toBeNull();
     definirConsentimentoIa(true);
     expect(bloqueioIa(`${URL_BASE}bright-action`)).toBeNull();
+  });
+  // "Importar histórico" sent the vendor's file to an AI with no check at all until 26/11
+  it("importar histórico é bloqueado sem permissão e avisa a tela", () => {
+    const ouvinte = vi.fn();
+    window.addEventListener(EVENTO_IA_DESLIGADA, ouvinte);
+    expect(bloqueioIa(`${URL_BASE}import-financial-pdf`)?.status).toBe(403);
+    expect(ouvinte).toHaveBeenCalledTimes(1);
+    window.removeEventListener(EVENTO_IA_DESLIGADA, ouvinte);
+  });
+  it("função que só o texto atual cita: permissão num texto antigo que ainda vale não abre", () => {
+    definirConsentimentoIa(true, false);
+    expect(bloqueioIa(`${URL_BASE}bright-action`)).toBeNull();
+    expect(bloqueioIa(`${URL_BASE}import-financial-pdf`)?.status).toBe(403);
+    expect(iaPermitidaPara("import-financial-pdf")).toBe(false);
+    definirConsentimentoIa(true, true);
+    expect(bloqueioIa(`${URL_BASE}import-financial-pdf`)).toBeNull();
+    definirConsentimentoIa(false, true); // a refusal never opens anything, whatever the text
+    expect(iaPermitidaPara("import-financial-pdf")).toBe(false);
+  });
+  it("lê a resposta guardada: texto atual, texto antigo que ainda vale, e o resto conta como não respondido", () => {
+    expect(estadoDoConsentimento(null)).toEqual({ resposta: null, textoAtual: false });
+    expect(estadoDoConsentimento({ permitido: true, versao: VERSAO_DIVULGACAO_IA })).toEqual({ resposta: true, textoAtual: true });
+    expect(estadoDoConsentimento({ permitido: false, versao: VERSAO_DIVULGACAO_IA })).toEqual({ resposta: false, textoAtual: true });
+    expect(estadoDoConsentimento({ permitido: true, versao: "2026-11-27" })).toEqual({ resposta: true, textoAtual: false });
+    expect(estadoDoConsentimento({ permitido: false, versao: "2026-11-27" })).toEqual({ resposta: false, textoAtual: false });
+    for (const versao of ["2026-11-26", "2026-11-23", null, undefined]) {
+      expect(estadoDoConsentimento({ permitido: true, versao })).toEqual({ resposta: null, textoAtual: false });
+    }
   });
   it("clima e mensagem do DEFCON passam no app: o servidor responde sem IA quando não há permissão", () => {
     expect(bloqueioIa(`${URL_BASE}clima-vendedor`)).toBeNull();

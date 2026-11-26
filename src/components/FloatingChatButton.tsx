@@ -17,7 +17,7 @@ import { avisar } from "@/shared/lib/avisar";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-// Voz do modo VOZ: false = voz do servidor (Gemini TTS oficial, com fallbacks — natural, toca no iPhone).
+// Voz do modo VOZ: false = voz do servidor (OpenAI — natural, toca no iPhone).
 // true = voz do aparelho (instantânea, robótica). Se o servidor falhar, cai nela sozinho.
 const USE_INSTANT_VOICE = false;
 
@@ -55,7 +55,7 @@ export default function FloatingChatButton() {
   const lastSpokenRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ttsTokenRef = useRef(0); // cada fala tem um token; uma fala nova invalida a anterior
-  const voiceEngineRef = useRef<"gemini" | "browser" | null>(null); // trava o motor da voz por sessão (sem flip-flop)
+  const voiceEngineRef = useRef<"servidor" | "browser" | null>(null); // trava o motor da voz por sessão (sem flip-flop)
   const isRecordingRef = useRef(false); // espelho de isRecording pra checar dentro de callbacks
   const speakingRef = useRef(false);    // espelho de speaking (a IA está falando agora)
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -103,7 +103,7 @@ export default function FloatingChatButton() {
   const voiceModeRef = useRef(false);
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
 
-  // ---- Plano B do microfone: grava e transcreve no servidor (Gemini) ----
+  // ---- Plano B do microfone: grava e transcreve no servidor (OpenAI) ----
   const startRecFallback = async (onText: (t: string) => void) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -453,7 +453,7 @@ export default function FloatingChatButton() {
       a.play().then(undefined, () => resolve(false));
     });
 
-  // Voz do servidor (Gemini oficial, com fallbacks) falada POR PARTES. Se falhar, voz do navegador.
+  // Voz do servidor (OpenAI) falada POR PARTES. Se falhar, voz do navegador.
   const speak = async (text: string) => {
     if (!text) return;
     stopSpeaking();                        // corta a fala anterior — foca na nova
@@ -485,7 +485,7 @@ export default function FloatingChatButton() {
       }
       if (src) {
         anyOk = true;
-        voiceEngineRef.current = "gemini";
+        voiceEngineRef.current = "servidor";
         const ok = await playSrc(src, myToken);
         if (myToken !== ttsTokenRef.current) return;
         if (!ok && !anyOk) break; // nem tocar deu: cai pro navegador
@@ -503,7 +503,7 @@ export default function FloatingChatButton() {
     setSpeaking(false);
     speakingRef.current = false;
     if (!anyOk) {
-      if (voiceEngineRef.current !== "gemini") voiceEngineRef.current = "browser";
+      if (voiceEngineRef.current !== "servidor") voiceEngineRef.current = "browser";
       speakBrowser(text);
       return;
     }
@@ -565,7 +565,7 @@ export default function FloatingChatButton() {
       window.speechSynthesis?.resume();
       const warm = new SpeechSynthesisUtterance(" "); warm.volume = 0; window.speechSynthesis?.speak(warm);
     } catch (e) { avisar.silencioso("Chat: destravar fala do navegador", e); }
-    // desbloqueia também o player de áudio (a voz do Gemini toca por ele — sem isso o iPhone bloqueia)
+    // desbloqueia também o player de áudio (a voz do servidor toca por ele — sem isso o iPhone bloqueia)
     if (audioRef.current) {
       try {
         audioRef.current.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=";
@@ -709,7 +709,7 @@ export default function FloatingChatButton() {
       const falavel = last.content.replace(/\[\[(?:adesivo|foto):[^\]]+\]\]/g, "").trim();
       if (!falavel) return;
       if (USE_INSTANT_VOICE) speakBrowser(falavel); // voz do aparelho — instantânea
-      else speak(falavel);                          // voz do Gemini — bonita, porém ~30s
+      else speak(falavel);                          // voz do servidor (OpenAI)
     }
   }, [messages, voiceMode]);
 

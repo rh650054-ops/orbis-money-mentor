@@ -705,7 +705,7 @@ export function DefconEndScreen({
     return "Conversão baixa. Aborde com mais confiança e firmeza.";
   }, [conversionRate, totalApproaches]);
 
-  // Dica do dia com IA (Gemini) — só roda quando o vendedor toca no botão.
+  // Dica do dia com IA — só roda quando o vendedor toca no botão.
   const generateDayTip = async () => {
     setAiTipLoading(true);
     setAiTipError(false);

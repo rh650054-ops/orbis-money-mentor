@@ -125,7 +125,7 @@ export function AppRouter() {
       <PaywallGate />
       {/* App da loja: tour de boas-vindas no 1º acesso de cada instalação, com ou sem conta (28/10) */}
       <BoasVindasGate />
-      {/* IA de terceiros (Anthropic, OpenAI, Gemini): pergunta uma vez antes de enviar qualquer dado (23/11, App Store 5.1.2(i)) */}
+      {/* IA de terceiros (Anthropic e OpenAI): pergunta uma vez antes de enviar qualquer dado (23/11, App Store 5.1.2(i)) */}
       <ConsentimentoIaGate />
       {/* Renovação: quem tem assinatura viva na Hotmart vê o caminho certo, não um checkout recusado (26/11) */}
       <CaminhoAssinaturaSheet />

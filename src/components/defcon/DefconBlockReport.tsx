@@ -42,7 +42,7 @@ export function DefconBlockReport({
   const velocidadeReal = horasSessao > 0 ? km / horasSessao : 0; // km/h
   const paceKmMin = km > 0 ? (horasSessao * 60) / km : null;     // min por km
 
-  // Dica da hora com IA (Gemini) — roda só quando o vendedor toca no botão.
+  // Dica da hora com IA — roda só quando o vendedor toca no botão.
   const generateBlockTip = async () => {
     setAiTipLoading(true);
     setAiTipError(false);
