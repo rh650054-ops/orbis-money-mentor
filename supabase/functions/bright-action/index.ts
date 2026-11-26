@@ -25,6 +25,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { iaPermitidaNoServidor, respostaSemConsentimentoIa } from "../_shared/consentimento-ia.ts";
 import { transcreverOpenAi } from "../_shared/ia-openai.ts";
+import { contextoSemLocal, top3SemNomes } from "../_shared/ia-so-o-divulgado.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -348,7 +349,7 @@ const AGENT_TOOLS = [
   },
   {
     name: "consultar_ranking",
-    description: "Posição do vendedor no ranking do mês e o top 3. Use quando ele perguntar do ranking ou da concorrência.",
+    description: "Posição do vendedor no ranking do mês e o faturamento do top 3 (sem nomes: você NÃO recebe o nome de outros vendedores — nunca cite nem invente um). Use quando ele perguntar do ranking ou da concorrência.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -544,9 +545,10 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
       const mes = hoje.slice(0, 7);
       const [meuR, topR] = await Promise.all([
         userSupa.from("leaderboard_stats").select("posicao_faturamento,faturamento_total_mes,dias_trabalhados_mes").eq("user_id", userId).eq("mes_referencia", mes).maybeSingle(),
-        userSupa.from("leaderboard_stats").select("nome_usuario,faturamento_total_mes,posicao_faturamento").eq("mes_referencia", mes).not("posicao_faturamento", "is", null).order("posicao_faturamento").limit(3),
+        userSupa.from("leaderboard_stats").select("faturamento_total_mes,posicao_faturamento").eq("mes_referencia", mes).not("posicao_faturamento", "is", null).order("posicao_faturamento").limit(3),
       ]);
-      return { minha_posicao: meuR.data ?? "fora do ranking este mês", top3: topR.data ?? [] };
+      // 26/11: position and revenue only — another vendor's name never goes to the AI (_shared/ia-so-o-divulgado.ts)
+      return { minha_posicao: meuR.data ?? "fora do ranking este mês", top3: top3SemNomes(topR.data) };
     }
     if (name === "definir_meta_do_dia") {
       const valor = Math.round((Number(input?.valor) || 0) * 100) / 100;
@@ -817,8 +819,10 @@ Deno.serve(async (req) => {
     }
 
     // Números reais do vendedor (mandados pelo app) — pra IA personalizar a resposta.
+    // 26/11: the disclosure does not list city nor selling spot for the Mentor, so they are cut here
+    // before anything goes to the AI (_shared/ia-so-o-divulgado.ts).
     const userCtx = (typeof body?.context === "string" && body.context.trim())
-      ? `\n\n${body.context.trim()}`
+      ? `\n\n${contextoSemLocal(body.context.trim())}`
       : "";
     console.log("CTX recebido (chars):", userCtx.length); // diagnóstico: >0 = dados chegaram
 
