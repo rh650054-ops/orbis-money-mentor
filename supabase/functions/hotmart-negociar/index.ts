@@ -4,7 +4,8 @@
 // Hotmart's purchase history (GET) → the lock (one open negotiation per subscription) → ONE POST.
 // The POST is never retried: an answer that did not come back becomes 'incerto' and blocks new
 // requests until checked. Never for Pix Automático. Only the last overdue recurrence.
-// Doors: · the person's own session — CLOSED until the secret HOTMART_NEGOCIAR_ABERTO = "1";
+// Doors: · the person's own session, or the 30-minute /assinar token ({ t }) — both CLOSED until the
+//          secret HOTMART_NEGOCIAR_ABERTO = "1";
 //        · controlled test: header x-orbis-cron (painel_tokens nome='cron') + { teste: true, user_id,
 //          assinatura, modo: "conferir" | "gerar", recorrencia, valor } — "gerar" only goes on when
 //          Hotmart confirms exactly the recurrence and the amount that were authorised.
@@ -78,7 +79,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const admin = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
-    const corpo = await req.json().catch(() => ({})) as { teste?: boolean; user_id?: string; assinatura?: string; modo?: string; recorrencia?: number; valor?: number };
+    const corpo = await req.json().catch(() => ({})) as { teste?: boolean; user_id?: string; assinatura?: string; modo?: string; recorrencia?: number; valor?: number; t?: string };
     const cron = req.headers.get("x-orbis-cron") ?? "";
 
     // ---- controlled test (Rick's explicit authorisation for ONE subscription)
@@ -111,7 +112,12 @@ Deno.serve(async (req) => {
     if (Deno.env.get("HOTMART_NEGOCIAR_ABERTO") !== "1") return json({ error: "indisponivel" }, 403);
     const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
     const { data: sessao } = jwt ? await admin.auth.getUser(jwt) : { data: { user: null } };
-    const userId = sessao.user?.id ?? null;
+    let userId: string | null = sessao.user?.id ?? null;
+    // /assinar?t=… opened from the store app (no session): the same 30-minute token as "Já paguei"
+    if (!userId && typeof corpo.t === "string" && corpo.t.length >= 20) {
+      const { data } = await admin.from("assinar_tokens").select("user_id, criado_em").eq("token", corpo.t).maybeSingle();
+      if (data && Date.parse(String(data.criado_em)) > Date.now() - 30 * 60_000) userId = String(data.user_id);
+    }
     if (!userId) return json({ error: "nao_autorizado" }, 401);
     const token = await tokenHotmart((k) => Deno.env.get(k));
     if (!token) return json({ acao: "indisponivel" });

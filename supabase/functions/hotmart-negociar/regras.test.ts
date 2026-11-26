@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decidirPedido, fimDoAcessoNegociado, lerPix, lerResposta, listaDeCompras, recorrenciaPendente, type Compra } from "./regras";
+import { decidirPedido, lerPix, lerResposta, listaDeCompras, recorrenciaPendente, type Compra } from "./regras";
 
 const DIA = 86_400_000;
 const agora = new Date("2026-11-26T15:00:00Z");
@@ -93,21 +93,5 @@ describe("Gerar Pix: reading Hotmart's answer without risking a second charge", 
     expect(lerResposta(200, { subscription_id: 85097, transaction: "HP00044923", payment: { type: "BILLET", billet_barcode: "3419…" } })).toMatchObject({ resultado: "incerto" });
     expect(lerResposta(200, { ...ok, payment: { ...ok.payment, pix_code: "000201quebrado6304FFFF" } })).toMatchObject({ resultado: "incerto" });
     expect(lerResposta(200, { ...ok, transaction: undefined })).toMatchObject({ resultado: "incerto" });
-  });
-});
-
-describe("Gerar Pix: access after a negotiated payment (never 30 new days by default)", () => {
-  const prox = agora.getTime() + 18 * DIA;
-  it("the payment event brings the next charge: access until it", () => {
-    expect(fimDoAcessoNegociado(prox, null, agora)).toBe(new Date(prox).toISOString());
-  });
-  it("the event has no next charge: the one read when the Pix was generated", () => {
-    expect(fimDoAcessoNegociado(undefined, new Date(prox).toISOString(), agora)).toBe(new Date(prox).toISOString());
-    expect(fimDoAcessoNegociado(agora.getTime() - DIA, new Date(prox).toISOString(), agora)).toBe(new Date(prox).toISOString());
-  });
-  it("no proven future date (old recurrence paid after the next one was due): nothing automatic", () => {
-    expect(fimDoAcessoNegociado(undefined, null, agora)).toBeNull();
-    expect(fimDoAcessoNegociado(agora.getTime() - DIA, new Date(agora.getTime() - 2 * DIA).toISOString(), agora)).toBeNull();
-    expect(fimDoAcessoNegociado(agora.getTime() + 900 * DIA, null, agora)).toBeNull();
   });
 });

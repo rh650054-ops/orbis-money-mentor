@@ -98,6 +98,17 @@ begin
   return case when found then p_resultado else 'ignorado' end;
 end $$;
 
+-- The webhook saw this negotiation's transaction approved. Idempotent (APPROVED, then COMPLETE).
+create or replace function public.hotmart_negociacao_paga(p_id uuid, p_nota text default null)
+returns text language plpgsql security definer set search_path to 'public' as $$
+begin
+  if auth.jwt() ->> 'role' is distinct from 'service_role' then raise exception 'so o servidor'; end if;
+  update public.hotmart_negociacoes
+     set status = 'pago', pago_em = now(), erro = left(p_nota, 300), atualizado_em = now()
+   where id = p_id and status <> 'pago';
+  return case when found then 'paga' else 'ja_paga' end;
+end $$;
+
 -- The logged-in person's own open Pix (null when there is none or it has expired).
 create or replace function public.hotmart_negociacao_minha()
 returns jsonb language sql stable security definer set search_path to 'public' as $$
@@ -112,5 +123,7 @@ revoke all on function public.hotmart_negociacao_reservar(uuid, text, bigint, in
 revoke all on function public.hotmart_negociacao_gravar(uuid, text, text, text, text, timestamptz, text) from public, anon, authenticated;
 grant execute on function public.hotmart_negociacao_reservar(uuid, text, bigint, integer, numeric, timestamptz, text) to service_role;
 grant execute on function public.hotmart_negociacao_gravar(uuid, text, text, text, text, timestamptz, text) to service_role;
+revoke all on function public.hotmart_negociacao_paga(uuid, text) from public, anon, authenticated;
+grant execute on function public.hotmart_negociacao_paga(uuid, text) to service_role;
 revoke all on function public.hotmart_negociacao_minha() from public, anon;
 grant execute on function public.hotmart_negociacao_minha() to authenticated;

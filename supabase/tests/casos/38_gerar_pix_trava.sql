@@ -66,3 +66,13 @@ select public.hotmart_negociacao_minha() as m_ana \gset
 select t.logar(pg_temp.id('beto'));
 select coalesce(public.hotmart_negociacao_minha()::text, 'nada') as m_beto \gset
 select t.verdade('P11 each person sees only their own valid Pix', :'m_ana'::jsonb ->> 'pix_code' = '000201PIXDAANA6304ABCD' and :'m_beto' = 'nada');
+
+-- the webhook marks the negotiation paid, once
+select set_config('request.jwt.claims', '{"role":"service_role"}', false);
+select id as neg7 from public.hotmart_negociacoes where transacao = 'HPNEG7' \gset
+select public.hotmart_negociacao_paga(:'neg7'::uuid) as pg1 \gset
+select public.hotmart_negociacao_paga(:'neg7'::uuid) as pg2 \gset
+select t.logar(pg_temp.id('ana'));
+select t.verdade('P12 paid once (APPROVED, then COMPLETE changes nothing); a paid Pix is no longer offered; the app cannot mark it paid',
+  :'pg1' = 'paga' and :'pg2' = 'ja_paga' and public.hotmart_negociacao_minha() is null
+  and t.erro(format($$select public.hotmart_negociacao_paga(%L)$$, :'neg7'), 'authenticated', pg_temp.id('ana')) like '42501|%');

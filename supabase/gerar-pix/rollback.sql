@@ -3,5 +3,6 @@
 -- already generated there stays payable at Hotmart whatever happens here). Drop it by hand only
 -- after confirming it is empty or exported.
 drop function if exists public.hotmart_negociacao_minha();
+drop function if exists public.hotmart_negociacao_paga(uuid, text);
 drop function if exists public.hotmart_negociacao_gravar(uuid, text, text, text, text, timestamptz, text);
 drop function if exists public.hotmart_negociacao_reservar(uuid, text, bigint, integer, numeric, timestamptz, text);

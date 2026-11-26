@@ -46,7 +46,7 @@ export function CaminhoAssinaturaSheet() {
       <div className="w-full max-w-[480px] rounded-t-[24px] px-5 pt-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] max-h-[90dvh] overflow-y-auto text-[#F4F1EA]"
         onClick={(e) => e.stopPropagation()} style={{ background: "#0b0b0c", borderTop: "1px solid rgba(245,184,0,.35)" }}>
         <div className="flex justify-end -mb-2"><button type="button" onClick={fechar} aria-label="Fechar" className="p-1" style={{ color: "#8f897e" }}><X className="w-5 h-5" /></button></div>
-        <RegularizarAssinatura caminho={pedido.caminho} pix={pix}
+        <RegularizarAssinatura caminho={pedido.caminho} pix={pix} userId={userId ?? undefined}
           onLiberado={() => { fechar(); window.location.reload(); }}
           onNovaAssinatura={() => { const u = pedido.url; fechar(); abrirCheckoutDireto(u); }} />
       </div>

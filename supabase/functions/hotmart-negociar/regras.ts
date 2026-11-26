@@ -3,8 +3,8 @@
      · what Hotmart's purchase history says is pending (the LAST overdue recurrence only);
      · whether a Pix may be asked at all (never for Pix Automático, a closed or paid subscription,
        or a subscriber that is not the buyer linked to the account);
-     · how to read Hotmart's answer without ever risking a second charge;
-     · until when a negotiated payment gives access (never "30 new days" by default). */
+     · how to read Hotmart's answer without ever risking a second charge.
+   The payment itself is recognised by the webhook (hotmart-webhook/negociacao.ts). */
 import { mesmoTitular } from "../hotmart-conciliar/regras.ts";
 
 export interface Compra { transaction?: string; status?: string; recurrency_number?: number; payment_type?: string;
@@ -120,15 +120,4 @@ export function lerResposta(http: number | null, corpo: unknown): Resultado {
   const vence = Number(r.payment?.expiration_date);
   return { resultado: "gerado", transacao: String(r.transaction), pix_code: pix, pix_qrcode: r.payment?.pix_qrcode ? String(r.payment.pix_qrcode) : null,
     vence_em: Number.isFinite(vence) && vence > 0 ? new Date(vence).toISOString() : null, valor_no_pix: lerPix(pix).valor };
-}
-
-/** Until when does a paid negotiation give access? The subscription's own next charge: the one in
-    the payment event, else the one read when the Pix was generated. Never "now + 30 days": paying
-    an OLD recurrence does not open a new month. null = no proven date → nothing is released
-    automatically; "Já paguei, verificar" asks Hotmart. */
-export function fimDoAcessoNegociado(proximaNoEvento: unknown, proximaGuardada: string | null | undefined, agora = new Date()): string | null {
-  for (const ms of [Number(proximaNoEvento), proximaGuardada ? Date.parse(proximaGuardada) : NaN]) {
-    if (Number.isFinite(ms) && ms > agora.getTime() && ms < agora.getTime() + 400 * 86_400_000) return new Date(ms).toISOString();
-  }
-  return null;
 }
