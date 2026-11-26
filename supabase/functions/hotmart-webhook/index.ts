@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { diasDePro } from "./planos.ts";
 import { cancelarNaHotmart, padroesParaCancelar, type AssinaturaAtiva } from "./cancelar-padrao.ts";
 import { codigoDaAssinatura, fimDoPeriodo } from "./periodo.ts";
+import { codigo, linhaDoEvento, semContato } from "./log-seguro.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,7 +55,6 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
     }
 
     const payload = await req.json();
-    console.log("Hotmart event received:", JSON.stringify(payload).slice(0, 500));
 
     const event = payload.event || payload.data?.event;
     const buyerEmail = payload.data?.buyer?.email || payload.buyer?.email;
@@ -62,6 +62,13 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
     const purchaseId = payload.data?.purchase?.transaction || payload.purchase?.transaction || "";
     // 04/11: cancellations carry the code in data.subscriber.code (32 of 57 were unidentified)
     const subscriptionId = codigoDaAssinatura(payload);
+    // Logs carry technical identifiers only (26/11): never the buyer's name, e-mail, CPF or phone.
+    // The whole event stays in hotmart_eventos, found by the transaction.
+    const idsDoLog = {
+      evento: event, id: payload.id ?? payload.data?.id, transacao: purchaseId, assinatura: subscriptionId,
+      oferta: payload.data?.purchase?.offer?.code ?? payload.purchase?.offer?.code,
+    };
+    console.log("hotmart-webhook: event received", linhaDoEvento(idsDoLog));
 
     // ===== ORIGEM E DINHEIRO DA VENDA (23/08/2026) =====
     // A Hotmart manda quem indicou e quanto entrou — e a gente ignorava tudo isso.
@@ -105,10 +112,10 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
       .insert({ event_id: eventId, event_type: event, purchase_id: purchaseId });
     if (dupErr) {
       if ((dupErr as { code?: string }).code === "23505") {
-        console.log("hotmart-webhook: evento duplicado ignorado", eventId);
+        console.log("hotmart-webhook: evento duplicado ignorado", codigo(eventId, 200));
         return new Response(JSON.stringify({ status: "duplicate" }), { headers: corsHeaders });
       }
-      console.error("hotmart-webhook: dedup falhou (seguindo)", (dupErr as { message?: string }).message);
+      console.error("hotmart-webhook: dedup falhou (seguindo)", semContato((dupErr as { message?: string }).message));
     } else {
       eventoMarcado = eventId;
     }
@@ -140,10 +147,10 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
         p_email: buyerEmail ?? "",
         p_cpf: buyerCpf ?? "",
       });
-      if (achadoErr) console.error("orbis_achar_usuario erro:", achadoErr.message);
+      if (achadoErr) console.error("orbis_achar_usuario erro:", semContato(achadoErr.message));
       if (achado) userId = String(achado);
     } catch (e) {
-      console.error("orbis_achar_usuario exceção:", String(e).slice(0, 200));
+      console.error("orbis_achar_usuario exceção:", semContato(e, 200));
     }
 
     // FALLBACK PELO XCOD (13/10/2026): todo link de checkout do app leva xcod=<user id>.
@@ -189,7 +196,7 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
         payload,
       });
     } catch (e) {
-      console.error("hotmart_eventos: falhou ao registrar (seguindo)", String(e).slice(0, 200));
+      console.error("hotmart_eventos: falhou ao registrar (seguindo)", semContato(e, 200));
     }
 
     // CARIMBO DA ORIGEM: se a venda veio com cupom de parceiro e o perfil ainda não tem
@@ -210,7 +217,7 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
             .is("origem_ref", null);
         }
       } catch (e) {
-        console.error("carimbo de origem falhou (seguindo)", String(e).slice(0, 200));
+        console.error("carimbo de origem falhou (seguindo)", semContato(e, 200));
       }
     }
 
@@ -241,7 +248,7 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
       if (!dono) {
         // fica na caixa-preta (hotmart_eventos); NÃO vai pra unlinked_purchases,
         // senão o cadastro reivindicaria como se fosse a assinatura principal
-        console.error("banco extra: comprador não identificado — liberar à mão", buyerEmail);
+        console.error("banco extra: comprador não identificado — liberar à mão", linhaDoEvento(idsDoLog));
         return new Response(JSON.stringify({ status: "banco_extra_sem_dono" }), { headers: corsHeaders });
       }
       if (liga || desliga) {
@@ -265,7 +272,7 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
               .select("plan_status, billing_exempt").eq("user_id", dono).maybeSingle();
             const contaMorta = perfil && perfil.plan_status === "expired" && !perfil.billing_exempt && podeUsar !== true;
             if (contaMorta) {
-              console.error(`BANCO_EXTRA_EM_CONTA_EXPIRADA user=${dono} cpf=${buyerCpf ?? "?"} email=${buyerEmail ?? "?"} — provável cadastro duplicado; conferir no admin`);
+              console.error(`BANCO_EXTRA_EM_CONTA_EXPIRADA user=${dono} transacao=${codigo(purchaseId) ?? "?"} assinatura=${codigo(subscriptionId) ?? "?"} — provável cadastro duplicado; conferir no admin`);
               await supabase.from("unlinked_purchases").insert({
                 buyer_email: buyerEmail || null, buyer_cpf: buyerCpf || null,
                 hotmart_purchase_id: purchaseId, hotmart_subscription_id: subscriptionId,
@@ -274,7 +281,7 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
               });
             }
           } catch (e) {
-            console.error("checagem conta expirada falhou (seguindo)", String(e).slice(0, 200));
+            console.error("checagem conta expirada falhou (seguindo)", semContato(e, 200));
           }
         }
       }
@@ -353,7 +360,7 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
           if (r.cancelados.length) console.log(`hotmart-webhook: padrão cancelado no upgrade ${r.cancelados.join(",")} (user ${userId})`);
           if (r.naMao.length) console.warn(`hotmart-webhook: CANCELAR NA MÃO ${r.naMao.join(",")} (user ${userId}): ${r.motivo}`);
         } catch (e) {
-          console.warn("hotmart-webhook: cancelar padrão no upgrade falhou", e instanceof Error ? e.message : e);
+          console.warn("hotmart-webhook: cancelar padrão no upgrade falhou", semContato(e instanceof Error ? e.message : e));
         }
       }
 
@@ -399,11 +406,11 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
       headers: corsHeaders,
     });
   } catch (error) {
-    console.error("Webhook error:", error instanceof Error ? error.message : String(error).slice(0, 300));
+    console.error("Webhook error:", semContato(error instanceof Error ? error.message : error));
     // Não concluiu: libera o evento pra Hotmart reenviar (senão o reenvio vira "duplicado").
     if (supabase && eventoMarcado) {
       const { error: libErr } = await supabase.from("processed_hotmart_events").delete().eq("event_id", eventoMarcado);
-      if (libErr) console.error(`hotmart-webhook: NÃO liberou o evento ${eventoMarcado} pra reenvio — reprocessar à mão`, libErr.message);
+      if (libErr) console.error(`hotmart-webhook: NÃO liberou o evento ${codigo(eventoMarcado, 200)} pra reenvio — reprocessar à mão`, semContato(libErr.message));
     }
     return new Response(JSON.stringify({ error: "Internal error" }), {
       status: 500,
