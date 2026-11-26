@@ -80,6 +80,11 @@ export interface EstadoJornada {
   dia: number | null;
   feitos: Set<Passo>;
   vendidoNoTeste: number | null;
+  /** 26/11: the day the test really ends (trial_end, yyyy-mm-dd). The guided journey has 3 days;
+   *  a promotional test (store testers: 30 days) goes on after it. */
+  fimDoTeste?: string | null;
+  /** today in Brasília (yyyy-mm-dd) */
+  hoje?: string;
 }
 
 export function useJornada(): EstadoJornada {
@@ -137,7 +142,7 @@ export function useJornada(): EstadoJornada {
           .reduce((s, v) => s + vendidoDoDia(v as LinhaVendida), 0);
       }
       DIA_ATUAL = emTeste ? dia : null;
-      setEstado({ carregando: false, emTeste, dia: emTeste ? dia : null, feitos, vendidoNoTeste });
+      setEstado({ carregando: false, emTeste, dia: emTeste ? dia : null, feitos, vendidoNoTeste, fimDoTeste: fim, hoje });
     } catch (e) {
       avisar.silencioso("jornada: carregar", e);
       setEstado((s) => ({ ...s, carregando: false, emTeste: false }));

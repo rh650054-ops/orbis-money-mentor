@@ -2,13 +2,13 @@
    Substitui a faixa grande que ficava em todas as telas sem poder fechar. */
 import { useNavigate } from "react-router-dom";
 import { useJornada } from "./useJornada";
-import { seloTeste } from "./jornada-lib";
+import { seloTeste, testeContinua } from "./jornada-lib";
 
 export function SeloTeste() {
-  const { emTeste, dia } = useJornada();
+  const { emTeste, dia, fimDoTeste, hoje } = useJornada();
   const navigate = useNavigate();
   if (!emTeste || dia == null) return null;
-  const ultimo = dia >= 3;
+  const ultimo = dia >= 3 && !testeContinua(fimDoTeste, hoje);
   return (
     <div className="mb-3 flex justify-center">
       <button type="button" onClick={() => navigate("/planos")}
@@ -16,7 +16,7 @@ export function SeloTeste() {
         style={ultimo
           ? { background: "rgba(255,122,26,.12)", border: "1px solid rgba(255,122,26,.5)", color: "#ff9a4d" }
           : { background: "#121211", border: "1px solid #26241f", color: "#b9b3a6" }}>
-        {seloTeste(dia)}
+        {seloTeste(dia, fimDoTeste, hoje)}
       </button>
     </div>
   );

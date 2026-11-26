@@ -104,9 +104,20 @@ export function jornadaDoDia(dia: number | null): DiaJornada | null {
   return dia == null ? null : JORNADA.find((j) => j.dia === dia) ?? null;
 }
 
+/** 26/11: the test goes on after the 3-day guided journey (a promotional test, e.g. 30 days)?
+ *  Then day 3 is the end of the JOURNEY, never "your test ends today". */
+export function testeContinua(fim: string | null | undefined, hojeBR: string | undefined): boolean {
+  return !!fim && !!hojeBR && /^\d{4}-\d{2}-\d{2}/.test(fim) && fim.slice(0, 10) > hojeBR;
+}
+/** "25/12/2026" from yyyy-mm-dd */
+export const dataDoFim = (fim: string) => `${fim.slice(8, 10)}/${fim.slice(5, 7)}/${fim.slice(0, 4)}`;
+
 /** Texto do selo pequeno do topo ("Teste grátis · faltam 2 dias"). */
-export function seloTeste(dia: number): string {
-  const faltam = 3 - dia;
+export function seloTeste(dia: number, fim?: string | null, hojeBR?: string): string {
+  // the days left come from the real end when known (a 30-day test never says "faltam 2 dias")
+  const valido = !!fim && !!hojeBR && /^\d{4}-\d{2}-\d{2}/.test(fim);
+  const faltam = valido ? diasEntre(hojeBR!, fim!.slice(0, 10)) : 3 - dia;
+  if (valido && faltam > 3) return `Teste grátis até ${dataDoFim(fim!)}`;
   if (faltam <= 0) return "Último dia do teste";
   return `Teste grátis · ${faltam === 1 ? "falta 1 dia" : `faltam ${faltam} dias`}`;
 }

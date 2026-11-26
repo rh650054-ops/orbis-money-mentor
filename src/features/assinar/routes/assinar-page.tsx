@@ -6,8 +6,9 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Check } from "lucide-react";
 import { aoClicarCheckout, comIdentidade, getCheckoutUrl, getProCheckoutUrl } from "@/shared/lib/checkout";
-import { useQuemAssinaQuery } from "../api/use-assinar-token";
-import { RenovarPix, useRenovacaoPixPorToken } from "@/features/renovacao";
+import { useCaminhoPorTokenQuery, useQuemAssinaQuery } from "../api/use-assinar-token";
+import { RegularizarAssinatura, RenovarPix, useRenovacaoPixPorToken } from "@/features/renovacao";
+import { precisaDesviar } from "@/shared/lib/caminho-assinatura";
 
 const GOLD = "#F5B800";
 const MUTE = "#7b766e";
@@ -26,10 +27,29 @@ export default function AssinarPage() {
   const [plano, setPlano] = useState<Plano>("mensal");
   const p = quem.data ?? null;
   const renovacao = useRenovacaoPixPorToken(token).data ?? null;
+  // 26/11: the subscription is still alive at Hotmart (overdue, first payment open, active):
+  // the right path comes first and the plan Hotmart would refuse is not offered
+  const caminho = useCaminhoPorTokenQuery(token).data ?? null;
+  const [liberado, setLiberado] = useState(false);
+  const [novaOk, setNovaOk] = useState(false);
+  const caminhoVivo = !novaOk && caminho && caminho.acao !== "nova" ? caminho : null;
+  const urlDe = (id: Plano) => (id === "essencial" ? getCheckoutUrl() : getProCheckoutUrl(id));
   // Essencial subscriber: this is an upgrade, hide the Essencial card
-  const lista = PLANOS.filter((x) => !(p?.plano_atual === "essencial" && x.id === "essencial"));
-  const escolhido = lista.find((x) => x.id === plano) ?? lista[0]!;
-  const base = escolhido.id === "essencial" ? getCheckoutUrl() : getProCheckoutUrl(escolhido.id);
+  const lista = PLANOS.filter((x) => !(p?.plano_atual === "essencial" && x.id === "essencial") && !precisaDesviar(caminhoVivo, urlDe(x.id)));
+  const escolhido = lista.find((x) => x.id === plano) ?? lista[0];
+  if (liberado) return (
+    <div className="min-h-screen px-5 pt-16 max-w-md mx-auto text-center text-[#F4F1EA]" style={{ background: "#000" }}>
+      <p className="text-[24px] font-black">Pagamento confirmado</p>
+      <p className="text-[14px] mt-2" style={{ color: MUTE }}>Seu acesso está liberado. Volte no app e toque em "Tentar novamente".</p>
+    </div>
+  );
+  if (!escolhido) return (
+    <div className="min-h-screen px-5 pt-10 pb-12 max-w-md mx-auto text-[#F4F1EA]" style={{ background: "radial-gradient(80% 50% at 50% 0%, #1a1305, #000 70%)" }}>
+      <p className="text-center font-mono text-[11px] font-bold tracking-[.3em] mb-6" style={{ color: GOLD }}>VANT</p>
+      {caminhoVivo && <RegularizarAssinatura caminho={caminhoVivo} pix={renovacao} token={token} onLiberado={() => setLiberado(true)} onNovaAssinatura={() => setNovaOk(true)} />}
+    </div>
+  );
+  const base = urlDe(escolhido.id);
   const href = p ? comIdentidade(base, { email: p.email, nome: p.nome, telefone: p.telefone, userId: p.user_id }) : base;
 
   return (
@@ -37,7 +57,11 @@ export default function AssinarPage() {
       <p className="text-center font-mono text-[11px] font-bold tracking-[.3em]" style={{ color: GOLD }}>VANT</p>
       <h1 className="text-center text-[30px] font-black tracking-[-.02em] mt-1">{renovacao ? "Renove a VANT" : p?.plano_atual === "essencial" ? "Suba pro VANT Pro" : "Assine a VANT"}</h1>
 
-      {renovacao && (<>
+      {caminhoVivo && (<>
+        <div className="mt-7"><RegularizarAssinatura caminho={caminhoVivo} pix={renovacao} token={token} onLiberado={() => setLiberado(true)} onNovaAssinatura={() => setNovaOk(true)} /></div>
+        <p className="font-mono text-[10.5px] font-bold tracking-[.2em] mt-9 mb-1" style={{ color: MUTE }}>OU SUBIR PARA O PRO</p>
+      </>)}
+      {!caminhoVivo && renovacao && (<>
         <div className="mt-7"><RenovarPix pix={renovacao} /></div>
         <p className="font-mono text-[10.5px] font-bold tracking-[.2em] mt-9 mb-1" style={{ color: MUTE }}>OU TROCAR DE PLANO</p>
       </>)}

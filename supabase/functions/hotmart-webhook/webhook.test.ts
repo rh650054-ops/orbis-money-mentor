@@ -93,6 +93,17 @@ beforeAll(async () => {
   ({ tratarHotmart } = (await import("./index")) as unknown as { tratarHotmart: typeof tratarHotmart });
 });
 
+describe("hotmart-webhook: evento repetido (26/11)", () => {
+  it("o mesmo PURCHASE_APPROVED duas vezes libera o acesso uma vez só (sem segunda assinatura)", async () => {
+    const sb = supabaseFalso();
+    const r1 = await tratarHotmart(pedido(), () => sb.cliente as never);
+    const r2 = await tratarHotmart(pedido(), () => sb.cliente as never);
+    expect(r1.status).toBe(200);
+    expect(await r2.json()).toEqual({ status: "duplicate" });
+    expect(sb.chamadas.filter((c) => c === "rpc.hotmart_acesso_aplicar")).toHaveLength(1);
+  });
+});
+
 describe("hotmart-webhook: recebido ≠ concluído", () => {
   it("assinatura não gravou → 500, evento liberado, e o reenvio da Hotmart ativa a assinatura", async () => {
     const sb = supabaseFalso({ falhar: new Set(["rpc.hotmart_acesso_aplicar"]) });

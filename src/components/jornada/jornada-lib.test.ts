@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { diaDoTeste, diasEntre, jornadaDoDia, seloTeste, passoLiberado, JORNADA } from "./jornada-lib";
+import { diaDoTeste, diasEntre, jornadaDoDia, seloTeste, passoLiberado, testeContinua, JORNADA } from "./jornada-lib";
 
 describe("jornada do teste", () => {
   it("counts calendar days without timezone drift", () => {
@@ -23,6 +23,13 @@ describe("jornada do teste", () => {
     expect(seloTeste(0)).toBe("Teste grátis · faltam 3 dias");
     expect(seloTeste(2)).toBe("Teste grátis · falta 1 dia");
     expect(seloTeste(3)).toBe("Último dia do teste");
+    // 26/11: a 30-day store test never says "último dia" on day 3 nor "faltam 2 dias" on day 1
+    expect(seloTeste(3, "2026-12-25", "2026-11-28")).toBe("Teste grátis até 25/12/2026");
+    expect(seloTeste(1, "2026-12-25", "2026-11-26")).toBe("Teste grátis até 25/12/2026");
+    expect(seloTeste(3, "2026-11-28", "2026-11-28")).toBe("Último dia do teste");   // standard 3 days
+    expect(seloTeste(1, "2026-11-28", "2026-11-26")).toBe("Teste grátis · faltam 2 dias");
+    expect(testeContinua("2026-12-25", "2026-11-28")).toBe(true);
+    expect(testeContinua("2026-11-28", "2026-11-28")).toBe(false);
   });
   it("only counts a step on its own day or later", () => {
     expect(passoLiberado("relatorio", 0)).toBe(false);

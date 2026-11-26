@@ -31,7 +31,8 @@ export function planoDe(c: Pick<Conta, "plan_status" | "trial_end" | "is_demo" |
   if (ativo) return { selo: "ESSENCIAL", nome: "VANT ESSENCIAL", status: "ativo", detalhe: null, assinante: true };
   if (c.plan_status === "trial") {
     const fim = dataBR(c.trial_end);
-    return { selo: "TESTE", nome: "Teste grátis", status: "teste", detalhe: fim ? `Termina em ${fim}` : null, assinante: false };
+    // 26/11: the test ends at 23:59 (Brasília) of trial_end; the 7 old courtesies show their real date too
+    return { selo: "TESTE", nome: "Teste grátis", status: "teste", detalhe: fim ? `Vai até ${fim} às 23:59` : null, assinante: false };
   }
   return { selo: "", nome: "Sem plano ativo", status: "sem", detalhe: "Assine pra voltar a usar tudo", assinante: false };
 }
