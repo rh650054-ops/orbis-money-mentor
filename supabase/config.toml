@@ -57,3 +57,7 @@ verify_jwt = true
 # Aposentada em 26/11/2026 (copia antiga dos relatorios que chamava o Gemini). Responde 410.
 [functions.smooth-worker]
 verify_jwt = true
+
+# Resumo das assinaturas ativas na Hotmart. So admin (is_orbis_admin), conferido dentro da funcao.
+[functions.hotmart-receita]
+verify_jwt = true
