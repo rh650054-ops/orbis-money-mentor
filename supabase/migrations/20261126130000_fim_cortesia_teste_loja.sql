@@ -4,11 +4,9 @@
 -- app calls it on every login; nothing proved the person was a tester). Installed apps keep
 -- calling it, so it stays, with the same signature and answers, but it NEVER grants anything and
 -- never writes: 'ja_tinha' for the 7 accounts that already got it (kept as they are: dates and
--- records untouched), 'fora' for everyone else.
---   cortesia_teste_loja_minha(): the person's own old courtesy end date (null = none), so those 7
---   keep seeing their real date.
--- The profile trigger's courtesy path (vant.cortesia_loja) becomes unreachable: no function sets it.
--- Rollback: supabase/cortesia-testadores/rollback.sql
+-- records untouched), 'fora' for everyone else. Installed apps only react to 'aplicada'
+-- (the "Você ganhou 30 dias" notice), which is never returned again.
+-- Rollback: supabase/fim-cortesia-loja/rollback.sql
 create or replace function public.cortesia_teste_loja_pedir()
  returns text language sql stable security definer set search_path to 'public'
 as $function$
@@ -19,10 +17,59 @@ $function$;
 revoke all on function public.cortesia_teste_loja_pedir() from public, anon;
 grant execute on function public.cortesia_teste_loja_pedir() to authenticated;
 
-create or replace function public.cortesia_teste_loja_minha()
-returns date language sql stable security definer set search_path to 'public' as $$
-  select p.trial_end from public.cortesia_teste_loja c join public.profiles p on p.user_id = c.user_id
-   where c.user_id = auth.uid();
-$$;
-revoke all on function public.cortesia_teste_loja_minha() from public, anon;
-grant execute on function public.cortesia_teste_loja_minha() to authenticated;
+-- The profile lock had one exception, opened on 28/10 only for that courtesy (transaction flag
+-- vant.cortesia_loja): with it, a normal session could raise its own trial_end / go back to
+-- 'trial'. Nothing sets the flag any more, so the exception goes away: the function below is the
+-- production one without it (every other line unchanged). The test dates are written only by the
+-- sign-up trigger (sign-up day + 3), the backend (service_role) and the admins.
+create or replace function public.protect_profile_billing_columns()
+ returns trigger
+ language plpgsql
+ set search_path to 'public'
+as $function$
+BEGIN
+  IF auth.role() = 'service_role' THEN
+    RETURN NEW;
+  END IF;
+
+  IF public.is_orbis_admin() THEN
+    RETURN NEW;
+  END IF;
+
+  IF OLD.cpf IS NOT NULL AND btrim(OLD.cpf) <> '' THEN
+    NEW.cpf := OLD.cpf;
+  END IF;
+
+  NEW.is_demo         := OLD.is_demo;
+  NEW.billing_exempt  := OLD.billing_exempt;
+  NEW.plan_type       := OLD.plan_type;
+  NEW.subscription_id := OLD.subscription_id;
+  NEW.trial_start     := OLD.trial_start;
+
+  NEW.trial_end       := OLD.trial_end;
+
+  IF NEW.plan_status IS DISTINCT FROM OLD.plan_status AND NEW.plan_status <> 'expired' THEN
+    NEW.plan_status := OLD.plan_status;
+  END IF;
+
+  IF COALESCE(NEW.is_trial_active, false) AND NOT COALESCE(OLD.is_trial_active, false) THEN
+    NEW.is_trial_active := OLD.is_trial_active;
+  END IF;
+
+  NEW.verificado     := OLD.verificado;
+  NEW.verificado_em  := OLD.verificado_em;
+  NEW.verificado_por := OLD.verificado_por;
+
+  NEW.ranking_hidden := OLD.ranking_hidden;
+
+  IF NOT (coalesce(current_setting('vant.fixar_origem', true), '') = '1' AND OLD.origem_ref IS NULL) THEN
+    NEW.origem_ref       := OLD.origem_ref;
+    NEW.origem_fixada_em := OLD.origem_fixada_em;
+  END IF;
+
+  NEW.vision_points := OLD.vision_points;
+  NEW.streak_days   := OLD.streak_days;
+
+  RETURN NEW;
+END;
+$function$;

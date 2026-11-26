@@ -18,13 +18,11 @@ select t.verdade('T1 a new account calling the old 30-day RPC directly: fora, st
   and not exists (select 1 from public.cortesia_teste_loja where user_id = pg_temp.id('nova')));
 select public.cortesia_teste_loja_pedir() as r2 \gset
 select t.verdade('T2 calling it again (installed apps): same safe answer, no error', :'r2' = 'fora');
-select t.verdade('T3 no courtesy end date for a new account', public.cortesia_teste_loja_minha() is null);
 
 select t.logar(pg_temp.id('ja'));
 select public.cortesia_teste_loja_pedir() as r4 \gset
-select t.verdade('T4 an old courtesy is kept: ja_tinha, 25/12 untouched, and the app can read that real date',
-  :'r4' = 'ja_tinha' and (select trial_end from public.profiles where user_id = pg_temp.id('ja')) = date '2026-12-25'
-  and public.cortesia_teste_loja_minha() = date '2026-12-25');
+select t.verdade('T4 an old courtesy is kept: ja_tinha, 25/12 untouched',
+  :'r4' = 'ja_tinha' and (select trial_end from public.profiles where user_id = pg_temp.id('ja')) = date '2026-12-25');
 select t.verdade('T5 no profile changed at all by any of these calls',
   (select md5(string_agg(user_id::text || trial_end || plan_status || coalesce(is_trial_active::text, ''), ',' order by user_id)) from public.profiles) = :'antes');
 select t.verdade('T6 the old RPC no longer writes: it is a read-only (stable SQL) function',
