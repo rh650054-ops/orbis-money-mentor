@@ -94,8 +94,6 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const userId = typeof body?.user_id === "string" ? body.user_id : "";
     if (!userId) return json({ error: "sem_user_id" }, 400);
-    // the vendor being checked must have allowed third-party AI (_shared/consentimento-ia.ts)
-    if (!(await iaPermitidaParaUsuario(userId))) return json({ ok: false, error: "ia_sem_consentimento", motivo: "Vendedor não autorizou o uso de IA; analise manualmente." }, 200);
 
     const authHeader = req.headers.get("Authorization") ?? "";
     if (!authHeader) return json({ error: "sem_auth" }, 401);
@@ -116,6 +114,10 @@ Deno.serve(async (req) => {
     if (rows.length === 0) {
       return json({ ok: true, suspeito: false, score: 0, motivo: "Sem histórico suficiente pra avaliar (ou sem permissão)." });
     }
+
+    // Only after the admin-gated read above answered (a caller who is not an admin never learns
+    // another vendor's AI choice): the vendor being checked must have allowed third-party AI (_shared/consentimento-ia.ts)
+    if (!(await iaPermitidaParaUsuario(userId))) return json({ ok: false, error: "ia_sem_consentimento", motivo: "Vendedor não autorizou o uso de IA; analise manualmente." }, 200);
 
     // Nome (best-effort, só pro prompt).
     let nome = "";

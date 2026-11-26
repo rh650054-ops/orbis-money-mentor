@@ -4,8 +4,8 @@
 // PRIMARIO: Claude (visao). FALLBACK: Gemini.
 // Recebe { file: base64, mime, salvar?, dia?, tipo?, modo? }.
 // modo "dia" (padrao): audita SO o dia informado.
-// modo "mes": le o extrato do MES e PREENCHE os dias esquecidos — so dias do mes
-//   atual, ate hoje, em que o vendedor INICIOU O DEFCON, e que ainda nao tem extrato.
+// modo "mes": le o extrato do MES/SEMANA e PREENCHE os dias esquecidos — so dias
+//   da janela, em que o vendedor INICIOU O DEFCON, e que ainda nao tem extrato.
 // Devolve (dia): { ok, motor, salvo, dia, tipo, vendas[], suspeitas[], total_vendas, total_ignorado, qtd_vendas }.
 // Devolve (mes): { ok, motor, modo, dias_salvos[], dias_pulados[], total_salvo }.
 
@@ -399,7 +399,7 @@ Deno.serve(async (req) => {
     if (!parsed) return json({ error: "leitura_falhou", raw: text.slice(0, 400) }, 422);
 
     // ===== MODO MES: preenche os dias esquecidos do mes =====
-    // So salva dias que: (1) estao no mes atual ate hoje; (2) o vendedor INICIOU O
+    // So salva dias que: (1) estao na janela; (2) o vendedor INICIOU O
     // DEFCON naquele dia; (3) ainda NAO tem extrato enviado (nao sobrescreve).
     if (modo === "mes") {
       const documentoMes = typeof parsed.documento === "string" ? parsed.documento.toLowerCase() : "";
@@ -422,7 +422,7 @@ Deno.serve(async (req) => {
           suspeitas: Array.isArray(d.suspeitas) ? d.suspeitas : [],
         }));
       if (candidatos.length === 0) {
-        return json({ error: "sem_dias", dica: "Nao achei entradas deste mes nesse extrato. Confere se e o extrato do mes atual." }, 200);
+        return json({ error: "sem_dias", dica: "Nao achei entradas recentes nesse extrato. Confere se e o extrato da semana/mes atual." }, 200);
       }
       const datas = candidatos.map((c: any) => c.data);
 
