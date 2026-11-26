@@ -9,9 +9,9 @@ A conta e a senha vão nos campos próprios de "Sign-in required" (Apple) e
 VANT is a sales and money-management app for street vendors in Brazil (people who
 sell at traffic lights, beaches and events). The UI is in Brazilian Portuguese.
 
-Demo account: on the login screen tap "E-mail" (next to "CPF") and use
-revisao@vantapp.com.br with the password provided in the sign-in fields.
-It has an active subscription and three weeks of sample data, so every feature is
+Demo account: on the login screen tap "E-mail" (next to "CPF") and use the account and
+password provided in the sign-in fields (App Store: revisao.apple@vant.com.br · Google Play:
+revisao@vantapp.com.br). It has an active subscription and sample data, so every feature is
 visible without paying.
 
 How to test the core flow:
@@ -48,7 +48,7 @@ AI features and consent (Guidelines 5.1.1(i) and 5.1.2(i)):
   whole app working, with the AI features off.
 - The choice can be changed at any time in "Perfil" > "Minha Conta" > "INTELIGÊNCIA ARTIFICIAL" >
   "Usar IA na VANT".
-- The demo account was reset for this review, so this screen appears on the first login.
+- With this build the screen appears on the first login of the demo account.
 - Privacy policy: https://app.vantapp.com.br/privacidade (updated 26/11/2026).
 
 Support: https://app.vantapp.com.br/suporte · suporte@vantapp.com.br
@@ -65,23 +65,33 @@ Support: https://app.vantapp.com.br/suporte · suporte@vantapp.com.br
 
 ## Reenvio depois da recusa de 26/11 (5.1.1(i) / 5.1.2(i))
 Ordem, tudo antes de mandar pra revisão:
-- [ ] Migração `20261126160000_consentimento_ia_versao` aplicada em produção
-- [ ] 12 funções publicadas: bright-action, generate-insights, objetivo-lucro-ia, verificar-extrato,
-      extrato-analisar, nota-ler, estudio-arte, verificar-deposito, defcon-coach, clima-vendedor,
-      analisar-anomalia, analisar-bug
-- [ ] PR #363 no ar (site) e build novo do iOS gerado DEPOIS disso
-- [ ] Conferir qual conta está nos campos "Sign-in required" do App Store Connect. Existem duas:
-      `revisao@vantapp.com.br` (a deste arquivo) e `revisao.apple@vant.com.br` (a que o revisor usou em 26/11)
-- [ ] Zerar as DUAS contas de revisão logo antes de enviar, e ninguém entra nelas depois disso:
-      a tela de Termos + IA só aparece pro revisor se a conta nunca aceitou o texto atual
+- [x] Migração `20261126160000_consentimento_ia_versao` aplicada em produção (26/11)
+- [x] 11 funções publicadas em 26/11, fixadas no commit `84af925e`: bright-action, generate-insights,
+      objetivo-lucro-ia, verificar-extrato, extrato-analisar, nota-ler, estudio-arte, defcon-coach,
+      clima-vendedor, analisar-anomalia, analisar-bug. A `verificar-deposito` NÃO foi publicada: em produção
+      ela é a versão fechada do X1 (não usa IA) e a main ainda tem o leitor antigo (PR #111 em aberto)
+- [x] PR #363 no ar (site, 26/11)
+- [ ] Build novo do iOS gerado a partir da main, depois disso
+- [x] Conta do App Store Connect identificada (26/11): **`revisao.apple@vant.com.br`**. As sessões dela vêm
+      da rede da Apple (17.x.x.x), em iPhone; a `revisao@vantapp.com.br` é a do Google Play (sessões da rede
+      do Google, em Android). Só a da Apple é preparada para este reenvio.
+- [x] Estado da conta da Apple conferido em produção (26/11): assinatura ativa, Pro, aceite de Termos
+      no texto de 23/11 e IA respondida no texto de 23/11. Como o texto atual é o de 26/11, o build novo
+      abre a tela "Seus dados, com transparência" com a caixa de IA desmarcada, e o servidor não envia
+      nada para IA. **Não precisa zerar nada.**
+- [ ] Ninguém entra na conta `revisao.apple@vant.com.br` com o build novo antes da Apple. Se alguém
+      aceitar os Termos nela, a tela não aparece mais para o revisor; aí sim rodar o bloco abaixo.
+- [ ] A conta da Apple foi criada em 23/11 e tem pouco histórico (1 dia de vendas). As notas não
+      prometem mais "três semanas de dados".
 
 ```sql
--- contas de revisão voltam ao estado "nunca viu a tela" (roda logo antes de enviar)
-update public.profiles set termos_aceitos_versao = null, termos_aceitos_em = null
- where email in ('revisao@vantapp.com.br', 'revisao.apple@vant.com.br');
-delete from public.consentimento_ia
- where user_id in (select user_id from public.profiles where email in ('revisao@vantapp.com.br', 'revisao.apple@vant.com.br'));
+-- SÓ se alguém tiver aceitado os Termos na conta da Apple depois de 26/11: volta ao estado
+-- "ainda não viu o texto atual" (não apaga nada; a resposta antiga de IA já não vale)
+update public.profiles set termos_aceitos_versao = '2026-11-23'
+ where email = 'revisao.apple@vant.com.br' and termos_aceitos_versao >= '2026-11-26';
 ```
+Se a IA também tiver sido autorizada nela no texto novo, desligar em Perfil > Minha Conta > "Usar IA na VANT"
+(a revogação vale na hora no servidor) antes de mandar para a revisão.
 
 Resposta para o Resolution Center (colar em inglês):
 
@@ -95,4 +105,4 @@ Resposta para o Resolution Center (colar em inglês):
 >    app remains fully usable without AI.
 > 4. The privacy policy (https://app.vantapp.com.br/privacidade) lists the same recipients, data and
 >    legal basis.
-> The demo account was reset, so the disclosure appears on the first login.
+> With the new build the disclosure appears on the first login of the demo account.
