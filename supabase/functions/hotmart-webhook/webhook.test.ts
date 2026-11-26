@@ -217,3 +217,81 @@ describe("hotmart-webhook: dia fixo e a assinatura certa (Rick, 04/11)", () => {
     expect(args(sb)).toMatchObject({ p_acao: "cancelar", p_sub: "OLD1" });
   });
 });
+
+/* "Gerar Pix" stage 0 (26/11): the Hotmart sandbox cannot simulate the payment of a negotiation,
+   so the approved event of a negotiated Pix is simulated here, in the shape of webhook 2.0.0
+   (new transaction HP…, same subscriber code, recurrence_number of the overdue recurrence). */
+describe("hotmart-webhook: pagamento de negociação (Gerar Pix, etapa 0)", () => {
+  const DIA = 86_400_000;
+  const negociacao = (extra: { prox?: number | null; offer?: string; plano?: string; tx?: string } = {}) =>
+    new Request("https://x/hotmart-webhook", {
+      method: "POST",
+      headers: { "x-hotmart-hottok": "segredo-teste", "content-type": "application/json" },
+      body: JSON.stringify({
+        id: `ev-neg-${extra.tx ?? "HPNEG1"}`, event: "PURCHASE_APPROVED", creation_date: 1795700000000,
+        data: {
+          buyer: { email: "titular@exemplo.com" },
+          purchase: { transaction: extra.tx ?? "HPNEG1", recurrence_number: 3, status: "APPROVED", payment: { type: "PIX" },
+            ...(extra.offer === undefined ? { offer: { code: "8qbxvm9p" } } : extra.offer ? { offer: { code: extra.offer } } : {}),
+            ...(extra.prox === null ? {} : { date_next_charge: extra.prox ?? Date.now() + 25 * DIA }) },
+          subscription: { status: "DELAYED", subscriber: { code: "SUBNEG" }, plan: { name: extra.plano ?? "VANT Essencial" } },
+        },
+      }),
+    });
+  const ativar = (sb: ReturnType<typeof supabaseFalso>) => sb.gravados.filter((g) => g.tabela === "rpc.hotmart_acesso_aplicar").map((g) => g.linha);
+  const perto = (iso: unknown, alvo: number) => Math.abs(Date.parse(String(iso)) - alvo) < 60_000;
+
+  it("N1 · Pix negociado pago → libera a MESMA assinatura até a próxima cobrança da Hotmart", async () => {
+    const prox = Date.now() + 25 * DIA;
+    const sb = supabaseFalso();
+    const r = await tratarHotmart(negociacao({ prox }), () => sb.cliente as never);
+    expect(r.status).toBe(200);
+    expect(ativar(sb)).toHaveLength(1);
+    expect(ativar(sb)[0]).toMatchObject({ p_acao: "ativar", p_sub: "SUBNEG", p_purchase: "HPNEG1", p_complete: false });
+    expect(perto(ativar(sb)[0]?.p_fim, prox)).toBe(true);
+  });
+
+  it("N2 · status da assinatura ainda DELAYED no evento → libera mesmo assim (pelo pagamento, não pelo status)", async () => {
+    const sb = supabaseFalso();
+    await tratarHotmart(negociacao({ tx: "HPNEG2" }), () => sb.cliente as never);
+    expect(ativar(sb)).toHaveLength(1);
+  });
+
+  it("N3 · próxima cobrança vencida ou ausente → 30 dias a partir de agora (nunca uma data passada)", async () => {
+    for (const prox of [Date.now() - 40 * DIA, null]) {
+      const sb = supabaseFalso();
+      await tratarHotmart(negociacao({ prox, tx: `HPNEG3-${prox}` }), () => sb.cliente as never);
+      expect(perto(ativar(sb)[0]?.p_fim, Date.now() + 30 * DIA)).toBe(true);
+    }
+  });
+
+  it("N4 · mesmo aviso repetido → libera uma vez só", async () => {
+    const sb = supabaseFalso();
+    await tratarHotmart(negociacao({ tx: "HPNEG4" }), () => sb.cliente as never);
+    const r2 = await tratarHotmart(negociacao({ tx: "HPNEG4" }), () => sb.cliente as never);
+    expect(await r2.json()).toEqual({ status: "duplicate" });
+    expect(ativar(sb)).toHaveLength(1);
+  });
+
+  it("N5 · negociação de assinatura Pro sem código de oferta → o nome do plano devolve o Pro", async () => {
+    const sb = supabaseFalso();
+    await tratarHotmart(negociacao({ offer: "", plano: "VANT Pro", tx: "HPNEG5" }), () => sb.cliente as never);
+    expect(sb.chamadas).toContain("rpc.pro_conceder");
+  });
+
+  it("N6 · negociação do plano comum → não dá Pro", async () => {
+    const sb = supabaseFalso();
+    await tratarHotmart(negociacao({ tx: "HPNEG6" }), () => sb.cliente as never);
+    expect(sb.chamadas).not.toContain("rpc.pro_conceder");
+  });
+
+  it("N7 · aviso da negociação SEM o bloco da assinatura → libera sem código de assinatura (ponto a confirmar no teste real)", async () => {
+    const sb = supabaseFalso();
+    await tratarHotmart(new Request("https://x/hotmart-webhook", {
+      method: "POST", headers: { "x-hotmart-hottok": "segredo-teste", "content-type": "application/json" },
+      body: JSON.stringify({ id: "ev-neg-7", event: "PURCHASE_APPROVED", data: { buyer: { email: "titular@exemplo.com" },
+        purchase: { transaction: "HPNEG7", offer: { code: "8qbxvm9p" }, payment: { type: "PIX" } } } }),
+    }), () => sb.cliente as never);
+    expect(ativar(sb)[0]).toMatchObject({ p_sub: null, p_purchase: "HPNEG7" });
+  });
+});
