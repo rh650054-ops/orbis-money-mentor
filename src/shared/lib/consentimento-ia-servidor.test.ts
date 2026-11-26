@@ -30,7 +30,10 @@ describe("consentimento de IA no servidor (por versão)", () => {
       expect(fn(n), n).toMatch(/iaPermitidaNoServidor\(/);
     }
     expect(fn("analisar-anomalia")).toMatch(/iaPermitidaParaUsuario\(userId\)/);
-    expect(fn("analisar-bug")).not.toMatch(/bug\.reporter/);
+    // the reporter is never sent: its only use is being REMOVED from the free text
+    expect(fn("analisar-bug")).not.toMatch(/Reportado por/);
+    expect(fn("analisar-bug").match(/bug\.reporter/g)).toEqual(["bug.reporter"]);
+    expect(fn("analisar-bug")).toMatch(/const quem = \[bug\.reporter\];/);
     expect(readFileSync("supabase/functions/_shared/consentimento-ia.ts", "utf8")).toMatch(/select\("permitido, versao"\)/);
   });
 });
@@ -54,5 +57,34 @@ describe("relato de bug sem dados pessoais antes da IA", () => {
   });
   it("respeita o limite de tamanho", () => {
     expect(semDadosPessoais("a".repeat(5000), 2000)).toHaveLength(2000);
+  });
+});
+
+describe("relato de bug: texto livre (26/11, segunda passada)", () => {
+  const vaza = (texto: string, proibidos: string[], nomes: unknown[] = []) => {
+    const t = semDadosPessoais(texto, 2000, nomes);
+    for (const p of proibidos) expect(t, `${p} em: ${t}`).not.toContain(p);
+    return t;
+  };
+  it("nomes: o de quem reportou, depois de uma deixa, e prenome comum com sobrenome", () => {
+    expect(vaza("Meu nome é João Carlos da Silva e não consigo entrar", ["João", "Carlos", "Silva"])).toBe("Meu nome é [NOME] e não consigo entrar");
+    expect(vaza("o Bryan da Silva me pagou e sumiu", ["Bryan", "Silva"])).toBe("o [NOME] me pagou e sumiu");
+    expect(vaza("a cliente Kethellyn Souza reclamou; sra. Odete pediu estorno", ["Kethellyn", "Souza", "Odete"])).toContain("cliente [NOME]");
+    expect(vaza("Zeferino aqui: o app do zeferino travou, falar com ZEFERINO Prates", ["Zeferino", "zeferino", "ZEFERINO", "Prates"], ["Zeferino Prates"])).toContain("[NOME]");
+  });
+  it("telefone espaçado ou sem DDD, RG, cvv, nascimento, @usuário, e-mail disfarçado", () => {
+    const t = vaza("whats 11 9 8765 4321 ou 987654321; RG 12.345.678-9; cvv 123; nascido em 03/05/1990; insta @joaovendas; joao (arroba) gmail ponto com",
+      ["8765", "987654321", "12.345.678", "cvv 123", "03/05/1990", "joaovendas", "gmail"]);
+    for (const marca of ["[TELEFONE]", "[DOCUMENTO]", "[SEGREDO]", "[NASCIMENTO]", "[USUARIO]", "[EMAIL]"]) expect(t).toContain(marca);
+  });
+  it.each([
+    "Na tela Minha Conta o botão Vant Pro não abre o Mercado Pago",
+    "Cliente pagou R$ 30 no Pix e o total do Foco não somou às 18:45",
+    "O vendedor Pro não vê o Open Finance; erro 500 no dia 26/11/2026",
+    "Vendi 12 batidas a R$ 10 e o Relatório mostrou R$ 100 em vez de R$ 120",
+    "Depois de atualizar no Android o DEFCON 4 fecha sozinho no bloco 3 de 5",
+    "Estoque: 1.250 unidades, custo R$ 1.234,56, margem 35%",
+  ])("não estraga o relato de bug: %s", (texto) => {
+    expect(semDadosPessoais(texto)).toBe(texto);
   });
 });

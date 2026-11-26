@@ -58,7 +58,9 @@ function buildUser(bug: any): string {
   // description / screen pass through semDadosPessoais (CPF, e-mail, phone, Pix, card, account,
   // address, tokens and links become neutral tags) — _shared/sem-dados-pessoais.ts
   const sev = ["critico", "alto", "medio", "baixo"].includes(String(bug.severidade)) ? bug.severidade : "medio";
-  return `BUG REPORTADO\nTitulo: ${semDadosPessoais(bug.titulo, 200)}\nDescricao: ${semDadosPessoais(bug.descricao, 2000) || "(sem descricao)"}\nOnde acontece: ${semDadosPessoais(bug.tela, 200) || "(nao informado)"}\nGravidade informada: ${sev}`;
+  // the reporter's own name is removed from the free text too (it is never sent as a field)
+  const quem = [bug.reporter];
+  return `BUG REPORTADO\nTitulo: ${semDadosPessoais(bug.titulo, 200, quem)}\nDescricao: ${semDadosPessoais(bug.descricao, 2000, quem) || "(sem descricao)"}\nOnde acontece: ${semDadosPessoais(bug.tela, 200, quem) || "(nao informado)"}\nGravidade informada: ${sev}`;
 }
 
 // deno-lint-ignore no-explicit-any
