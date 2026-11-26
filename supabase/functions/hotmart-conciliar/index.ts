@@ -5,12 +5,13 @@
 // /assinar token ({ t }). At most one check per person per minute.
 // Batch (recovery of people already blocked): header x-orbis-cron (painel_tokens nome='cron') +
 // { todos: true, grupos: ["ACTIVE"|"PAST_DUE"|"STARTED"|…], teste?: true } → the blocked accounts whose
-// live subscription is in those groups (one group at a time, max 150 per run). teste = report only;
+// live MAIN-PLAN subscription is in those groups (max 150 per run; the extra-bank add-on is never
+// read or changed here). teste = report only;
 // so_status = only records Hotmart's real status (never releases access).
 // Credentials only from the Supabase panel (HOTMART_*), never logged.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { tokenHotmart } from "../hotmart-webhook/cancelar-padrao.ts";
-import { decidir, type NossaAssinatura } from "./regras.ts";
+import { BANCO_EXTRA, tokenHotmart } from "../hotmart-webhook/cancelar-padrao.ts";
+import { decidir, soPlanoPrincipal, type NossaAssinatura } from "./regras.ts";
 
 const API = "https://developers.hotmart.com/payments/api/v1/subscriptions";
 const VIVAS = ["ACTIVE", "PAST_DUE", "DELAYED", "OVERDUE", "STARTED"];
@@ -31,8 +32,8 @@ Deno.serve(async (req) => {
       const soStatus = !!(corpo as { so_status?: boolean }).so_status;
       const grupos = ((corpo as { grupos?: string[] }).grupos ?? []).filter((g) => VIVAS.includes(g));
       if (grupos.length === 0) return json({ error: "diga_os_grupos" }, 400);
-      const { data: vivas } = await admin.from("orbis_hotmart_assinatura").select("user_id").in("status_hotmart", grupos).not("user_id", "is", null).limit(1000);
-      const ids = [...new Set((vivas ?? []).map((v) => String(v.user_id)))];
+      const { data: vivas } = await admin.from("orbis_hotmart_assinatura").select("user_id, subscription_id, oferta_codigo").in("status_hotmart", grupos).not("user_id", "is", null).limit(1000);
+      const ids = [...new Set(soPlanoPrincipal((vivas ?? []) as { user_id: string; subscription_id: string; oferta_codigo: string | null }[], BANCO_EXTRA).map((v) => String(v.user_id)))];
       const { data: bloqueados } = await admin.from("profiles").select("user_id").in("user_id", ids).neq("plan_status", "active").not("billing_exempt", "is", true).limit(150);
       const token = await tokenHotmart((k) => Deno.env.get(k));
       if (!token) return json({ error: "sem_credenciais" }, 500);
@@ -81,7 +82,10 @@ async function conferirConta(admin: Admin, userId: string, token: string, jaLibe
     .select("subscription_id, status_hotmart, oferta_codigo, plano, email").eq("user_id", userId).in("status_hotmart", VIVAS).limit(5);
   let liberado = jaLiberado;
   const feito: { sub: string; status: string | null; mudou: boolean; liberou: boolean }[] = [];
-  for (const s of (subs ?? []) as NossaAssinatura[]) {
+  // only the main plan: the extra-bank add-on has its own rail and is never touched here
+  const { data: bx } = await admin.from("bancos_extra_compras").select("chave").eq("user_id", userId);
+  const doPlano = soPlanoPrincipal((subs ?? []) as NossaAssinatura[], BANCO_EXTRA, new Set(((bx ?? []) as { chave: string }[]).map((b) => b.chave)));
+  for (const s of doPlano) {
     const r = await fetch(`${API}?${new URLSearchParams({ subscriber_code: s.subscription_id })}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000) });
     if (!r.ok) continue;
     const item = ((await r.json()) as { items?: { subscriber_code?: string; status?: string; date_next_charge?: number; subscriber?: { email?: string } }[] }).items
