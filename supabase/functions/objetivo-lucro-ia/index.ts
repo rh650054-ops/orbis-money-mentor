@@ -4,6 +4,8 @@
 // weekday rhythm, trend) and returns a structured plan. The numbers come from the
 // database (objetivo_lucro_base); the AI interprets and advises. Cerebras first,
 // Gemini as fallback; if both fail the app falls back to its own calculation.
+// 26/11: a provider that fails is logged with its HTTP status (never the prompt or the answer):
+// Cerebras (402, no quota) and Gemini (429, free-tier quota) were both failing unseen for days.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
 import { iaPermitidaNoServidor, respostaSemConsentimentoIa } from "../_shared/consentimento-ia.ts";
@@ -86,7 +88,7 @@ async function cerebras(prompt: string): Promise<string | null> {
       temperature: 0.5, max_tokens: 1200, response_format: { type: "json_object" },
     }),
   });
-  if (!res.ok) return null;
+  if (!res.ok) { console.warn(`objetivo-lucro-ia: cerebras ${res.status}`); return null; }
   const j = await res.json();
   return j?.choices?.[0]?.message?.content?.toString() ?? null;
 }
@@ -110,6 +112,7 @@ async function gemini(prompt: string): Promise<string | null> {
       const j = await res.json();
       return j?.candidates?.[0]?.content?.parts?.[0]?.text?.toString() ?? null;
     }
+    console.warn(`objetivo-lucro-ia: gemini ${res.status} (tentativa ${tentativa + 1})`);
     if (res.status !== 429 && res.status !== 503) return null;
     await new Promise((r) => setTimeout(r, 1500));
   }
@@ -169,10 +172,13 @@ Deno.serve(async (req) => {
     const diasTrabalho = pedido ?? (freq > 0 ? Math.min(dias, Math.max(1, Math.round(dias * freq))) : dias);
     const prompt = montarPrompt(base as Record<string, unknown>, alvo, dias, diasTrabalho);
     let raw: string | null = null; let fonte = "cerebras";
-    try { raw = await cerebras(prompt); } catch (_e) { raw = null; }
-    if (!raw) { fonte = "gemini"; try { raw = await gemini(prompt); } catch (_e) { raw = null; } }
+    try { raw = await cerebras(prompt); } catch (e) { console.warn("objetivo-lucro-ia: cerebras sem resposta", (e as Error)?.name); raw = null; }
+    if (!raw) { fonte = "gemini"; try { raw = await gemini(prompt); } catch (e) { console.warn("objetivo-lucro-ia: gemini sem resposta", (e as Error)?.name); raw = null; } }
     const ia = raw ? limpar(raw) : null;
-    if (!ia) return json({ error: "ia indisponível", base, dias_trabalho: diasTrabalho }, 502);
+    if (!ia) {
+      console.error(`objetivo-lucro-ia: nenhum provedor entregou um plano (${raw ? "resposta fora do formato" : "sem resposta"})`);
+      return json({ error: "ia indisponível", base, dias_trabalho: diasTrabalho }, 502);
+    }
     return json({ ia: { ...ia, fonte }, base, dias_trabalho: diasTrabalho });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e).slice(0, 200) }, 500);

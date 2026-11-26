@@ -36,6 +36,19 @@ describe("consentimento de IA no servidor (por versão)", () => {
     expect(fn("analisar-bug")).toMatch(/const quem = \[bug\.reporter\];/);
     expect(readFileSync("supabase/functions/_shared/consentimento-ia.ts", "utf8")).toMatch(/select\("permitido, versao"\)/);
   });
+
+  // 26/11: Cerebras (402) and Gemini (429) failed unseen for days — the failure is now logged,
+  // with the provider and the HTTP status only, never what the vendor sent or what the AI said
+  it("Missão de Lucro e Coach registram o provedor que falhou, sem dado do vendedor no log", () => {
+    for (const n of ["objetivo-lucro-ia", "defcon-coach"]) {
+      const src = readFileSync(`supabase/functions/${n}/index.ts`, "utf8");
+      expect(src, n).toMatch(new RegExp(`console\\.warn\\(\`${n}: cerebras \\$\\{\\w+\\.status\\}`));
+      expect(src, n).toMatch(new RegExp(`console\\.warn\\(\`${n}: gemini \\$\\{\\w+\\.status\\}`));
+      const logs = src.split("\n").filter((l) => /console\.(warn|error|log)\(/.test(l)).map((l) => l.slice(l.search(/console\./)));
+      expect(logs.length, n).toBeGreaterThanOrEqual(3);
+      for (const l of logs) expect(l, n).not.toMatch(/\b(prompt|template|body|base|apelido|authHeader|key|ckey|text|ct)\b/);
+    }
+  });
 });
 
 describe("relato de bug sem dados pessoais antes da IA", () => {

@@ -81,9 +81,12 @@ Deno.serve(async (req) => {
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
+        } else {
+          // 26/11: logged with the HTTP status only (never the message): 402 = no quota left
+          console.warn(`defcon-coach: cerebras ${cRes.status}`);
         }
       }
-    } catch (_e) { /* cai pro Gemini */ }
+    } catch (e) { console.warn("defcon-coach: cerebras sem resposta", (e as Error)?.name); /* cai pro Gemini */ }
 
     // 2) Gemini (reserva) — se não tiver chave, usa o template
     const key = Deno.env.get("GEMINI_API_KEY");
@@ -108,6 +111,7 @@ Deno.serve(async (req) => {
     );
 
     if (!gRes.ok) {
+      console.warn(`defcon-coach: gemini ${gRes.status}`);
       return new Response(JSON.stringify({ message: template, source: "template_fallback" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
