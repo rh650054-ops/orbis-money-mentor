@@ -36,3 +36,16 @@ export function venceuTexto(iso: string, agora: Date = new Date()): string {
   if (dif === 1) return "venceu ontem";
   return `venceu dia ${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`;
 }
+
+/** "Gerar Pix" (official Hotmart negotiation) is OFF until the real integration is validated:
+    it only shows when the build sets VITE_GERAR_PIX=1. The server has its own switch as well. */
+export const gerarPixLigado = (): boolean => import.meta.env.VITE_GERAR_PIX === "1";
+
+/** What to tell the person when no Pix came back. hotmart = offer the Hotmart area as the way out. */
+export function avisoDoGerarPix(r: { acao: string; motivo?: string }): { texto: string; hotmart: boolean } {
+  if (r.acao === "em_andamento") return { texto: "Seu Pix já está sendo gerado. Espere alguns segundos e toque de novo.", hotmart: false };
+  if (r.acao === "falhou") return { texto: "A Hotmart não gerou o Pix agora. Tente de novo em alguns minutos.", hotmart: true };
+  if (r.acao === "incerto") return { texto: "Não consegui confirmar se a cobrança foi gerada. Para você não pagar duas vezes, o Gerar Pix fica bloqueado até eu conferir com a Hotmart. Se a cobrança já aparecer lá, pague por lá.", hotmart: true };
+  if (r.motivo === "pix_automatico") return { texto: "Sua assinatura é no Pix Automático: autorize o débito no app do seu banco ou pague pela Hotmart.", hotmart: true };
+  return { texto: "Não deu para gerar o Pix por aqui agora. Você pode pagar pela Hotmart.", hotmart: true };
+}

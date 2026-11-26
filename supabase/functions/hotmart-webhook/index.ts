@@ -1,7 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { diasDePro } from "./planos.ts";
 import { cancelarNaHotmart, padroesParaCancelar, type AssinaturaAtiva } from "./cancelar-padrao.ts";
-import { codigoDaAssinatura, fimDoPeriodo } from "./periodo.ts";
+import { codigoDaAssinatura, fimDoPagamento } from "./periodo.ts";
+import { decidirNegociacao, type Negociacao } from "./negociacao.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -281,6 +282,57 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
       return new Response(JSON.stringify({ status: "banco_extra_ok" }), { headers: corsHeaders });
     }
 
+    // GERAR PIX (26/11/2026): a payment whose transaction VANT itself asked Hotmart for. The
+    // transaction code links it to the account, the subscription and the recurrence the Pix was
+    // generated for (hotmart_negociacoes) — not the buyer's e-mail. Access goes until the
+    // subscription's own next charge, never "30 new days". Rules: negociacao.ts.
+    const ehPagamento = evBx.includes("PURCHASE_APPROVED") || evBx.includes("PURCHASE_COMPLETE") || evBx.includes("SUBSCRIPTION_RENEWAL");
+    if (ehPagamento && purchaseId) {
+      const rNeg = await supabase.from("hotmart_negociacoes")
+        .select("id, user_id, assinatura, recorrencia, proxima_cobranca, status").eq("transacao", purchaseId).maybeSingle();
+      // the table arrives with the Gerar Pix migration: before it, no payment is a negotiation
+      if (rNeg.error && (rNeg.error as { code?: string }).code !== "42P01") exigir("hotmart_negociacoes", rNeg);
+      const neg = (rNeg.error ? null : rNeg.data) as Negociacao | null;
+      if (neg) {
+        const d = decidirNegociacao(neg, { assinatura: subscriptionId, recorrencia: compra?.recurrence_number, proxima: compra?.date_next_charge });
+        const pendencia = async (motivo: string) => exigir("unlinked_purchases", await supabase!.from("unlinked_purchases").insert({
+          buyer_email: buyerEmail || null, buyer_cpf: buyerCpf || null, hotmart_purchase_id: purchaseId, hotmart_subscription_id: neg.assinatura,
+          event_type: `${event}:NEGOCIACAO_${motivo}`, payload, linked_at: new Date().toISOString(), linked_to_user_id: neg.user_id,
+        }));
+        if (d.acao === "ja_paga") return new Response(JSON.stringify({ status: "ok", negociacao: "ja_paga" }), { headers: corsHeaders });
+        if (d.acao === "divergente") {
+          console.error(`hotmart-webhook: NEGOCIACAO_DIVERGENTE (${d.motivo}) negociacao=${neg.id} — nada liberado, conferir no admin`);
+          await pendencia(`DIVERGENTE_${d.motivo.toUpperCase()}`);
+          return new Response(JSON.stringify({ status: "ok", negociacao: "divergente" }), { headers: corsHeaders });
+        }
+        if (d.acao === "liberar") {
+          const { data: resNeg, error: eNeg } = await supabase.rpc("hotmart_acesso_aplicar", {
+            p_user: neg.user_id, p_acao: "ativar", p_sub: neg.assinatura, p_purchase: purchaseId, p_fim: d.fim, p_complete: false,
+          });
+          exigir("hotmart_acesso_aplicar", { error: eNeg });
+          // the event of a negotiation may come without the offer: the subscription's own record says if it is Pro
+          const { data: daAssinatura } = await supabase.from("orbis_hotmart_assinatura").select("oferta_codigo, plano").eq("subscription_id", neg.assinatura).maybeSingle();
+          const ofertaNeg = String(compra?.offer?.code ?? (daAssinatura as { oferta_codigo?: string | null } | null)?.oferta_codigo ?? "").trim();
+          const planoNeg = String(payload.data?.subscription?.plan?.name ?? (daAssinatura as { plano?: string | null } | null)?.plano ?? "");
+          if (diasDePro(ofertaNeg, planoNeg) && resNeg !== "outra_assinatura_paga_mais_longe") {
+            const { error: proErr } = await supabase.rpc("pro_conceder", {
+              p_user: neg.user_id, p_origem: "hotmart", p_codigo: neg.assinatura, p_produto: ofertaNeg,
+              p_ate: new Date(Date.parse(d.fim) + 3 * 86_400_000).toISOString(),
+            });
+            exigir("pro_conceder", { error: proErr });
+          }
+        } else {
+          console.error(`hotmart-webhook: NEGOCIACAO_PAGA_SEM_PRAZO negociacao=${neg.id} — pago, sem data de próxima cobrança comprovada; nada liberado sozinho`);
+          await pendencia("PAGA_SEM_PRAZO");
+        }
+        // marked paid only after the access was applied: a failure above makes Hotmart resend and it runs again
+        const { error: ePaga } = await supabase.rpc("hotmart_negociacao_paga", { p_id: neg.id, p_nota: d.acao === "liberar" ? null : "sem prazo comprovado" });
+        exigir("hotmart_negociacao_paga", { error: ePaga });
+        console.log(`hotmart-webhook: negociação ${neg.id} paga (${d.acao}) user ${neg.user_id}`);
+        return new Response(JSON.stringify({ status: "ok", negociacao: d.acao === "liberar" ? "liberada" : "paga_sem_prazo" }), { headers: corsHeaders });
+      }
+    }
+
     // If can't identify user, store as unlinked.
     // NÃO é beco sem saída: o gatilho trg_reivindicar_compras (profiles) reivindica
     // esta compra automaticamente quando a pessoa se cadastrar com o mesmo
@@ -311,8 +363,10 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
     // 04/11: fixed due day — the period ends on Hotmart's next charge date; access is blocked
     // 3 days after it (grace) by expire_overdue_subscriptions. Before: now()+30 on every event.
     const now = new Date();
-    const periodEnd = fimDoPeriodo(compra?.date_next_charge, proDays ?? 30, now);
-    const graceEnd = new Date(periodEnd);
+    // 26/11: only a normal charge (subscriber code + Hotmart's next charge ahead) or a first charge
+    // opens a period by itself; an old recurrence paid late does not (periodo.ts → fimDoPagamento).
+    const periodEnd = fimDoPagamento({ proximaCobranca: compra?.date_next_charge, recorrencia: compra?.recurrence_number, assinatura: subscriptionId, diasDoPlano: proDays ?? 30 }, now);
+    const graceEnd = new Date(periodEnd ?? now);
     graceEnd.setDate(graceEnd.getDate() + 3);
 
     // Handle events
@@ -323,6 +377,16 @@ export async function tratarHotmart(req: Request, criarCliente: () => Cliente = 
       eventNormalized.includes("PURCHASE_COMPLETE") ||
       eventNormalized.includes("SUBSCRIPTION_RENEWAL")
     ) {
+      if (!periodEnd) {
+        // paid, but nothing proves a new period (old recurrence, or no subscription attached, and
+        // not a negotiation VANT generated): kept for the admin, "Já paguei, verificar" asks Hotmart
+        console.error(`hotmart-webhook: PAGAMENTO_SEM_PRAZO_COMPROVADO user=${userId} — nada liberado sozinho`);
+        exigir("unlinked_purchases", await supabase.from("unlinked_purchases").insert({
+          buyer_email: buyerEmail || null, buyer_cpf: buyerCpf || null, hotmart_purchase_id: purchaseId, hotmart_subscription_id: subscriptionId,
+          event_type: `${event}:SEM_PRAZO_COMPROVADO`, payload, linked_at: new Date().toISOString(), linked_to_user_id: userId,
+        }));
+        return new Response(JSON.stringify({ status: "ok", acesso: "sem_prazo_comprovado" }), { headers: corsHeaders });
+      }
       // 04/11: one function decides (subscription code + fixed due day). COMPLETE never revives a
       // cancelled row, and another subscription's event never shortens access paid further ahead.
       const { data: resAtivar, error: eAtivar } = await supabase.rpc("hotmart_acesso_aplicar", {
