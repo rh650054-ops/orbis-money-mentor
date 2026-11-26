@@ -6,7 +6,9 @@ import { renovacaoKeys } from "./use-renovacao-pix";
 /* "Gerar Pix" (26/11/2026): the overdue subscriber asks Hotmart, through the edge function
    hotmart-negociar, for a Pix of the pending monthly fee. The function answers what happened:
      gerado / reutilizar / pix_existente → there is a Pix to pay (never a second one)
-     em_andamento / incerto / falhou / recusar / ja_paga / indisponivel → no Pix here (see motivo) */
+     em_andamento / falhou / recusar / ja_paga / indisponivel → no Pix here (see motivo)
+     incerto → Hotmart's answer was lost and a charge MAY exist: "Gerar Pix" stays blocked until
+               the server reconciles (it reads Hotmart again on the next call; it never asks twice) */
 const pixSchema = z.object({
   pix_code: z.string().min(20), pix_qrcode: z.string().nullable().optional(),
   vence_em: z.string().nullable().optional(), valor: z.coerce.number().nullable().optional(),
@@ -25,17 +27,19 @@ export function lerRespostaGerarPix(data: unknown): RespostaGerarPix {
   return { acao: r.data.acao, motivo: r.data.motivo, pix: pix?.success ? pix.data : null };
 }
 
-/** The logged-in person's own negotiated Pix that is still valid, or null. */
+export type EstadoGerarPix = { pix: PixGerado | null; bloqueado: boolean };
+
+/** The logged-in person's own negotiated Pix that is still valid, and whether a request is uncertain (blocked). */
 export function useNegociacaoPixQuery(userId: string | undefined, ativo: boolean) {
   return useQuery({
     queryKey: [...renovacaoKeys.byUser(userId ?? ""), "negociacao"],
     enabled: !!userId && ativo,
     refetchOnWindowFocus: true,
-    queryFn: async (): Promise<PixGerado | null> => {
+    queryFn: async (): Promise<EstadoGerarPix> => {
       const { data, error } = await supabase.rpc("hotmart_negociacao_minha" as never);
       if (error) throw error;
       const p = pixSchema.safeParse(data);
-      return p.success ? p.data : null;
+      return { pix: p.success ? p.data : null, bloqueado: (data as { bloqueado?: unknown } | null)?.bloqueado === true };
     },
   });
 }

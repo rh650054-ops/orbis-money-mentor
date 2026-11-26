@@ -65,7 +65,7 @@ select t.logar(pg_temp.id('ana'));
 select public.hotmart_negociacao_minha() as m_ana \gset
 select t.logar(pg_temp.id('beto'));
 select coalesce(public.hotmart_negociacao_minha()::text, 'nada') as m_beto \gset
-select t.verdade('P11 each person sees only their own valid Pix', :'m_ana'::jsonb ->> 'pix_code' = '000201PIXDAANA6304ABCD' and :'m_beto' = 'nada');
+select t.verdade('P11 each person sees only their own valid Pix', :'m_ana'::jsonb ->> 'pix_code' = '000201PIXDAANA6304ABCD' and :'m_beto' not like '%PIXDAANA%' and :'m_beto' not like '%pix_code%');
 
 -- the webhook marks the negotiation paid, once
 select set_config('request.jwt.claims', '{"role":"service_role"}', false);
@@ -76,3 +76,32 @@ select t.logar(pg_temp.id('ana'));
 select t.verdade('P12 paid once (APPROVED, then COMPLETE changes nothing); a paid Pix is no longer offered; the app cannot mark it paid',
   :'pg1' = 'paga' and :'pg2' = 'ja_paga' and public.hotmart_negociacao_minha() is null
   and t.erro(format($$select public.hotmart_negociacao_paga(%L)$$, :'neg7'), 'authenticated', pg_temp.id('ana')) like '42501|%');
+
+-- uncertainty: the button stays blocked until the reconciliation says whether a charge exists
+select set_config('request.jwt.claims', '{"role":"service_role"}', false);
+insert into f select 'caio', t.vendedor('caio');
+select public.hotmart_negociacao_reservar(pg_temp.id('caio'), 'SUBC', 5013, 4, 29.90, now() + interval '9 days', 'app', '["HPVELHA1","HPVELHA2"]'::jsonb) as c1 \gset
+select public.hotmart_negociacao_gravar((:'c1'::jsonb ->> 'id')::uuid, 'incerto', null, null, null, null, 'sem resposta da Hotmart') \gset w_
+select t.logar(pg_temp.id('caio'));
+select public.hotmart_negociacao_minha() as mc1 \gset
+select set_config('request.jwt.claims', '{"role":"service_role"}', false);
+select pg_temp.reservar('caio', 'SUBC', 4) as c2 \gset
+select t.verdade('P13 uncertain request: the app is told bloqueado; a new request gets incerto with what is needed to reconcile',
+  (:'mc1'::jsonb ->> 'bloqueado')::boolean and :'mc1'::jsonb ->> 'pix_code' is null
+  and :'c2'::jsonb ->> 'acao' = 'incerto' and :'c2'::jsonb -> 'transacoes_antes' = '["HPVELHA1","HPVELHA2"]'::jsonb and :'c2'::jsonb ->> 'pedido_em' is not null);
+select public.hotmart_negociacao_reconciliar((:'c1'::jsonb ->> 'id')::uuid, 'cobranca_existe', 'HPNOVA9') as rc1 \gset
+select pg_temp.reservar('caio', 'SUBC', 4) as c3 \gset
+select t.verdade('P14 reconciliation finds a charge at Hotmart: still blocked, and its transaction is recorded for the webhook',
+  :'rc1' = 'incerto' and :'c3'::jsonb ->> 'acao' = 'incerto' and :'c3'::jsonb ->> 'transacao' = 'HPNOVA9'
+  and (select status = 'incerto' and transacao = 'HPNOVA9' from public.hotmart_negociacoes where id = (:'c1'::jsonb ->> 'id')::uuid));
+select public.hotmart_negociacao_reconciliar((:'c1'::jsonb ->> 'id')::uuid, 'cobranca_encerrada', 'HPNOVA9') as rc2 \gset
+select pg_temp.reservar('caio', 'SUBC', 4) as c4 \gset
+select t.verdade('P15 that charge expired unpaid: unblocked, a new request is allowed', :'rc2' = 'vencido' and :'c4'::jsonb ->> 'acao' = 'reservado');
+select public.hotmart_negociacao_gravar((:'c4'::jsonb ->> 'id')::uuid, 'incerto', null, null, null, null, 'sem resposta') \gset v_
+select public.hotmart_negociacao_reconciliar((:'c4'::jsonb ->> 'id')::uuid, 'sem_cobranca') as rc3 \gset
+select public.hotmart_negociacao_reconciliar((:'c4'::jsonb ->> 'id')::uuid, 'sem_cobranca') as rc4 \gset
+select t.logar(pg_temp.id('caio'));
+select coalesce(public.hotmart_negociacao_minha()::text, 'nada') as mc2 \gset
+select t.verdade('P16 reconciliation finds no charge: closed as falhou (once), the app is unblocked; the app cannot reconcile by itself',
+  :'rc3' = 'falhou' and :'rc4' = 'ignorado' and :'mc2' = 'nada'
+  and t.erro(format($$select public.hotmart_negociacao_reconciliar(%L, 'sem_cobranca')$$, :'c4'::jsonb ->> 'id'), 'authenticated', pg_temp.id('caio')) like '42501|%');

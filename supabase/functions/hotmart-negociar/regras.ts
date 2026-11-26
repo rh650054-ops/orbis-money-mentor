@@ -121,3 +121,22 @@ export function lerResposta(http: number | null, corpo: unknown): Resultado {
   return { resultado: "gerado", transacao: String(r.transaction), pix_code: pix, pix_qrcode: r.payment?.pix_qrcode ? String(r.payment.pix_qrcode) : null,
     vence_em: Number.isFinite(vence) && vence > 0 ? new Date(vence).toISOString() : null, valor_no_pix: lerPix(pix).valor };
 }
+
+const ENCERRADA = new Set(["EXPIRED", "CANCELLED", "CANCELED", "REFUNDED", "CHARGEBACK", "PROTESTED", "PARTIALLY_REFUNDED"]);
+export type Reconciliacao = { resultado: "cobranca_existe" | "cobranca_encerrada"; transacao: string } | { resultado: "sem_cobranca" | "aguardar" };
+
+/** An uncertain request (Hotmart's answer never came back): did Hotmart create the charge?
+    antes = the transactions Hotmart listed right before the request; compras = what it lists now.
+    A transaction that was not there before is that charge. Nothing new after 15 minutes = no
+    charge was created. Without the "before" list nothing can be concluded: keep waiting (blocked). */
+export function reconciliar(antes: unknown, compras: Compra[], pedidoEm: string, agora = new Date()): Reconciliacao {
+  if (!Array.isArray(antes)) return { resultado: "aguardar" };
+  const conhecidas = new Set(antes.map(String));
+  const novas = compras.filter((c) => c.transaction && !conhecidas.has(String(c.transaction)));
+  if (novas.length > 0) {
+    const viva = novas.find((c) => !ENCERRADA.has((c.status ?? "").toUpperCase()));
+    return viva ? { resultado: "cobranca_existe", transacao: String(viva.transaction) } : { resultado: "cobranca_encerrada", transacao: String(novas[0]?.transaction) };
+  }
+  const idade = agora.getTime() - Date.parse(pedidoEm);
+  return Number.isFinite(idade) && idade >= 15 * 60_000 ? { resultado: "sem_cobranca" } : { resultado: "aguardar" };
+}

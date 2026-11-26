@@ -321,6 +321,21 @@ describe("hotmart-webhook: pagamento de negociação (Gerar Pix)", () => {
   });
 });
 
+describe("hotmart-webhook: cobrança achada pela reconciliação (pedido incerto)", () => {
+  it("N10 · pedido incerto cuja transação foi gravada na reconciliação e paga na Hotmart → libera pelo mesmo vínculo", async () => {
+    const prox = Date.now() + 12 * 86_400_000;
+    const sb = supabaseFalso({ negociacoes: { HPNOVA9: { id: "neg-9", user_id: "dono", assinatura: "SUBC", recorrencia: 4, proxima_cobranca: new Date(prox).toISOString(), status: "incerto" } } });
+    const r = await tratarHotmart(new Request("https://x/hotmart-webhook", {
+      method: "POST", headers: { "x-hotmart-hottok": "segredo-teste", "content-type": "application/json" },
+      body: JSON.stringify({ id: "ev-neg-incerto", event: "PURCHASE_APPROVED", data: { buyer: { email: "x@y.com" },
+        purchase: { transaction: "HPNOVA9", recurrence_number: 4, date_next_charge: prox }, subscription: { subscriber: { code: "SUBC" } } } }),
+    }), () => sb.cliente as never);
+    expect(await r.json()).toEqual({ status: "ok", negociacao: "liberada" });
+    expect(sb.gravados.find((g) => g.tabela === "rpc.hotmart_acesso_aplicar")?.linha).toMatchObject({ p_user: "dono", p_sub: "SUBC", p_fim: new Date(prox).toISOString() });
+    expect(sb.chamadas).toContain("rpc.hotmart_negociacao_paga");
+  });
+});
+
 describe("hotmart-webhook: pagamento que NÃO é negociação da VANT (regra do prazo, 26/11)", () => {
   const DIA = 86_400_000;
   const evento = (compra: Record<string, unknown>, sub: string | null = "S9") =>

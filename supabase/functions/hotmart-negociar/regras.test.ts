@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decidirPedido, lerPix, lerResposta, listaDeCompras, recorrenciaPendente, type Compra } from "./regras";
+import { decidirPedido, reconciliar, lerPix, lerResposta, listaDeCompras, recorrenciaPendente, type Compra } from "./regras";
 
 const DIA = 86_400_000;
 const agora = new Date("2026-11-26T15:00:00Z");
@@ -93,5 +93,29 @@ describe("Gerar Pix: reading Hotmart's answer without risking a second charge", 
     expect(lerResposta(200, { subscription_id: 85097, transaction: "HP00044923", payment: { type: "BILLET", billet_barcode: "3419…" } })).toMatchObject({ resultado: "incerto" });
     expect(lerResposta(200, { ...ok, payment: { ...ok.payment, pix_code: "000201quebrado6304FFFF" } })).toMatchObject({ resultado: "incerto" });
     expect(lerResposta(200, { ...ok, transaction: undefined })).toMatchObject({ resultado: "incerto" });
+  });
+});
+
+describe("Gerar Pix: reconciliação de um pedido incerto (o botão fica bloqueado até aqui decidir)", () => {
+  const antes = ["HP1APPROVED", "HP2OVERDUE"];
+  const lista = [compra(1, "APPROVED"), compra(2, "OVERDUE")];
+  const haPouco = new Date(agora.getTime() - 3 * 60_000).toISOString();
+  const haMeiaHora = new Date(agora.getTime() - 30 * 60_000).toISOString();
+  it("apareceu uma transação que não existia antes → a cobrança existe na Hotmart: continua bloqueado, guarda a transação", () => {
+    expect(reconciliar(antes, [...lista, compra(2, "WAITING_PAYMENT", 29.9, { transaction: "HPNOVA" })], haPouco, agora)).toEqual({ resultado: "cobranca_existe", transacao: "HPNOVA" });
+  });
+  it("essa transação nova venceu ou foi cancelada sem pagar → libera um novo pedido", () => {
+    expect(reconciliar(antes, [...lista, compra(2, "EXPIRED", 29.9, { transaction: "HPNOVA" })], haMeiaHora, agora)).toEqual({ resultado: "cobranca_encerrada", transacao: "HPNOVA" });
+  });
+  it("nada novo e já passaram 15 minutos → a Hotmart não criou cobrança: libera", () => {
+    expect(reconciliar(antes, lista, haMeiaHora, agora)).toEqual({ resultado: "sem_cobranca" });
+  });
+  it("nada novo ainda, pedido recente → espera (continua bloqueado)", () => {
+    expect(reconciliar(antes, lista, haPouco, agora)).toEqual({ resultado: "aguardar" });
+  });
+  it("sem a lista de antes não dá pra concluir → continua bloqueado, nunca libera no escuro", () => {
+    expect(reconciliar(null, lista, haMeiaHora, agora)).toEqual({ resultado: "aguardar" });
+    expect(reconciliar(undefined, [], "data-invalida", agora)).toEqual({ resultado: "aguardar" });
+    expect(reconciliar(antes, lista, "data-invalida", agora)).toEqual({ resultado: "aguardar" });
   });
 });

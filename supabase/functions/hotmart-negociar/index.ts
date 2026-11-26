@@ -3,7 +3,8 @@
 // Order of every request: our record → a renewal Pix still valid? → Hotmart's real status (GET) →
 // Hotmart's purchase history (GET) → the lock (one open negotiation per subscription) → ONE POST.
 // The POST is never retried: an answer that did not come back becomes 'incerto' and blocks new
-// requests until checked. Never for Pix Automático. Only the last overdue recurrence.
+// requests: "Gerar Pix" stays locked until the reconciliation (purchase history read again) says
+// whether Hotmart created the charge. Never for Pix Automático. Only the last overdue recurrence.
 // Doors: · the person's own session, or the 30-minute /assinar token ({ t }) — both CLOSED until the
 //          secret HOTMART_NEGOCIAR_ABERTO = "1";
 //        · controlled test: header x-orbis-cron (painel_tokens nome='cron') + { teste: true, user_id,
@@ -12,7 +13,7 @@
 // Credentials only from the Supabase panel (HOTMART_*). Token and Pix code are never logged.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { tokenHotmart, BANCO_EXTRA } from "../hotmart-webhook/cancelar-padrao.ts";
-import { decidirPedido, lerResposta, listaDeCompras, type Nossa, type Pedido } from "./regras.ts";
+import { decidirPedido, lerResposta, listaDeCompras, reconciliar, type Compra, type Nossa, type Pedido } from "./regras.ts";
 
 const API = "https://developers.hotmart.com/payments/api/v1";
 const ATRASADAS = ["PAST_DUE", "DELAYED", "OVERDUE"];
@@ -50,11 +51,21 @@ async function preparar(admin: Admin, userId: string, assinatura: string | null,
 }
 
 /** The one and only POST. Reserves first (atomic), records whatever comes back. */
-async function gerar(admin: Admin, userId: string, nossa: Nossa, pedido: Extract<Pedido, { acao: "negociar" }>, token: string, origem: string) {
+async function gerar(admin: Admin, userId: string, nossa: Nossa, pedido: Extract<Pedido, { acao: "negociar" }>, token: string, origem: string, compras: Compra[]) {
   const { data: reserva, error } = await admin.rpc("hotmart_negociacao_reservar", { p_user: userId, p_assinatura: nossa.subscription_id,
-    p_hotmart_id: pedido.hotmart_id, p_recorrencia: pedido.recorrencia, p_valor: pedido.valor, p_proxima: pedido.proxima_cobranca, p_origem: origem });
+    p_hotmart_id: pedido.hotmart_id, p_recorrencia: pedido.recorrencia, p_valor: pedido.valor, p_proxima: pedido.proxima_cobranca, p_origem: origem,
+    p_transacoes_antes: compras.map((c) => c.transaction).filter(Boolean) });
   if (error) return { acao: "erro", erro: "reserva" };
-  const r = reserva as { acao: string; id: string };
+  const r = reserva as { acao: string; id: string; pedido_em?: string; transacoes_antes?: unknown };
+  if (r.acao === "incerto") {
+    // RECONCILIATION (no POST here): the purchase history just read says whether the lost request created a charge
+    const rec = reconciliar(r.transacoes_antes, compras, String(r.pedido_em ?? ""));
+    if (rec.resultado === "aguardar") return { acao: "incerto", bloqueado: true };
+    const { data: novo } = await admin.rpc("hotmart_negociacao_reconciliar", { p_id: r.id, p_resultado: rec.resultado, p_transacao: "transacao" in rec ? rec.transacao : null });
+    console.log("hotmart-negociar reconciliado", userId, JSON.stringify({ resultado: rec.resultado, status: novo }));
+    // a charge exists at Hotmart: still locked here, it is paid at Hotmart; anything else: free to ask again
+    return rec.resultado === "cobranca_existe" ? { acao: "incerto", bloqueado: true, cobranca_na_hotmart: true } : { acao: "falhou", reconciliado: rec.resultado };
+  }
   if (r.acao !== "reservado") return reserva as Record<string, unknown>;
   let http: number | null = null, corpo: unknown = null;
   try {
@@ -99,7 +110,7 @@ Deno.serve(async (req) => {
       if (p.pedido.recorrencia !== corpo.recorrencia || Math.abs(p.pedido.valor - Number(corpo.valor)) > 0.005) {
         return json({ modo: "gerar", gerou: false, ...visto, motivo: "nao_bate_com_o_autorizado" });
       }
-      const g = await gerar(admin, corpo.user_id, p.nossa, p.pedido, token, "teste") as Record<string, unknown>;
+      const g = await gerar(admin, corpo.user_id, p.nossa, p.pedido, token, "teste", p.compras ?? []) as Record<string, unknown>;
       let host: string | null = null;
       try { host = g.pix_qrcode ? new URL(String(g.pix_qrcode)).host : null; } catch { host = "nao_e_link"; }
       // the Pix code stays in the table: the test report only says what came back
@@ -125,7 +136,7 @@ Deno.serve(async (req) => {
     if ("motivo" in p && p.motivo === "pix_existente") return json({ acao: "pix_existente", pix_code: p.existente.pix_code, vence_em: p.existente.vence_em, valor: p.existente.valor });
     if (!("pedido" in p) || !p.pedido) return json({ acao: "recusar", motivo: "motivo" in p ? p.motivo : "indisponivel" });
     if (p.pedido.acao !== "negociar") return json(p.pedido);
-    return json(await gerar(admin, userId, p.nossa, p.pedido, token, "app"));
+    return json(await gerar(admin, userId, p.nossa, p.pedido, token, "app", p.compras ?? []));
   } catch (e) {
     console.error("hotmart-negociar", e instanceof Error ? e.message : e);
     return json({ error: "erro_interno" }, 500);

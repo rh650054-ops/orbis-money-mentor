@@ -87,7 +87,6 @@ describe("Gerar Pix ligado", () => {
   it.each([
     ["em_andamento", undefined, /já está sendo gerado/, false],
     ["falhou", undefined, /não gerou o Pix agora/, true],
-    ["incerto", undefined, /Para você não pagar duas vezes/, true],
     ["recusar", "pix_automatico", /Pix Automático/, true],
     ["recusar", "titular_nao_confere", /Não deu para gerar o Pix por aqui/, true],
   ])("sem Pix (%s %s): diz o que houve e, quando cabe, oferece a Hotmart", async (acao, motivo, texto, hotmart) => {
@@ -97,6 +96,43 @@ describe("Gerar Pix ligado", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(texto);
     expect(!!screen.queryByRole("button", { name: "Pagar na Hotmart" })).toBe(hotmart);
     expect(screen.queryByLabelText("QR Code do Pix")).toBeNull();
+  });
+
+  it("incerteza na geração (resposta da Hotmart se perdeu): Gerar Pix fica BLOQUEADO; Conferir de novo só reconcilia", async () => {
+    sb.invoke.mockResolvedValueOnce({ data: { acao: "incerto", bloqueado: true }, error: null });
+    tela();
+    fireEvent.click(screen.getByRole("button", { name: "Gerar Pix" }));
+    const travado = await screen.findByRole("button", { name: "Gerar Pix bloqueado" });
+    expect(travado).toBeDisabled();
+    fireEvent.click(travado);
+    expect(sb.invoke).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alert")).toHaveTextContent(/fica bloqueado até eu conferir com a Hotmart/);
+    expect(screen.getByRole("button", { name: "Pagar na Hotmart" })).toBeInTheDocument();
+    // the reconciliation says no charge was created: unblocked, a new request is possible
+    sb.invoke.mockResolvedValueOnce({ data: { acao: "falhou", reconciliado: "sem_cobranca" }, error: null });
+    fireEvent.click(screen.getByRole("button", { name: "Conferir de novo" }));
+    const liberado = await screen.findByRole("button", { name: "Gerar Pix" });
+    expect(liberado).not.toBeDisabled();
+    expect(sb.invoke).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("button", { name: "Conferir de novo" })).toBeNull();
+  });
+
+  it("já abre bloqueado quando existe um pedido incerto guardado (antes de qualquer toque)", async () => {
+    sb.rpc.mockResolvedValue({ data: { bloqueado: true, assinatura: "S1" }, error: null });
+    tela();
+    expect(await screen.findByRole("button", { name: "Gerar Pix bloqueado" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Conferir de novo" })).toBeInTheDocument();
+    expect(sb.invoke).not.toHaveBeenCalled();
+  });
+
+  it("a reconciliação acha a cobrança na Hotmart: continua bloqueado e manda pagar por lá", async () => {
+    sb.rpc.mockResolvedValue({ data: { bloqueado: true }, error: null });
+    sb.invoke.mockResolvedValue({ data: { acao: "incerto", bloqueado: true, cobranca_na_hotmart: true }, error: null });
+    tela();
+    fireEvent.click(await screen.findByRole("button", { name: "Conferir de novo" }));
+    await waitFor(() => expect(sb.invoke).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole("button", { name: "Gerar Pix bloqueado" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Pagar na Hotmart" })).toBeInTheDocument();
   });
 
   it("função fora do ar ou porta fechada no servidor: erro claro, sem Pix inventado", async () => {

@@ -45,7 +45,7 @@ export const gerarPixLigado = (): boolean => import.meta.env.VITE_GERAR_PIX === 
 export function avisoDoGerarPix(r: { acao: string; motivo?: string }): { texto: string; hotmart: boolean } {
   if (r.acao === "em_andamento") return { texto: "Seu Pix já está sendo gerado. Espere alguns segundos e toque de novo.", hotmart: false };
   if (r.acao === "falhou") return { texto: "A Hotmart não gerou o Pix agora. Tente de novo em alguns minutos.", hotmart: true };
-  if (r.acao === "incerto") return { texto: "Não consegui confirmar se o Pix foi gerado. Para você não pagar duas vezes, veja a cobrança na Hotmart.", hotmart: true };
+  if (r.acao === "incerto") return { texto: "Não consegui confirmar se a cobrança foi gerada. Para você não pagar duas vezes, o Gerar Pix fica bloqueado até eu conferir com a Hotmart. Se a cobrança já aparecer lá, pague por lá.", hotmart: true };
   if (r.motivo === "pix_automatico") return { texto: "Sua assinatura é no Pix Automático: autorize o débito no app do seu banco ou pague pela Hotmart.", hotmart: true };
   return { texto: "Não deu para gerar o Pix por aqui agora. Você pode pagar pela Hotmart.", hotmart: true };
 }
