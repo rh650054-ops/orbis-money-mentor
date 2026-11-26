@@ -31,7 +31,7 @@ describe("aceite dos Termos + permissão de IA na mesma tela", () => {
     expect(caixa).not.toBeChecked();
     fireEvent.click(screen.getByText("Concordo e continuar"));
     await waitFor(() => expect(bd.responder).toHaveBeenCalledWith(false));
-    expect(bd.update).toHaveBeenCalledWith(expect.objectContaining({ termos_aceitos_versao: "2026-11-23" }));
+    expect(bd.update).toHaveBeenCalledWith(expect.objectContaining({ termos_aceitos_versao: "2026-11-26" }));
   });
 
   it("marcando a caixa, grava a permissão de IA", async () => {

@@ -35,4 +35,8 @@ describe("gate de IA de terceiros (App Store 5.1.2(i))", () => {
     definirConsentimentoIa(true);
     expect(bloqueioIa(`${URL_BASE}bright-action`)).toBeNull();
   });
+  it("clima e mensagem do DEFCON passam no app: o servidor responde sem IA quando não há permissão", () => {
+    expect(bloqueioIa(`${URL_BASE}clima-vendedor`)).toBeNull();
+    expect(bloqueioIa(`${URL_BASE}defcon-coach`)).toBeNull();
+  });
 });

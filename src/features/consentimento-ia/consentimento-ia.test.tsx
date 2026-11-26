@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { iaPermitida } from "@/shared/lib/consentimento-ia";
 
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "u1" } }) }));
-const bd = vi.hoisted(() => ({ linha: null as { permitido: boolean } | null, upsert: vi.fn(), termos: "2026-11-23" }));
+const bd = vi.hoisted(() => ({ linha: null as { permitido: boolean } | null, upsert: vi.fn(), termos: "2026-11-26" }));
 vi.mock("@/shared/api", async () => {
   const { createQueryKeys } = await import("@/shared/api/query-keys");
   return {
@@ -29,12 +29,14 @@ const montar = (rota = "/") => render(
 );
 
 describe("consentimento de IA", () => {
-  beforeEach(() => { bd.linha = null; bd.termos = "2026-11-23"; bd.upsert.mockReset(); });
+  beforeEach(() => { bd.linha = null; bd.termos = "2026-11-26"; bd.upsert.mockReset(); });
 
   it("quem ainda não respondeu vê a pergunta; Permitir salva e libera a IA", async () => {
     montar();
     expect(await screen.findByText("A VANT usa IA. Você autoriza?")).toBeInTheDocument();
-    expect(screen.getByText(/Anthropic \(Claude\)/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Anthropic \(Claude\)/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Cerebras")).toBeInTheDocument();
+    expect(screen.getByText("Comprovante do X1")).toBeInTheDocument();
     expect(iaPermitida()).toBe(false);
     fireEvent.click(screen.getByText("Permitir"));
     await waitFor(() => expect(bd.upsert).toHaveBeenCalledWith(expect.objectContaining({ user_id: "u1", permitido: true })));

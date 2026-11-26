@@ -17,6 +17,7 @@
 //           repetidos, nao_identificados, ja_lido, motor, titular }.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { iaPermitidaNoServidor, respostaSemConsentimentoIa } from "../_shared/consentimento-ia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -233,6 +234,8 @@ async function callGemini(key: string, prompt: string, fileB64: string, mime: st
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  // No third-party AI without the vendor's explicit, current permission (fails closed) — _shared/consentimento-ia.ts
+  if (!(await iaPermitidaNoServidor(req.headers.get("Authorization") ?? ""))) return respostaSemConsentimentoIa(corsHeaders);
   const json = (obj: unknown, status = 200) =>
     new Response(JSON.stringify(obj), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
