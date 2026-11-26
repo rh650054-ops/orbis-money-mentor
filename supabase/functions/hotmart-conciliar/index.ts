@@ -5,7 +5,8 @@
 // /assinar token ({ t }). At most one check per person per minute.
 // Batch (recovery of people already blocked): header x-orbis-cron (painel_tokens nome='cron') +
 // { todos: true, grupos: ["ACTIVE"|"PAST_DUE"|"STARTED"|…], teste?: true } → the blocked accounts whose
-// live subscription is in those groups (one group at a time, max 150 per run). teste = report only.
+// live subscription is in those groups (one group at a time, max 150 per run). teste = report only;
+// so_status = only records Hotmart's real status (never releases access).
 // Credentials only from the Supabase panel (HOTMART_*), never logged.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { tokenHotmart } from "../hotmart-webhook/cancelar-padrao.ts";
@@ -27,6 +28,7 @@ Deno.serve(async (req) => {
       const { data: tk } = await admin.from("painel_tokens").select("token").eq("nome", "cron").maybeSingle();
       if (!tk?.token || cron !== String(tk.token)) return json({ error: "nao_autorizado" }, 401);
       const teste = !!(corpo as { teste?: boolean }).teste;
+      const soStatus = !!(corpo as { so_status?: boolean }).so_status;
       const grupos = ((corpo as { grupos?: string[] }).grupos ?? []).filter((g) => VIVAS.includes(g));
       if (grupos.length === 0) return json({ error: "diga_os_grupos" }, 400);
       const { data: vivas } = await admin.from("orbis_hotmart_assinatura").select("user_id").in("status_hotmart", grupos).not("user_id", "is", null).limit(1000);
@@ -34,9 +36,9 @@ Deno.serve(async (req) => {
       const { data: bloqueados } = await admin.from("profiles").select("user_id").in("user_id", ids).neq("plan_status", "active").not("billing_exempt", "is", true).limit(150);
       const token = await tokenHotmart((k) => Deno.env.get(k));
       if (!token) return json({ error: "sem_credenciais" }, 500);
-      const resumo = { teste, grupos, contas: 0, liberadas: 0, status_corrigidos: 0 };
+      const resumo = { teste, so_status: soStatus, grupos, contas: 0, liberadas: 0, status_corrigidos: 0 };
       for (const b of bloqueados ?? []) {
-        const r = await conferirConta(admin, String(b.user_id), token, false, teste);
+        const r = await conferirConta(admin, String(b.user_id), token, false, teste, soStatus);
         resumo.contas++; if (r.some((x) => x.liberou)) resumo.liberadas++; resumo.status_corrigidos += r.filter((x) => x.mudou).length;
       }
       console.log("hotmart-conciliar lote", JSON.stringify(resumo));
@@ -74,7 +76,7 @@ Deno.serve(async (req) => {
 type Admin = ReturnType<typeof createClient>;
 /** One account: asks Hotmart about each live subscription, records changed statuses and releases
  *  access when Hotmart says it is paid (teste = only reports). */
-async function conferirConta(admin: Admin, userId: string, token: string, jaLiberado: boolean, teste: boolean) {
+async function conferirConta(admin: Admin, userId: string, token: string, jaLiberado: boolean, teste: boolean, soStatus = false) {
   const { data: subs } = await admin.from("orbis_hotmart_assinatura")
     .select("subscription_id, status_hotmart, oferta_codigo, plano, email").eq("user_id", userId).in("status_hotmart", VIVAS).limit(5);
   let liberado = jaLiberado;
@@ -88,7 +90,7 @@ async function conferirConta(admin: Admin, userId: string, token: string, jaLibe
     const d = decidir(s, { status: item.status ?? null, date_next_charge: item.date_next_charge ?? null, email: item.subscriber?.email ?? null }, liberado);
     let liberou = false;
     if (!teste && d.gravarStatus) await admin.rpc("hotmart_status_conferido", { p_sub: s.subscription_id, p_status: d.gravarStatus });
-    if (!teste && d.liberarAte) {
+    if (!teste && !soStatus && d.liberarAte) {
       const { error } = await admin.rpc("hotmart_acesso_aplicar", { p_user: userId, p_acao: "ativar", p_sub: s.subscription_id, p_purchase: null, p_fim: d.liberarAte, p_complete: false });
       if (!error) {
         liberado = liberou = true;
