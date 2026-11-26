@@ -8,6 +8,7 @@ import { Label } from "@/shared/ui/label";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { traduzirErroAuth } from "@/shared/lib/erro-auth";
+import { fimDoTeste3Dias } from "@/shared/lib/teste-gratis";
 import { avisar } from "@/shared/lib/avisar";
 import { LogIn, UserPlus, IdCard, Mail, KeyRound, User, Phone, MapPin } from "lucide-react";
 import { validateCPF, cpfToInternalEmail } from "@/shared/lib/cpf-validation";
@@ -238,7 +239,8 @@ export default function Auth() {
 
         toast({
           title: "Conta criada! 🎉",
-          description: "Bem-vindo à Vant. Você ganhou 3 dias de teste grátis.",
+          // 26/11 (Rick): fixed 4 days — today he sets up, then 3 days selling; until 23:59 (Brasília)
+          description: `Hoje você configura e tem mais 3 dias para vender com a VANT grátis: até ${fimDoTeste3Dias()} às 23:59.`,
         });
         // Marca a conta como "Onboarding 2.0" (o Layout não mostra a missão antiga pra ela)
         try { localStorage.setItem(`orbis_onboarding_novo_${userId}`, "1"); } catch (e) { avisar.silencioso("Auth: marcar onboarding 2.0", e); }

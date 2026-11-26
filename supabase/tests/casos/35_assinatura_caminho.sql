@@ -51,3 +51,12 @@ select t.verdade('C11 the per-user reader is not callable by the app; the own-pa
   not has_function_privilege('authenticated', 'public.assinatura_caminho_de(uuid)', 'EXECUTE')
   and not has_function_privilege('anon', 'public.assinatura_caminho()', 'EXECUTE')
   and has_function_privilege('anon', 'public.assinar_token_caminho(text)', 'EXECUTE'));
+-- several subscriptions on the same account: the one in good standing decides
+do $$ begin
+  insert into f values ('varias', t.vendedor('varias'));
+  update public.profiles set plan_status = 'active' where user_id = pg_temp.id('varias');
+  perform pg_temp.ev(pg_temp.id('varias'), 'S-V1', 'PAST_DUE', '8qbxvm9p', 'PURCHASE_DELAYED', 1);
+  perform pg_temp.ev(pg_temp.id('varias'), 'S-V2', 'ACTIVE', '5y86n311', 'PURCHASE_APPROVED', 3);
+end $$;
+select t.verdade('C12 several subscriptions (one overdue, one active): the active one decides, nothing to buy again',
+  pg_temp.acao('varias') = 'em_dia' and public.assinatura_caminho_de(pg_temp.id('varias'))->>'assinatura' = 'S-V2');
