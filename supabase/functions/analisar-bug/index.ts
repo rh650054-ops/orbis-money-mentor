@@ -1,6 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { semDadosPessoais } from "../_shared/sem-dados-pessoais.ts";
 
 // Orbis - analisar-bug (100% gratis: Cerebras -> Gemini, igual ao bright-action)
+// Dados pessoais (26/11/2026): o texto do bug passa por semDadosPessoais antes de ir pra IA e o
+// nome de quem reportou nunca vai.
 // Sem dependencia da API paga da Anthropic.
 // Seguranca (21/10/2026): o painel de bugs chama com a chave publica, entao qualquer um
 // podia mandar analisar sem parar e gastar a cota de IA. Agora: cada bug e analisado uma
@@ -51,8 +54,11 @@ Seja especifico e tecnico na causa e na correcao. Se faltar informacao, diga o q
 
 // deno-lint-ignore no-explicit-any
 function buildUser(bug: any): string {
-  const corta = (s: unknown, n: number) => String(s ?? "").slice(0, n);
-  return `BUG REPORTADO\nTitulo: ${corta(bug.titulo, 200)}\nDescricao: ${corta(bug.descricao, 2000) || "(sem descricao)"}\nOnde acontece: ${corta(bug.tela, 200) || "(nao informado)"}\nGravidade informada: ${bug.severidade}`; // 26/11: the reporter name is no longer sent to the AI
+  // 26/11: only the bug itself goes to the AI — the reporter field is never sent, and title /
+  // description / screen pass through semDadosPessoais (CPF, e-mail, phone, Pix, card, account,
+  // address, tokens and links become neutral tags) — _shared/sem-dados-pessoais.ts
+  const sev = ["critico", "alto", "medio", "baixo"].includes(String(bug.severidade)) ? bug.severidade : "medio";
+  return `BUG REPORTADO\nTitulo: ${semDadosPessoais(bug.titulo, 200)}\nDescricao: ${semDadosPessoais(bug.descricao, 2000) || "(sem descricao)"}\nOnde acontece: ${semDadosPessoais(bug.tela, 200) || "(nao informado)"}\nGravidade informada: ${sev}`;
 }
 
 // deno-lint-ignore no-explicit-any
