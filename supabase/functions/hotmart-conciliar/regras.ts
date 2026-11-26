@@ -22,7 +22,9 @@ export interface Decisao { gravarStatus: string | null; liberarAte: string | nul
 
 export function decidir(nossa: NossaAssinatura, real: NaHotmart, acessoLiberado: boolean, agora = new Date()): Decisao {
   const status = (real.status ?? "").toUpperCase() || null;
-  const gravarStatus = status && status !== (nossa.status_hotmart ?? "").toUpperCase() ? status : null;
+  // 26/11: our webhook says PAST_DUE where the API says DELAYED (same "overdue"): not a stale record
+  const classe = (x: string) => (["PAST_DUE", "DELAYED", "OVERDUE"].includes(x) ? "ATRASADA" : x);
+  const gravarStatus = status && classe(status) !== classe((nossa.status_hotmart ?? "").toUpperCase()) ? status : null;
   const fim = real.date_next_charge && real.date_next_charge > agora.getTime() ? new Date(real.date_next_charge) : null;
   if (status !== "ACTIVE" || !fim || acessoLiberado || !mesmoTitular(nossa.email, real.email)) return { gravarStatus, liberarAte: null, proAte: null };
   const ehPro = !!diasDePro(nossa.oferta_codigo ?? "", nossa.plano ?? "");

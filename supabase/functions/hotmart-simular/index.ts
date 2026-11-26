@@ -47,7 +47,8 @@ Deno.serve(async (req) => {
             ?.find((i) => i.subscriber_code === s.subscription_id);
           resultado = item ? classificar(s as NossaAssinatura, { status: item.status ?? null, date_next_charge: item.date_next_charge ?? null, email: item.subscriber?.email ?? null }) : "nao_encontrada_na_hotmart";
           const real = String(item?.status ?? "");
-          if (item && real && real !== String(s.status_hotmart)) {
+          const classe = (x: string) => (["PAST_DUE", "DELAYED", "OVERDUE"].includes(x) ? "ATRASADA" : x);
+          if (item && real && classe(real) !== classe(String(s.status_hotmart))) {
             const n = conta.get(String(s.user_id)) ?? conta.size + 1; conta.set(String(s.user_id), n);
             const em = (x?: string | null) => (x ?? "").trim().toLowerCase();
             registros.push({

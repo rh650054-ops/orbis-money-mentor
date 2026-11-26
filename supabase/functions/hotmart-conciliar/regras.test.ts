@@ -33,4 +33,7 @@ describe("hotmart-conciliar (26/11)", () => {
     expect(decidir(base, { status: "ACTIVE", date_next_charge: depois, email: null }, false, agora).liberarAte).toBeNull();
     expect(decidir({ ...base, email: null }, { status: "ACTIVE", date_next_charge: depois, email: EM }, false, agora).liberarAte).toBeNull();
   });
+  it("PAST_DUE here and DELAYED at Hotmart are the same overdue state: nothing to record", () => {
+    expect(decidir(base, { status: "DELAYED", date_next_charge: depois, email: EM }, false, agora).gravarStatus).toBeNull();
+  });
 });
