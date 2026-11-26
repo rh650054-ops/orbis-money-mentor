@@ -31,3 +31,13 @@ export function decidir(nossa: NossaAssinatura, real: NaHotmart, acessoLiberado:
   const proAte = ehPro ? new Date(fim.getTime() + 3 * 86_400_000).toISOString() : null;
   return { gravarStatus, liberarAte: fim.toISOString(), proAte };
 }
+
+/** 26/11 (Rick): only the MAIN plan is checked. The extra-bank add-on is a separate subscription
+    (R$ 12,90) with its own rail (bancos_extra_compras): it must never release, block or have its
+    status rewritten by this check. Before, the batch looked at every live subscription of the
+    account: an authorised sync of 17 subscriptions changed 19 (2 add-ons), and an ACTIVE add-on
+    could have released the whole app for a blocked account. Same rule as assinatura_caminho_de
+    and hotmart-simular. */
+export function soPlanoPrincipal<T extends { subscription_id: string; oferta_codigo: string | null }>(subs: T[], bancoExtraOfertas: ReadonlySet<string>, chavesDeBancoExtra: ReadonlySet<string> = new Set()): T[] {
+  return subs.filter((s) => !bancoExtraOfertas.has((s.oferta_codigo ?? "").trim()) && !chavesDeBancoExtra.has(s.subscription_id));
+}

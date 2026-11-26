@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decidir } from "./regras";
+import { decidir, soPlanoPrincipal } from "./regras";
 
 const agora = new Date("2026-11-26T12:00:00Z");
 const depois = agora.getTime() + 20 * 86_400_000;
@@ -35,5 +35,22 @@ describe("hotmart-conciliar (26/11)", () => {
   });
   it("PAST_DUE here and DELAYED at Hotmart are the same overdue state: nothing to record", () => {
     expect(decidir(base, { status: "DELAYED", date_next_charge: depois, email: EM }, false, agora).gravarStatus).toBeNull();
+  });
+});
+
+describe("hotmart-conciliar: só o plano principal (26/11)", () => {
+  const BX = new Set(["3nnrr1xn", "otgozkn9"]);
+  const subs = [
+    { subscription_id: "PLANO1", oferta_codigo: "8qbxvm9p" },
+    { subscription_id: "BANCO1", oferta_codigo: "3nnrr1xn" },
+    { subscription_id: "BANCO2", oferta_codigo: " otgozkn9 " },
+    { subscription_id: "BANCO3", oferta_codigo: null },
+    { subscription_id: "PRO1", oferta_codigo: "5y86n311" },
+  ];
+  it("o adicional de banco nunca entra na conferência: nem pela oferta, nem pelo código já registrado como banco extra", () => {
+    expect(soPlanoPrincipal(subs, BX, new Set(["BANCO3"])).map((s) => s.subscription_id)).toEqual(["PLANO1", "PRO1"]);
+  });
+  it("conta só com adicional de banco: nada a conferir (um adicional ATIVO não libera o app)", () => {
+    expect(soPlanoPrincipal([subs[1]!], BX)).toEqual([]);
   });
 });
