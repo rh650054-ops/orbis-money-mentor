@@ -10,14 +10,17 @@
 
 /** Edge functions that send the vendor's data to a third-party AI. */
 export const FUNCOES_IA: ReadonlySet<string> = new Set([
-  "bright-action", "generate-insights", "defcon-coach", "clima-vendedor", "objetivo-lucro-ia",
+  "bright-action", "generate-insights", "objetivo-lucro-ia",
   "verificar-extrato", "extrato-analisar", "nota-ler", "estudio-arte", "verificar-deposito",
 ]);
+/* 26/11: clima-vendedor and defcon-coach are NOT blocked here on purpose: the weather forecast and the
+   DEFCON message must work without AI. Their servers check the permission themselves
+   (supabase/functions/_shared/consentimento-ia.ts) and, without it, answer with the no-AI version
+   (local weather opinion / plain template) — nothing is sent to an AI. Every other function above
+   is ALSO refused on the server, so old app versions and direct calls are covered. */
 
 /** Run without the vendor asking: blocked in silence (no sheet popping up mid-DEFCON). */
-export const FUNCOES_IA_AUTOMATICAS: ReadonlySet<string> = new Set([
-  "generate-insights", "defcon-coach", "clima-vendedor",
-]);
+export const FUNCOES_IA_AUTOMATICAS: ReadonlySet<string> = new Set(["generate-insights"]);
 
 export const EVENTO_IA_DESLIGADA = "vant:ia-desligada";
 export const ERRO_IA_SEM_CONSENTIMENTO = "ia_sem_consentimento";

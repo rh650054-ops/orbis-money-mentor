@@ -28,7 +28,7 @@ export default function Privacidade() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Política de Privacidade</h1>
-            <p className="text-xs text-muted-foreground">Última atualização: 28 de julho de 2026</p>
+            <p className="text-xs text-muted-foreground">Última atualização: 26 de novembro de 2026</p>
           </div>
         </div>
 
@@ -57,7 +57,7 @@ export default function Privacidade() {
         <S t="3. Para que usamos (finalidades e bases legais)">
           <p><strong>Prestar o serviço</strong> (execução de contrato): manter sua conta, calcular metas, custos, lucros e relatórios, operar rankings, competições e a carteira X1.</p>
           <p><strong>Conexão bancária e extratos</strong> (consentimento): só acontecem quando você autoriza expressamente; você pode desconectar a qualquer momento.</p>
-          <p><strong>Assistente de IA</strong> (execução de contrato): suas mensagens e dados de contexto necessários são processados para gerar respostas personalizadas.</p>
+          <p><strong>Funções de inteligência artificial</strong> (consentimento, art. 7º, I e art. 8º da LGPD): só com a sua autorização, dada numa caixa separada e desmarcada na tela de Termos ou em Minha Conta → Inteligência artificial. Sem ela, nenhum dado é enviado a provedores de IA e as demais funções do app continuam disponíveis. Você pode retirar a autorização a qualquer momento, no mesmo lugar; a partir daí nenhum novo envio é feito.</p>
           <p><strong>Segurança e melhoria</strong> (legítimo interesse): prevenção de fraude (inclusive em competições), estabilidade e evolução do produto.</p>
           <p><strong>Obrigações legais:</strong> guarda de registros exigidos por lei (ex.: registros de acesso e de pagamento).</p>
         </S>
@@ -66,7 +66,19 @@ export default function Privacidade() {
           <p>Não vendemos seus dados. Compartilhamos apenas com fornecedores que operam o serviço, sob contrato:</p>
           <p><strong>Supabase</strong> — banco de dados e autenticação. Os dados da Vant ficam hospedados em servidores na região de São Paulo, Brasil (AWS sa-east-1).</p>
           <p><strong>Vercel</strong> — hospedagem do site e do aplicativo web (EUA, com rede de distribuição global).</p>
-          <p><strong>Anthropic (Claude), OpenAI e Google (Gemini)</strong> — inteligência artificial (EUA), <strong>somente se você autorizar</strong> no app (Minha Conta → Inteligência artificial). Recebem só o necessário pra cada função: vendas, metas, produtos e gastos (dicas, relatórios e mentor), o que você escreve ou fala pro mentor, fotos que você escolhe (nota fiscal, comprovante, Estúdio de Marca), o extrato do banco conectado e a cidade do seu ponto (clima). CPF e senha nunca são enviados. Veja a seção 5 sobre transferência internacional.</p>
+          <p><strong>Provedores de inteligência artificial — somente se você autorizar</strong> (Minha Conta → Inteligência artificial). Cada função envia só o necessário para gerar a resposta:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li><strong>Mentor (chat e voz)</strong>: o que você escreve ou fala, seu apelido e, quando você pergunta, suas vendas, estoque, finanças e ranking → Google (Gemini), Anthropic (Claude) e OpenAI (voz).</li>
+            <li><strong>Dicas e relatórios do dia</strong>: vendas, meta, horários, produtos, custos e gastos → Anthropic, Google e Cerebras.</li>
+            <li><strong>Mensagem do DEFCON</strong>: números da meta e das vendas do bloco → Google e Cerebras.</li>
+            <li><strong>Dica do clima</strong>: cidade, meta, vendas do dia, melhores horários e contas a vencer (nome e valor) → Anthropic, Google e Cerebras. A previsão do tempo em si não usa IA.</li>
+            <li><strong>Objetivo de lucro</strong>: vendas, produtos, custos, gastos e saídas do banco por categoria (se o banco estiver conectado) dos últimos 60 dias → Cerebras e Google.</li>
+            <li><strong>Leitura de nota fiscal</strong>: a foto da nota que você escolhe → Anthropic.</li>
+            <li><strong>Raio-X e conferência de extrato</strong>: o arquivo do extrato que você envia (pode conter seu nome, banco e transações) e seu apelido → Anthropic e Google. O arquivo não é guardado.</li>
+            <li><strong>Comprovante da carteira X1</strong>: a foto do comprovante Pix (valor, data, nomes e banco) → Anthropic.</li>
+            <li><strong>Estúdio de Marca</strong>: o estilo descrito, o nome da banca e a foto de referência, se enviada → Google e OpenAI.</li>
+          </ul>
+          <p>CPF e senha nunca são enviados a provedores de IA. A verificação de fraude feita pela equipe só usa IA com os dados de quem autorizou.</p>
           <p><strong>Hotmart</strong> — processamento do pagamento da assinatura.</p>
           <p><strong>Pluggy</strong> — conexão bancária via Open Finance, somente quando você autoriza (Brasil, regulada pelo ecossistema do Banco Central).</p>
           <p><strong>Mercado Pago</strong> — processamento de depósitos e saques da carteira X1, quando você usa essa função.</p>
@@ -75,12 +87,18 @@ export default function Privacidade() {
 
         <S t="5. Transferência internacional de dados">
           <p>
-            Alguns operadores estão localizados fora do Brasil, principalmente nos Estados Unidos
-            (Anthropic, OpenAI, Google e Vercel). Nesses casos, a transferência é amparada pelo art. 33 da LGPD por
-            meio de garantias contratuais: o tratamento pelos provedores de IA é regido pelos seus termos
-            comerciais de API e respectivos Adendos de Processamento de Dados (DPA); a Anthropic não
-            utiliza os dados enviados pela API para treinar seus modelos por padrão. Enviamos à IA somente o necessário para gerar as respostas.
+            Alguns operadores ficam fora do Brasil, nos Estados Unidos: Anthropic, OpenAI, Google (Gemini),
+            Cerebras e Vercel. A transferência é amparada pelo art. 33 da LGPD por meio de garantias
+            contratuais (termos comerciais de API e Adendos de Processamento de Dados). Sobre o uso dos
+            dados pelos provedores de IA, segundo os termos de cada um:
           </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li><strong>Anthropic</strong>: não usa os dados enviados pela API para treinar seus modelos por padrão.</li>
+            <li><strong>OpenAI</strong>: não usa entradas e saídas da plataforma de API para treinar ou melhorar seus modelos por padrão.</li>
+            <li><strong>Google (Gemini)</strong>: na API paga, não usa os prompts e as respostas para melhorar seus produtos.</li>
+            <li><strong>Cerebras</strong>: não retém as entradas e saídas dos serviços de inferência.</li>
+          </ul>
+          <p>Todo envio é feito por conexão criptografada (HTTPS), a partir dos servidores da Vant, e só o necessário para cada função.</p>
         </S>
 
         <S t="6. Por quanto tempo guardamos">

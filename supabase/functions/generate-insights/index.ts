@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
+import { iaPermitidaNoServidor, respostaSemConsentimentoIa } from "../_shared/consentimento-ia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -251,6 +252,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  // No third-party AI without the vendor's explicit, current permission (fails closed) — _shared/consentimento-ia.ts
+  if (!(await iaPermitidaNoServidor(req.headers.get("Authorization") ?? ""))) return respostaSemConsentimentoIa(corsHeaders);
 
   try {
     const authHeader = req.headers.get("authorization");

@@ -5,6 +5,7 @@
 // Devolve { ok, suspeito, score, motivo }.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { iaPermitidaParaUsuario } from "../_shared/consentimento-ia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -93,6 +94,8 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const userId = typeof body?.user_id === "string" ? body.user_id : "";
     if (!userId) return json({ error: "sem_user_id" }, 400);
+    // the vendor being checked must have allowed third-party AI (_shared/consentimento-ia.ts)
+    if (!(await iaPermitidaParaUsuario(userId))) return json({ ok: false, error: "ia_sem_consentimento", motivo: "Vendedor não autorizou o uso de IA; analise manualmente." }, 200);
 
     const authHeader = req.headers.get("Authorization") ?? "";
     if (!authHeader) return json({ error: "sem_auth" }, 401);

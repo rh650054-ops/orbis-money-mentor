@@ -5,6 +5,7 @@
 // erro, devolve o próprio template — nunca quebra e nunca deixa o vendedor sem mensagem.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
+import { iaPermitidaNoServidor } from "../_shared/consentimento-ia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -40,6 +41,8 @@ Deno.serve(async (req) => {
     const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
     const { data: { user } } = await supa.auth.getUser();
     if (!user) return semIA();
+    // no AI permission → the plain template, never sent to the AI (_shared/consentimento-ia.ts)
+    if (!(await iaPermitidaNoServidor(authHeader))) return semIA();
     const { data: uso, error: usoErr } = await supa.rpc("bump_ai_usage", { p_feature: "defcon_coach", p_limit: 60 });
     if (usoErr || (uso as { over?: boolean } | null)?.over) return semIA();
     if (template.length > 600) template = template.slice(0, 600);

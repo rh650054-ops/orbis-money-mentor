@@ -14,6 +14,7 @@
 // Resposta: { tempo, opiniao, fonteOpiniao, atualizadoEm, cell, rede, feedbackOk, modelos }
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
+import { iaPermitidaNoServidor } from "../_shared/consentimento-ia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -699,10 +700,13 @@ serve(async (req) => {
     // opinião: só pra usuário logado, com trava diária (feature "clima", 6/dia)
     let opiniao: Opiniao | null = null;
     let fonteOpiniao: "ia" | "local" | "nenhuma" = "nenhuma";
+    // The forecast is for everyone; the AI opinion (meta, sales, bills, city) only with the vendor's
+    // permission — without it the local, no-AI opinion is used (_shared/consentimento-ia.ts).
+    const iaOk = user ? await iaPermitidaNoServidor(authHeader) : false;
     if (user && !body?.semIA) {
-      const { data: usage, error: usageErr } = await supabase.rpc("bump_ai_usage", { p_feature: "clima", p_limit: 6 });
+      const { data: usage, error: usageErr } = iaOk ? await supabase.rpc("bump_ai_usage", { p_feature: "clima", p_limit: 6 }) : { data: null, error: null };
       const over = usageErr || (usage as { over?: boolean } | null)?.over;
-      if (!over) {
+      if (iaOk && !over) {
         try { opiniao = await opiniaoIA(tempo, (body?.contexto ?? {}) as Contexto, rede); fonteOpiniao = "ia"; }
         catch (e) { console.error("OPINIAO_IA_FALHOU:", String(e)); }
       }

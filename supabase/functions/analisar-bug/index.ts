@@ -52,7 +52,7 @@ Seja especifico e tecnico na causa e na correcao. Se faltar informacao, diga o q
 // deno-lint-ignore no-explicit-any
 function buildUser(bug: any): string {
   const corta = (s: unknown, n: number) => String(s ?? "").slice(0, n);
-  return `BUG REPORTADO\nTitulo: ${corta(bug.titulo, 200)}\nDescricao: ${corta(bug.descricao, 2000) || "(sem descricao)"}\nOnde acontece: ${corta(bug.tela, 200) || "(nao informado)"}\nGravidade informada: ${bug.severidade}\nReportado por: ${corta(bug.reporter, 80)}`;
+  return `BUG REPORTADO\nTitulo: ${corta(bug.titulo, 200)}\nDescricao: ${corta(bug.descricao, 2000) || "(sem descricao)"}\nOnde acontece: ${corta(bug.tela, 200) || "(nao informado)"}\nGravidade informada: ${bug.severidade}`; // 26/11: the reporter name is no longer sent to the AI
 }
 
 // deno-lint-ignore no-explicit-any
