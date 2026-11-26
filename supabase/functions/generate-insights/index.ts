@@ -94,14 +94,15 @@ async function historicoVendedor(sb: any, userId: string): Promise<string> {
       sb.from("daily_sales").select("date,total_profit,total_debt,cash_sales,card_sales,pix_sales")
         .eq("user_id", userId).gte("date", d(29)).order("date", { ascending: true }),
       sb.from("hourly_goal_blocks").select("hour_label,achieved_amount").eq("user_id", userId).gte("created_at", d(13) + "T00:00:00Z"),
-      sb.from("profiles").select("nickname,what_i_sell,where_i_sell,city,monthly_goal,streak_days").eq("user_id", userId).maybeSingle(),
+      // 26/11: only what the disclosure row lists (sales, goal, hours, products, costs, expenses) is read
+      // here; the display name and the place he sells are not (_shared/ia-so-o-divulgado.ts).
+      sb.from("profiles").select("what_i_sell,monthly_goal,streak_days").eq("user_id", userId).maybeSingle(),
       sb.from("product_sales_log").select("product_id,quantity,total_amount").eq("user_id", userId).gte("created_at", d(29) + "T00:00:00Z"),
     ]);
     const L: string[] = [];
     const p = pR?.data;
     if (p) {
-      const quem = [p.nickname, p.what_i_sell && `vende ${p.what_i_sell}`, p.where_i_sell && `em ${p.where_i_sell}`, p.city].filter(Boolean).join(", ");
-      if (quem) L.push(`QUEM É: ${quem}.`);
+      if (p.what_i_sell) L.push(`O QUE VENDE: ${p.what_i_sell}.`);
       if (Number(p.monthly_goal) > 0) L.push(`Meta do mês: R$ ${Number(p.monthly_goal).toFixed(0)}. Sequência: ${p.streak_days ?? 0} dias.`);
     }
     const todos = (vR?.data ?? []) as any[];
@@ -308,15 +309,11 @@ Não use asteriscos, markdown nem outros títulos além desses cinco.${hist}`;
     if (body?.type === "financas_dica") {
       const n = (v: unknown) => Number(v ?? 0).toFixed(0);
       const contas = Array.isArray(body.contas) ? body.contas : [];
-      const caixinhas = Array.isArray(body.caixinhas) ? body.caixinhas : [];
+      // 26/11: the savings goals ("caixinhas") the app sends are not in the disclosure row: not forwarded.
       const contasLinhas = contas.length
         ? contas.slice(0, 8).map((c: { nome?: string; valor?: number; guardado?: number; diasAteVencer?: number | null; porDia?: number; vencida?: boolean; paga?: boolean }) =>
             `  - ${c.nome ?? "conta"}: R$ ${n(c.valor)} | guardado R$ ${n(c.guardado)} | ${c.paga ? "PAGA este mês" : c.vencida ? "VENCIDA" : c.diasAteVencer == null ? "sem data" : `vence em ${c.diasAteVencer} dias`} | precisa R$ ${n(c.porDia)}/dia`).join("\n")
         : "  - (nenhuma conta cadastrada)";
-      const caixinhasLinhas = caixinhas.length
-        ? caixinhas.slice(0, 6).map((g: { nome?: string; alvo?: number; tem?: number; porDia?: number }) =>
-            `  - ${g.nome ?? "caixinha"}: R$ ${n(g.tem)} de R$ ${n(g.alvo)} | ritmo R$ ${n(g.porDia)}/dia`).join("\n")
-        : "  - (nenhuma caixinha)";
       const userPrompt = `Situação financeira do vendedor HOJE (${body.hoje ?? ""}):
 - Lucro líquido médio por dia de rua: R$ ${n(body.mediaDia)}
 - Sobrou pra ele este mês: R$ ${n(body.sobrouMes)} (de R$ ${n(body.vendidoMes)} vendidos)
@@ -326,10 +323,8 @@ Não use asteriscos, markdown nem outros títulos além desses cinco.${hist}`;
 - Contas vencidas em aberto: R$ ${n(body.vencidasTotal)}
 CONTAS A PAGAR:
 ${contasLinhas}
-CAIXINHAS (objetivos):
-${caixinhasLinhas}
 
-Escreva UMA dica pra ele, específica, citando os números acima. Prioridade: conta vencida > conta que vence nos próximos 5 dias e ainda falta dinheiro > contas maiores que o lucro > caixinha. Se está tudo em dia, elogia e aponta o próximo passo concreto.
+Escreva UMA dica pra ele, específica, citando os números acima. Prioridade: conta vencida > conta que vence nos próximos 5 dias e ainda falta dinheiro > contas maiores que o lucro. Não cite caixinha pelo nome nem por valor (você não recebeu essa lista). Se está tudo em dia, elogia e aponta o próximo passo concreto.
 Responda SOMENTE em JSON: {"titulo": "uma frase de impacto, até 80 caracteres", "texto": "2 ou 3 frases, até 320 caracteres, sem markdown"}.${hist}`;
       const raw = await ia(
         ORBIS_COACH + "\nAgora você é o mentor FINANCEIRO dele: contas primeiro, caixinha depois. Nunca sugira crédito/empréstimo. Responda só o JSON pedido.",

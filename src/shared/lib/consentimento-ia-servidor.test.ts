@@ -60,7 +60,8 @@ describe("consentimento de IA no servidor (por versão)", () => {
       const pedido = corpo.search(/await (?:pedirClaude|pedirOpenAi|transcreverOpenAi|callClaude|callAI|ia|claude|openai|tentarOpenAI|opiniaoIA)\(|fetch\("https:\/\/api\.(?:anthropic|openai)\.com/);
       if (pedido >= 0) expect(pedido, n).toBeGreaterThan(corpo.search(/(?:iaPermitidaNoServidor|permissaoIaNoServidor)\(/));
     }
-    expect(fn("analisar-anomalia")).toMatch(/iaPermitidaParaUsuario\(userId\)/);
+    // analisar-anomalia: the AI verdict is off since 26/11 (ia-so-o-divulgado.test.ts covers it)
+    expect(fn("analisar-anomalia")).not.toMatch(/api\.anthropic\.com|api\.openai\.com|pedirClaude|pedirOpenAi/);
     expect(readFileSync("supabase/functions/_shared/consentimento-ia.ts", "utf8")).toMatch(/select\("permitido, versao"\)/);
   });
 
