@@ -6,7 +6,7 @@
 // cannot fake it. Valid only for the CURRENT disclosure version (consentimento-ia-regra.ts):
 // a permission given on an older text, no row, "Agora não", a revocation, no login or any error
 // → false (fails closed). Granting is only possible through responder_consentimento_ia with the
-// version (migration 20261126120000); older app versions can only revoke. The app has the same gate in its fetch (src/shared/lib/consentimento-ia.ts);
+// version (migration 20261126160000); a write from an older app version never carries one. The app has the same gate in its fetch (src/shared/lib/consentimento-ia.ts);
 // this one also covers old app versions and any caller outside the app.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { consentimentoValido } from "./consentimento-ia-regra.ts";
