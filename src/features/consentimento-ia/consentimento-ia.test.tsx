@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { iaPermitida } from "@/shared/lib/consentimento-ia";
 
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "u1" } }) }));
-const bd = vi.hoisted(() => ({ linha: null as { permitido: boolean } | null, upsert: vi.fn(), termos: "2026-11-26" }));
+const bd = vi.hoisted(() => ({ linha: null as { permitido: boolean; versao?: string } | null, upsert: vi.fn(), termos: "2026-11-26" }));
 vi.mock("@/shared/api", async () => {
   const { createQueryKeys } = await import("@/shared/api/query-keys");
   return {
@@ -14,8 +14,8 @@ vi.mock("@/shared/api", async () => {
       from: (t: string) => ({
         select: () => ({ eq: () => ({ maybeSingle: async () => ({
           data: t === "profiles" ? { termos_aceitos_versao: bd.termos } : bd.linha, error: null }) }) }),
-        upsert: async (v: { permitido: boolean }) => { bd.upsert(v); bd.linha = { permitido: v.permitido }; return { error: null }; },
       }),
+      rpc: async (fn: string, a: { p_permitido: boolean; p_versao: string }) => { bd.upsert({ fn, ...a }); bd.linha = { permitido: a.p_permitido, versao: a.p_versao }; return { error: null }; },
     },
   };
 });
@@ -39,7 +39,7 @@ describe("consentimento de IA", () => {
     expect(screen.getByText("Comprovante do X1")).toBeInTheDocument();
     expect(iaPermitida()).toBe(false);
     fireEvent.click(screen.getByText("Permitir"));
-    await waitFor(() => expect(bd.upsert).toHaveBeenCalledWith(expect.objectContaining({ user_id: "u1", permitido: true })));
+    await waitFor(() => expect(bd.upsert).toHaveBeenCalledWith(expect.objectContaining({ fn: "responder_consentimento_ia", p_permitido: true, p_versao: "2026-11-26" })));
     await waitFor(() => expect(iaPermitida()).toBe(true));
   });
 
@@ -57,8 +57,15 @@ describe("consentimento de IA", () => {
     expect(screen.queryByText("A VANT usa IA. Você autoriza?")).not.toBeInTheDocument();
   });
 
+  it("autorização dada no texto antigo (sem Cerebras) não vale: pergunta de novo e a IA fica fechada", async () => {
+    bd.linha = { permitido: true, versao: "2026-11-23" };
+    montar();
+    expect(await screen.findByText("A VANT usa IA. Você autoriza?")).toBeInTheDocument();
+    expect(iaPermitida()).toBe(false);
+  });
+
   it("quem já respondeu não vê a pergunta de novo", async () => {
-    bd.linha = { permitido: false };
+    bd.linha = { permitido: false, versao: "2026-11-26" };
     montar();
     await waitFor(() => expect(iaPermitida()).toBe(false));
     expect(screen.queryByText("A VANT usa IA. Você autoriza?")).not.toBeInTheDocument();

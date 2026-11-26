@@ -37,6 +37,20 @@ Permissions: location (optional, "Caça-Sinal" and local weather: suggests nearb
 selling spots), microphone (only when the user taps to talk to the AI mentor),
 camera/photos (profile picture and receipts).
 
+AI features and consent (Guidelines 5.1.1(i) and 5.1.2(i)):
+- Right after the first login the app shows "Seus dados, com transparência". It has a separate
+  section "INTELIGÊNCIA ARTIFICIAL" that names the four recipients (Anthropic, OpenAI, Google,
+  Cerebras) and the kinds of data sent, a link "Ver o que é enviado e pra quem" (each feature,
+  the data it sends and to which company), and a checkbox that is UNCHECKED by default:
+  "Autorizo a VANT a enviar meus dados a essas empresas de IA pra usar essas funções."
+- Nothing is sent to any AI service unless that box is checked. The rule is enforced on our
+  server, not only in the app. Tapping "Concordo e continuar" without checking the box keeps the
+  whole app working, with the AI features off.
+- The choice can be changed at any time in "Perfil" > "Minha Conta" > "INTELIGÊNCIA ARTIFICIAL" >
+  "Usar IA na VANT".
+- The demo account was reset for this review, so this screen appears on the first login.
+- Privacy policy: https://app.vantapp.com.br/privacidade (updated 26/11/2026).
+
 Support: https://app.vantapp.com.br/suporte · suporte@vantapp.com.br
 
 ---
@@ -48,3 +62,37 @@ Support: https://app.vantapp.com.br/suporte · suporte@vantapp.com.br
 - [x] Páginas públicas /suporte e /excluir-conta (23/10/2026)
 - [ ] Testar excluir conta numa conta descartável
 - [x] Textos de permissão em português no iPhone (localização, microfone, câmera, fotos) — conferido 23/10/2026
+
+## Reenvio depois da recusa de 26/11 (5.1.1(i) / 5.1.2(i))
+Ordem, tudo antes de mandar pra revisão:
+- [ ] Migração `20261126160000_consentimento_ia_versao` aplicada em produção
+- [ ] 12 funções publicadas: bright-action, generate-insights, objetivo-lucro-ia, verificar-extrato,
+      extrato-analisar, nota-ler, estudio-arte, verificar-deposito, defcon-coach, clima-vendedor,
+      analisar-anomalia, analisar-bug
+- [ ] PR #363 no ar (site) e build novo do iOS gerado DEPOIS disso
+- [ ] Conferir qual conta está nos campos "Sign-in required" do App Store Connect. Existem duas:
+      `revisao@vantapp.com.br` (a deste arquivo) e `revisao.apple@vant.com.br` (a que o revisor usou em 26/11)
+- [ ] Zerar as DUAS contas de revisão logo antes de enviar, e ninguém entra nelas depois disso:
+      a tela de Termos + IA só aparece pro revisor se a conta nunca aceitou o texto atual
+
+```sql
+-- contas de revisão voltam ao estado "nunca viu a tela" (roda logo antes de enviar)
+update public.profiles set termos_aceitos_versao = null, termos_aceitos_em = null
+ where email in ('revisao@vantapp.com.br', 'revisao.apple@vant.com.br');
+delete from public.consentimento_ia
+ where user_id in (select user_id from public.profiles where email in ('revisao@vantapp.com.br', 'revisao.apple@vant.com.br'));
+```
+
+Resposta para o Resolution Center (colar em inglês):
+
+> Thank you for the review. We changed the app and our servers:
+> 1. Before any personal data is sent to a third-party AI service, the user sees a disclosure that
+>    names every recipient (Anthropic, OpenAI, Google and Cerebras), the data each feature sends and
+>    the purpose, with a checkbox that is unchecked by default.
+> 2. Consent is enforced on our servers: without it, no AI request is processed. Consent is tied to
+>    the version of the disclosure, so it is asked again whenever the recipients or the data change.
+> 3. Users can withdraw consent at any time in Perfil > Minha Conta > "Usar IA na VANT". The
+>    app remains fully usable without AI.
+> 4. The privacy policy (https://app.vantapp.com.br/privacidade) lists the same recipients, data and
+>    legal basis.
+> The demo account was reset, so the disclosure appears on the first login.
