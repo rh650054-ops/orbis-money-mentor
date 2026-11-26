@@ -22,10 +22,11 @@ export const FUNCOES_IA: ReadonlySet<string> = new Set([
 /** Run without the vendor asking: blocked in silence (no sheet popping up mid-DEFCON). */
 export const FUNCOES_IA_AUTOMATICAS: ReadonlySet<string> = new Set(["generate-insights"]);
 
-/** Disclosure version the vendor must have accepted (26/11: per-feature list, adds Cerebras). An answer
+/** Disclosure version the vendor must have accepted (26/11: per-feature list, adds Cerebras;
+ *  2026-11-27: Anthropic added to "Objetivo de lucro" and "Mensagem do DEFCON"). An answer
  *  given on an older text counts as "not answered": the app asks again and the server refuses AI.
  *  Must match supabase/functions/_shared/consentimento-ia-regra.ts (a test checks it). */
-export const VERSAO_DIVULGACAO_IA = "2026-11-26";
+export const VERSAO_DIVULGACAO_IA = "2026-11-27";
 
 export const EVENTO_IA_DESLIGADA = "vant:ia-desligada";
 export const ERRO_IA_SEM_CONSENTIMENTO = "ia_sem_consentimento";

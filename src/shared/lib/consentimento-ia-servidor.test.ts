@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { VERSAO_DIVULGACAO_IA } from "./consentimento-ia";
 import { consentimentoValido, VERSAO_DIVULGACAO_IA as VERSAO_SERVIDOR } from "../../../supabase/functions/_shared/consentimento-ia-regra";
 import { semDadosPessoais } from "../../../supabase/functions/_shared/sem-dados-pessoais";
+import { aceitaTemperatura, corpoClaude, pedirClaude } from "../../../supabase/functions/_shared/ia-claude";
 
 describe("consentimento de IA no servidor (por versão)", () => {
   it("app e servidor exigem a mesma versão da divulgação", () => {
@@ -18,6 +19,10 @@ describe("consentimento de IA no servidor (por versão)", () => {
   });
   it("autorização antiga (texto de 23/11, sem Cerebras) → não envia", () => {
     expect(consentimentoValido({ permitido: true, versao: "2026-11-23" })).toBe(false);
+    // 26/11 text: profit mission and DEFCON message did not name Anthropic yet
+    expect(consentimentoValido({ permitido: true, versao: "2026-11-26" })).toBe(false);
+    expect(VERSAO_SERVIDOR > "2026-11-26").toBe(true);
+    expect(VERSAO_SERVIDOR).toMatch(/^\d{4}-\d{2}-\d{2}$/); // the only shape responder_consentimento_ia accepts
     expect(consentimentoValido({ permitido: true, versao: null })).toBe(false);
     expect(consentimentoValido({ permitido: true })).toBe(false);
   });
@@ -30,11 +35,64 @@ describe("consentimento de IA no servidor (por versão)", () => {
       expect(fn(n), n).toMatch(/iaPermitidaNoServidor\(/);
     }
     expect(fn("analisar-anomalia")).toMatch(/iaPermitidaParaUsuario\(userId\)/);
-    // the reporter is never sent: its only use is being REMOVED from the free text
-    expect(fn("analisar-bug")).not.toMatch(/Reportado por/);
-    expect(fn("analisar-bug").match(/bug\.reporter/g)).toEqual(["bug.reporter"]);
-    expect(fn("analisar-bug")).toMatch(/const quem = \[bug\.reporter\];/);
     expect(readFileSync("supabase/functions/_shared/consentimento-ia.ts", "utf8")).toMatch(/select\("permitido, versao"\)/);
+  });
+
+  // 26/11: a bug report has no account behind it, so nobody's permission can be checked, and a
+  // regex filter is not a guarantee of anonymisation → the function sends nothing to any AI
+  it("análise de bug: nada vai pra IA (sem autorização possível, o filtro de texto não é garantia)", () => {
+    const src = readFileSync("supabase/functions/analisar-bug/index.ts", "utf8");
+    expect(src).not.toMatch(/cerebras\.ai|generativelanguage|anthropic\.com|openai\.com|pedirClaude|_API_KEY/);
+    // its only request goes to our own database, and never reads the report's text or author
+    expect(src.match(/fetch\(/g)).toHaveLength(1);
+    expect(src).toMatch(/fetch\(`\$\{SB_URL\}\/rest\/v1\/orbis_bugs/);
+    expect(src).not.toMatch(/select=\*|descricao|titulo|reporter|\btela\b/);
+    expect(src).toMatch(/analise_ia_desligada/);
+  });
+
+  it("Missão de Lucro e Coach: Anthropic primeiro, sempre depois do portão, e a divulgação cita a Anthropic", () => {
+    for (const n of ["objetivo-lucro-ia", "defcon-coach"]) {
+      const src = readFileSync(`supabase/functions/${n}/index.ts`, "utf8");
+      const portao = src.indexOf("iaPermitidaNoServidor(");
+      // the mission wraps the request in claude(); what matters is where the handler calls it
+      const claude = src.indexOf(n === "defcon-coach" ? "pedirClaude({" : '["claude", () => claude(prompt)]');
+      const cerebras = src.lastIndexOf("api.cerebras.ai"); const gemini = src.lastIndexOf("generativelanguage.googleapis.com");
+      expect(portao, n).toBeGreaterThan(0);
+      expect(claude, n).toBeGreaterThan(portao);
+      expect(src, n).toMatch(new RegExp(`quem: "${n}"`));
+      if (n === "defcon-coach") { expect(cerebras).toBeGreaterThan(claude); expect(gemini).toBeGreaterThan(cerebras); }
+      else expect(src).toMatch(/\[\["claude", \(\) => claude\(prompt\)\], \["cerebras", \(\) => cerebras\(prompt\)\], \["gemini", \(\) => gemini\(prompt\)\]\]/);
+    }
+    const linha = (arq: string, funcao: string) => readFileSync(arq, "utf8").split("\n").find((l) => l.includes(funcao)) ?? "";
+    for (const f of ["Mensagem do DEFCON", "Objetivo de lucro"]) {
+      for (const arq of ["src/features/consentimento-ia/components/texto-ia.tsx", "src/pages/Privacidade.tsx"]) {
+        const l = linha(arq, f);
+        for (const quem of ["Anthropic", "Google", "Cerebras"]) expect(l, `${arq} · ${f}`).toContain(quem);
+      }
+    }
+    // the mission prompt carries the nickname: the row says so
+    expect(readFileSync("supabase/functions/objetivo-lucro-ia/index.ts", "utf8")).toMatch(/b\.apelido/);
+    expect(linha("src/features/consentimento-ia/components/texto-ia.tsx", "Objetivo de lucro")).toContain("seu apelido");
+    expect(linha("src/pages/Privacidade.tsx", "Objetivo de lucro")).toContain("seu apelido");
+  });
+
+  // 26/11: Cerebras (402) and Gemini (429) failed unseen for days — the failure is now logged,
+  // with the provider and the HTTP status only, never what the vendor sent or what the AI said
+  it("Missão de Lucro e Coach registram o provedor que falhou, sem dado do vendedor no log", () => {
+    for (const n of ["objetivo-lucro-ia", "defcon-coach"]) {
+      const src = readFileSync(`supabase/functions/${n}/index.ts`, "utf8");
+      expect(src, n).toMatch(new RegExp(`console\\.warn\\(\`${n}: cerebras \\$\\{\\w+\\.status\\}`));
+      expect(src, n).toMatch(new RegExp(`console\\.warn\\(\`${n}: gemini \\$\\{\\w+\\.status\\}`));
+      const logs = src.split("\n").filter((l) => /console\.(warn|error|log)\(/.test(l)).map((l) => l.slice(l.search(/console\./)));
+      expect(logs.length, n).toBeGreaterThanOrEqual(3);
+      for (const l of logs) expect(l, n).not.toMatch(/\b(prompt|template|body|base|apelido|authHeader|key|ckey|text|ct|raw|doClaude)\b/);
+    }
+    const ajudante = readFileSync("supabase/functions/_shared/ia-claude.ts", "utf8");
+    expect(ajudante).toMatch(/aviso\(`\$\{p\.quem\}: claude \$\{res\.status\}`\)/);
+    // every log line of the helper interpolates only the caller's name, the HTTP status or the error's class
+    const modelos = [...ajudante.matchAll(/aviso\(`([^`]*)`\)/g)].map((m) => m[1] ?? "");
+    expect(modelos).toHaveLength(4);
+    for (const m of modelos) expect(m.replace("${p.quem}", "").replace("${res.status}", "").replace('${(e as Error)?.name ?? "erro"}', "")).not.toContain("${");
   });
 });
 
@@ -86,5 +144,37 @@ describe("relato de bug: texto livre (26/11, segunda passada)", () => {
     "Estoque: 1.250 unidades, custo R$ 1.234,56, margem 35%",
   ])("não estraga o relato de bug: %s", (texto) => {
     expect(semDadosPessoais(texto)).toBe(texto);
+  });
+});
+
+describe("pedido à Anthropic (ajudante das funções de texto)", () => {
+  const ok = (texto: string) => ({ ok: true, status: 200, json: async () => ({ content: [{ type: "text", text: texto }] }) }) as unknown as Response;
+  const pedido = { quem: "teste", system: "S", user: "U", maxTokens: 100, timeoutMs: 1000, temperature: 0.5 };
+
+  it("manda só o que recebeu, com a chave no cabeçalho, e devolve o texto", async () => {
+    const chamadas: { url: string; init: RequestInit }[] = [];
+    const fetchFn = (async (url: string, init: RequestInit) => { chamadas.push({ url, init }); return ok("  olá  "); }) as unknown as typeof fetch;
+    expect(await pedirClaude(pedido, { chave: "k-teste", fetchFn })).toBe("olá");
+    expect(chamadas).toHaveLength(1);
+    expect(chamadas[0]?.url).toBe("https://api.anthropic.com/v1/messages");
+    expect((chamadas[0]?.init.headers as Record<string, string>)["x-api-key"]).toBe("k-teste");
+    expect(JSON.parse(String(chamadas[0]?.init.body))).toEqual({ model: "claude-haiku-4-5-20251001", max_tokens: 100, temperature: 0.5, system: "S", messages: [{ role: "user", content: "U" }] });
+  });
+
+  it("modelos da linha 5 não recebem temperature (recusariam com 400)", () => {
+    expect(aceitaTemperatura("claude-haiku-4-5-20251001")).toBe(true);
+    expect(aceitaTemperatura("claude-sonnet-5")).toBe(false);
+    expect(corpoClaude(pedido, "claude-sonnet-5")).not.toHaveProperty("temperature");
+    expect(corpoClaude({ ...pedido, system: undefined }, "claude-haiku-4-5-20251001")).not.toHaveProperty("system");
+  });
+
+  it("sem chave, erro HTTP, resposta vazia ou queda: devolve null, nunca lança, e o aviso só tem quem + código", async () => {
+    const avisos: string[] = []; const aviso = (m: string) => avisos.push(m);
+    const com = (r: () => Promise<Response>) => pedirClaude(pedido, { chave: "k-teste", aviso, fetchFn: r as unknown as typeof fetch });
+    expect(await pedirClaude(pedido, { chave: "", aviso, fetchFn: (() => { throw new Error("não devia chamar"); }) as unknown as typeof fetch })).toBeNull();
+    expect(await com(async () => ({ ok: false, status: 529, json: async () => ({}) }) as unknown as Response)).toBeNull();
+    expect(await com(async () => ok("   "))).toBeNull();
+    expect(await com(async () => { const e = new Error("segredo U S k-teste"); e.name = "TimeoutError"; throw e; })).toBeNull();
+    expect(avisos).toEqual(["teste: claude sem chave", "teste: claude 529", "teste: claude vazio", "teste: claude sem resposta (TimeoutError)"]);
   });
 });

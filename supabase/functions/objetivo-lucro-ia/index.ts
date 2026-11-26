@@ -2,11 +2,16 @@
 // "Quero R$ 5.000 de lucro em 15 dias": the AI reads the seller's last 60 days
 // (Open Finance outflows by category, DEFCON sales, calotes, products with cost/price,
 // weekday rhythm, trend) and returns a structured plan. The numbers come from the
-// database (objetivo_lucro_base); the AI interprets and advises. Cerebras first,
-// Gemini as fallback; if both fail the app falls back to its own calculation.
+// database (objetivo_lucro_base); the AI interprets and advises. Anthropic first, then Cerebras,
+// then Gemini; if all fail the app falls back to its own calculation (the 502 below carries no
+// error on screen: the mission opens without the AI text).
+// 26/11: Anthropic became the first provider (Rick): Cerebras (402, no quota) and Gemini (429,
+// free tier, 20 requests/day) had both been failing unseen for days. A provider that fails is now
+// logged with its HTTP status — never the prompt or the answer. The disclosure names the three.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
 import { iaPermitidaNoServidor, respostaSemConsentimentoIa } from "../_shared/consentimento-ia.ts";
+import { pedirClaude } from "../_shared/ia-claude.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -73,6 +78,11 @@ function montarPrompt(b: Record<string, unknown>, alvo: number, dias: number, di
   );
 }
 
+// Secret ANTHROPIC_MODEL_MISSAO swaps the model without touching the code (default: the fast one).
+function claude(prompt: string): Promise<string | null> {
+  return pedirClaude({ quem: "objetivo-lucro-ia", system: SYSTEM, user: prompt, maxTokens: 1500, timeoutMs: 25000, temperature: 0.5, modelo: Deno.env.get("ANTHROPIC_MODEL_MISSAO") });
+}
+
 async function cerebras(prompt: string): Promise<string | null> {
   const key = Deno.env.get("CEREBRAS_API_KEY");
   if (!key) return null;
@@ -86,7 +96,7 @@ async function cerebras(prompt: string): Promise<string | null> {
       temperature: 0.5, max_tokens: 1200, response_format: { type: "json_object" },
     }),
   });
-  if (!res.ok) return null;
+  if (!res.ok) { console.warn(`objetivo-lucro-ia: cerebras ${res.status}`); return null; }
   const j = await res.json();
   return j?.choices?.[0]?.message?.content?.toString() ?? null;
 }
@@ -110,6 +120,7 @@ async function gemini(prompt: string): Promise<string | null> {
       const j = await res.json();
       return j?.candidates?.[0]?.content?.parts?.[0]?.text?.toString() ?? null;
     }
+    console.warn(`objetivo-lucro-ia: gemini ${res.status} (tentativa ${tentativa + 1})`);
     if (res.status !== 429 && res.status !== 503) return null;
     await new Promise((r) => setTimeout(r, 1500));
   }
@@ -168,11 +179,20 @@ Deno.serve(async (req) => {
     const freq = Number((base as { frequencia?: number }).frequencia ?? 0);
     const diasTrabalho = pedido ?? (freq > 0 ? Math.min(dias, Math.max(1, Math.round(dias * freq))) : dias);
     const prompt = montarPrompt(base as Record<string, unknown>, alvo, dias, diasTrabalho);
-    let raw: string | null = null; let fonte = "cerebras";
-    try { raw = await cerebras(prompt); } catch (_e) { raw = null; }
-    if (!raw) { fonte = "gemini"; try { raw = await gemini(prompt); } catch (_e) { raw = null; } }
-    const ia = raw ? limpar(raw) : null;
-    if (!ia) return json({ error: "ia indisponível", base, dias_trabalho: diasTrabalho }, 502);
+    // first provider that hands back a plan in the expected shape wins
+    const fila: [string, () => Promise<string | null>][] = [["claude", () => claude(prompt)], ["cerebras", () => cerebras(prompt)], ["gemini", () => gemini(prompt)]];
+    let ia: Record<string, unknown> | null = null; let fonte = "";
+    for (const [nome, pedir] of fila) {
+      let raw: string | null = null;
+      try { raw = await pedir(); } catch (e) { console.warn(`objetivo-lucro-ia: ${nome} sem resposta`, (e as Error)?.name); }
+      ia = raw ? limpar(raw) : null;
+      if (ia) { fonte = nome; break; }
+      if (raw) console.warn(`objetivo-lucro-ia: ${nome} respondeu fora do formato`);
+    }
+    if (!ia) {
+      console.error("objetivo-lucro-ia: nenhum provedor entregou um plano");
+      return json({ error: "ia indisponível", base, dias_trabalho: diasTrabalho }, 502);
+    }
     return json({ ia: { ...ia, fonte }, base, dias_trabalho: diasTrabalho });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e).slice(0, 200) }, 500);

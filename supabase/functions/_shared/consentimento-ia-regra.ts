@@ -3,7 +3,10 @@
 // or of data sent changes (and the texts: src/features/consentimento-ia/components/texto-ia.tsx,
 // src/pages/Privacidade.tsx); every vendor then has to allow again before anything is sent.
 // Must match VERSAO_DIVULGACAO_IA in src/shared/lib/consentimento-ia.ts (a test checks it).
-export const VERSAO_DIVULGACAO_IA = "2026-11-26";
+// 2026-11-27: the profit mission and the DEFCON message now also name Anthropic (it became their
+// first provider on 26/11). The value is an identifier in date format (the RPC only accepts that
+// shape) and must grow at each change; it is not the day the text went live.
+export const VERSAO_DIVULGACAO_IA = "2026-11-27";
 
 /** Only an explicit "Permitir" given on the CURRENT disclosure releases data to an AI. No row,
  *  refusal, revocation, an older version or a malformed row → false. */
