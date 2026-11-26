@@ -46,3 +46,6 @@ verify_jwt = true
 
 [functions.email-confirmar-link]
 verify_jwt = false   # link de 1 clique vindo do e-mail; a prova e o token (sha256, 24h, uso unico)
+
+[functions.hotmart-simular]
+verify_jwt = false
