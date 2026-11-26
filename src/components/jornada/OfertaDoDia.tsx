@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { aoClicarCheckout, getCheckoutUrl } from "@/shared/lib/checkout";
 import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
 import { useJornada } from "./useJornada";
-import { jornadaDoDia, brl, seloTeste } from "./jornada-lib";
+import { jornadaDoDia, brl, seloTeste, dataDoFim, testeContinua } from "./jornada-lib";
 import { soComAssinatura } from "@/shared/components/assinatura-loja";
 
 const GOLD = "#F5B800";
@@ -29,7 +29,8 @@ function Item({ texto, sub }: { texto: string; sub: string }) {
 /** `agora`: abre na hora, mesmo se já foi vista hoje (usado pelo simulador). */
 function OfertaDoDiaVenda({ agora = false }: { agora?: boolean } = {}) {
   const { user } = useAuth();
-  const { emTeste, dia, vendidoNoTeste } = useJornada();
+  const { emTeste, dia, vendidoNoTeste, fimDoTeste, hoje } = useJornada();
+  const continua = testeContinua(fimDoTeste, hoje);
   const navigate = useNavigate();
   const [aberta, setAberta] = useState(agora);
   const montarCheckout = useCheckoutUrl();
@@ -72,7 +73,7 @@ function OfertaDoDiaVenda({ agora = false }: { agora?: boolean } = {}) {
             </ul>
             <button type="button" onClick={fechar} className="w-full h-[52px] rounded-[16px] text-[14.5px] font-black"
               style={{ background: "linear-gradient(180deg,#FFF1B3 0%,#FFC800 55%,#D9A800 100%)", color: "#1A1200" }}>
-              CONTINUAR MEU TESTE · {seloTeste(j.dia).replace("Teste grátis · ", "").toUpperCase()}
+              CONTINUAR MEU TESTE · {seloTeste(j.dia, fimDoTeste, hoje).replace("Teste grátis · ", "").toUpperCase()}
             </button>
             <a href={montarCheckout(getCheckoutUrl())} target="_blank" rel="noopener noreferrer" onClick={aoClicarCheckout} className="block text-center text-[12.5px] font-extrabold underline underline-offset-[3px]" style={{ color: "#b9b3a6" }}>
               já quero garantir o Essencial por R$ 29,90
@@ -108,11 +109,14 @@ function OfertaDoDiaVenda({ agora = false }: { agora?: boolean } = {}) {
         {j.oferta === "planos" && (
           <>
             <div className="space-y-1.5">
-              <p className="text-[11px] font-black tracking-[.18em]" style={{ color: "#ff9a4d" }}>ÚLTIMO DIA DO TESTE</p>
+              <p className="text-[11px] font-black tracking-[.18em]" style={{ color: continua ? GOLD : "#ff9a4d" }}>{continua ? "FIM DA JORNADA GUIADA" : "ÚLTIMO DIA DO TESTE"}</p>
               <p className="text-[24px] font-black tracking-[-.02em] leading-[1.1]">
-                {vendidoNoTeste && vendidoNoTeste > 0 ? `Você vendeu ${brl(vendidoNoTeste)} com a VANT` : "Seu teste acaba hoje às 23:59"}
+                {vendidoNoTeste && vendidoNoTeste > 0 ? `Você vendeu ${brl(vendidoNoTeste)} com a VANT`
+                  : continua && fimDoTeste ? `Seu teste vai até ${dataDoFim(fimDoTeste)}` : "Seu teste acaba hoje às 23:59"}
               </p>
-              <p className="text-[13px]" style={{ color: "#b9b3a6" }}>Sem plano, amanhã o Foco, o histórico e o seu lugar no ranking travam.</p>
+              <p className="text-[13px]" style={{ color: "#b9b3a6" }}>
+                {continua && fimDoTeste ? `Você ainda tem acesso completo até ${dataDoFim(fimDoTeste)}. Quando quiser, escolha seu plano.` : "Sem plano, amanhã o Foco, o histórico e o seu lugar no ranking travam."}
+              </p>
             </div>
             <button type="button" onClick={() => { fechar(); navigate("/planos"); }} className="w-full h-[52px] rounded-[16px] text-[14.5px] font-black"
               style={{ background: "linear-gradient(180deg,#FFF1B3 0%,#FFC800 55%,#D9A800 100%)", color: "#1A1200" }}>

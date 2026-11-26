@@ -3,6 +3,7 @@ import { avisar } from "@/shared/lib/avisar";
 import { validateCPF } from "@/shared/lib/cpf-validation";
 import { EVENTO_ASSINATURA_LOJA, modoCobranca } from "./cobranca-loja";
 import { abrirAssinarNoSite } from "./assinar-no-site";
+import { EVENTO_CAMINHO, caminhoDaSessao, precisaDesviar } from "./caminho-assinatura";
 
 // Atribuição de influenciador por cupom, mesmo com o teste grátis no app.
 // Quando a pessoa entra pelo link do influenciador (ex: ".../?cupom=ZECK15"),
@@ -175,6 +176,20 @@ export function abrirCheckout(url: string): void {
     window.dispatchEvent(new CustomEvent(EVENTO_ASSINATURA_LOJA));
     return;
   }
+  // 26/11: a logged-in person whose Hotmart subscription is still alive is NOT sent to a new
+  // checkout of the same plan (Hotmart refuses it: "plano já foi comprado"). The right path
+  // (pay the open charge, check a payment, "already active") opens instead. Path not loaded
+  // yet: the sheet loads it and decides, with its own button for a new checkout.
+  const { usuario, caminho } = caminhoDaSessao();
+  if (usuario && (caminho === undefined || precisaDesviar(caminho, url))) {
+    window.dispatchEvent(new CustomEvent(EVENTO_CAMINHO, { detail: { url } }));
+    return;
+  }
+  abrirCheckoutDireto(url);
+}
+
+/** Opens the checkout without asking the renewal path (the path sheet's own "continuar"). */
+export function abrirCheckoutDireto(url: string): void {
   marcarCheckoutAberto();
   let janela: Window | null = null;
   try {

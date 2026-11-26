@@ -3,14 +3,14 @@
 import { useNavigate } from "react-router-dom";
 import { Check } from "lucide-react";
 import { useJornada, abrirChatCom } from "./useJornada";
-import { jornadaDoDia, ABRIR_CHAT_MARCA, TEXTO_CHAT_MARCA, brl } from "./jornada-lib";
+import { jornadaDoDia, ABRIR_CHAT_MARCA, TEXTO_CHAT_MARCA, brl, dataDoFim, testeContinua } from "./jornada-lib";
 
 const GOLD = "#F5B800";
 const OK = "#3DD68C";
 const MUTE = "#7b766e";
 
 export function MissaoDoDia() {
-  const { emTeste, dia, feitos, vendidoNoTeste } = useJornada();
+  const { emTeste, dia, feitos, vendidoNoTeste, fimDoTeste, hoje } = useJornada();
   const navigate = useNavigate();
   const j = jornadaDoDia(dia);
   if (!emTeste || !j) return null;
@@ -18,13 +18,15 @@ export function MissaoDoDia() {
   const ir = (destino: string) => (destino === ABRIR_CHAT_MARCA ? abrirChatCom(TEXTO_CHAT_MARCA) : navigate(destino));
   const proximo = j.passos.find((p) => !feitos.has(p.id));
   const tudoFeito = !proximo;
+  // 26/11: a longer (promotional) test: day 3 closes the guided journey, the access goes on
+  const continua = testeContinua(fimDoTeste, hoje);
 
   return (
     <section aria-label="Missão do dia" className="rounded-[20px] p-4 space-y-3"
       style={{ background: "linear-gradient(170deg,#1a1305,#0e0e10 70%)", border: "1px solid rgba(245,184,0,.38)" }}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-[10px] font-black tracking-[.16em]" style={{ color: GOLD }}>
-          {j.dia === 0 ? "DIA 0 · SEU COMEÇO" : j.dia === 3 ? "DIA 3 DE 3 · ÚLTIMO DIA" : `DIA ${j.dia} DE 3 · TESTE GRÁTIS`}
+          {j.dia === 0 ? "DIA 0 · SEU COMEÇO" : j.dia === 3 ? (continua ? "DIA 3 DE 3 · FIM DA JORNADA" : "DIA 3 DE 3 · ÚLTIMO DIA") : `DIA ${j.dia} DE 3 · JORNADA GUIADA`}
         </span>
         <span className="flex gap-1" aria-hidden>
           {[0, 1, 2, 3].map((d) => (
@@ -35,7 +37,8 @@ export function MissaoDoDia() {
 
       <div className="space-y-1">
         <p className="text-[18px] font-black leading-tight">{j.titulo}</p>
-        <p className="text-[12.5px] leading-snug" style={{ color: "#b9b3a6" }}>{j.texto}</p>
+        <p className="text-[12.5px] leading-snug" style={{ color: "#b9b3a6" }}>{continua ? j.texto.replace(/^Último dia: /, "") : j.texto}</p>
+        {continua && fimDoTeste && <p className="text-[12px] font-bold" style={{ color: OK }}>Seu teste continua até {dataDoFim(fimDoTeste)}.</p>}
       </div>
 
       <ul className="space-y-1.5">

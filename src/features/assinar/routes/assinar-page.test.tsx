@@ -38,4 +38,19 @@ describe("/assinar (opened from the store app, 23/10/2026)", () => {
     await waitFor(() => expect(screen.getByText("Suba pro VANT Pro")).toBeTruthy());
     expect(screen.queryByText("VANT Essencial")).toBeNull();
   });
+
+  it("26/11: overdue Essencial from the store app: pays the open charge, the Essencial checkout is not offered (Hotmart would refuse it)", async () => {
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === "assinar_token_ler") return { data: [{ nome: "Zé", email: null, telefone: null, user_id: "u1", plano_atual: "essencial" }], error: null };
+      if (fn === "assinar_token_caminho") return { data: { acao: "regularizar", oferta: "8qbxvm9p", plano: "VANT Essencial", assinatura: "S1" }, error: null };
+      return { data: [], error: null };
+    });
+    abrir("/assinar?t=abc");
+    expect(await screen.findByText("Seu pagamento está atrasado")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Pagar na Hotmart" })).toBeTruthy();
+    expect(screen.queryByText("Assinar por R$ 29,90/mês")).toBeNull();
+    // moving up to Pro is still possible
+    expect(screen.getByText("Assinar por R$ 49,90/mês")).toBeTruthy();
+    rpc.mockReset();
+  });
 });

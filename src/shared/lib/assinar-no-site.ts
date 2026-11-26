@@ -3,6 +3,7 @@ import { avisar } from "./avisar";
 import { abrirLinkExterno } from "./link-externo";
 import { LINK_ASSINAR_SITE } from "./cobranca-loja";
 import { linkDeRenovacao } from "./renovar-assinatura";
+import { carregarCaminho } from "./caminho-assinatura";
 
 /** The store app's "Assinar": asks the server for a 30-minute token and opens
  *  app.vantapp.com.br/assinar?t=… in the phone browser, so the page knows who is
@@ -19,12 +20,16 @@ export async function abrirAssinarNoSite(): Promise<void> {
   await abrirLinkExterno(url);
 }
 
-/** "Renovar assinatura": straight to the Hotmart checkout of the plan the vendor had; if the
- *  plan cannot be told for sure, the plans page (abrirAssinarNoSite). */
+/** "Renovar assinatura": straight to the Hotmart checkout of the plan the vendor had — only when
+ *  a new subscription is valid (26/11). Overdue, first payment open or already active: the
+ *  /assinar page (with the token), which shows how to pay the existing charge instead of a
+ *  checkout Hotmart would refuse ("plano já foi comprado"). Unknown plan: the plans page. */
 export async function abrirRenovarNoSite(): Promise<void> {
   try {
     const { data } = await supabase.auth.getUser();
     const u = data.user;
+    const caminho = u ? await carregarCaminho() : null;
+    if (caminho && caminho.acao !== "nova") { await abrirAssinarNoSite(); return; }
     const url = u ? await linkDeRenovacao(u.id, u.email ?? null) : null;
     if (url) { await abrirLinkExterno(url); return; }
   } catch (e) { avisar.silencioso("renovar no site", e); }

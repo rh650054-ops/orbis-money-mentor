@@ -11,6 +11,7 @@ import FeatureErrorBoundary from "@/shared/components/feature-error-boundary";
 import { AvisoNovoDominio } from "@/features/novo-dominio";
 import { BoasVindasGate } from "@/features/boas-vindas";
 import { AvisoCortesia, CortesiaTesteLojaGate } from "@/features/teste-loja";
+import { CaminhoAssinaturaSheet } from "@/features/renovacao";
 import { ConsentimentoIaGate } from "@/features/consentimento-ia";
 import OfflineGate from "@/components/OfflineGate";
 
@@ -130,6 +131,8 @@ export function AppRouter() {
       {/* IA de terceiros (Anthropic, OpenAI, Gemini): pergunta uma vez antes de enviar qualquer dado (23/11, App Store 5.1.2(i)) */}
       <ConsentimentoIaGate />
       <AvisoCortesia />
+      {/* Renovação: quem tem assinatura viva na Hotmart vê o caminho certo, não um checkout recusado (26/11) */}
+      <CaminhoAssinaturaSheet />
       {/* "A Vant mudou de endereço": só em app.orbis.inf.br e só depois que o Rick liga
           (app_settings.aviso_novo_dominio = 'on') */}
       <AvisoNovoDominio />
