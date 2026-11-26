@@ -64,25 +64,51 @@ Support: https://app.vantapp.com.br/suporte · suporte@vantapp.com.br
 - [x] Textos de permissão em português no iPhone (localização, microfone, câmera, fotos) — conferido 23/10/2026
 
 ## Reenvio depois da recusa de 26/11 (5.1.1(i) / 5.1.2(i))
-Ordem, tudo antes de mandar pra revisão:
-- [x] Migração `20261126160000_consentimento_ia_versao` aplicada em produção (26/11)
-- [x] 11 funções publicadas em 26/11, fixadas no commit `84af925e`: bright-action, generate-insights,
-      objetivo-lucro-ia, verificar-extrato, extrato-analisar, nota-ler, estudio-arte, defcon-coach,
-      clima-vendedor, analisar-anomalia, analisar-bug. A `verificar-deposito` NÃO foi publicada: em produção
-      ela é a versão fechada do X1 (não usa IA) e a main ainda tem o leitor antigo (PR #111 em aberto)
-- [x] PR #363 no ar (site, 26/11)
-- [ ] Build novo do iOS gerado a partir da main, depois disso
-- [x] Conta do App Store Connect identificada (26/11): **`revisao.apple@vant.com.br`**. As sessões dela vêm
-      da rede da Apple (17.x.x.x), em iPhone; a `revisao@vantapp.com.br` é a do Google Play (sessões da rede
-      do Google, em Android). Só a da Apple é preparada para este reenvio.
-- [x] Estado da conta da Apple conferido em produção (26/11): assinatura ativa, Pro, aceite de Termos
-      no texto de 23/11 e IA respondida no texto de 23/11. Como o texto atual é o de 26/11, o build novo
-      abre a tela "Seus dados, com transparência" com a caixa de IA desmarcada, e o servidor não envia
-      nada para IA. **Não precisa zerar nada.**
-- [ ] Ninguém entra na conta `revisao.apple@vant.com.br` com o build novo antes da Apple. Se alguém
-      aceitar os Termos nela, a tela não aparece mais para o revisor; aí sim rodar o bloco abaixo.
-- [ ] A conta da Apple foi criada em 23/11 e tem pouco histórico (1 dia de vendas). As notas não
-      prometem mais "três semanas de dados".
+
+### O que mudou no servidor e no app em 26/11
+- Consentimento de IA por versão do texto, conferido no servidor (migração
+  `20261126160000_consentimento_ia_versao`, PR #363). Sem "Permitir" no texto atual, nenhuma função
+  envia dado a IA.
+- Segunda rodada (mesmo dia): a Missão de Lucro e a Mensagem do DEFCON estavam sem IA porque a
+  conta da Cerebras ficou sem cota (HTTP 402) e a chave do Gemini está no plano gratuito de 20
+  pedidos por dia (HTTP 429). A Anthropic passou a ser a primeira nas duas. Como o texto dizia,
+  função por função, quem recebe, as duas linhas passaram a citar a Anthropic e a versão do
+  consentimento subiu para `2026-11-27`: **todo mundo autoriza a IA de novo**. Os Termos
+  continuam na versão `2026-11-26`.
+- A análise de bug por IA (`analisar-bug`) foi desligada: o relato não tem conta por trás, então
+  não há autorização para conferir, e filtro de texto não é garantia de anonimização.
+- A `verificar-deposito` não é republicada: em produção ela é a versão fechada do X1 (não usa IA)
+  e a main ainda tem o leitor antigo (PR #111 em aberto).
+
+### Checklist final (nesta ordem)
+1. [ ] **Gemini no plano pago** (Google AI Studio > faturamento do projeto da chave). No plano
+       gratuito o Google pode usar o que recebe para melhorar produtos, e a nossa política diz que
+       não. Só o Rick consegue fazer. Sem isso, a frase da política sobre o Google não é verdade.
+2. [ ] PR desta rodada na main e site no ar (a política mostra a Anthropic nas duas linhas).
+3. [ ] Funções de IA republicadas, fixadas no commit da main: bright-action, generate-insights,
+       objetivo-lucro-ia, verificar-extrato, extrato-analisar, nota-ler, estudio-arte, defcon-coach,
+       clima-vendedor, analisar-anomalia, analisar-bug.
+4. [ ] Teste real com a conta de teste do Google (`revisao@vantapp.com.br`), devolvida ao estado
+       original depois: autorização antiga bloqueia; autorização atual libera e a Missão e o
+       Coach respondem pela Anthropic; recusa e revogação bloqueiam na hora.
+5. [ ] **Build novo do iOS, gerado da main depois do passo 2.** O build 10 (26/11) carrega o texto
+       de 26/11 e grava a versão antiga: não serve mais. Usar o build seguinte.
+6. [ ] No TestFlight, com uma conta que NÃO seja a da Apple: a tela "Seus dados, com
+       transparência" aparece com a caixa de IA desmarcada; aceitar sem marcar deixa a IA
+       desligada; marcar liga; Perfil > Minha Conta > "Usar IA na VANT" desliga e liga de novo;
+       "Ver o que é enviado e pra quem" mostra a Anthropic em "Objetivo de lucro" e "Mensagem do
+       DEFCON".
+7. [ ] Conta do App Store Connect: **`revisao.apple@vant.com.br`** (as sessões dela vêm da rede
+       da Apple, 17.x.x.x, em iPhone; a `revisao@vantapp.com.br` é a do Google Play). Conferir no
+       campo "App Review Information" que é essa mesma. Estado dela em 26/11: assinatura ativa,
+       Pro, Termos e IA respondidos no texto de 23/11. Com o build novo ela vê a tela de Termos
+       com a caixa de IA desmarcada. **Não precisa zerar nada.**
+8. [ ] Ninguém entra na conta da Apple com o build novo antes da Apple. Se alguém aceitar os
+       Termos nela, a tela não aparece mais para o revisor; aí rodar o bloco abaixo.
+9. [ ] A conta da Apple foi criada em 23/11 e tem pouco histórico (1 dia de vendas). As notas não
+       prometem "três semanas de dados".
+10. [ ] No App Store Connect: selecionar o build novo, colar a resposta abaixo no Resolution
+        Center e enviar para revisão. Só com a autorização do Rick.
 
 ```sql
 -- SÓ se alguém tiver aceitado os Termos na conta da Apple depois de 26/11: volta ao estado

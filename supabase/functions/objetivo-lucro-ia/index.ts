@@ -2,13 +2,16 @@
 // "Quero R$ 5.000 de lucro em 15 dias": the AI reads the seller's last 60 days
 // (Open Finance outflows by category, DEFCON sales, calotes, products with cost/price,
 // weekday rhythm, trend) and returns a structured plan. The numbers come from the
-// database (objetivo_lucro_base); the AI interprets and advises. Cerebras first,
-// Gemini as fallback; if both fail the app falls back to its own calculation.
-// 26/11: a provider that fails is logged with its HTTP status (never the prompt or the answer):
-// Cerebras (402, no quota) and Gemini (429, free-tier quota) were both failing unseen for days.
+// database (objetivo_lucro_base); the AI interprets and advises. Anthropic first, then Cerebras,
+// then Gemini; if all fail the app falls back to its own calculation (the 502 below carries no
+// error on screen: the mission opens without the AI text).
+// 26/11: Anthropic became the first provider (Rick): Cerebras (402, no quota) and Gemini (429,
+// free tier, 20 requests/day) had both been failing unseen for days. A provider that fails is now
+// logged with its HTTP status — never the prompt or the answer. The disclosure names the three.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
 import { iaPermitidaNoServidor, respostaSemConsentimentoIa } from "../_shared/consentimento-ia.ts";
+import { pedirClaude } from "../_shared/ia-claude.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -73,6 +76,11 @@ function montarPrompt(b: Record<string, unknown>, alvo: number, dias: number, di
     ` "passos": lista de 3 a 5 ações concretas, cada uma {"titulo": até 5 palavras, "texto": 1 ou 2 frases com número}. Inclua: faturamento por dia (unidades × preço médio), produção (quanto fazer além do estoque e quanto custa em mercadoria), calote (quanto por dia ele perde e como reduzir: pix na hora, não fiar), e gastos pessoais se eles comerem o lucro,\n` +
     ` "alerta": frase curta com o maior risco, ou null}`
   );
+}
+
+// Secret ANTHROPIC_MODEL_MISSAO swaps the model without touching the code (default: the fast one).
+function claude(prompt: string): Promise<string | null> {
+  return pedirClaude({ quem: "objetivo-lucro-ia", system: SYSTEM, user: prompt, maxTokens: 1500, timeoutMs: 25000, temperature: 0.5, modelo: Deno.env.get("ANTHROPIC_MODEL_MISSAO") });
 }
 
 async function cerebras(prompt: string): Promise<string | null> {
@@ -171,12 +179,18 @@ Deno.serve(async (req) => {
     const freq = Number((base as { frequencia?: number }).frequencia ?? 0);
     const diasTrabalho = pedido ?? (freq > 0 ? Math.min(dias, Math.max(1, Math.round(dias * freq))) : dias);
     const prompt = montarPrompt(base as Record<string, unknown>, alvo, dias, diasTrabalho);
-    let raw: string | null = null; let fonte = "cerebras";
-    try { raw = await cerebras(prompt); } catch (e) { console.warn("objetivo-lucro-ia: cerebras sem resposta", (e as Error)?.name); raw = null; }
-    if (!raw) { fonte = "gemini"; try { raw = await gemini(prompt); } catch (e) { console.warn("objetivo-lucro-ia: gemini sem resposta", (e as Error)?.name); raw = null; } }
-    const ia = raw ? limpar(raw) : null;
+    // first provider that hands back a plan in the expected shape wins
+    const fila: [string, () => Promise<string | null>][] = [["claude", () => claude(prompt)], ["cerebras", () => cerebras(prompt)], ["gemini", () => gemini(prompt)]];
+    let ia: Record<string, unknown> | null = null; let fonte = "";
+    for (const [nome, pedir] of fila) {
+      let raw: string | null = null;
+      try { raw = await pedir(); } catch (e) { console.warn(`objetivo-lucro-ia: ${nome} sem resposta`, (e as Error)?.name); }
+      ia = raw ? limpar(raw) : null;
+      if (ia) { fonte = nome; break; }
+      if (raw) console.warn(`objetivo-lucro-ia: ${nome} respondeu fora do formato`);
+    }
     if (!ia) {
-      console.error(`objetivo-lucro-ia: nenhum provedor entregou um plano (${raw ? "resposta fora do formato" : "sem resposta"})`);
+      console.error("objetivo-lucro-ia: nenhum provedor entregou um plano");
       return json({ error: "ia indisponível", base, dias_trabalho: diasTrabalho }, 502);
     }
     return json({ ia: { ...ia, fonte }, base, dias_trabalho: diasTrabalho });

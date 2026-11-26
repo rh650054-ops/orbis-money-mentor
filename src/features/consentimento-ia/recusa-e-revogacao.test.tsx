@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { iaPermitida } from "@/shared/lib/consentimento-ia";
+import { iaPermitida, VERSAO_DIVULGACAO_IA } from "@/shared/lib/consentimento-ia";
 
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "u1" } }) }));
 const bd = vi.hoisted(() => ({ linha: null as { permitido: boolean; versao?: string } | null, rpc: vi.fn() }));
@@ -31,7 +31,7 @@ const montar = (ui: React.ReactNode) => render(
     <MemoryRouter>{ui}</MemoryRouter>
   </QueryClientProvider>,
 );
-const RECUSA = { fn: "responder_consentimento_ia", p_permitido: false, p_versao: "2026-11-26" };
+const RECUSA = { fn: "responder_consentimento_ia", p_permitido: false, p_versao: VERSAO_DIVULGACAO_IA };
 
 describe("recusa e revogação da IA", () => {
   beforeEach(() => { bd.linha = null; bd.rpc.mockReset(); });
@@ -47,7 +47,7 @@ describe("recusa e revogação da IA", () => {
   });
 
   it("revogação: desligar em Minha Conta grava a recusa e fecha a IA na hora", async () => {
-    bd.linha = { permitido: true, versao: "2026-11-26" };
+    bd.linha = { permitido: true, versao: VERSAO_DIVULGACAO_IA };
     montar(<IaContaCard />);
     const chave = await screen.findByRole("switch", { name: "Usar IA na VANT" });
     await waitFor(() => expect(chave).toHaveAttribute("aria-checked", "true"));
@@ -60,7 +60,7 @@ describe("recusa e revogação da IA", () => {
   });
 
   it("ligar de novo em Minha Conta grava a autorização no texto atual", async () => {
-    bd.linha = { permitido: false, versao: "2026-11-26" };
+    bd.linha = { permitido: false, versao: VERSAO_DIVULGACAO_IA };
     montar(<IaContaCard />);
     const chave = await screen.findByRole("switch", { name: "Usar IA na VANT" });
     await waitFor(() => expect(chave).not.toBeDisabled());
@@ -69,8 +69,8 @@ describe("recusa e revogação da IA", () => {
     await waitFor(() => expect(iaPermitida()).toBe(true));
   });
 
-  it("autorização no texto antigo aparece desligada em Minha Conta (nada é enviado)", async () => {
-    bd.linha = { permitido: true, versao: "2026-11-23" };
+  it("autorização no texto anterior (26/11) aparece desligada em Minha Conta (nada é enviado)", async () => {
+    bd.linha = { permitido: true, versao: "2026-11-26" };
     montar(<IaContaCard />);
     const chave = await screen.findByRole("switch", { name: "Usar IA na VANT" });
     await waitFor(() => expect(chave).not.toBeDisabled());

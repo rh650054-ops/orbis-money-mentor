@@ -1,11 +1,14 @@
 // Vant — defcon-coach
-// Reescreve a mensagem do coach de conversão com "voz da rua" usando Gemini Flash.
+// Reescreve a mensagem do coach de conversão com "voz da rua".
+// 26/11/2026: ordem Anthropic → Cerebras → Gemini (Rick). Cerebras estava sem cota (402) e o Gemini
+// no plano gratuito de 20 pedidos/dia (429): o coach caía sempre no template sem ninguém ver.
 // Recebe a mensagem-template (que já traz os números) e devolve uma versão mais
 // natural e motivadora MANTENDO os números. Se faltar chave/cota ou der qualquer
 // erro, devolve o próprio template — nunca quebra e nunca deixa o vendedor sem mensagem.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
 import { iaPermitidaNoServidor } from "../_shared/consentimento-ia.ts";
+import { pedirClaude } from "../_shared/ia-claude.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -57,7 +60,15 @@ Deno.serve(async (req) => {
       `Hoje: ${dayApproaches} abordagens, ${daySales} vendas.\n\n` +
       `Mensagem original:\n${template}\n\nReescreva:`;
 
-    // 1) Cerebras (texto, grátis 1M tokens/dia) — tenta primeiro
+    // 1) Anthropic (Claude) — tenta primeiro; falha é registrada no log só com o código HTTP
+    const doClaude = await pedirClaude({ quem: "defcon-coach", user: prompt, maxTokens: 120, timeoutMs: 7000, temperature: 0.95 });
+    if (doClaude) {
+      return new Response(JSON.stringify({ message: doClaude.replace(/^["']|["']$/g, ""), source: "claude" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2) Cerebras
     try {
       const ckey = Deno.env.get("CEREBRAS_API_KEY");
       if (ckey) {
@@ -88,7 +99,7 @@ Deno.serve(async (req) => {
       }
     } catch (e) { console.warn("defcon-coach: cerebras sem resposta", (e as Error)?.name); /* cai pro Gemini */ }
 
-    // 2) Gemini (reserva) — se não tiver chave, usa o template
+    // 3) Gemini (reserva) — se não tiver chave, usa o template
     const key = Deno.env.get("GEMINI_API_KEY");
     if (!key) {
       return new Response(JSON.stringify({ message: template, source: "template" }), {

@@ -7,9 +7,9 @@ import { Link } from "react-router-dom";
 const LINHAS: { funcao: string; dados: string; quem: string }[] = [
   { funcao: "Mentor (chat e voz)", dados: "o que você escreve ou fala, seu apelido e, quando você pergunta, suas vendas, estoque, finanças e ranking", quem: "Google (Gemini), Anthropic (Claude), OpenAI (voz)" },
   { funcao: "Dicas e relatórios do dia", dados: "vendas, meta, horários, produtos, custos e gastos", quem: "Anthropic, Google, Cerebras" },
-  { funcao: "Mensagem do DEFCON", dados: "números da sua meta e das vendas do bloco", quem: "Google, Cerebras" },
+  { funcao: "Mensagem do DEFCON", dados: "números da sua meta e das vendas do bloco", quem: "Anthropic, Google, Cerebras" },
   { funcao: "Dica do clima", dados: "cidade, meta, vendas do dia, melhores horários e contas a vencer (nome e valor)", quem: "Anthropic, Google, Cerebras" },
-  { funcao: "Objetivo de lucro", dados: "vendas, produtos, custos, gastos e saídas do banco por categoria (se o banco estiver conectado) dos últimos 60 dias", quem: "Cerebras, Google" },
+  { funcao: "Objetivo de lucro", dados: "seu apelido, vendas, calotes, produtos, estoque, custos, gastos e o movimento do banco (entradas no total e saídas por categoria, se o banco estiver conectado) dos últimos 60 dias", quem: "Anthropic, Google, Cerebras" },
   { funcao: "Ler nota fiscal", dados: "a foto da nota que você escolhe", quem: "Anthropic" },
   { funcao: "Raio-X e conferência de extrato", dados: "o extrato que você envia (pode ter seu nome, banco e transações) e seu apelido", quem: "Anthropic, Google" },
   { funcao: "Comprovante do X1", dados: "a foto do comprovante Pix (valor, data, nomes e banco)", quem: "Anthropic" },

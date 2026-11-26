@@ -70,9 +70,9 @@ export default function Privacidade() {
           <ul className="list-disc pl-5 space-y-1">
             <li><strong>Mentor (chat e voz)</strong>: o que você escreve ou fala, seu apelido e, quando você pergunta, suas vendas, estoque, finanças e ranking → Google (Gemini), Anthropic (Claude) e OpenAI (voz).</li>
             <li><strong>Dicas e relatórios do dia</strong>: vendas, meta, horários, produtos, custos e gastos → Anthropic, Google e Cerebras.</li>
-            <li><strong>Mensagem do DEFCON</strong>: números da meta e das vendas do bloco → Google e Cerebras.</li>
+            <li><strong>Mensagem do DEFCON</strong>: números da meta e das vendas do bloco → Anthropic, Google e Cerebras.</li>
             <li><strong>Dica do clima</strong>: cidade, meta, vendas do dia, melhores horários e contas a vencer (nome e valor) → Anthropic, Google e Cerebras. A previsão do tempo em si não usa IA.</li>
-            <li><strong>Objetivo de lucro</strong>: vendas, produtos, custos, gastos e saídas do banco por categoria (se o banco estiver conectado) dos últimos 60 dias → Cerebras e Google.</li>
+            <li><strong>Objetivo de lucro</strong>: seu apelido, vendas, calotes, produtos, estoque, custos, gastos e o movimento do banco (entradas no total e saídas por categoria, se o banco estiver conectado) dos últimos 60 dias → Anthropic, Google e Cerebras.</li>
             <li><strong>Leitura de nota fiscal</strong>: a foto da nota que você escolhe → Anthropic.</li>
             <li><strong>Raio-X e conferência de extrato</strong>: o arquivo do extrato que você envia (pode conter seu nome, banco e transações) e seu apelido → Anthropic e Google. O arquivo não é guardado.</li>
             <li><strong>Comprovante da carteira X1</strong>: a foto do comprovante Pix (valor, data, nomes e banco) → Anthropic.</li>
