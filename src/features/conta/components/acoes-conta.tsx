@@ -54,7 +54,7 @@ export function AcoesConta() {
         <ul className="flex flex-col gap-1.5 text-[13.5px]" style={{ color: COR.suave }}>
           <li>• Apaga suas vendas, metas, produtos, finanças e conversas.</li>
           <li>• Você sai do ranking e perde o histórico das competições e do X1.</li>
-          <li>• Seu acesso acaba na hora. Se tiver assinatura na Hotmart, cancele lá também.</li>
+          <li>• Seu acesso acaba na hora. Excluir a conta não cancela a assinatura: se assinou pelo iPhone, cancele nos Ajustes › seu nome › Assinaturas; se foi pela Hotmart, cancele lá.</li>
         </ul>
         <label className="flex flex-col gap-1.5">
           <span className="text-[12.5px] font-bold">Pra confirmar, digite <b style={{ color: COR.coral }}>EXCLUIR</b></span>

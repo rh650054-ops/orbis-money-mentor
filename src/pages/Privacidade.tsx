@@ -28,7 +28,7 @@ export default function Privacidade() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Política de Privacidade</h1>
-            <p className="text-xs text-muted-foreground">Última atualização: 26 de novembro de 2026</p>
+            <p className="text-xs text-muted-foreground">Última atualização: 27 de novembro de 2026</p>
           </div>
         </div>
 
@@ -50,7 +50,7 @@ export default function Privacidade() {
           <p><strong>No uso do app:</strong> registros de vendas, metas, custos, despesas, contas a pagar, produtos, insumos e estoque, rotinas de trabalho, participação em rankings e competições, e foto de perfil (opcional).</p>
           <p><strong>Financeiros (opcionais):</strong> chave Pix cadastrada por você para receber pagamentos; extratos bancários enviados por você ou obtidos via conexão bancária autorizada (Open Finance, pela Pluggy); movimentações da carteira X1.</p>
           <p><strong>Assistente de IA:</strong> as mensagens que você troca com o assistente da Vant, para gerar as respostas e conselhos.</p>
-          <p><strong>Pagamento da assinatura:</strong> processado pela Hotmart. Não armazenamos números de cartão — recebemos da Hotmart apenas a confirmação do pagamento, e-mail e CPF do comprador para liberar seu acesso.</p>
+          <p><strong>Pagamento da assinatura:</strong> pelo site, processado pela Hotmart — recebemos da Hotmart apenas a confirmação do pagamento, e-mail e CPF do comprador para liberar seu acesso. Pelo iPhone, processado pela Apple — recebemos da Apple, assinados por ela, o identificador da compra, o plano, as datas, o país da loja, o preço e se a assinatura renova, foi cancelada ou reembolsada; a compra é ligada à sua conta da Vant pelo identificador interno da conta (não é seu CPF nem e-mail), e não recebemos seu nome, e-mail ou Apple ID. Em nenhum dos casos temos acesso a números de cartão.</p>
           <p><strong>Técnicos:</strong> registros de acesso (logs), identificadores de dispositivo e dados de uso necessários à segurança e ao funcionamento.</p>
         </S>
 
@@ -81,7 +81,8 @@ export default function Privacidade() {
           </ul>
           <p>"De reserva" significa: só quando o primeiro provedor está fora do ar. A VANT usa apenas esses dois provedores de IA; não usa mais Google (Gemini) nem Cerebras.</p>
           <p>CPF e senha nunca são enviados a provedores de IA. A verificação de fraude feita pela equipe só usa IA (Anthropic) com os dados de quem autorizou.</p>
-          <p><strong>Hotmart</strong> — processamento do pagamento da assinatura.</p>
+          <p><strong>Hotmart</strong> — processamento do pagamento da assinatura feita pelo site.</p>
+          <p><strong>Apple</strong> — processamento do pagamento da assinatura feita no iPhone (App Store). A Apple trata os dados da compra como controladora, conforme a política de privacidade dela; consultamos a Apple só para confirmar e acompanhar a assinatura.</p>
           <p><strong>Pluggy</strong> — conexão bancária via Open Finance, somente quando você autoriza (Brasil, regulada pelo ecossistema do Banco Central).</p>
           <p><strong>Mercado Pago</strong> — processamento de depósitos e saques da carteira X1, quando você usa essa função.</p>
           <p><strong>Google</strong> — integração opcional com a sua agenda, somente se você conectar.</p>

@@ -51,7 +51,9 @@ env:
   SUPABASE_CLI: 2.122.1
   # Called by cron / by Pluggy, they authenticate by their own secret and run WITHOUT the JWT
   # gate. Publishing them with the gate on would silently stop the bank robot and the webhook.
-  SEM_JWT: "pluggy-hora pluggy-webhook"
+  # apple-webhook (called by Apple, no JWT) and apple-conciliar (cron header) — 27/11/2026, same
+  # rule as supabase/config.toml. With the gate on, every Apple notification would get 401.
+  SEM_JWT: "pluggy-hora pluggy-webhook apple-webhook apple-conciliar"
 jobs:
   verificar:
     runs-on: ubuntu-latest

@@ -18,6 +18,15 @@ formulário é declaração sua, e informação errada dá remoção do app.
 | Fotos (nota fiscal, arte) | Sim, quando usa | Ler nota, criar arte | Sim | Prestador de IA |
 | Interações no app (telas, tempo) | Sim | Análise e melhoria (pulso) | Sim | Não |
 | Diagnóstico/erros | Sim | Corrigir bugs | Sim | Não |
+| **Compras** (histórico de compras — só no iPhone com o build `apple`, 27/11/2026) | Sim | Funcionalidade do app (liberar o plano comprado) | Sim (ligado à conta VANT pelo `appAccountToken`) | Não (a Apple processa o pagamento; não é "compartilhamento") |
+
+### Apple › o que muda nos rótulos com o build `apple` (27/11/2026)
+- Acrescentar **Purchases › Purchase History**: *Data Linked to You*, finalidade **App
+  Functionality**, **não** usado para rastreamento.
+- Nada muda em "Financial Info": não recebemos cartão nem dados de pagamento da Apple.
+- Continua: sem rastreamento entre apps, sem ATT.
+- Os rótulos valem para o app na loja inteira: publicar a mudança junto com o build `apple`
+  (antes dele o app não registra compras).
 
 - **Criptografia em trânsito:** Sim (HTTPS em tudo).
 - **Pessoa pode pedir exclusão:** Sim — no app (Minha Conta) e em https://app.orbis.inf.br/excluir-conta.
