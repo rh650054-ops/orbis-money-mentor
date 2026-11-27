@@ -2,11 +2,26 @@
  *  - "link" (modelo Néctar, padrão): sem preço nem checkout no app. Um cartão/tela com
  *    "Assinar" que abre o site da VANT no navegador, "Tentar novamente" e "Sair da conta".
  *  - "fora" (reserva): aviso neutro, só suporte. */
-import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { ExternalLink, LogOut, RefreshCw } from "lucide-react";
-import { EVENTO_ASSINATURA_LOJA, assinaPeloSite, podeMostrarAssinatura } from "@/shared/lib/cobranca-loja";
+import { EVENTO_ASSINATURA_LOJA, assinaPelaApple, assinaPeloSite, podeMostrarAssinatura } from "@/shared/lib/cobranca-loja";
 import { abrirLinkExterno } from "@/shared/lib/link-externo";
 import { abrirAssinarNoSite, abrirRenovarNoSite } from "@/shared/lib/assinar-no-site";
+
+// iPhone with native billing (27/11/2026): the plans screen of the feature, loaded only there
+const PlanosApple = lazy(() => import("@/features/assinatura-apple").then((m) => ({ default: m.PlanosApple })));
+
+/** "apple" mode: Apple's native plans screen wherever the store app would show "assinar". */
+export function TelaAssinarPelaApple({ onLiberada, onFechar }: { onLiberada?: () => void; onFechar?: () => void }) {
+  return (
+    <div className="rounded-[22px] px-4 py-5" style={{ background: "#000" }}>
+      <Suspense fallback={<div aria-busy="true" className="h-[420px] rounded-[18px] animate-pulse" style={{ background: "#0e0e10" }} />}>
+        <PlanosApple onLiberada={onLiberada} />
+      </Suspense>
+      {onFechar && <button type="button" onClick={onFechar} className="mt-3 w-full h-10 text-[12.5px] font-extrabold" style={{ color: "#8f897c" }}>agora não</button>}
+    </div>
+  );
+}
 
 const SUPORTE = "https://wa.me/5511915054830?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20com%20a%20minha%20conta%20da%20Vant";
 const GOLD = "#F5B800";
@@ -58,6 +73,7 @@ export function TelaAssinarPeloSite({ titulo, texto, onTentar, tentando, onSair,
 
 /** Modo "fora": aviso neutro, sem link nem preço, só suporte. */
 export function AvisoAssinaturaLoja({ onFechar }: { onFechar?: () => void }) {
+  if (assinaPelaApple()) return <TelaAssinarPelaApple onFechar={onFechar} />;
   if (assinaPeloSite()) return <TelaAssinarPeloSite />;
   return (
     <div className="rounded-[20px] border px-5 py-5 flex flex-col gap-2.5 text-left" style={{ background: "#0e0e10", borderColor: "rgba(245,184,0,.35)" }}>

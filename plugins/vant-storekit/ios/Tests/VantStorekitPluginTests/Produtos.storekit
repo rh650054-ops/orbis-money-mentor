@@ -1,0 +1,56 @@
+{
+  "identifier" : "VANT0001",
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "pt_BR",
+    "_storefront" : "BRA",
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21000001",
+      "localizations" : [ { "description" : "", "displayName" : "Planos VANT", "locale" : "pt_BR" } ],
+      "name" : "VANT Planos",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [], "codeOffers" : [], "displayPrice" : "419.90", "familyShareable" : false, "groupNumber" : 1,
+          "internalID" : "6700000001", "introductoryOffer" : null,
+          "localizations" : [ { "description" : "Tudo do Pro, com 2 bancos conectados.", "displayName" : "VANT Pro Anual", "locale" : "pt_BR" } ],
+          "productID" : "app.vant.vendas.pro.anual", "recurringSubscriptionPeriod" : "P1Y", "referenceName" : "Pro anual",
+          "subscriptionGroupID" : "21000001", "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [], "codeOffers" : [], "displayPrice" : "49.90", "familyShareable" : false, "groupNumber" : 1,
+          "internalID" : "6700000002", "introductoryOffer" : null,
+          "localizations" : [ { "description" : "Tudo do Essencial e 1 banco conectado.", "displayName" : "VANT Pro Mensal", "locale" : "pt_BR" } ],
+          "productID" : "app.vant.vendas.pro.mensal", "recurringSubscriptionPeriod" : "P1M", "referenceName" : "Pro mensal",
+          "subscriptionGroupID" : "21000001", "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [], "codeOffers" : [], "displayPrice" : "29.90", "familyShareable" : false, "groupNumber" : 2,
+          "internalID" : "6700000003", "introductoryOffer" : null,
+          "localizations" : [ { "description" : "Foco, metas, ranking e relatório do dia.", "displayName" : "VANT Essencial", "locale" : "pt_BR" } ],
+          "productID" : "app.vant.vendas.essencial.mensal", "recurringSubscriptionPeriod" : "P1M", "referenceName" : "Essencial mensal",
+          "subscriptionGroupID" : "21000001", "type" : "RecurringSubscription"
+        }
+      ]
+    },
+    {
+      "id" : "21000002",
+      "localizations" : [ { "description" : "", "displayName" : "Banco adicional VANT", "locale" : "pt_BR" } ],
+      "name" : "VANT Banco adicional",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [], "codeOffers" : [], "displayPrice" : "12.90", "familyShareable" : false, "groupNumber" : 1,
+          "internalID" : "6700000004", "introductoryOffer" : null,
+          "localizations" : [ { "description" : "Mais 1 banco conectado na sua conta VANT.", "displayName" : "Banco adicional", "locale" : "pt_BR" } ],
+          "productID" : "app.vant.vendas.banco.mensal", "recurringSubscriptionPeriod" : "P1M", "referenceName" : "Banco adicional",
+          "subscriptionGroupID" : "21000002", "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : { "major" : 3, "minor" : 0 }
+}

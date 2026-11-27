@@ -9,6 +9,7 @@
 -- So when the same file says "1 account changes" in production, that count can be trusted.
 \ir direitos/preparo.sql
 \ir ../schema/extra/direitos_producao_20261127_b.sql
+\ir ../schema/extra/direitos_producao_20261127_c.sql
 select pg_temp.servidor();
 \o /dev/null
 \ir direitos/caracterizacao.sql

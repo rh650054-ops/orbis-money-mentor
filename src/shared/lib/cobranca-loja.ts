@@ -6,10 +6,13 @@
  *            novamente" e "Sair da conta". A compra acontece no site (Hotmart) e o
  *            webhook libera a conta pelo CPF.
  *  - "fora": reserva, se uma loja recusar o link: nem botão, só o aviso neutro com suporte.
- * Troca sem mexer no código: VITE_COBRANCA_LOJA=fora no build da loja. */
+ *  - "apple": (Rick, 27/11/2026) SÓ no iPhone: assinatura nativa da Apple (StoreKit 2). Tudo que é
+ *            "assinar" abre a tela de planos nativa (src/features/assinatura-apple); nenhum link
+ *            para o site, nenhum checkout da Hotmart. No Android o mesmo valor continua "link".
+ * Troca sem mexer no código: VITE_COBRANCA_LOJA=fora|link|apple no build da loja. */
 import { plataforma } from "./platform";
 
-export type ModoCobranca = "web" | "fora" | "link";
+export type ModoCobranca = "web" | "fora" | "link" | "apple";
 export const EVENTO_ASSINATURA_LOJA = "vant:assinatura-loja";
 
 /** Fallback when the token cannot be created: /assinar without a token (3 plans, straight to
@@ -19,7 +22,9 @@ export const EVENTO_ASSINATURA_LOJA = "vant:assinatura-loja";
 export const LINK_ASSINAR_SITE = "https://app.vantapp.com.br/assinar";
 
 export function modoCobranca(env: string | undefined = import.meta.env.VITE_COBRANCA_LOJA): ModoCobranca {
-  if (plataforma() === "web") return "web";
+  const onde = plataforma();
+  if (onde === "web") return "web";
+  if (env === "apple" && onde === "ios") return "apple";
   return env === "fora" ? "fora" : "link";
 }
 
@@ -28,3 +33,6 @@ export const podeMostrarAssinatura = (): boolean => modoCobranca() === "web";
 
 /** App da loja no modelo Néctar: tudo que é "assinar" vira o botão que abre o site. */
 export const assinaPeloSite = (): boolean => modoCobranca() === "link";
+
+/** App do iPhone com assinatura nativa: tudo que é "assinar" abre a tela de planos da Apple. */
+export const assinaPelaApple = (): boolean => modoCobranca() === "apple";

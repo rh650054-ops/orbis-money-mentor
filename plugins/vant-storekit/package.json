@@ -1,0 +1,10 @@
+{
+  "name": "vant-storekit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VANT's own Capacitor bridge to StoreKit 2 (iPhone subscriptions). iOS only.",
+  "license": "UNLICENSED",
+  "files": ["ios/Sources", "Package.swift"],
+  "capacitor": { "ios": { "src": "ios" } },
+  "peerDependencies": { "@capacitor/core": ">=8.0.0" }
+}

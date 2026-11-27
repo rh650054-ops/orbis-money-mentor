@@ -172,7 +172,8 @@ export function abrirCheckout(url: string): void {
   // no navegador do celular; "fora" mostra o aviso neutro.
   const modo = modoCobranca();
   if (modo === "link") { marcarCheckoutAberto(); void abrirAssinarNoSite(); return; }
-  if (modo === "fora") {
+  // "apple" (iPhone, native billing): never a link; the overlay shows Apple's plans screen
+  if (modo === "fora" || modo === "apple") {
     window.dispatchEvent(new CustomEvent(EVENTO_ASSINATURA_LOJA));
     return;
   }

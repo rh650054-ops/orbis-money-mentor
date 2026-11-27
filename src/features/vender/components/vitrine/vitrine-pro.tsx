@@ -7,7 +7,7 @@
 import type { ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
 import { COR } from "@/shared/components/vant-ui";
-import { assinaPeloSite, podeMostrarAssinatura } from "@/shared/lib/cobranca-loja";
+import { EVENTO_ASSINATURA_LOJA, assinaPelaApple, assinaPeloSite, podeMostrarAssinatura } from "@/shared/lib/cobranca-loja";
 import { abrirAssinarNoSite } from "@/shared/lib/assinar-no-site";
 import { useApareceu } from "./use-vitrine-motion";
 import { VitrineAoVivo } from "./vitrine-ao-vivo";
@@ -70,6 +70,12 @@ export function VitrinePro({ lancado, assinaEssencial, diasDeTeste }: {
       <Bloco titulo="Ranking de hoje"><VitrineRanking /></Bloco>
 
       {vende && <Bloco titulo={assinaEssencial ? "Suba pro Pro" : "Escolha seu plano"}><VitrinePlanos assinaEssencial={assinaEssencial} /></Bloco>}
+      {!vende && assinaPelaApple() && (
+        <button type="button" onClick={() => window.dispatchEvent(new CustomEvent(EVENTO_ASSINATURA_LOJA))} className="w-full h-[52px] rounded-[16px] text-[15px] font-black"
+          style={{ color: "#1A1200", background: "linear-gradient(180deg,#FFF1B3 0%,#FFC800 55%,#D9A800 100%)" }}>
+          Ver planos
+        </button>
+      )}
       {!vende && assinaPeloSite() && (
         <button type="button" onClick={() => void abrirAssinarNoSite()} className="w-full h-[52px] rounded-[16px] inline-flex items-center justify-center gap-2 text-[15px] font-black"
           style={{ color: "#1A1200", background: "linear-gradient(180deg,#FFF1B3 0%,#FFC800 55%,#D9A800 100%)" }}>

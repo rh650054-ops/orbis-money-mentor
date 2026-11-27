@@ -2,6 +2,7 @@
 -- (migration 20261127122000). Fictional data only: invented accounts, codes, prices and dates.
 \ir direitos/preparo.sql
 \ir ../schema/extra/direitos_producao_20261127_b.sql
+\ir ../schema/extra/direitos_producao_20261127_c.sql
 \ir direitos/migracoes.sql
 select pg_temp.servidor();
 \ir direitos/apple.sql

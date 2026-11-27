@@ -10,11 +10,14 @@
    • A reserva deixou de ser uma conta: é uma caixinha (ver ReservaCaixinha).
    • BancoExtra: Pro mensal inclui 1 banco, Pro anual 2, Essencial 0; cada banco a mais é +R$ 12,90/mês.
    ============================================================ */
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Briefcase, Home, Loader2, Sparkles, Lock } from "lucide-react";
 import { toast } from "@/shared/hooks/use-toast";
 import { BANCO_EXTRA_CHECKOUT, aoClicarCheckout } from "@/shared/lib/checkout";
 import { useCheckoutUrl } from "@/hooks/useCheckoutUrl";
+import { assinaPelaApple } from "@/shared/lib/cobranca-loja";
+
+const BancoAdicionalApple = lazy(() => import("@/features/assinatura-apple").then((m) => ({ default: m.BancoAdicionalApple })));
 import { definirPapel, type ContaVenda } from "@/components/conectar/pluggy";
 
 export type Papel = "trabalho" | "pessoal";
@@ -129,7 +132,14 @@ export function ContasDeVenda({ contas, onMudou }: { contas: ContaVenda[]; onMud
   );
 }
 
-export function BancoExtra({ usados, onFechar, email }: { usados: number; onFechar: () => void; email?: string | null }) {
+export function BancoExtra(props: { usados: number; onFechar: () => void; email?: string | null }) {
+  // iPhone with native billing (27/11/2026): the add-on is bought through Apple, here, in the
+  // management of the connected banks, and never on the main plans screen
+  if (assinaPelaApple()) return <Suspense fallback={null}><BancoAdicionalApple usados={props.usados} onFechar={props.onFechar} /></Suspense>;
+  return <BancoExtraHotmart {...props} />;
+}
+
+function BancoExtraHotmart({ usados, onFechar, email }: { usados: number; onFechar: () => void; email?: string | null }) {
   // identidade da conta já preenchida no checkout (e-mail, CPF, xcod): é por ela que o
   // webhook acha o dono da compra. O `email` da prop só entra se a conta não tiver um.
   const montar = useCheckoutUrl();
