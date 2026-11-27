@@ -29,12 +29,19 @@ final class LojaAppleTests: XCTestCase {
     /// true when a real app hosts the tests (purchases work only then)
     private static let hospedado = Bundle.main.bundleIdentifier == "app.vant.vendas.hospedeiro"
 
-    override func setUpWithError() throws {
+    override func setUp() async throws {
         let url = try XCTUnwrap(Self.recursos.url(forResource: "Produtos", withExtension: "storekit"))
         sessao = try SKTestSession(contentsOf: url)
         sessao.resetToDefaultState()
         sessao.clearTransactions()
         sessao.disableDialogs = true
+        guard Self.hospedado else { return }
+        // The local test server clears in the background: a transaction of the PREVIOUS test (an
+        // approved Ask to Buy, for instance) can still be listed for a moment. Wait for a clean start.
+        for _ in 0..<50 {
+            if await loja.pendentes().isEmpty { break }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
     }
 
     override func tearDown() {
@@ -129,6 +136,7 @@ final class LojaAppleTests: XCTestCase {
 
     func testFalhaNaCompraViraCodigoENaoCriaTransacao() async throws {
         try XCTSkipUnless(Self.hospedado, "a purchase needs the host app (ios/Hospedeiro)")
+        let antes = Set(await loja.pendentes().compactMap { $0["transacao"] as? String })
         sessao.failTransactionsEnabled = true
         sessao.failureError = .unknown
         do {
@@ -137,8 +145,9 @@ final class LojaAppleTests: XCTestCase {
         } catch {
             XCTAssertFalse(LojaApple.codigo(error).isEmpty)
         }
-        let pendentes = await loja.pendentes()
-        XCTAssertTrue(pendentes.isEmpty, "a purchase that failed left nothing to be charged or recovered")
+        // what this purchase created, not what another test may have left behind
+        let novas = await loja.pendentes().filter { !antes.contains($0["transacao"] as? String ?? "") }
+        XCTAssertTrue(novas.isEmpty, "a purchase that failed left nothing to be charged or recovered: \(novas.compactMap { $0["produto"] as? String })")
     }
 
     func testRenovacaoChegaPeloOuvinte() async throws {
@@ -153,7 +162,8 @@ final class LojaAppleTests: XCTestCase {
         await fulfillment(of: [chegou], timeout: 20)
         escuta.cancel()
         let pendentes = await loja.pendentes()
-        XCTAssertFalse(pendentes.isEmpty, "the renewal is also kept unfinished until the server confirms it")
+        XCTAssertTrue(pendentes.contains { $0["original"] as? String == r["original"] as? String && $0["transacao"] as? String != r["transacao"] as? String },
+                      "the renewal is also kept unfinished until the server confirms it")
     }
 
     func testReembolsoChegaComAData() async throws {
