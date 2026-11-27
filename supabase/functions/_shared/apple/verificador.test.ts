@@ -1,5 +1,5 @@
 // @vitest-environment node
-/* Is it really Apple's? The REAL verification (Apple's official library) against a fictional
+/* Is it really Apple's? The REAL verification (WebCrypto, the same checks as Apple's library offline) against a fictional
    authority shaped like Apple's, plus the proof that the server trusts Apple's root and nothing else. */
 import { createHash, X509Certificate } from "node:crypto";
 import { describe, expect, it } from "vitest";
@@ -91,6 +91,36 @@ describe("a signed transaction", () => {
     expect(await recusa(v.transacao(cadeia.assinar(transacao({ environment: undefined }))))).toBe("ambiente_ausente");
     expect(await recusa(v.transacao(cadeia.assinar(transacao({ environment: "Xcode" }))))).toBe("ambiente_ausente");
     expect((await v.transacao(cadeia.assinar(transacao({ environment: "Production" })))).environment).toBe("Production");
+  });
+});
+
+describe("a chain shaped exactly like Apple's (P-384 root and intermediate, SHA-384; P-256 leaf)", () => {
+  // 27/11/2026: the first Sandbox purchase failed because Apple's library could not run on the Edge
+  // runtime. The verification now uses WebCrypto; this is the shape of Apple's REAL chain.
+  const apple = criarCadeia({ comoApple: true, nome: "Como Apple" });
+  const va = criarVerificador({ raizes: [apple.raiz], bundleId: BUNDLE_ID, appAppleId: APP_APPLE_ID, online: false });
+  it("accepted: transaction, renewal info and notification", async () => {
+    expect((await va.transacao(apple.assinar(transacao({ productId: "app.vant.vendas.essencial.mensal" })))).productId).toBe("app.vant.vendas.essencial.mensal");
+    expect((await va.renovacao(apple.assinar(renovacao()))).autoRenewStatus).toBe(1);
+    expect((await va.notificacao(apple.assinar(notificacao(apple, "SUBSCRIBED", transacao(), renovacao())))).notificationType).toBe("SUBSCRIBED");
+  });
+  it("refused when edited, forged, or under another P-384 authority", async () => {
+    const jws = apple.assinar(transacao());
+    expect(await recusa(va.transacao(adulterar(jws, (p) => { p.productId = "app.vant.vendas.pro.anual"; })))).toBe("VERIFICATION_FAILURE");
+    expect(await recusa(va.transacao(apple.forjar(transacao())))).toBe("VERIFICATION_FAILURE");
+    expect(await recusa(va.transacao(criarCadeia({ comoApple: true, nome: "Impostora" }).assinar(transacao())))).toBe("VERIFICATION_FAILURE");
+  });
+  it("only WebCrypto is needed: the verifier never touches node:crypto's X509Certificate", async () => {
+    const fonte = await import("node:fs").then((fs) => fs.readFileSync(new URL("./verificador.ts", import.meta.url), "utf8") + fs.readFileSync(new URL("./certificado.ts", import.meta.url), "utf8"));
+    const imports = fonte.split("\n").filter((l) => /^\s*import\b/.test(l)).join("\n");
+    expect(imports).not.toMatch(/node:crypto|app-store-server-library|jsonwebtoken|node:buffer/);
+    expect(fonte).not.toMatch(/new X509Certificate|createVerify|createPublicKey/);
+  });
+  it("Apple's real root is read by the same code (the one the server trusts)", async () => {
+    expect(() => criarVerificador({ raizes: RAIZES_APPLE, bundleId: BUNDLE_ID, appAppleId: APP_APPLE_ID, online: false })).not.toThrow();
+  });
+  it("OCSP (online) is not supported: asking for it fails loudly instead of silently skipping it", () => {
+    expect(() => criarVerificador({ raizes: [apple.raiz], bundleId: BUNDLE_ID, appAppleId: APP_APPLE_ID, online: true })).toThrow();
   });
 });
 
