@@ -50,39 +50,23 @@ describe("store app in apple mode", () => {
     expect(screen.queryByTestId("planos-apple")).toBeNull();
   });
 
-  it("full-screen paywall: covers the app, keeps the exits (verify access, sign out) and locks the page behind it", async () => {
+  it("full-screen paywall (V3): a fixed column that never scrolls itself, with the body that scrolls inside it, and the exits (verify access, sign out)", async () => {
     const verificar = vi.fn(); const sair = vi.fn();
-    const { unmount } = render(<TelaAssinarPelaApple telaCheia onVerificar={verificar} onSair={sair} />);
-    expect(await screen.findByTestId("planos-apple")).toBeInTheDocument();
+    render(<TelaAssinarPelaApple telaCheia onVerificar={verificar} onSair={sair} />);
     const tela = screen.getByRole("dialog", { name: "Planos da VANT" });
-    // the full screen itself is what scrolls (27/11/2026: no vertical scroll on the iPhone)
+    expect(tela).toContainElement(await screen.findByTestId("planos-apple"));
     expect(tela.className).toContain("fixed inset-0");
-    expect(tela.className).toContain("overflow-y-auto");
-    expect(tela.className).not.toContain("overscroll-contain");
-    expect(tela).toContainElement(screen.getByTestId("planos-apple"));
-    // the page behind is held by the dialog's scroll lock, never by an inline body style
-    expect(document.body.hasAttribute("data-scroll-locked")).toBe(true);
+    expect(tela.className).toContain("flex-col");
+    // the frame itself is not the scroller (builds 17 and 18 did not scroll on the iPhone)
+    expect(tela.className).not.toContain("overflow-y-auto");
+    // no dialog library and no hand-made page lock under it
+    expect(document.body.hasAttribute("data-scroll-locked")).toBe(false);
     expect(document.body.style.overflow).toBe("");
     fireEvent.click(screen.getByRole("button", { name: "Já paguei, verificar acesso" }));
     fireEvent.click(screen.getByRole("button", { name: "Sair da conta" }));
     expect(verificar).toHaveBeenCalledTimes(1);
     expect(sair).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("button", { name: "Fechar" })).toBeNull();
-    unmount();
-    expect(document.body.hasAttribute("data-scroll-locked")).toBe(false);
-  });
-
-  it("opened over another sheet of the app, the paywall is the newest lock: its content stays the scroll area and Esc does not close it", async () => {
-    const { Sheet, SheetContent, SheetTitle, SheetDescription } = await import("@/shared/ui/sheet");
-    const folha = <Sheet open><SheetContent side="bottom"><SheetTitle>Outra folha</SheetTitle><SheetDescription>abaixo</SheetDescription></SheetContent></Sheet>;
-    const { rerender } = render(<>{folha}</>);
-    await screen.findByRole("dialog", { name: "Outra folha" });
-    rerender(<>{folha}<TelaAssinarPelaApple telaCheia onSair={vi.fn()} /></>);
-    const tela = await screen.findByRole("dialog", { name: "Planos da VANT" });
-    expect(tela).toContainElement(await screen.findByTestId("planos-apple"));
-    fireEvent.keyDown(tela, { key: "Escape" });
-    expect(screen.getByRole("dialog", { name: "Planos da VANT" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sair da conta" })).toBeEnabled();
   });
 
   it("an 'assinar' tap anywhere opens the full-screen paywall, and the X closes it", async () => {

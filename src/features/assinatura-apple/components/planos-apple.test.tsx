@@ -29,19 +29,22 @@ describe("an account whose Apple plan is already on", () => {
     render(<PlanosApple aoTerPlano={continuar} />);
     expect(screen.getByRole("status").textContent).toContain("Sua assinatura está ativa");
     expect(screen.getByRole("status").textContent).toContain("O Pro anual pela Apple já está liberado");
-    expect(screen.queryByRole("radiogroup")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Escolha seu plano" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     expect(continuar).toHaveBeenCalledTimes(1);
   });
 
-  it("elsewhere (changing plan): its own plan is marked, the button reads 'Seu plano atual' and is off; choosing another enables 'Trocar para'", () => {
+  it("elsewhere (changing plan): its own plan is marked; its details say 'Seu plano atual' (off); another plan's details offer 'Trocar para'", () => {
     render(<PlanosApple />);
-    const cta = screen.getByRole("button", { name: /^Seu plano atual/ });
-    expect(cta).toBeDisabled();
-    expect(screen.getByText("Para trocar, escolha outro plano acima.")).toBeInTheDocument();
+    const anual = screen.getByRole("button", { name: /^Pro anual,/ });
+    expect(anual.textContent).toContain("SEU PLANO");
+    fireEvent.click(anual);
+    expect(screen.getByRole("button", { name: /^Seu plano atual/ })).toBeDisabled();
     expect(screen.queryByRole("button", { name: /^Trocar para Pro anual/ })).toBeNull();
-    fireEvent.click(screen.getAllByRole("radio").find((r) => r.textContent?.includes("Essencial")) as HTMLElement);
+    fireEvent.click(screen.getByRole("button", { name: /Escolher outro plano/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Essencial,/ }));
     expect(screen.getByRole("button", { name: /^Trocar para Essencial/ })).toBeEnabled();
     expect(PRODUTO.proAnual).toBe("app.vant.vendas.pro.anual");
   });
+
 });
