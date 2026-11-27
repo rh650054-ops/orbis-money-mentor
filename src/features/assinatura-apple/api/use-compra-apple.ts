@@ -14,7 +14,8 @@ export { EVENTO_APPLE_LIBEROU };
 export const ESPERAS_DA_CONFIRMACAO_MS = [4_000, 12_000, 30_000, 60_000];
 
 const relevante = (rs: ResultadoCompra[]): ResultadoCompra | null =>
-  rs.find((r) => r.estado === "liberada") ?? rs.find((r) => r.estado === "aguardando_servidor") ?? rs.find((r) => r.estado === "de_outra_conta") ?? null;
+  rs.find((r) => r.estado === "liberada") ?? rs.find((r) => r.estado === "aguardando_servidor") ?? rs.find((r) => r.estado === "de_outra_conta")
+  ?? rs.find((r) => r.estado === "recusada" && r.motivo === "sem_acesso") ?? null;
 
 /** Buying, restoring and retrying, with the state the screen draws. */
 export function useCompraApple() {

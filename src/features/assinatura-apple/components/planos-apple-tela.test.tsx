@@ -116,3 +116,16 @@ describe("after a purchase attempt", () => {
     expect(textoDoEstado({ estado: "pendente_aprovacao", produto: "x" }).texto).toContain("Nada foi cobrado");
   });
 });
+
+describe("a purchase stored without access", () => {
+  it("never reads as an active subscription: calm text, no 'Continuar', back to the plans", () => {
+    const { props } = montar({ resultado: { estado: "recusada", produto: PRODUTO.proAnual, motivo: "sem_acesso" } });
+    const status = screen.getByRole("status").textContent ?? "";
+    expect(status).toContain("Compra sem acesso nesta conta");
+    expect(status).toContain("Você não será cobrado de novo");
+    expect(status).not.toMatch(/Assinatura ativa/);
+    expect(screen.queryByRole("button", { name: "Continuar" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Voltar aos planos" }));
+    expect(props.onVoltar).toHaveBeenCalled();
+  });
+});

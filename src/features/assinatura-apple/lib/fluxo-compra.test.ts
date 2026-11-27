@@ -254,3 +254,25 @@ describe("restoring purchases", () => {
     expect(fora.loja.naoConcluidas.size).toBe(1);
   });
 });
+
+describe("stored is not unlocked (27/11/2026: an Apple test purchase on an account that is not a VANT test account)", () => {
+  it("the server stored it but the account has no plan: 'sem_acesso', never 'liberada'; finished, since it is stored", async () => {
+    const { fluxo, loja, servidor } = montar();
+    servidor.resposta = () => ({ tipo: "ok", resultados: [{ resultado: "gravada" }], acesso: { plano: false } });
+    expect(await fluxo.comprar(PRODUTO.proAnual)).toEqual({ estado: "recusada", produto: PRODUTO.proAnual, motivo: "sem_acesso" });
+    expect(loja.naoConcluidas.size).toBe(0);
+  });
+
+  it("the server stored it and the account has the plan: 'liberada', as before", async () => {
+    const { fluxo, servidor } = montar();
+    servidor.resposta = () => ({ tipo: "ok", resultados: [{ resultado: "gravada" }], acesso: { plano: true } });
+    expect((await fluxo.comprar(PRODUTO.essencial)).estado).toBe("liberada");
+  });
+
+  it("restoring a purchase that unlocks nothing says so, not 'nothing found'", async () => {
+    const { fluxo, loja, servidor } = montar();
+    loja.nova(PRODUTO.proAnual, CONTA_A);
+    servidor.resposta = () => ({ tipo: "ok", resultados: [{ resultado: "gravada" }], acesso: { plano: false } });
+    expect((await fluxo.restaurar()).estado).toBe("sem_acesso");
+  });
+});

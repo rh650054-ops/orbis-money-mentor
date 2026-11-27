@@ -22,6 +22,9 @@ export function textoDoEstado(r: ResultadoCompra): Texto {
     case "de_outra_conta":
       return { icone: <AlertTriangle className="w-7 h-7" />, titulo: "Compra de outra conta VANT", texto: "A compra da Apple neste iPhone foi feita para outra conta VANT. Entre na conta que fez a compra para liberar o acesso.", cor: GOLD };
     case "recusada":
+      // stored by the server but grants nothing to this account (e.g. an Apple test purchase on an
+      // account that is not a VANT test account): never shown as an active subscription
+      if (r.motivo === "sem_acesso") return { icone: <ShieldCheck className="w-7 h-7" />, titulo: "Compra sem acesso nesta conta", texto: "A Apple registrou a compra, mas ela não libera acesso nesta conta VANT. Você não será cobrado de novo. Se precisar de ajuda, fale com o suporte da VANT.", cor: GOLD };
       return r.motivo === "reembolsada"
         ? { icone: <AlertTriangle className="w-7 h-7" />, titulo: "Esta compra foi reembolsada", texto: "A Apple devolveu o valor desta compra, então ela não libera acesso. Você pode assinar de novo quando quiser.", cor: "#ff7d6b" }
         : { icone: <ShieldCheck className="w-7 h-7" />, titulo: "Ainda não conseguimos confirmar", texto: "Sua compra está registrada na Apple e você não será cobrado de novo. Toque em Restaurar compras em instantes ou fale com o suporte da VANT.", cor: GOLD };
