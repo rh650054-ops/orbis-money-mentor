@@ -14,9 +14,11 @@ export async function validarNoServidor(jws: string[]): Promise<RespostaDoServid
       if (typeof status === "number") return { tipo: "servidor" };
       return { tipo: "sem_internet" };
     }
-    const resultados = (data as { resultados?: unknown } | null)?.resultados;
+    const corpo = data as { resultados?: unknown; acesso?: { plano?: unknown } } | null;
+    const resultados = corpo?.resultados;
     if (!Array.isArray(resultados)) return { tipo: "servidor" };
-    return { tipo: "ok", resultados: resultados as { resultado: string }[] };
+    const plano = corpo?.acesso?.plano;
+    return { tipo: "ok", resultados: resultados as { resultado: string }[], ...(typeof plano === "boolean" ? { acesso: { plano } } : {}) };
   } catch {
     return { tipo: "sem_internet" };
   }

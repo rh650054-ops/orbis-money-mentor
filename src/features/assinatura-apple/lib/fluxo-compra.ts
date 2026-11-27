@@ -14,7 +14,8 @@ import { codigoDoErro } from "./ponte";
 import type { ResultadoCompra, TransacaoApple } from "../types";
 
 export type RespostaDoServidor =
-  | { tipo: "ok"; resultados: { resultado: string }[] }
+  /** acesso.plano: what the account has NOW, read by the server after storing (undefined = not sent) */
+  | { tipo: "ok"; resultados: { resultado: string }[]; acesso?: { plano: boolean } }
   | { tipo: "sem_internet" } | { tipo: "servidor" } | { tipo: "sessao" };
 
 export interface Deps {
@@ -46,6 +47,10 @@ export function criarFluxo(deps: Deps) {
     const resultado = r.resultados[0]?.resultado ?? "tente_de_novo";
     if (GUARDADA.has(resultado)) {
       await deps.ponte.concluir({ transacao: t.transacao });
+      // 27/11/2026: stored is not the same as unlocked. The server only grants a Sandbox purchase to a
+      // registered test account (apple_vale), so a Sandbox purchase on any other account is stored and
+      // grants nothing: say so, never "Assinatura ativa". The server's answer decides, not the app.
+      if (r.acesso?.plano === false) return { estado: "recusada", produto: t.produto, motivo: "sem_acesso" };
       return { estado: "liberada", produto: t.produto };
     }
     if (SEM_VOLTA.has(resultado)) {
@@ -100,7 +105,7 @@ export function criarFluxo(deps: Deps) {
   }
 
   /** "Restaurar compras": asks the App Store again, then sends what this Apple account has. */
-  async function restaurar(): Promise<{ estado: "restaurada" | "nada" | "aguardando_servidor" | "de_outra_conta" | "falhou"; resultados: ResultadoCompra[] }> {
+  async function restaurar(): Promise<{ estado: "restaurada" | "nada" | "aguardando_servidor" | "de_outra_conta" | "sem_acesso" | "falhou"; resultados: ResultadoCompra[] }> {
     if (!deps.conta()) return { estado: "falhou", resultados: [] };
     try { await deps.ponte.sincronizar(); } catch (e) { if (codigoDoErro(e) !== "cancelada") return { estado: "falhou", resultados: [] }; }
     const pendentes = await recuperar();
@@ -108,7 +113,8 @@ export function criarFluxo(deps: Deps) {
     const resultados = [...pendentes];
     for (const t of transacoes) resultados.push(await processar(t));
     const tem = (e: ResultadoCompra["estado"]) => resultados.some((x) => x.estado === e);
-    return { estado: tem("liberada") ? "restaurada" : tem("aguardando_servidor") ? "aguardando_servidor" : tem("de_outra_conta") ? "de_outra_conta" : "nada", resultados };
+    const semAcesso = resultados.some((x) => x.estado === "recusada" && x.motivo === "sem_acesso");
+    return { estado: tem("liberada") ? "restaurada" : tem("aguardando_servidor") ? "aguardando_servidor" : tem("de_outra_conta") ? "de_outra_conta" : semAcesso ? "sem_acesso" : "nada", resultados };
   }
 
   return { comprar, processar, recuperar, restaurar };
