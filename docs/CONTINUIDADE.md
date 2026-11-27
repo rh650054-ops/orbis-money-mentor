@@ -93,3 +93,13 @@ não mudam.
 - Agendamento `apple-conciliar-hora` (job 29, `23 * * * *`).
 - Pendentes: migração 4 (após #377), URL de notificações no App Store Connect, conta `revisao.compra`
   e registro como conta de teste, variável `VITE_COBRANCA_LOJA_IOS=apple` e build.
+
+## 27/11/2026 (tarde) — primeira compra Sandbox
+
+- Conta de teste: teste.sandbox.rick@vant.com.br (sem cortesia, fora de ranking/CRM/MRR/comissões, autorizada para Sandbox). Build 13 no TestFlight.
+- Compra Sandbox Essencial ~12:19: a Apple cobrou, a VANT mostrou "Não foi possível confirmar".
+- Causa raiz: o runtime das Edge Functions (1.79.1, compat. Deno 2.1.4) não implementa `X509Certificate.verify/toString` de `node:crypto` e chama a curva de "p256"; a verificação da cadeia x5c falhava para toda transação real, e as notificações V2 recebiam 401.
+- Correção (PR #378, incluída no PR do paywall): verificação com WebCrypto + leitor DER próprio, raiz Apple G3 fixada, cliente da App Store Server API com WebCrypto; o app não finaliza a transação quando o servidor recusa por erro interno e tenta de novo em 4s/12s/30s/60s.
+- A compra das 12:19 continua não finalizada no iPhone e é reenviada pelo RecuperadorApple ao abrir o app, depois que as 3 funções forem republicadas fixadas no commit de merge.
+- Paywall premium em tela cheia (fim do teste e toques em "assinar"); uso inline dentro de páginas mantido.
+- Pendente: merge + publicar apple-webhook (verify_jwt false), apple-conciliar (false), apple-validar (true) fixadas no merge; build 14; Rick apagar a função apple-diagnostico-tmp e o branch diag/apple-webcrypto-tmp.
