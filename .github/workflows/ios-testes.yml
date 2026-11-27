@@ -1,0 +1,55 @@
+# Native tests of VANT's StoreKit bridge (plugins/vant-storekit), on a GitHub macOS runner.
+#
+# A TECHNICAL test run: it compiles the Swift code and runs the local StoreKit tests in the iOS
+# Simulator with FICTIONAL products (Produtos.storekit). It signs nothing, uploads nothing to
+# App Store Connect / TestFlight, uses no secret and talks to no real store. It is NOT a build of
+# the app (that is ios-build.yml, run by hand).
+name: iOS tests (StoreKit bridge)
+
+on:
+  pull_request:
+    paths:
+      - "plugins/vant-storekit/**"
+      - ".github/workflows/ios-testes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-testes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  storekit:
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+        working-directory: plugins/vant-storekit
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pick the newest Xcode on the runner
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Pick an iPhone simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k in sorted(d, reverse=True) if 'iOS' in k for x in d[k] if 'iPhone' in x['name']))")
+          echo "SIMULADOR=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl list devices available | grep "$UDID"
+
+      - name: Compile the bridge and run the StoreKit tests
+        run: |
+          set -o pipefail
+          xcodebuild test -scheme VantStorekit -destination "platform=iOS Simulator,id=$SIMULADOR" \
+            -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | grep -E "Test Case|Test Suite|error:|warning: unre|\*\* TEST|Executed" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" "$RUNNER_TEMP/xcodebuild.log"
+
+      - name: Show the end of the log when it fails
+        if: failure()
+        run: grep -E "error|failed|XCTAssert" "$RUNNER_TEMP/xcodebuild.log" | tail -80; tail -40 "$RUNNER_TEMP/xcodebuild.log"

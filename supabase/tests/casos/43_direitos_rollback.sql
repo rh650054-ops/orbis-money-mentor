@@ -5,6 +5,7 @@
 -- touched and nobody lost a courtesy.
 \ir direitos/preparo.sql
 \ir ../schema/extra/direitos_producao_20261127_b.sql
+\ir ../schema/extra/direitos_producao_20261127_c.sql
 \ir direitos/migracoes.sql
 select pg_temp.servidor();
 \ir direitos/apple.sql
@@ -83,7 +84,7 @@ select t.verdade('RB4 the new tables, functions and the trigger are gone; only t
   and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                    where n.nspname = 'public' and (p.proname like 'apple\_%' or p.proname in
                      ('receita_apple', 'receita_por_origem', 'vant_direitos', 'vant_plano_pago_por_outro', 'hotmart_plano_valido', 'conta_suspensa', 'profiles_respeita_suspensao',
-                      'vant_plano_principal_valido', 'vant_acesso_recalcular', 'admin_suspender_acesso', 'admin_liberar_acesso', 'pro_cortesia_revogar', 'orbis_pro_vale')))
+                      'vant_plano_principal_valido', 'vant_acesso_recalcular', 'admin_suspender_acesso', 'admin_liberar_acesso', 'pro_cortesia_revogar', 'orbis_pro_vale', 'assinatura_apple_oferta')))
   and (select count(*) = 1 from public.acesso_suspenso where liberado_em is not null));
 select t.verdade('RB5 the Hotmart subscription and the Hotmart bank slot were not touched',
   (select status = 'active' and hotmart_subscription_id = 'SUB-RB' from public.subscriptions where user_id = pg_temp.id('rb_hotmart'))
@@ -95,7 +96,7 @@ select t.verdade('RB6 the bank slot written by Apple is closed; no function read
 select t.verdade('RB7 nobody lost a courtesy: the one that was held only by the courtesy mark is a plain courtesy row again, and gives the Pro with production''s own reader',
   public.vant_pro_pleno(pg_temp.id('rb_cortesia'))
   and (select ativo and origem = 'cortesia' and cancelado_em is null and expira_em is null from public.orbis_pro where user_id = pg_temp.id('rb_cortesia')));
-select t.verdade('RB8 the sixteen functions are production''s again, by fingerprint (pro_revogar was never changed)',
+select t.verdade('RB8 the eighteen functions are production''s again, by fingerprint (pro_revogar was never changed)',
   (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
       and (p.proname, left(md5(lower(regexp_replace(p.prosrc, '\s+', '', 'g'))), 10)) in
@@ -104,7 +105,7 @@ select t.verdade('RB8 the sixteen functions are production''s again, by fingerpr
            ('orbis_pro_ativo', '0bca1afef2'), ('vant_plano', 'b5096ae261'), ('pro_conceder', '06d0bacb4a'), ('pro_revogar', '57cdf97bdb'),
            ('admin_assinatura_manual', '52e799d460'), ('total_assinantes_app', 'a9354b933f'), ('lista_assinantes', '8f6367dbb2'),
            ('leads_assinantes_no_app', '8700c8fcef'), ('beta_vagas_preenchidas', '6db9db3070'), ('_crm_trial_sem_assinar', 'd574837fcb'),
-           ('_crm_assinante_sem_pro', 'b36b636e3c'))) = 17);
+           ('_crm_assinante_sem_pro', 'b36b636e3c'), ('parceiros_painel', '21280dfd4b'), ('parceiros_resumo', '32a930da42'))) = 19);
 
 -- (test only) the rows the scenarios above left behind would change the counters of the photographs
 delete from public.assinatura_manual;
