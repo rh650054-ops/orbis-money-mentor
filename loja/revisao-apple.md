@@ -66,8 +66,7 @@ Com esse build, o parágrafo "Purchases" acima **sai** e entra este (colar em in
 > To test a purchase, sign in with the account in the sign-in fields (revisao.compra@vant.com.br).
 > It has no paid plan: while its free trial runs, open "Vender" and tap "Ver planos"; when the
 > trial is over, the plans screen ("Eleve o nível das suas vendas.") opens by itself. Plans: Essencial (monthly),
-> Pro (monthly) and Pro (annual), one subscription group; the add-on "Banco adicional" (monthly,
-> second group) is offered in "Conectar banco" to accounts that already have a plan. The screen shows
+> Pro (monthly) and Pro (annual), one subscription group. The screen shows
 > the price and period from the App Store, the auto-renewal terms, "Restaurar compras", and links to
 > the Terms of Use (https://app.vantapp.com.br/termos) and Privacy Policy
 > (https://app.vantapp.com.br/privacidade). After the purchase the plan is unlocked automatically;

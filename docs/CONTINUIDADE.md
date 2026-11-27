@@ -69,3 +69,9 @@ não mudam.
   eventos Hotmart 24 h: 34 (último 02:52); tabelas Apple: não existem.
 - Produção sem as 4 migrações (última aplicada: `20261126172147`).
 - Merge do #373 bloqueado pelo controle de permissões da sessão; nada mais foi executado.
+
+- 27/11 (Rick): Banco adicional cadastrado no mesmo grupo dos planos e **fora de venda no iPhone**
+  (app `BANCO_APPLE_A_VENDA = false`; servidor `FORA_DE_VENDA` → `produto_fora_de_venda`, sem direito,
+  só livro financeiro; oferta `banco: bloqueado`). Não entra na submissão. Hotmart intocada.
+- 27/11: 3 planos cadastrados; 3 segredos da Apple no Supabase; testador Sandbox criado (Brasil);
+  Small Business Program solicitado (taxa estimada segue 25,73%).
