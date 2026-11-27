@@ -12,16 +12,16 @@ const OID_FOLHA = "1.2.840.113635.100.6.11.1";
 const OID_INTERMEDIARIA = "1.2.840.113635.100.6.2.1";
 
 type Par = { prvKeyObj: unknown; pubKeyObj: unknown };
-const par = (): Par => KEYUTIL.generateKeypair("EC", "secp256r1") as unknown as Par;
+const par = (curva = "secp256r1"): Par => KEYUTIL.generateKeypair("EC", curva) as unknown as Par;
 const semCabecalho = (pem: string) => pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
 
-function certificado(o: { serie: number; sujeito: string; emissor: string; chave: Par; chaveDoEmissor: Par; ca: boolean; oid?: string; de?: string; ate?: string }): string {
+function certificado(o: { serie: number; sujeito: string; emissor: string; chave: Par; chaveDoEmissor: Par; ca: boolean; oid?: string; de?: string; ate?: string; sigalg?: string }): string {
   const ext: Record<string, unknown>[] = [{ extname: "basicConstraints", cA: o.ca, critical: true }];
   if (o.oid) ext.push({ extname: o.oid, extn: "0500" });
   const c = new KJUR.asn1.x509.Certificate({
     version: 3, serial: { int: o.serie }, issuer: { str: o.emissor }, subject: { str: o.sujeito },
     notbefore: o.de ?? "250101000000Z", notafter: o.ate ?? "350101000000Z",
-    sbjpubkey: o.chave.pubKeyObj, ext, sigalg: "SHA256withECDSA", cakey: o.chaveDoEmissor.prvKeyObj,
+    sbjpubkey: o.chave.pubKeyObj, ext, sigalg: o.sigalg ?? "SHA256withECDSA", cakey: o.chaveDoEmissor.prvKeyObj,
   } as never);
   return semCabecalho(c.getPEM());
 }
@@ -36,14 +36,17 @@ export interface Cadeia {
   x5c: string[];
 }
 
-export interface OpcoesDeCadeia { folhaSemMarca?: boolean; intermediariaSemMarca?: boolean; folhaVencidaEm?: string; nome?: string }
+/** comoApple: root and intermediate on P-384 signing with SHA-384, the leaf on P-256 (ES256), as
+    Apple's real chain (Apple Root CA - G3 -> WWDR intermediate -> StoreKit leaf). */
+export interface OpcoesDeCadeia { folhaSemMarca?: boolean; intermediariaSemMarca?: boolean; folhaVencidaEm?: string; nome?: string; comoApple?: boolean }
 
 export function criarCadeia(o: OpcoesDeCadeia = {}): Cadeia {
   const n = o.nome ?? "VANT";
-  const raiz = par(), inter = par(), folha = par(), estranho = par();
-  const cRaiz = certificado({ serie: 1, sujeito: `/CN=Raiz de Teste ${n}`, emissor: `/CN=Raiz de Teste ${n}`, chave: raiz, chaveDoEmissor: raiz, ca: true });
-  const cInter = certificado({ serie: 2, sujeito: `/CN=Intermediaria de Teste ${n}`, emissor: `/CN=Raiz de Teste ${n}`, chave: inter, chaveDoEmissor: raiz, ca: true, oid: o.intermediariaSemMarca ? undefined : OID_INTERMEDIARIA });
-  const cFolha = certificado({ serie: 3, sujeito: `/CN=Folha de Teste ${n}`, emissor: `/CN=Intermediaria de Teste ${n}`, chave: folha, chaveDoEmissor: inter, ca: false, oid: o.folhaSemMarca ? undefined : OID_FOLHA, ate: o.folhaVencidaEm });
+  const ca = o.comoApple ? "secp384r1" : "secp256r1", algCa = o.comoApple ? "SHA384withECDSA" : "SHA256withECDSA";
+  const raiz = par(ca), inter = par(ca), folha = par(), estranho = par();
+  const cRaiz = certificado({ serie: 1, sujeito: `/CN=Raiz de Teste ${n}`, emissor: `/CN=Raiz de Teste ${n}`, chave: raiz, chaveDoEmissor: raiz, ca: true, sigalg: algCa });
+  const cInter = certificado({ serie: 2, sujeito: `/CN=Intermediaria de Teste ${n}`, emissor: `/CN=Raiz de Teste ${n}`, chave: inter, chaveDoEmissor: raiz, ca: true, oid: o.intermediariaSemMarca ? undefined : OID_INTERMEDIARIA, sigalg: algCa });
+  const cFolha = certificado({ serie: 3, sujeito: `/CN=Folha de Teste ${n}`, emissor: `/CN=Intermediaria de Teste ${n}`, chave: folha, chaveDoEmissor: inter, ca: false, oid: o.folhaSemMarca ? undefined : OID_FOLHA, ate: o.folhaVencidaEm, sigalg: algCa });
   const x5c = [cFolha, cInter, cRaiz];
   const assinarCom = (chave: Par) => (payload: Record<string, unknown>) =>
     jwt.sign(payload, KEYUTIL.getPEM(chave.prvKeyObj as never, "PKCS8PRV"), { algorithm: "ES256", noTimestamp: true, header: { alg: "ES256", x5c } as never });

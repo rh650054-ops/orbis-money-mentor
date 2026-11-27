@@ -1,6 +1,6 @@
 /* iPhone with native billing ("apple" mode, 27/11/2026): everything that used to send the person to
    the site now shows Apple's plans screen, and the Hotmart checkout is never opened. */
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const modo = vi.fn(() => "apple");
@@ -10,7 +10,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 const abrirSite = vi.fn();
 vi.mock("@/shared/lib/assinar-no-site", () => ({ abrirAssinarNoSite: () => abrirSite(), abrirRenovarNoSite: () => abrirSite() }));
 
-import { AvisoAssinaturaLoja, soComAssinatura } from "./assinatura-loja";
+import { AvisoAssinaturaLoja, OuvinteAssinaturaLoja, TelaAssinarPelaApple, soComAssinatura } from "./assinatura-loja";
 import { abrirCheckout } from "@/shared/lib/checkout";
 import { EVENTO_ASSINATURA_LOJA } from "@/shared/lib/cobranca-loja";
 
@@ -48,5 +48,28 @@ describe("store app in apple mode", () => {
     render(<AvisoAssinaturaLoja />);
     expect(screen.getByText("VER PLANOS E ASSINAR")).toBeInTheDocument();
     expect(screen.queryByTestId("planos-apple")).toBeNull();
+  });
+
+  it("full-screen paywall: covers the app, keeps the exits (verify access, sign out) and locks the page behind it", async () => {
+    const verificar = vi.fn(); const sair = vi.fn();
+    const { unmount } = render(<TelaAssinarPelaApple telaCheia onVerificar={verificar} onSair={sair} />);
+    expect(await screen.findByTestId("planos-apple")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Planos da VANT" }).className).toContain("fixed inset-0");
+    expect(document.body.style.overflow).toBe("hidden");
+    fireEvent.click(screen.getByRole("button", { name: "Já paguei, verificar acesso" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sair da conta" }));
+    expect(verificar).toHaveBeenCalledTimes(1);
+    expect(sair).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Fechar" })).toBeNull();
+    unmount();
+    expect(document.body.style.overflow).toBe("");
+  });
+
+  it("an 'assinar' tap anywhere opens the full-screen paywall, and the X closes it", async () => {
+    render(<OuvinteAssinaturaLoja />);
+    act(() => { window.dispatchEvent(new Event(EVENTO_ASSINATURA_LOJA)); });
+    expect(await screen.findByTestId("planos-apple")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Fechar" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

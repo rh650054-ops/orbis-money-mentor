@@ -1,5 +1,5 @@
 // @vitest-environment node
-/* Asking Apple (App Store Server API) through Apple's official client, with a key created here and
+/* Asking Apple (App Store Server API) with our WebCrypto-signed request, with a key created here and
    the network intercepted: what we send (a request signed with the In-App Purchase key, to the right
    environment) and what we do with each kind of answer. No Apple credential is used. */
 import { generateKeyPairSync } from "node:crypto";

@@ -17,19 +17,23 @@ function montar(extra: Partial<PlanosAppleTelaProps> = {}) {
   return { props, ...render(<PlanosAppleTela {...props} />) };
 }
 
+const radio = (titulo: string) => screen.getAllByRole("radio").find((r) => r.textContent?.includes(titulo)) as HTMLButtonElement;
+
 describe("the plans screen", () => {
   it("three plans, the annual one selected and highlighted, with the saving", () => {
     montar();
     const radios = screen.getAllByRole("radio");
     expect(radios).toHaveLength(3);
-    expect(radios.map((r) => r.getAttribute("aria-checked"))).toEqual(["false", "false", "true"]);
+    expect(radios.map((r) => r.getAttribute("aria-checked"))).toEqual(["true", "false", "false"]);
+    expect(radios[0]?.textContent).toContain("Pro anual");
+    expect(screen.getByText("MELHOR CUSTO-BENEFÍCIO")).toBeInTheDocument();
     expect(screen.getByText("Economize 30%")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Assinar Pro anual" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /^Assinar Pro anual/ })).toBeEnabled();
   });
 
   it("the annual price shown as the price is the total charged per year; the monthly equivalent is a smaller line that says it is charged once a year", () => {
     montar();
-    const anual = screen.getAllByRole("radio")[2] as HTMLElement;
+    const anual = radio("Pro anual");
     const grande = anual.querySelector(".text-\\[26px\\]");
     expect(grande?.textContent).toBe("R$ 419,90");
     expect(anual.textContent).toContain("/ano");
@@ -40,10 +44,10 @@ describe("the plans screen", () => {
 
   it("choosing a plan and subscribing call back; the button names the chosen plan", () => {
     const { props, rerender } = montar();
-    fireEvent.click(screen.getAllByRole("radio")[0] as HTMLElement);
+    fireEvent.click(radio("Essencial"));
     expect(props.onSelecionar).toHaveBeenCalledWith(PRODUTO.essencial);
     rerender(<PlanosAppleTela {...props} selecionado={PRODUTO.essencial} />);
-    fireEvent.click(screen.getByRole("button", { name: "Assinar Essencial" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Assinar Essencial/ }));
     expect(props.onAssinar).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/R\$ 29,90 por mês\. Renovação automática\./)).toBeInTheDocument();
     expect(screen.getByText(/Ao assinar, você concorda com os Termos de Uso e a Política de Privacidade\./)).toBeInTheDocument();
@@ -69,8 +73,8 @@ describe("the plans screen", () => {
   it("a plan that is already Apple's: marked, not buyable again, the button changes plan and Apple's management is offered", () => {
     const { props } = montar({ planoAtual: PRODUTO.essencial, selecionado: PRODUTO.proAnual });
     expect(screen.getByText("SEU PLANO")).toBeInTheDocument();
-    expect(screen.getAllByRole("radio")[0]).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Trocar para Pro anual" })).toBeEnabled();
+    expect(radio("Essencial")).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Trocar para Pro anual/ })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Gerenciar assinatura na Apple" }));
     expect(props.onGerenciar).toHaveBeenCalled();
   });
@@ -90,7 +94,7 @@ describe("after a purchase attempt", () => {
     [{ estado: "liberada", produto: PRODUTO.proAnual }, "Assinatura ativa", "Continuar"],
     [{ estado: "pendente_aprovacao", produto: PRODUTO.proAnual }, "Compra aguardando aprovação", null],
     [{ estado: "aguardando_servidor", produto: PRODUTO.proAnual, motivo: "sem_internet" }, "Pagamento recebido", "Tentar de novo"],
-    [{ estado: "aguardando_servidor", produto: PRODUTO.proAnual, motivo: "servidor" }, "Pagamento recebido", "Tentar de novo"],
+    [{ estado: "aguardando_servidor", produto: PRODUTO.proAnual, motivo: "servidor" }, "Confirmando sua assinatura", "Tentar de novo"],
     [{ estado: "de_outra_conta", produto: PRODUTO.proAnual }, "Compra de outra conta VANT", null],
     [{ estado: "recusada", produto: PRODUTO.proAnual, motivo: "reembolsada" }, "Esta compra foi reembolsada", null],
     [{ estado: "falhou", motivo: "sem_internet" }, "Sem internet", null],

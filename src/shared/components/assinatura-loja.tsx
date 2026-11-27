@@ -3,7 +3,7 @@
  *    "Assinar" que abre o site da VANT no navegador, "Tentar novamente" e "Sair da conta".
  *  - "fora" (reserva): aviso neutro, só suporte. */
 import { lazy, Suspense, useEffect, useState, type ComponentType, type ReactNode } from "react";
-import { ExternalLink, LogOut, RefreshCw } from "lucide-react";
+import { ExternalLink, LogOut, RefreshCw, X } from "lucide-react";
 import { EVENTO_ASSINATURA_LOJA, assinaPelaApple, assinaPeloSite, podeMostrarAssinatura } from "@/shared/lib/cobranca-loja";
 import { abrirLinkExterno } from "@/shared/lib/link-externo";
 import { abrirAssinarNoSite, abrirRenovarNoSite } from "@/shared/lib/assinar-no-site";
@@ -11,14 +11,48 @@ import { abrirAssinarNoSite, abrirRenovarNoSite } from "@/shared/lib/assinar-no-
 // iPhone with native billing (27/11/2026): the plans screen of the feature, loaded only there
 const PlanosApple = lazy(() => import("@/features/assinatura-apple").then((m) => ({ default: m.PlanosApple })));
 
-/** "apple" mode: Apple's native plans screen wherever the store app would show "assinar". */
-export function TelaAssinarPelaApple({ onLiberada, onFechar }: { onLiberada?: () => void; onFechar?: () => void }) {
-  return (
+/** "apple" mode: Apple's native plans screen wherever the store app would show "assinar".
+ *  telaCheia (27/11/2026): a full-screen paywall over the app, respecting the iPhone's safe areas,
+ *  used where the paywall interrupts (end of trial, "assinar" taps). Inline inside pages otherwise. */
+export function TelaAssinarPelaApple({ onLiberada, onFechar, telaCheia, onVerificar, verificando, onSair }: {
+  onLiberada?: () => void; onFechar?: () => void; telaCheia?: boolean;
+  onVerificar?: () => void; verificando?: boolean; onSair?: () => void;
+}) {
+  useEffect(() => {
+    if (!telaCheia) return;
+    const antes = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = antes; };
+  }, [telaCheia]);
+  const planos = (
+    <Suspense fallback={<div aria-busy="true" className="h-[420px] rounded-[18px] animate-pulse" style={{ background: "#0e0e10" }} />}>
+      <PlanosApple onLiberada={onLiberada} />
+    </Suspense>
+  );
+  if (!telaCheia) return (
     <div className="rounded-[22px] px-4 py-5" style={{ background: "#000" }}>
-      <Suspense fallback={<div aria-busy="true" className="h-[420px] rounded-[18px] animate-pulse" style={{ background: "#0e0e10" }} />}>
-        <PlanosApple onLiberada={onLiberada} />
-      </Suspense>
+      {planos}
       {onFechar && <button type="button" onClick={onFechar} className="mt-3 w-full h-10 text-[12.5px] font-extrabold" style={{ color: "#8f897c" }}>agora não</button>}
+    </div>
+  );
+  const fraco = { color: "#8f897c" };
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Planos da VANT" className="fixed inset-0 z-[210] overflow-y-auto overscroll-contain text-[#F4F1EA]"
+      style={{ background: "radial-gradient(120% 55% at 50% 0%, #1b1404 0%, #050403 48%, #000 100%)" }}>
+      <div className="mx-auto w-full max-w-[440px] min-h-full px-5 pt-safe flex flex-col">
+        <div className="flex items-center justify-between h-12 shrink-0">
+          {onSair ? <button type="button" onClick={onSair} className="h-10 -ml-1 px-1 inline-flex items-center gap-1.5 text-[12.5px] font-bold" style={fraco}><LogOut className="w-3.5 h-3.5" /> Sair da conta</button> : <span />}
+          {onFechar && <button type="button" onClick={onFechar} aria-label="Fechar" className="w-10 h-10 -mr-2 rounded-full inline-flex items-center justify-center" style={{ ...fraco, background: "rgba(255,255,255,.06)" }}><X className="w-[18px] h-[18px]" /></button>}
+        </div>
+        <div className="flex-1">{planos}</div>
+        {onVerificar && (
+          <div className="pb-safe flex justify-center">
+            <button type="button" onClick={onVerificar} disabled={verificando} className="mt-1 mb-2 h-11 px-3 inline-flex items-center gap-2 text-[12.5px] font-bold disabled:opacity-60" style={fraco}>
+              <RefreshCw className={`w-3.5 h-3.5 ${verificando ? "animate-spin" : ""}`} /> {verificando ? "Verificando..." : "Já paguei, verificar acesso"}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -106,6 +140,7 @@ export function OuvinteAssinaturaLoja() {
     return () => window.removeEventListener(EVENTO_ASSINATURA_LOJA, abrir);
   }, []);
   if (!aberto) return null;
+  if (assinaPelaApple()) return <TelaAssinarPelaApple telaCheia onFechar={() => setAberto(false)} />;
   return (
     <div className="fixed inset-0 z-[200] bg-black/70 flex items-end sm:items-center justify-center p-4" onClick={() => setAberto(false)}>
       <div className="w-full max-w-sm text-[#F4F1EA]" onClick={(e) => e.stopPropagation()}>
