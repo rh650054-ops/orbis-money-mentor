@@ -71,6 +71,12 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
     navigate("/auth");
   };
 
+  /* iPhone, native billing: full-screen Apple paywall (27/11/2026). Same exits as before:
+     "Já paguei, verificar acesso" and "Sair da conta"; no link, no Hotmart, no Pix. */
+  if (assinaPelaApple()) {
+    return isOpen ? <TelaAssinarPelaApple telaCheia onLiberada={() => void handleCheckAccess()} onVerificar={() => void handleCheckAccess()} verificando={isChecking} onSair={() => void handleLogout()} /> : null;
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent
@@ -84,10 +90,7 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
 
         <div className="relative overflow-y-auto max-h-[92dvh] px-5 py-6 sm:px-7 sm:py-7 text-[#F4F1EA]" style={{ background: "#000" }}>
           {/* App da loja (modelo Néctar, 23/10/2026): sem preço; Assinar abre o site */}
-          {assinaPelaApple() ? (
-            /* iPhone, native billing (27/11/2026): Apple's plans screen; no link, no Hotmart, no Pix */
-            <TelaAssinarPelaApple onLiberada={() => void handleCheckAccess()} />
-          ) : assinaPeloSite() ? (
+          {assinaPeloSite() ? (
             <TelaAssinarPeloSite modo={exAssinante ? "renovar" : "assinar"}
               titulo={exAssinante ? "Sua assinatura venceu" : "Seu teste encerrou"}
               texto={exAssinante

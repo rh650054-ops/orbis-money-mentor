@@ -24,7 +24,7 @@ export function textoDoEstado(r: ResultadoCompra): Texto {
     case "recusada":
       return r.motivo === "reembolsada"
         ? { icone: <AlertTriangle className="w-7 h-7" />, titulo: "Esta compra foi reembolsada", texto: "A Apple devolveu o valor desta compra, então ela não libera acesso. Você pode assinar de novo quando quiser.", cor: "#ff7d6b" }
-        : { icone: <AlertTriangle className="w-7 h-7" />, titulo: "Não foi possível confirmar a compra", texto: "Fale com o suporte da VANT: sua compra na Apple está registrada e vamos resolver.", cor: "#ff7d6b" };
+        : { icone: <ShieldCheck className="w-7 h-7" />, titulo: "Ainda não conseguimos confirmar", texto: "Sua compra está registrada na Apple e você não será cobrado de novo. Toque em Restaurar compras em instantes ou fale com o suporte da VANT.", cor: GOLD };
     case "falhou": {
       const m: Record<string, [string, string]> = {
         sem_internet: ["Sem internet", "Nada foi cobrado. Verifique sua conexão e tente de novo."],
@@ -41,23 +41,29 @@ export function textoDoEstado(r: ResultadoCompra): Texto {
   }
 }
 
-/** The card that takes the place of the plans after a purchase attempt ended in something to say. */
+/** Takes the place of the plans after a purchase attempt ended in something to say: one calm,
+    full-height message with its single next step. */
 export function EstadoDaCompra({ resultado, ocupado, onTentarDeNovo, onContinuar, onVoltar }: {
   resultado: ResultadoCompra; ocupado?: boolean; onTentarDeNovo: () => void; onContinuar: () => void; onVoltar: () => void;
 }) {
   const t = textoDoEstado(resultado);
-  const botao = "w-full h-[52px] rounded-[16px] text-[15px] font-black disabled:opacity-60";
+  const sucesso = resultado.estado === "liberada";
+  const botao = "w-full h-[56px] rounded-[18px] text-[16px] font-black disabled:opacity-60";
   return (
-    <div role="status" className="rounded-[22px] border px-5 py-7 text-center" style={{ background: "#0b0b0d", borderColor: "#26241f" }}>
-      <span className="mx-auto w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,.05)", color: t.cor }}>{t.icone}</span>
-      <p className="text-[20px] font-black mt-4 leading-tight">{t.titulo}</p>
-      <p className="text-[13.5px] mt-2 leading-snug" style={{ color: "#b9b3a6" }}>{t.texto}</p>
-      <div className="mt-6 space-y-2.5">
-        {resultado.estado === "liberada" && <button type="button" onClick={onContinuar} className={botao} style={{ background: GOLD, color: "#1A1200" }}>Continuar</button>}
+    <div role="status" className="min-h-[70dvh] flex flex-col items-center justify-center text-center text-[#F4F1EA] px-1">
+      <span className="relative w-[76px] h-[76px] rounded-full flex items-center justify-center"
+        style={{ background: sucesso ? "radial-gradient(circle,rgba(73,217,138,.22),rgba(73,217,138,.04))" : "rgba(255,255,255,.05)", color: t.cor, border: `1px solid ${sucesso ? "rgba(73,217,138,.35)" : "rgba(255,255,255,.08)"}` }}>
+        {t.icone}
+        {ocupado && <span aria-hidden className="absolute inset-[-6px] rounded-full border-2 border-transparent animate-spin" style={{ borderTopColor: GOLD }} />}
+      </span>
+      <p className="text-[clamp(22px,6.4vw,26px)] font-black mt-6 leading-tight tracking-[-.02em]">{t.titulo}</p>
+      <p className="text-[14px] mt-2.5 leading-snug max-w-[320px]" style={{ color: "#a9a397" }}>{t.texto}</p>
+      <div className="mt-8 w-full max-w-[360px] space-y-2.5">
+        {sucesso && <button type="button" onClick={onContinuar} className={botao} style={{ background: "linear-gradient(180deg,#FFE58A 0%,#F5B800 58%,#D9A000 100%)", color: "#1A1200" }}>Continuar</button>}
         {resultado.estado === "aguardando_servidor" && (
-          <button type="button" onClick={onTentarDeNovo} disabled={ocupado} className={botao} style={{ background: GOLD, color: "#1A1200" }}>{ocupado ? "Verificando..." : "Tentar de novo"}</button>
+          <button type="button" onClick={onTentarDeNovo} disabled={ocupado} className={botao} style={{ background: GOLD, color: "#1A1200" }}>{ocupado ? "Confirmando..." : "Tentar de novo"}</button>
         )}
-        {resultado.estado !== "liberada" && (
+        {!sucesso && (
           <button type="button" onClick={onVoltar} className={botao} style={{ background: "transparent", border: "1px solid #2a2823", color: "#b9b3a6" }}>
             {resultado.estado === "falhou" || resultado.estado === "recusada" ? "Voltar aos planos" : "Fechar"}
           </button>
