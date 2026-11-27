@@ -12,8 +12,8 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { useVoltaDoCheckout } from "@/hooks/useVoltaDoCheckout";
 import { verificarAcessoPago } from "@/shared/lib/verificar-acesso";
-import { assinaPeloSite } from "@/shared/lib/cobranca-loja";
-import { TelaAssinarPeloSite } from "@/shared/components/assinatura-loja";
+import { assinaPelaApple, assinaPeloSite } from "@/shared/lib/cobranca-loja";
+import { TelaAssinarPelaApple, TelaAssinarPeloSite } from "@/shared/components/assinatura-loja";
 import { PixVencido, RenovarPix, useRenovacaoPixQuery, useRenovacaoVencidaQuery } from "@/features/renovacao";
 
 interface TrialExpiredModalProps {
@@ -84,7 +84,10 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
 
         <div className="relative overflow-y-auto max-h-[92dvh] px-5 py-6 sm:px-7 sm:py-7 text-[#F4F1EA]" style={{ background: "#000" }}>
           {/* App da loja (modelo Néctar, 23/10/2026): sem preço; Assinar abre o site */}
-          {assinaPeloSite() ? (
+          {assinaPelaApple() ? (
+            /* iPhone, native billing (27/11/2026): Apple's plans screen; no link, no Hotmart, no Pix */
+            <TelaAssinarPelaApple onLiberada={() => void handleCheckAccess()} />
+          ) : assinaPeloSite() ? (
             <TelaAssinarPeloSite modo={exAssinante ? "renovar" : "assinar"}
               titulo={exAssinante ? "Sua assinatura venceu" : "Seu teste encerrou"}
               texto={exAssinante

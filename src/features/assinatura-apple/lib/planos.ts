@@ -1,0 +1,83 @@
+/* What the plans screen shows, computed from StoreKit's own prices (never a fixed value). Pure. */
+import { PRODUTO, type OfertaApple, type ProdutoApple } from "../types";
+
+export interface PlanoDaTela {
+  id: string;
+  titulo: string;
+  linha: string;
+  /** the amount CHARGED, as StoreKit formats it, with its period: the most prominent price */
+  preco: string;
+  periodo: "/mês" | "/ano";
+  anual: boolean;
+  /** only for the annual plan, and always below the charged amount */
+  equivalente?: string;
+  economia?: number;
+}
+
+const numero = (p: ProdutoApple | undefined): number | null => {
+  const n = p ? Number(p.preco) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+/** How much the annual plan saves against twelve months of the monthly one, in whole percent. */
+export function economiaDoAnual(anual: ProdutoApple | undefined, mensal: ProdutoApple | undefined): number | null {
+  const a = numero(anual), m = numero(mensal);
+  if (a === null || m === null) return null;
+  const pct = Math.round((1 - a / (m * 12)) * 100);
+  return pct > 0 ? pct : null;
+}
+
+/** The annual price divided by twelve, in the product's own currency: information, never the price. */
+export function equivalenteMensal(anual: ProdutoApple | undefined, locale = "pt-BR"): string | null {
+  const a = numero(anual);
+  if (a === null || !anual) return null;
+  try {
+    // rounded down to the cent, so "equivalent" never looks cheaper than it is
+    return new Intl.NumberFormat(locale, { style: "currency", currency: anual.moeda }).format(Math.floor((a / 12) * 100) / 100);
+  } catch { return null; }
+}
+
+const TEXTOS: Record<string, { titulo: string; linha: string }> = {
+  [PRODUTO.essencial]: { titulo: "Essencial", linha: "Controle e gestão das suas vendas." },
+  [PRODUTO.proMensal]: { titulo: "Pro mensal", linha: "Experiência completa da VANT." },
+  [PRODUTO.proAnual]: { titulo: "Pro anual", linha: "Experiência completa, pagando uma vez por ano." },
+};
+
+/** The three main plans in the order of the screen. A product StoreKit did not return is left out. */
+export function planosDaTela(produtos: ProdutoApple[]): PlanoDaTela[] {
+  const por = new Map(produtos.map((p) => [p.id, p]));
+  const saida: PlanoDaTela[] = [];
+  for (const id of [PRODUTO.essencial, PRODUTO.proMensal, PRODUTO.proAnual]) {
+    const p = por.get(id);
+    if (!p) continue;
+    const anual = p.periodo?.unidade === "ano";
+    const plano: PlanoDaTela = { id, titulo: TEXTOS[id]?.titulo ?? p.nome, linha: TEXTOS[id]?.linha ?? p.descricao, preco: p.precoFormatado, periodo: anual ? "/ano" : "/mês", anual };
+    if (anual) {
+      plano.equivalente = equivalenteMensal(p) ?? undefined;
+      plano.economia = economiaDoAnual(p, por.get(PRODUTO.proMensal)) ?? undefined;
+    }
+    saida.push(plano);
+  }
+  return saida;
+}
+
+/** May this product be bought now? The server's answer decides; the app never guesses. */
+export function podeComprar(oferta: OfertaApple | null | undefined, produto: string): boolean {
+  if (!oferta) return false;
+  if (produto === PRODUTO.banco) return oferta.banco === "livre";
+  if (oferta.plano === "livre") return true;
+  return oferta.plano === "trocar" && oferta.apple?.produto !== produto;
+}
+
+/** Why the main plan is not offered, in the customer's words. */
+export function avisoDaOferta(oferta: OfertaApple): { titulo: string; texto: string } | null {
+  switch (oferta.motivo) {
+    case "hotmart_ativa": return { titulo: "Seu plano está ativo", texto: "Você já assina a VANT. É só continuar usando: nada a pagar por aqui." };
+    case "hotmart_em_tolerancia": return { titulo: "Seu plano está ativo", texto: "Há um pagamento da sua assinatura em aberto. Regularize pelo mesmo meio em que você assinou." };
+    case "hotmart_processando": return { titulo: "Sua assinatura está sendo processada", texto: "Já existe uma compra aguardando confirmação. Assim que o pagamento cair, o acesso libera sozinho." };
+    case "hotmart_pagamento_pendente": return { titulo: "Você tem um pagamento pendente", texto: "Sua assinatura tem uma cobrança em aberto. Conclua esse pagamento em vez de assinar de novo." };
+    case "cortesia": return { titulo: "Sua conta já tem acesso", texto: "Esta conta tem acesso liberado. Não há nada a contratar." };
+    case "suspensa": return { titulo: "Conta suspensa", texto: "Fale com o suporte da VANT para regularizar sua conta." };
+    default: return null;
+  }
+}

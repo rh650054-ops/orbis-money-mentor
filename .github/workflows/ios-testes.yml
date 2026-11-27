@@ -43,13 +43,27 @@ jobs:
           echo "SIMULADOR=$UDID" >> "$GITHUB_ENV"
           xcrun simctl list devices available | grep "$UDID"
 
-      - name: Compile the bridge and run the StoreKit tests
+      - name: 1. Package tests (the Swift compiles, the fictional products load)
         run: |
           set -o pipefail
           xcodebuild test -scheme VantStorekit -destination "platform=iOS Simulator,id=$SIMULADOR" \
-            -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" | grep -E "Test Case|Test Suite|error:|warning: unre|\*\* TEST|Executed" || true
-          grep -q "\*\* TEST SUCCEEDED \*\*" "$RUNNER_TEMP/xcodebuild.log"
+            -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$RUNNER_TEMP/pacote.log" | grep -E "Test Case|error:|\*\* TEST|Executed" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" "$RUNNER_TEMP/pacote.log"
 
-      - name: Show the end of the log when it fails
+      - name: 2. Hosted tests (purchases, pending, renewal, refund, upgrade and downgrade)
+        working-directory: plugins/vant-storekit/ios/Hospedeiro
+        run: |
+          set -o pipefail
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodegen generate
+          xcodebuild test -project Hospedeiro.xcodeproj -scheme Hospedeiro -destination "platform=iOS Simulator,id=$SIMULADOR" \
+            -skipPackagePluginValidation 2>&1 | tee "$RUNNER_TEMP/hospedado.log" | grep -E "Test Case|error:|\*\* TEST|Executed" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" "$RUNNER_TEMP/hospedado.log"
+
+      - name: Show the end of the logs when it fails
         if: failure()
-        run: grep -E "error|failed|XCTAssert" "$RUNNER_TEMP/xcodebuild.log" | tail -80; tail -40 "$RUNNER_TEMP/xcodebuild.log"
+        run: |
+          for f in pacote hospedado; do
+            [ -f "$RUNNER_TEMP/$f.log" ] || continue
+            echo "=== $f"; grep -E "error|failed|XCTAssert|Received failure" "$RUNNER_TEMP/$f.log" | cut -c1-400 | tail -60; tail -25 "$RUNNER_TEMP/$f.log" | cut -c1-300
+          done

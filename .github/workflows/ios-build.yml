@@ -23,6 +23,9 @@
 #              the StoreKit External Purchase entitlement and IAP shown alongside (guideline
 #              3.1.1) -> rejection risk on the next submission.
 #              Kill switch without code: variable VITE_COBRANCA_LOJA_IOS = fora, then rebuild.
+#              Native Apple subscriptions (27/11/2026, Etapa 3): VITE_COBRANCA_LOJA_IOS = apple.
+#              NOT the default: it is switched on by Rick, by this variable, when the server side
+#              (PR #373) is in production and the products exist in App Store Connect.
 name: iOS build
 
 on:
@@ -70,7 +73,7 @@ jobs:
           VITE_COBRANCA_LOJA: ${{ vars.VITE_COBRANCA_LOJA_IOS || 'link' }}
         run: |
           test -n "$VITE_SUPABASE_URL" || { echo "Missing repo variable VITE_SUPABASE_URL"; exit 1; }
-          case "$VITE_COBRANCA_LOJA" in fora|link) ;; *) echo "VITE_COBRANCA_LOJA_IOS must be fora or link"; exit 1;; esac
+          case "$VITE_COBRANCA_LOJA" in fora|link|apple) ;; *) echo "VITE_COBRANCA_LOJA_IOS must be fora, link or apple"; exit 1;; esac
           echo "::notice::iPhone billing mode: $VITE_COBRANCA_LOJA"
           npm run build
 

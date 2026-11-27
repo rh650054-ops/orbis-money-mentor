@@ -4,7 +4,10 @@ import XCTest
 @testable import VantStorekitPlugin
 
 /// Local StoreKit tests (Produtos.storekit: four FICTIONAL products, no App Store, no real money).
-/// They run in the iOS Simulator on the macOS runner (.github/workflows/ios-testes.yml).
+/// They run in the iOS Simulator on the macOS runner (.github/workflows/ios-testes.yml), twice:
+///   - as plain package tests: the Swift compiles and the products load. StoreKit's local test
+///     server refuses a PURCHASE made from a bare test process, so the purchase tests are skipped;
+///   - hosted by the throwaway app in ios/Hospedeiro: every test, purchases included.
 /// What they prove is the native half: what the bridge hands to the app, and that it never finishes
 /// a transaction by itself. What the app and the server do with it is tested in
 /// src/features/assinatura-apple and supabase/functions/apple-*.
@@ -18,8 +21,16 @@ final class LojaAppleTests: XCTestCase {
     private let proAnual = "app.vant.vendas.pro.anual"
     private let banco = "app.vant.vendas.banco.mensal"
 
+    #if SWIFT_PACKAGE
+    private static let recursos = Bundle.module
+    #else
+    private static let recursos = Bundle(for: LojaAppleTests.self)
+    #endif
+    /// true when a real app hosts the tests (purchases work only then)
+    private static let hospedado = Bundle.main.bundleIdentifier == "app.vant.vendas.hospedeiro"
+
     override func setUpWithError() throws {
-        let url = try XCTUnwrap(Bundle.module.url(forResource: "Produtos", withExtension: "storekit"))
+        let url = try XCTUnwrap(Self.recursos.url(forResource: "Produtos", withExtension: "storekit"))
         sessao = try SKTestSession(contentsOf: url)
         sessao.resetToDefaultState()
         sessao.clearTransactions()
@@ -32,7 +43,8 @@ final class LojaAppleTests: XCTestCase {
     }
 
     private func comprar(_ produto: String, _ quem: UUID? = nil) async throws -> [String: Any] {
-        try await loja.comprar(produto, conta: quem ?? conta)
+        try XCTSkipUnless(Self.hospedado, "a purchase needs the host app (ios/Hospedeiro)")
+        return try await loja.comprar(produto, conta: quem ?? conta)
     }
 
     func testProdutosComPrecoDaLoja() async throws {
@@ -99,6 +111,7 @@ final class LojaAppleTests: XCTestCase {
     }
 
     func testCompraPendenteNaoVemComoComprada() async throws {
+        try XCTSkipUnless(Self.hospedado, "a purchase needs the host app (ios/Hospedeiro)")
         sessao.askToBuyEnabled = true
         let chegou = expectation(description: "the approved purchase arrives through the listener")
         chegou.assertForOverFulfill = false
@@ -115,6 +128,7 @@ final class LojaAppleTests: XCTestCase {
     }
 
     func testFalhaNaCompraViraCodigoENaoCriaTransacao() async throws {
+        try XCTSkipUnless(Self.hospedado, "a purchase needs the host app (ios/Hospedeiro)")
         sessao.failTransactionsEnabled = true
         sessao.failureError = .unknown
         do {

@@ -1,0 +1,49 @@
+# TEST ONLY (XcodeGen). A throwaway host app for the StoreKit tests of the bridge. See HospedeiroApp.swift.
+name: Hospedeiro
+options:
+  deploymentTarget:
+    iOS: "15.2"
+  createIntermediateGroups: true
+packages:
+  VantStorekit:
+    path: ../..
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    GENERATE_INFOPLIST_FILE: YES
+targets:
+  Hospedeiro:
+    type: application
+    platform: iOS
+    sources: [Hospedeiro]
+    dependencies:
+      - package: VantStorekit
+        product: VantStorekit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.vant.vendas.hospedeiro
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        ENABLE_TESTABILITY: YES
+  HospedeiroTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: ../Tests/VantStorekitPluginTests
+    dependencies:
+      - target: Hospedeiro
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.vant.vendas.hospedeiro.testes
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Hospedeiro.app/Hospedeiro"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+schemes:
+  Hospedeiro:
+    build:
+      targets:
+        Hospedeiro: all
+        HospedeiroTests: [test]
+    test:
+      targets: [HospedeiroTests]
