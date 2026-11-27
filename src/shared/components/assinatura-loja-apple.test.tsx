@@ -72,4 +72,5 @@ describe("store app in apple mode", () => {
     fireEvent.click(screen.getByRole("button", { name: "Fechar" }));
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+
 });

@@ -5,8 +5,9 @@ import type { ResultadoCompra } from "../types";
 import { fluxoDoApp } from "./fluxo-do-app";
 
 export type Fase = "parado" | "comprando" | "restaurando" | "verificando";
-/** Heard by the rest of the app (legacy hooks) when a purchase released the access. */
-export const EVENTO_APPLE_LIBEROU = "vant:assinatura-apple-liberou";
+import { EVENTO_APPLE_LIBEROU } from "@/shared/lib/cobranca-loja";
+/** Heard by the rest of the app (the end-of-trial screen) when a purchase released the access. */
+export { EVENTO_APPLE_LIBEROU };
 
 /** While the screen is open, a paid purchase the server has not confirmed yet is sent again by
     itself after these waits (the background recovery also retries on launch, return and reconnect). */
