@@ -75,3 +75,21 @@ não mudam.
   só livro financeiro; oferta `banco: bloqueado`). Não entra na submissão. Hotmart intocada.
 - 27/11: 3 planos cadastrados; 3 segredos da Apple no Supabase; testador Sandbox criado (Brasil);
   Small Business Program solicitado (taxa estimada segue 25,73%).
+
+## Implantação em produção — 27/11/2026 (autorização do Rick, 11:22)
+- 11:2x Merges na main com merge commit: #373 (`c3e739a`), #374 (`1e124c9`), #375 (`09b8962`). #364 intocado.
+- 11:30 Conferência antes (leitura): 1.500 contas; 1 diferença prevista; 0 dos 97 assinantes Hotmart;
+  impressões digitais das funções substituídas = produção (21/21 e 2/2).
+- Migrações aplicadas: `20261127120000`, `20261127121000`, `20261127122000`.
+- `20261127123000` **falhou sem aplicar nada**: a `parceiros_resumo` de produção tem `DEFAULT NULL`
+  no parâmetro. Corrigido no PR #377 (assinatura apenas; corpo igual). Aguarda merge para aplicar.
+- 11:45 Depois (leitura): **0 diferenças**; a conta prevista passou a `sem_plano`; foto B = foto das
+  11:30 (Hotmart active 88 / past_due 9 / expired 68 / canceled 4; 96 com período valendo; 0
+  assinantes Hotmart sem plano; cortesias 22; demos 7; teste 69; Pro 51); 4 cortesias Pro marcadas.
+- As 49 funções aplicadas têm impressão digital igual à do repositório (banco de referência local).
+- Funções publicadas como stub fixado em `09b8962`: `apple-webhook` v1 (sem JWT), `apple-conciliar` v1
+  (sem JWT), `apple-validar` v1 (com JWT). Fumaça: 401 `assinatura_invalida`; 401 sem cron / 200 com
+  cron e `com_apple: true`; 401 sem sessão.
+- Agendamento `apple-conciliar-hora` (job 29, `23 * * * *`).
+- Pendentes: migração 4 (após #377), URL de notificações no App Store Connect, conta `revisao.compra`
+  e registro como conta de teste, variável `VITE_COBRANCA_LOJA_IOS=apple` e build.
