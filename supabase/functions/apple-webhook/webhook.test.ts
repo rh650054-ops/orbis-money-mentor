@@ -146,6 +146,35 @@ describe("owner, order and kinds of notification", () => {
     }
   });
 
+  it("OPTION B (27/11/2026): a renewal or plan change signed with ANOTHER account's token stays with the ORIGINAL owner: applied with no account (the owner already stored), the sale goes to the ledger, the other account gets nothing", async () => {
+    // the database answers "another account" when the token is not the owner's, and "gravada" for the owner
+    const db = bancoFalso({ apple_assinatura_gravar: (args) => (args.p_user ? "pertence_a_outra_conta" : "gravada") });
+    const { r, corpo } = await enviar(notificacao(cadeia, "DID_RENEW", transacao({ appAccountToken: CONTA_A }), null), db);
+    expect(r.status).toBe(200);
+    expect(corpo).toMatchObject({ ok: true, resultado: "gravada_no_dono" });
+    const gravar = db.de("apple_assinatura_gravar");
+    expect(gravar.map((c) => c.args.p_user)).toEqual([CONTA_A, null]);
+    expect(gravar[1]?.args.p_original).toBe(gravar[0]?.args.p_original);
+    // the money side is recorded once, by the owner's pass (the database resolves the owner)
+    expect(db.de("apple_transacao_registrar")).toHaveLength(1);
+    expect(db.de("apple_transacao_registrar")[0]?.args.p_user).toBeNull();
+    expect(db.de("apple_evento_concluir")[0]?.args.p_resultado).toBe("gravada_no_dono");
+    expect(semProblemaDeContrato(db)).toEqual([]);
+  });
+
+  it("OPTION B never creates or moves anything: with no owner stored the second pass answers 'sem_dono' and nothing is attached", async () => {
+    const db = bancoFalso({ apple_assinatura_gravar: (args) => (args.p_user ? "pertence_a_outra_conta" : "sem_dono") });
+    const { corpo } = await enviar(notificacao(cadeia, "DID_RENEW", transacao({ appAccountToken: CONTA_A }), null), db);
+    expect(corpo).toMatchObject({ ok: true, resultado: "sem_dono" });
+    expect(db.de("apple_transacao_registrar")[0]?.args.p_user ?? null).toBeNull();
+  });
+
+  it("the token of the OWNER: one pass only, as before", async () => {
+    const { db, corpo } = await enviar(notificacao(cadeia, "DID_RENEW", transacao({ appAccountToken: CONTA_A }), null));
+    expect(corpo).toMatchObject({ resultado: "gravada" });
+    expect(db.de("apple_assinatura_gravar")).toHaveLength(1);
+  });
+
   it("the order is the time Apple signed the NOTIFICATION, passed to the database, which ignores the older one", async () => {
     const quando = Date.now() - 3_600_000;
     const t = transacao({ signedDate: quando - 86_400_000 });
