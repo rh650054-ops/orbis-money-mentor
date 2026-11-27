@@ -48,6 +48,7 @@ export default function Privacidade() {
         <S t="2. Dados que coletamos">
           <p><strong>No cadastro:</strong> nome/apelido, CPF, e-mail, telefone/WhatsApp, cidade e estado, e senha (armazenada de forma criptografada — nunca temos acesso à senha em texto).</p>
           <p><strong>No uso do app:</strong> registros de vendas, metas, custos, despesas, contas a pagar, produtos, insumos e estoque, rotinas de trabalho, participação em rankings e competições, e foto de perfil (opcional).</p>
+          <p><strong>Localização (opcional, só com a sua permissão no aparelho):</strong> a posição do seu ponto de venda, para a previsão do tempo, a dica do clima, o Caça-Sinal (pontos de venda próximos) e a distância no Modo Foco. Você pode negar ou retirar a permissão nos ajustes do aparelho; o resto do app continua funcionando.</p>
           <p><strong>Financeiros (opcionais):</strong> chave Pix cadastrada por você para receber pagamentos; extratos bancários enviados por você ou obtidos via conexão bancária autorizada (Open Finance, pela Pluggy); movimentações da carteira X1.</p>
           <p><strong>Assistente de IA:</strong> as mensagens que você troca com o assistente da Vant, para gerar as respostas e conselhos.</p>
           <p><strong>Pagamento da assinatura:</strong> pelo site, processado pela Hotmart — recebemos da Hotmart apenas a confirmação do pagamento, e-mail e CPF do comprador para liberar seu acesso. Pelo iPhone, processado pela Apple — recebemos da Apple, assinados por ela, o identificador da compra, o plano, as datas, o país da loja, o preço e se a assinatura renova, foi cancelada ou reembolsada; a compra é ligada à sua conta da Vant pelo identificador interno da conta (não é seu CPF nem e-mail), e não recebemos seu nome, e-mail ou Apple ID. Em nenhum dos casos temos acesso a números de cartão.</p>
@@ -80,9 +81,11 @@ export default function Privacidade() {
             <li><strong>Estúdio de Marca</strong>: o estilo descrito, o nome da banca, o contato que você puser na arte e a foto de referência, se enviada → OpenAI.</li>
           </ul>
           <p>"De reserva" significa: só quando o primeiro provedor está fora do ar. A VANT usa apenas esses dois provedores de IA; não usa mais Google (Gemini) nem Cerebras.</p>
-          <p>CPF e senha nunca são enviados a provedores de IA. A verificação de fraude feita pela equipe só usa IA (Anthropic) com os dados de quem autorizou.</p>
+          <p>CPF e senha nunca são enviados a provedores de IA.</p>
           <p><strong>Hotmart</strong> — processamento do pagamento da assinatura feita pelo site.</p>
           <p><strong>Apple</strong> — processamento do pagamento da assinatura feita no iPhone (App Store). A Apple trata os dados da compra como controladora, conforme a política de privacidade dela; consultamos a Apple só para confirmar e acompanhar a assinatura.</p>
+          <p><strong>Resend</strong> — envio dos e-mails do app (confirmação de e-mail e recuperação de senha): recebe o seu e-mail e o conteúdo da mensagem.</p>
+          <p><strong>Clima e mapas</strong> — quando você usa a previsão do tempo, a dica do clima ou o Caça-Sinal, os servidores da Vant consultam a <strong>Open-Meteo</strong> e a <strong>WeatherAPI</strong> (previsão do tempo) e a <strong>OpenStreetMap</strong> (Nominatim, para saber a cidade ou o endereço do ponto, e Overpass, para achar semáforos próximos), enviando só as coordenadas do ponto ou o endereço digitado, sem seu nome, CPF ou e-mail. As imagens do mapa são carregadas pelo seu aparelho direto dos servidores da OpenStreetMap, que recebem o seu endereço IP e a área do mapa exibida.</p>
           <p><strong>Pluggy</strong> — conexão bancária via Open Finance, somente quando você autoriza (Brasil, regulada pelo ecossistema do Banco Central).</p>
           <p><strong>Mercado Pago</strong> — processamento de depósitos e saques da carteira X1, quando você usa essa função.</p>
           <p><strong>Google</strong> — integração opcional com a sua agenda, somente se você conectar.</p>
@@ -90,7 +93,7 @@ export default function Privacidade() {
 
         <S t="5. Transferência internacional de dados">
           <p>
-            Alguns operadores ficam fora do Brasil, nos Estados Unidos: Anthropic, OpenAI e Vercel. A transferência é amparada pelo art. 33 da LGPD por meio de garantias
+            Alguns operadores ficam fora do Brasil: nos Estados Unidos, Anthropic, OpenAI, Vercel, Resend e Apple; e os serviços de clima e mapas citados acima (Open-Meteo, WeatherAPI e OpenStreetMap), que recebem só coordenadas ou endereço. A transferência é amparada pelo art. 33 da LGPD por meio de garantias
             contratuais (termos comerciais de API e Adendos de Processamento de Dados). Sobre o uso dos
             dados pelos provedores de IA, segundo os termos de cada um:
           </p>
@@ -107,6 +110,13 @@ export default function Privacidade() {
             Minha Conta → Excluir minha conta), apagamos seus dados pessoais de todas as tabelas do
             aplicativo. Podemos reter registros mínimos exigidos por lei (como logs de acesso e
             comprovantes de pagamento) pelos prazos legais aplicáveis.
+          </p>
+          <p>
+            <strong>Compras pelo iPhone:</strong> cada transação da Apple (identificador da compra,
+            plano, datas, valor e eventual reembolso) é um registro financeiro e fiscal. Ao excluir a
+            conta, a assinatura e o vínculo da transação com você são apagados, mas o registro da
+            transação, sem o vínculo com a sua conta, é guardado pelo prazo exigido pela legislação fiscal e
+            contábil.
           </p>
         </S>
 

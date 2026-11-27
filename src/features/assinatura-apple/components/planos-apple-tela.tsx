@@ -54,7 +54,7 @@ export function PlanosAppleTela(p: PlanosAppleTelaProps) {
           </button>
           {escolhido && (
             <p className="text-center text-[11px] mt-2 leading-snug" style={{ color: "#8f897c" }}>
-              {escolhido.preco} {escolhido.anual ? "cobrados uma vez por ano" : "por mês"}. Renovação automática. Cancele quando quiser nos Ajustes da Apple.
+              {escolhido.preco} {escolhido.anual ? "cobrados uma vez por ano" : "por mês"}. Renovação automática. Cancele quando quiser nos Ajustes da Apple. Ao assinar, você concorda com os Termos de Uso e a Política de Privacidade.
             </p>
           )}
           {p.aviso && <p role="alert" className="text-center text-[12px] font-bold mt-3" style={{ color: GOLD }}>{p.aviso}</p>}

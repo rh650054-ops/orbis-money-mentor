@@ -221,6 +221,9 @@ tocado. Rollback completo no README.
 - Variável do repositório `VITE_COBRANCA_LOJA_IOS = apple`, rodar `ios-build.yml` a partir da `main`
   depois do merge da Etapa 4. O log mostra `iPhone billing mode: apple` e o `npx cap sync ios`
   tem de listar `vant-storekit`.
+- Metadados exigidos pela 3.1.2 (antes da submissão, não do TestFlight): link dos Termos de Uso
+  (`https://app.vantapp.com.br/termos`) na descrição do app **ou** no campo License Agreement, e a
+  Política em App Privacy › Privacy Policy URL.
 - Vai só para o TestFlight. **Não enviar para revisão** sem sua autorização.
 - Para voltar: apagar a variável (ou `link`) e gerar outro build.
 

@@ -46,6 +46,7 @@ describe("the plans screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Assinar Essencial" }));
     expect(props.onAssinar).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/R\$ 29,90 por mês\. Renovação automática\./)).toBeInTheDocument();
+    expect(screen.getByText(/Ao assinar, você concorda com os Termos de Uso e a Política de Privacidade\./)).toBeInTheDocument();
   });
 
   it("restore, terms and privacy are always there", () => {

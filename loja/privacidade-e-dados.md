@@ -20,13 +20,39 @@ formulário é declaração sua, e informação errada dá remoção do app.
 | Diagnóstico/erros | Sim | Corrigir bugs | Sim | Não |
 | **Compras** (histórico de compras — só no iPhone com o build `apple`, 27/11/2026) | Sim | Funcionalidade do app (liberar o plano comprado) | Sim (ligado à conta VANT pelo `appAccountToken`) | Não (a Apple processa o pagamento; não é "compartilhamento") |
 
-### Apple › o que muda nos rótulos com o build `apple` (27/11/2026)
-- Acrescentar **Purchases › Purchase History**: *Data Linked to You*, finalidade **App
-  Functionality**, **não** usado para rastreamento.
-- Nada muda em "Financial Info": não recebemos cartão nem dados de pagamento da Apple.
-- Continua: sem rastreamento entre apps, sem ATT.
-- Os rótulos valem para o app na loja inteira: publicar a mudança junto com o build `apple`
-  (antes dele o app não registra compras).
+### Apple › rótulos completos para o build `apple` (revisto em 27/11/2026)
+
+Preencher em App Store Connect › App Privacy. Para todas as linhas: **Linked to You = Sim**,
+**Used to Track You = Não**. Finalidade "App Functionality" salvo indicação.
+
+| Categoria Apple | Tipo | Finalidade(s) | De onde vem no app |
+|---|---|---|---|
+| Contact Info | Name | App Functionality | cadastro, ranking |
+| Contact Info | Email Address | App Functionality | conta, confirmação e recuperação de senha (Resend) |
+| Contact Info | Phone Number | App Functionality | contato/suporte |
+| Identifiers | User ID | App Functionality | id da conta e CPF usado no login |
+| Financial Info | Other Financial Info | App Functionality | vendas, custos, metas, chave Pix, extratos e Open Finance (Pluggy) |
+| Location | Precise Location | App Functionality | clima do ponto, Caça-Sinal, distância no Modo Foco |
+| Location | Coarse Location | App Functionality | cidade do ponto (Nominatim) |
+| User Content | Audio Data | App Functionality | voz do Mentor (só com o consentimento de IA) |
+| User Content | Photos or Videos | App Functionality | foto de perfil, nota fiscal, comprovante, referência do Estúdio |
+| User Content | Other User Content | App Functionality | mensagens ao Mentor, comunidade, anotações importadas |
+| User Content | Customer Support | App Functionality | mensagens enviadas ao suporte |
+| Purchases | Purchase History | App Functionality | assinatura Apple (só existe no build `apple`) |
+| Usage Data | Product Interaction | Analytics, App Functionality | telas e tempo de uso ("pulso") |
+| Diagnostics | Other Diagnostic Data | App Functionality | registros de erro para corrigir bugs |
+
+Marcar **Não** em: Health & Fitness, Sensitive Info, Contacts, Browsing History, Search History,
+Payment Info (a Apple processa o pagamento; não recebemos cartão), Device ID (o app não usa
+identificador de publicidade nem de aparelho próprio — conferir de novo se entrar notificação push),
+Crash Data (não há SDK de crash), Advertising Data, Emails or Text Messages, Gameplay Content.
+
+Observações:
+- Os dados enviados às IAs entram nas mesmas categorias acima (são "coletados" pela VANT e repassados
+  a um prestador) e só saem com o consentimento de IA, que fica como está.
+- As imagens do mapa vêm direto da OpenStreetMap para o aparelho (ela vê o IP). Não é um tipo de
+  dado que a VANT coleta; está descrito na Política.
+- Publicar os rótulos junto com o build `apple` (a linha "Purchases" só vale a partir dele).
 
 - **Criptografia em trânsito:** Sim (HTTPS em tudo).
 - **Pessoa pode pedir exclusão:** Sim — no app (Minha Conta) e em https://app.orbis.inf.br/excluir-conta.
