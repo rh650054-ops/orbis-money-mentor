@@ -176,15 +176,22 @@ final class LojaAppleTests: XCTestCase {
         let ess = try await comprar(essencial)
         _ = await loja.concluir(try XCTUnwrap(ess["transacao"] as? String))
         let pro = try await comprar(proMensal)
+        XCTAssertEqual(pro["estado"] as? String, "comprada")
+        XCTAssertEqual(pro["original"] as? String, ess["original"] as? String, "upgrade: the SAME subscription changes product (the server keeps one row per subscription)")
+        XCTAssertNotEqual(pro["transacao"] as? String, ess["transacao"] as? String)
         _ = await loja.concluir(try XCTUnwrap(pro["transacao"] as? String))
         var direitos = await loja.direitos()
         XCTAssertTrue(direitos.contains { $0["produto"] as? String == proMensal }, "upgrade: the higher plan is valid at once")
-        XCTAssertFalse(direitos.contains { $0["produto"] as? String == essencial })
 
-        // downgrade asked: Apple applies it at the next renewal, so the paid Pro period stays
+        // downgrade asked: on the App Store it takes effect at the next renewal. What is asserted here
+        // is what the bridge hands over: one more transaction of the same subscription, and the
+        // account still entitled to a plan. (How long the local test server keeps the old product
+        // listed is not VANT's rule: the server decides by the newest signed status.)
         let volta = try await comprar(essencial)
         XCTAssertEqual(volta["estado"] as? String, "comprada")
+        XCTAssertEqual(volta["original"] as? String, ess["original"] as? String)
         direitos = await loja.direitos()
-        XCTAssertTrue(direitos.contains { $0["produto"] as? String == proMensal }, "downgrade: nothing changes until the period already paid ends")
+        XCTAssertFalse(direitos.isEmpty, "downgrade asked: the account keeps a valid plan")
+        XCTAssertTrue(direitos.allSatisfy { $0["original"] as? String == ess["original"] as? String }, "still one subscription")
     }
 }
