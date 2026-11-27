@@ -63,10 +63,10 @@ Com esse build, o parágrafo "Purchases" acima **sai** e entra este (colar em in
 > Purchases (Guidelines 3.1.1 and 3.1.2): on iPhone the subscriptions are sold only through In-App
 > Purchase. There is no link to an external purchase and no other payment method in this build.
 >
-> To test a purchase, sign in with the account in the sign-in fields (revisao.compra@vant.com.br).
-> It has no paid plan: while its free trial runs, open "Vender" and tap "Ver planos"; when the
-> trial is over, the plans screen ("Eleve o nível das suas vendas.") opens by itself. Plans: Essencial (monthly),
-> Pro (monthly) and Pro (annual), one subscription group. The screen shows
+> To test a purchase, sign in with the account in the sign-in fields (revisao.compra@vant.com.br),
+> on the "E-mail" tab of the sign-in screen. It has no paid plan and its free trial is over, so the
+> full-screen plans screen ("Venda mais. Saiba quanto lucrou.") opens right after signing in.
+> Plans: Pro (annual), Pro (monthly) and Essencial (monthly), one subscription group. The screen shows
 > the price and period from the App Store, the auto-renewal terms, "Restaurar compras", and links to
 > the Terms of Use (https://app.vantapp.com.br/termos) and Privacy Policy
 > (https://app.vantapp.com.br/privacidade). After the purchase the plan is unlocked automatically;
@@ -79,9 +79,10 @@ Com esse build, o parágrafo "Purchases" acima **sai** e entra este (colar em in
 > Customers who already subscribe on our website keep their access when they sign in; the app does
 > not offer them a second subscription.
 
-Conferir no TestFlight, antes de colar: o caminho "Vender" › "Ver planos" existe para a
-`revisao.compra` durante o teste (é a vitrine do Pro). Se não aparecer, trocar a frase pelo caminho
-real.
+Atualizado em 27/11/2026 (build 15): a `revisao.compra` fica com o teste gratuito **encerrado**,
+para o paywall em tela cheia abrir sozinho depois do login (um caminho só para o revisor). Login
+pela aba **E-mail** (conta sem CPF, liberada para Sandbox pela migração 20261127170000). Conferir no
+TestFlight, com a própria `revisao.compra`, antes de colar.
 
 Campo de senha da segunda conta: colocar a senha da `revisao.apple` no fim das notas (o campo
 "Sign-in required" só aceita uma conta).

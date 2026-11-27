@@ -107,11 +107,16 @@ errado não pode ser reaproveitado: é outro produto.
 
 | Grupo | Nível | Product ID | Nome de referência | Duração | Preço (Brasil) |
 |---|---|---|---|---|---|
-| VANT Planos | 1 | `app.vant.vendas.pro.anual` | Pro anual | 1 ano | R$ 419,90 |
+| VANT Planos | 1 | `app.vant.vendas.pro.anual` | Pro anual | 1 ano | R$ 399,90 |
 | VANT Planos | 1 | `app.vant.vendas.pro.mensal` | Pro mensal | 1 mês | R$ 49,90 |
 | VANT Planos | 2 | `app.vant.vendas.essencial.mensal` | Essencial mensal | 1 mês | R$ 29,90 |
 | VANT Planos (decisão do Rick, 27/11) | — | `app.vant.vendas.banco.mensal` | Banco adicional | 1 mês | R$ 12,90 — **fora de venda no iPhone nesta versão** |
 
+- **Preços Apple decididos (Rick, 27/11/2026): Essencial R$ 29,90/mês · Pro mensal R$ 49,90/mês ·
+  Pro anual R$ 399,90/ano** (equivale a R$ 33,33/mês). É o valor cadastrado no App Store Connect,
+  conferido na transação Sandbox assinada pela Apple em 27/11 (o planejamento anterior previa
+  R$ 419,90 no anual). Os preços da Hotmart não mudam. O app sempre mostra o preço que o StoreKit
+  devolve; nada no código fixa esses valores.
 - **Banco adicional (27/11/2026): cadastrado no mesmo grupo dos planos e FORA DE VENDA no iPhone.**
   O app não oferece nem pede o produto à Apple; o servidor responde `banco: bloqueado` na oferta e,
   se uma transação dele chegar (Sandbox), não concede direito nenhum (`produto_fora_de_venda`) — só
@@ -210,7 +215,7 @@ Pré-requisitos (todos verdes antes de abrir o app):
 
 Compra:
 1. [ ] Entrar na conta de teste. Tela de planos mostra os 3 planos com preço vindo da Apple
-       (R$ 29,90 / R$ 49,90 / R$ 419,90), o anual com o total em destaque e "Equivale a R$ 34,99 por
+       (R$ 29,90 / R$ 49,90 / R$ 399,90), o anual com o total em destaque e "Equivale a R$ 33,33 por
        mês", texto de renovação automática, Restaurar, Termos e Privacidade.
 2. [ ] Assinar Essencial → folha da Apple mostra "[Ambiente: Sandbox]" → confirmar.
 3. [ ] App libera sozinho (`estado = liberada`). No banco: 1 linha em `apple_assinaturas`
