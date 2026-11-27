@@ -16,7 +16,14 @@
 #              APPLE_TEAM_ID       (10 characters, App Store Connect > Membership)
 #   Secrets:   ASC_KEY_ID, ASC_ISSUER_ID,
 #              ASC_KEY_P8_BASE64   (the .p8 App Store Connect API key, base64; role Admin,
-#                                   so Xcode can create the signing certificate itself)
+#                                   so Apple can sign the export with its cloud-managed certificate)
+#
+# Signing (27/11/2026): the archive is built UNSIGNED and only the export is signed, by Apple's
+# cloud signing ("Distribution Managed" certificate, kept by Apple, reused by every run). Before,
+# the archive was signed with an "Apple Development" certificate that Xcode created on every run
+# (the runner keeps nothing), until the account hit Apple's limit and build 15 was refused.
+# The app declares no entitlements (no .entitlements file), so nothing is lost by signing at export.
+# "enviar = false" checks the whole signing without uploading a build to TestFlight.
 #   Billing:   "link" by default since 24/11/2026 (Rick's decision, all store versions):
 #              no access -> yellow "VER PLANOS E ASSINAR" / "RENOVAR ASSINATURA" opening the
 #              site / Hotmart checkout. Known risk: in Brazil Apple allows link-outs only with
@@ -35,6 +42,10 @@ on:
         description: "Version shown in the store (e.g. 1.0.0)"
         required: true
         default: "1.0.0"
+      enviar:
+        description: "Upload to TestFlight (false = only check the signing, nothing is uploaded)"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -94,6 +105,7 @@ jobs:
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           VERSION_NAME: ${{ inputs.version_name }}
           BUILD_NUMBER: ${{ github.run_number }}
+          ENVIAR: ${{ inputs.enviar }}
         run: |
           if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_P8_BASE64" ] || [ -z "$APPLE_TEAM_ID" ]; then
             echo "::notice::Apple secrets not set yet: stopped after the Simulator build (stage 1)."
@@ -126,18 +138,21 @@ jobs:
           esac
           AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
 
+          # unsigned archive: no "Apple Development" certificate is created (see the header)
           xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/VANT.xcarchive" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             MARKETING_VERSION="$VERSION_NAME" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-            "${AUTH[@]}" archive | tail -40
+            archive | tail -40
+          [ "$ENVIAR" = "false" ] && DESTINO=export || DESTINO=upload
 
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0"><dict>
             <key>method</key><string>app-store-connect</string>
-            <key>destination</key><string>upload</string>
+            <key>destination</key><string>${DESTINO}</string>
             <key>teamID</key><string>${APPLE_TEAM_ID}</string>
             <key>signingStyle</key><string>automatic</string>
           </dict></plist>
@@ -147,4 +162,12 @@ jobs:
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" \
             "${AUTH[@]}" | tail -40
           rm -f "$KEY"
-          echo "::notice::Build $VERSION_NAME ($BUILD_NUMBER) sent to App Store Connect. It shows up in TestFlight after Apple processes it (~15-30 min)."
+          if [ "$DESTINO" = "export" ]; then
+            IPA=$(ls "$RUNNER_TEMP"/export/*.ipa)
+            mkdir -p "$RUNNER_TEMP/ipa" && unzip -q "$IPA" -d "$RUNNER_TEMP/ipa"
+            ASSINATURA=$(codesign -dvv "$RUNNER_TEMP"/ipa/Payload/*.app 2>&1 | grep '^Authority=' | head -1)
+            echo "::notice::Signing check only, nothing uploaded. Signed by: ${ASSINATURA#Authority=}"
+            [[ "$ASSINATURA" == *"Apple Distribution"* ]] || { echo "::error::The export is not signed with an Apple Distribution certificate."; exit 1; }
+          else
+            echo "::notice::Build $VERSION_NAME ($BUILD_NUMBER) sent to App Store Connect. It shows up in TestFlight after Apple processes it (~15-30 min)."
+          fi
