@@ -3,7 +3,6 @@
  *    "Assinar" que abre o site da VANT no navegador, "Tentar novamente" e "Sair da conta".
  *  - "fora" (reserva): aviso neutro, só suporte. */
 import { lazy, Suspense, useEffect, useState, type ComponentType, type ReactNode } from "react";
-import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ExternalLink, LogOut, RefreshCw, X } from "lucide-react";
 import { EVENTO_ASSINATURA_LOJA, assinaPelaApple, assinaPeloSite, podeMostrarAssinatura } from "@/shared/lib/cobranca-loja";
 import { abrirLinkExterno } from "@/shared/lib/link-externo";
@@ -16,17 +15,17 @@ const PlanosApple = lazy(() => import("@/features/assinatura-apple").then((m) =>
  *  telaCheia (27/11/2026): a full-screen paywall over the app, respecting the iPhone's safe areas,
  *  used where the paywall interrupts (end of trial, "assinar" taps). Inline inside pages otherwise.
  *
- *  Scrolling (27/11/2026, build 17 on the iPhone: only Pro anual visible, no vertical scroll): the
- *  full screen is a modal Radix dialog, like every other sheet of the app, and no longer locks the
- *  page by hand (body overflow) nor sets overscroll-contain. Radix keeps one stack of scroll locks:
- *  only the newest one counts and it always lets its OWN content scroll, so the paywall scrolls even
- *  if a sheet or dialog of the app is open under it, and the page behind stays still on iOS. */
+ *  Scrolling (Paywall V3, 27/11/2026: builds 17 and 18 did not scroll on the iPhone): the fixed
+ *  frame never scrolls itself. It is a column (header + body) like the screens that scroll on the
+ *  iPhone (the VANT IA chat, the welcome tour); the scrolling happens inside the body (PaywallMiolo,
+ *  flex-1 min-h-0 overflow-y-auto) and the purchase button is the body's own last row. No dialog
+ *  library, no stack of dialogs, no hand-made page lock. */
 export function TelaAssinarPelaApple({ onLiberada, aoTerPlano, onFechar, telaCheia, onVerificar, verificando, onSair }: {
   onLiberada?: () => void; aoTerPlano?: () => void; onFechar?: () => void; telaCheia?: boolean;
   onVerificar?: () => void; verificando?: boolean; onSair?: () => void;
 }) {
   const planos = (
-    <Suspense fallback={<div aria-busy="true" className="h-[420px] rounded-[18px] animate-pulse" style={{ background: "#0e0e10" }} />}>
+    <Suspense fallback={<div aria-busy="true" className="h-[300px] rounded-[18px] animate-pulse" style={{ background: "#0e0e10" }} />}>
       <PlanosApple onLiberada={onLiberada} aoTerPlano={aoTerPlano} />
     </Suspense>
   );
@@ -36,36 +35,31 @@ export function TelaAssinarPelaApple({ onLiberada, aoTerPlano, onFechar, telaChe
       {onFechar && <button type="button" onClick={onFechar} className="mt-3 w-full h-10 text-[12.5px] font-extrabold" style={{ color: "#8f897c" }}>agora não</button>}
     </div>
   );
+  return <MolduraPaywall onSair={onSair} onVerificar={onVerificar} verificando={verificando} onFechar={onFechar}>{planos}</MolduraPaywall>;
+}
+
+/** The full-screen frame of the Apple paywall (Paywall V3): a fixed column that never scrolls
+    itself (header + body). What scrolls is the body inside (PaywallMiolo). Exported for the preview. */
+export function MolduraPaywall({ children, onSair, onVerificar, verificando, onFechar }: {
+  children: ReactNode; onSair?: () => void; onVerificar?: () => void; verificando?: boolean; onFechar?: () => void;
+}) {
   const fraco = { color: "#8f897c" };
-  // the paywall blocks: Esc, taps outside and the initial focus never close or jump it
-  const parar = (e: Event) => e.preventDefault();
   return (
-    <DialogPrimitive.Root open modal>
-    <DialogPrimitive.Portal>
-    {/* the Overlay is what holds the scroll lock in Radix (it frees only this dialog's content) */}
-    <DialogPrimitive.Overlay className="fixed inset-0 z-[210]" style={{ background: "#000" }} />
-    <DialogPrimitive.Content aria-label="Planos da VANT" aria-describedby={undefined}
-      onEscapeKeyDown={parar} onPointerDownOutside={parar} onInteractOutside={parar} onOpenAutoFocus={parar}
-      className="fixed inset-0 z-[210] overflow-y-auto text-[#F4F1EA] outline-none [touch-action:pan-y] [-webkit-overflow-scrolling:touch]"
+    <div role="dialog" aria-modal="true" aria-label="Planos da VANT" className="fixed inset-0 z-[210] flex flex-col text-[#F4F1EA]"
       style={{ background: "radial-gradient(120% 55% at 50% 0%, #1b1404 0%, #050403 48%, #000 100%)" }}>
-      <DialogPrimitive.Title className="sr-only">Planos da VANT</DialogPrimitive.Title>
-      <div className="mx-auto w-full max-w-[440px] min-h-full px-5 pt-safe flex flex-col">
+      <div className="mx-auto w-full max-w-[440px] flex-1 min-h-0 flex flex-col px-5 pt-safe">
         <div className="flex items-center justify-between h-12 shrink-0">
           {onSair ? <button type="button" onClick={onSair} className="h-10 -ml-1 px-1 inline-flex items-center gap-1.5 text-[12.5px] font-bold" style={fraco}><LogOut className="w-3.5 h-3.5" /> Sair da conta</button> : <span />}
-          {onFechar && <button type="button" onClick={onFechar} aria-label="Fechar" className="w-10 h-10 -mr-2 rounded-full inline-flex items-center justify-center" style={{ ...fraco, background: "rgba(255,255,255,.06)" }}><X className="w-[18px] h-[18px]" /></button>}
-        </div>
-        <div className="flex-1">{planos}</div>
-        {onVerificar && (
-          <div className="pb-safe flex justify-center">
-            <button type="button" onClick={onVerificar} disabled={verificando} className="mt-1 mb-2 h-11 px-3 inline-flex items-center gap-2 text-[12.5px] font-bold disabled:opacity-60" style={fraco}>
+          {onVerificar && (
+            <button type="button" onClick={onVerificar} disabled={verificando} className="h-10 -mr-1 px-1 inline-flex items-center gap-1.5 text-[12.5px] font-bold disabled:opacity-60" style={fraco}>
               <RefreshCw className={`w-3.5 h-3.5 ${verificando ? "animate-spin" : ""}`} /> {verificando ? "Verificando..." : "Já paguei, verificar acesso"}
             </button>
-          </div>
-        )}
+          )}
+          {onFechar && <button type="button" onClick={onFechar} aria-label="Fechar" className="w-10 h-10 -mr-2 rounded-full inline-flex items-center justify-center" style={{ ...fraco, background: "rgba(255,255,255,.06)" }}><X className="w-[18px] h-[18px]" /></button>}
+        </div>
+        <div className="flex-1 min-h-0 flex flex-col">{children}</div>
       </div>
-    </DialogPrimitive.Content>
-    </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+    </div>
   );
 }
 
