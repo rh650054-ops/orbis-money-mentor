@@ -86,14 +86,21 @@ export function avisoDaOferta(oferta: OfertaApple): { titulo: string; texto: str
    25/10/2026 (migration 20261025200000_beneficios_por_plano): Essencial = Foco manual, Ranking,
    Relatório, Gestão manual, Comunidade (Mentor IA 10/dia, ai_limites); Pro = + Foco automático,
    Verificado, 1 banco, Mentor IA, Gestão automática, Caça-Sinal, Produtos, Diária definida, X1.
-   Paywall V3 (27/11/2026, Rick): Pro mensal and Pro anual show the SAME list and differ by the
-   billing period and the saving. The server still gives the annual plan more (2 banks and the full
-   Mentor, pro_anual()): the shared lines are worded so they are true for both, never promising the
-   monthly plan what only the annual has. The bank add-on is not sold on the iPhone. */
+   Pro anual = + 2 banks and the full Mentor IA (pro_anual()).
+   Paywall V3 (27/11/2026, Rick): Pro mensal and Pro anual share the Pro list; the annual plan keeps
+   its two real extras explicit (2 banks, full Mentor IA), a sales argument for the annual plan. Each
+   line is exactly what the server gives that plan. The bank add-on is not sold on the iPhone. */
 const ESSENCIAL = ["Foco por blocos de 1 hora", "Relatório de vendas e lucro", "Ranking e comunidade", "Gestão financeira manual", "Mentor IA (uso básico)"];
-const PRO = ["Tudo do Essencial", "Banco conectado (Pix automático)", "Foco automático e meta adaptativa", "Caça-Sinal, Produtos e X1", "Selo Verificado", "Mentor IA ampliado"];
+const PRO = ["Tudo do Essencial", "1 banco conectado (Pix automático)", "Foco automático e meta adaptativa", "Caça-Sinal, Produtos e X1", "Selo Verificado", "Mentor IA ampliado"];
+/** Only in the annual plan (pro_anual() on the server), in place of the monthly plan's line. */
+export const SO_NO_ANUAL: Record<string, string> = {
+  "1 banco conectado (Pix automático)": "2 bancos conectados (Pix automático)",
+  "Mentor IA ampliado": "Mentor IA completo",
+};
 
-/** What a plan includes, on its details screen. Pro mensal and Pro anual: the same list. */
+/** What a plan includes, on its details screen. */
 export function incluiNoPlano(id: string): string[] {
-  return id === PRODUTO.essencial ? ESSENCIAL : PRO;
+  if (id === PRODUTO.essencial) return ESSENCIAL;
+  if (id === PRODUTO.proAnual) return PRO.map((x) => SO_NO_ANUAL[x] ?? x);
+  return PRO;
 }

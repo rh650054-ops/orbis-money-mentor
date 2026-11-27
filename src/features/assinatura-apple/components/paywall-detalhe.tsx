@@ -1,10 +1,11 @@
 import { Check, ChevronLeft, Loader2 } from "lucide-react";
 import type { Fase } from "../api/use-compra-apple";
-import { incluiNoPlano, type PlanoDaTela } from "../lib/planos";
+import { SO_NO_ANUAL, incluiNoPlano, type PlanoDaTela } from "../lib/planos";
 import { PaywallMiolo } from "./paywall-miolo";
 
 const GOLD = "#F5B800";
 const FRACO = "#7f7a6f";
+const soNoAnual = new Set(Object.values(SO_NO_ANUAL));
 
 /** Second paywall screen (Paywall V3): one plan, what it includes, how it is charged and renewed,
     and Apple's native purchase. "Escolher outro plano" goes back to the three cards. */
@@ -52,7 +53,10 @@ export function PaywallDetalhe({ plano, troca, atual, fase, aviso, onVoltar, onA
         <p className="text-[11px] font-black tracking-[.14em] mb-2.5" style={{ color: FRACO }}>O QUE VEM NO PLANO</p>
         <ul className="grid gap-2">
           {incluiNoPlano(plano.id).map((item) => (
-            <li key={item} className="flex items-center gap-2.5 text-[13px] font-semibold"><Check aria-hidden className="w-4 h-4 shrink-0" style={{ color: GOLD }} strokeWidth={3} />{item}</li>
+            <li key={item} className="flex items-center gap-2.5 text-[13px] font-semibold">
+              <Check aria-hidden className="w-4 h-4 shrink-0" style={{ color: GOLD }} strokeWidth={3} />{item}
+              {soNoAnual.has(item) && <span className="shrink-0 whitespace-nowrap rounded-[6px] px-1.5 py-[2px] text-[9px] font-black tracking-[.08em]" style={{ background: "rgba(245,184,0,.14)", color: GOLD }}>SÓ NO ANUAL</span>}
+            </li>
           ))}
         </ul>
       </section>

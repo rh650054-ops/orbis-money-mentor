@@ -79,20 +79,26 @@ describe("Paywall V3, screen 2: the plan's details", () => {
       expect(props.onAssinar).toHaveBeenCalledTimes(1);
     });
 
-  it("Pro mensal and Pro anual list the same benefits; they differ by billing and the saving", () => {
+  it("Pro anual keeps its two real extras explicit (2 banks, full Mentor IA) over the Pro mensal list; everything else is the same", () => {
     montar();
     const lista = () => within(screen.getByRole("region", { name: /^O que vem no/ })).getAllByRole("listitem").map((li) => li.textContent);
     abrir("Pro anual");
     const anual = lista();
+    expect(anual).toContain("2 bancos conectados (Pix automático)SÓ NO ANUAL");
+    expect(anual).toContain("Mentor IA completoSÓ NO ANUAL");
     expect(screen.getByText("Cobrado uma vez por ano. Equivale a R$ 33,32 por mês.")).toBeInTheDocument();
     expect(screen.getByText("Economize 33% em relação ao Pro mensal.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Escolher outro plano/ }));
     abrir("Pro mensal");
-    expect(lista()).toEqual(anual);
+    const mensal = lista();
+    expect(mensal).toContain("1 banco conectado (Pix automático)");
+    expect(mensal).toContain("Mentor IA ampliado");
+    expect(mensal.join(" ")).not.toMatch(/2 bancos|Mentor IA completo|SÓ NO ANUAL/);
+    expect(anual.filter((x) => !x?.endsWith("SÓ NO ANUAL"))).toEqual(mensal.filter((x) => x !== "1 banco conectado (Pix automático)" && x !== "Mentor IA ampliado"));
     expect(screen.queryByText(/Economize/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Escolher outro plano/ }));
     abrir("Essencial");
-    expect(lista()).not.toEqual(anual);
+    expect(lista().join(" ")).not.toMatch(/banco conectado|SÓ NO ANUAL/);
   });
 
   it("'Escolher outro plano' goes back to the three cards", () => {
