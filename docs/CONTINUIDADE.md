@@ -58,3 +58,14 @@ testador Sandbox, confirmar a adesão ao Small Business Program.
 ## Fora de escopo agora
 VANT Quick, widget, Constância 2.0, VANT Wall, Produtos, Estoque. Hotmart, Android, site e preços
 não mudam.
+
+## Implantação — registro (27/11/2026)
+- 10:05 `comparar-antes-depois.sql` (leitura): 1.499 contas, **1** diferença (`essencial_banco → sem_plano`,
+  a prevista), **0** dos 97 assinantes Hotmart com diferença. Planos hoje: sem_plano 1.312, teste 68,
+  essencial 50, pro 42, equipe 22, pro_anual 3, essencial_banco 2.
+- 10:05 **Foto A** (`fotografia-hotmart.sql`): contas 1.499; Hotmart active 88, past_due 9, expired 68,
+  canceled 4; ativas com período valendo 96; plan_status active 118 / trial 915 / expired 466;
+  assinantes Hotmart sem plano ativo 0; cortesias 22; demos 7; teste gratuito 68; Pro ativos 51;
+  eventos Hotmart 24 h: 34 (último 02:52); tabelas Apple: não existem.
+- Produção sem as 4 migrações (última aplicada: `20261126172147`).
+- Merge do #373 bloqueado pelo controle de permissões da sessão; nada mais foi executado.
