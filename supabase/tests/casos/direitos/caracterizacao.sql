@@ -7,6 +7,11 @@
 --   casos/43  after the migration AND its rollback
 -- Some lines record behaviour that is questionable (marked "as it is today"): they are here so a
 -- change to it is a decision, never a side effect.
+-- :corrigido = the two answers that 20261127121000 changes on purpose (P7, B3). Off unless the case sets it.
+\if :{?corrigido}
+\else
+\set corrigido false
+\endif
 select pg_temp.servidor();
 select now() + interval '10 days' as fim \gset
 select now() + interval '40 days' as fim_longe \gset
@@ -148,8 +153,13 @@ select public.pro_conceder(pg_temp.id('p_cortesia'), 'cortesia', null, null, nul
 select t.verdade('P6 courtesy Pro: no end date, origin "cortesia", Pro on',
   (select ativo and origem = 'cortesia' and expira_em is null from public.orbis_pro where user_id = pg_temp.id('p_cortesia')) and public.vant_pro_pleno(pg_temp.id('p_cortesia')));
 select public.pro_revogar(pg_temp.id('p_cortesia')) \gset x_
+\if :corrigido
+select t.verdade('P7 FIXED (20261127121000): a revocation closes the paid row, and the courtesy keeps the Pro on',
+  (select not ativo and origem = 'cortesia' and cortesia from public.orbis_pro where user_id = pg_temp.id('p_cortesia')) and public.vant_pro_pleno(pg_temp.id('p_cortesia')));
+\else
 select t.verdade('P7 as it is today: pro_revogar does not ask where the Pro came from; it turns a courtesy Pro off too',
   (select not ativo and origem = 'cortesia' from public.orbis_pro where user_id = pg_temp.id('p_cortesia')) and not public.vant_pro_pleno(pg_temp.id('p_cortesia')));
+\endif
 
 select public.pro_revogar(pg_temp.id('p_sem_linha')) as r \gset p8_
 select t.verdade('P8 revoking an account that never had the Pro: answers true and creates nothing',
@@ -176,8 +186,13 @@ select t.verdade('B1 extra bank on an Essencial account: bank released, Pro stil
 select t.verdade('B2 the extra bank never writes the main plan: an account without a plan stays blocked',
   pg_temp.plano('b_sem_plano') = 'expired' and not exists (select 1 from public.subscriptions where user_id = pg_temp.id('b_sem_plano'))
   and not public.vant_pro_pleno(pg_temp.id('b_sem_plano')));
+\if :corrigido
+select t.verdade('B3 FIXED (20261127121000): an extra bank without a valid main plan gives nothing; the plan name is "sem_plano"',
+  public.vant_plano(pg_temp.id('b_sem_plano')) = 'sem_plano' and not public.orbis_pro_ativo(pg_temp.id('b_sem_plano')));
+\else
 select t.verdade('B3 as it is today: the plan NAME of that blocked account reads "essencial_banco"',
   public.vant_plano(pg_temp.id('b_sem_plano')) = 'essencial_banco');
+\endif
 select t.verdade('B4 courtesy account with a paid extra bank counts as full Pro',
   public.cortesia_com_banco_pago(pg_temp.id('b_equipe')) and public.vant_pro_pleno(pg_temp.id('b_equipe')));
 select public.banco_extra_registrar(pg_temp.id('b_essencial'), 'SUB-BANCO-1', false, null);

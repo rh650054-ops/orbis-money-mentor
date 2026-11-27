@@ -61,3 +61,17 @@ verify_jwt = true
 # Resumo das assinaturas ativas na Hotmart. So admin (is_orbis_admin), conferido dentro da funcao.
 [functions.hotmart-receita]
 verify_jwt = true
+
+# Apple subscriptions (27/11/2026, Etapa 2 — not deployed yet).
+# apple-validar: called by the logged-in iPhone app with the signed transaction.
+[functions.apple-validar]
+verify_jwt = true
+
+# apple-webhook: called by APPLE (App Store Server Notifications), which sends no JWT.
+# MUST be false; the proof of who is calling is the signed body, verified inside.
+[functions.apple-webhook]
+verify_jwt = false
+
+# apple-conciliar: scheduled; door = header x-orbis-cron, checked inside.
+[functions.apple-conciliar]
+verify_jwt = false

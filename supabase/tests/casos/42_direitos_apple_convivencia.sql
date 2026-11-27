@@ -243,8 +243,11 @@ select t.verdade('O6 incomplete data and an invalid environment are refused',
 
 select public.apple_evento_registrar('uuid-ficticio-1', 'DID_RENEW', null, 'Production', '1000000000000300', pg_temp.id('o_dono'), now(), '{"ficticio":true}'::jsonb) as primeira \gset
 select public.apple_evento_registrar('uuid-ficticio-1', 'DID_RENEW', null, 'Production', '1000000000000300', pg_temp.id('o_dono'), now(), '{"ficticio":true}'::jsonb) as segunda \gset
-select t.verdade('O7 a notification is recorded once: first time true, the repetition false, one row',
-  :'primeira' = 't' and :'segunda' = 'f' and (select count(*) = 1 from public.apple_eventos where notification_uuid = 'uuid-ficticio-1'));
+select public.apple_evento_concluir('uuid-ficticio-1', 'gravada');
+select public.apple_evento_registrar('uuid-ficticio-1', 'DID_RENEW', null, 'Production', '1000000000000300', pg_temp.id('o_dono'), now(), '{"ficticio":true}'::jsonb) as terceira \gset
+select t.verdade('O7 a notification is recorded once: "novo", then "pendente" while its processing was not concluded (Apple re-sends, it is processed again), then "repetido"; one row',
+  :'primeira' = 'novo' and :'segunda' = 'pendente' and :'terceira' = 'repetido'
+  and (select count(*) = 1 and bool_and(resultado = 'gravada' and concluido_em is not null) from public.apple_eventos where notification_uuid = 'uuid-ficticio-1'));
 
 -- ============================================================ where each right comes from
 select t.verdade('R1 vant_direitos names every valid right and its origin',

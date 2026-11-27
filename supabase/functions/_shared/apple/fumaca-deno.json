@@ -1,0 +1,9 @@
+{
+  "imports": {
+    "jsrsasign": "npm:jsrsasign@11.1.0",
+    "jsonwebtoken": "npm:jsonwebtoken@9.0.2",
+    "https://esm.sh/@supabase/supabase-js@2": "npm:@supabase/supabase-js@2"
+  },
+  "nodeModulesDir": "none",
+  "lock": false
+}

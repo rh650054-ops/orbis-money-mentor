@@ -1,12 +1,18 @@
--- Rollback of 20261127120000_direitos_multi_provedor_apple. One transaction: all or nothing.
---   1. Refuses to run while a PRODUCTION Apple subscription is stored. From the first real Apple
---      sale on, going back would take the plan or the Pro away from a paying customer, so that
---      decision is Rick's, account by account, and is not made by a script.
---   2. Puts the six changed functions back EXACTLY as they were in production on 27/11/2026
+-- Rollback of the three draft migrations of Etapa 2 (20261127120000, 20261127121000, 20261127122000).
+-- One transaction: all or nothing.
+--   1. Refuses to run while there is something only Rick can decide about:
+--        - a PRODUCTION Apple subscription or a PRODUCTION row in the Apple ledger (from the first real
+--          Apple sale on, going back would take access from a paying customer and drop financial records);
+--        - a suspension in force (going back would let the next Hotmart charge undo it);
+--        - a payout typed into apple_repasses.
+--   2. Gives back every courtesy Pro that today is held only by the courtesy mark (a courtesy whose
+--      paid row was closed by Hotmart), so nobody loses a courtesy because of the rollback.
+--   3. Puts the sixteen changed functions back EXACTLY as they were in production on 27/11/2026
 --      (bodies copied by script and checked by fingerprint against the production catalog).
---   3. Closes the extra-bank slots written by Apple ('apple:...' keys) and removes the Apple objects.
--- Hotmart data is not touched by the migration nor by this rollback.
--- casos/43_direitos_rollback.sql runs this file and then the same assertions as casos/40.
+--   4. Closes the extra-bank slots written by Apple ('apple:...' keys) and removes the new objects,
+--      except the history of lifted suspensions (public.acesso_suspenso), which is kept.
+-- Hotmart data is not touched by the migrations nor by this rollback.
+-- casos/43_direitos_rollback.sql runs this file and then the same assertions as casos/40 and casos/44.
 begin;
 
 do $$
@@ -15,9 +21,32 @@ begin
      and exists (select 1 from public.apple_assinaturas where ambiente = 'Production') then
     raise exception 'rollback recusado: existem assinaturas Apple de producao. Decida conta a conta antes de remover o espelho.';
   end if;
+  if to_regclass('public.apple_transacoes') is not null
+     and exists (select 1 from public.apple_transacoes where ambiente = 'Production') then
+    raise exception 'rollback recusado: existem vendas Apple de producao no registro financeiro. Guarde-as antes de remover a tabela.';
+  end if;
+  if to_regclass('public.apple_repasses') is not null and exists (select 1 from public.apple_repasses) then
+    raise exception 'rollback recusado: existem repasses da Apple registrados. Guarde-os antes de remover a tabela.';
+  end if;
+  if to_regclass('public.acesso_suspenso') is not null
+     and exists (select 1 from public.acesso_suspenso where liberado_em is null) then
+    raise exception 'rollback recusado: existem contas suspensas. Sem esta migracao a proxima cobranca desfaz a suspensao: decida conta a conta.';
+  end if;
 end $$;
 
--- ---------------------------------------------------------------------------------- the six functions
+-- ---------------------------------------------------------------------------------- courtesies
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'orbis_pro' and column_name = 'cortesia') then
+    update public.orbis_pro
+       set ativo = true, origem = 'cortesia', assinante_codigo = null, produto_id = null,
+           expira_em = cortesia_ate, cancelado_em = null, atualizado_em = now()
+     where cortesia and (cortesia_ate is null or cortesia_ate > now())
+       and not (ativo and cancelado_em is null and (expira_em is null or expira_em > now()));
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------------- the functions that 20261127120000 changed
 create or replace function public.hotmart_acesso_aplicar(
   p_user uuid, p_acao text, p_sub text, p_purchase text, p_fim timestamptz default null, p_complete boolean default false
 ) returns text
@@ -194,17 +223,195 @@ language sql stable security definer set search_path to 'public' as $$
     coalesce((select verificado from public.profiles where user_id = auth.uid()), false);
 $$;
 
--- ---------------------------------------------------------------------------------- the Apple objects
+-- ---------------------------------------------------------------------------------- the functions that 20261127121000 and 20261127122000 changed
+create or replace function public.orbis_pro_ativo(p_user uuid default null)
+returns boolean language sql stable security definer set search_path to 'public' as $$
+  select public.vant_pro_pleno(coalesce(p_user, auth.uid()))
+      or exists (select 1 from public.bancos_extra_compras
+                  where user_id = coalesce(p_user, auth.uid()) and ativo and ate > now());
+$$;
+
+create or replace function public.vant_plano(p_user uuid default null)
+returns text language sql stable security definer set search_path to 'public' as $$
+  with u as (select coalesce(p_user, auth.uid()) as id),
+  p as (select * from public.profiles where user_id = (select id from u))
+  select case
+    when (select id from u) is null then 'sem_plano'
+    when coalesce((select billing_exempt from p), false) or coalesce((select is_demo from p), false) then 'equipe'
+    when public.pro_anual((select id from u)) then 'pro_anual'
+    when public.vant_pro_pleno((select id from u)) then 'pro'
+    when public.orbis_pro_ativo((select id from u)) then 'essencial_banco'
+    when (select plan_status from p) = 'active' then 'essencial'
+    when coalesce((select is_trial_active from p), false)
+         and (select trial_end from p) >= (now() at time zone 'America/Sao_Paulo')::date then 'teste'
+    else 'sem_plano' end;
+$$;
+
+CREATE OR REPLACE FUNCTION public.pro_conceder(p_user uuid, p_origem text DEFAULT 'hotmart'::text, p_codigo text DEFAULT NULL::text, p_produto text DEFAULT NULL::text, p_ate timestamp with time zone DEFAULT NULL::timestamp with time zone)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  if auth.jwt() ->> 'role' is distinct from 'service_role' then
+    raise exception 'so o servidor libera o Pro';
+  end if;
+  insert into public.orbis_pro (user_id, ativo, origem, assinante_codigo, produto_id, expira_em, cancelado_em, atualizado_em)
+  values (p_user, true, coalesce(p_origem,'hotmart'), p_codigo, p_produto, p_ate, null, now())
+  on conflict (user_id) do update set
+    ativo = true, origem = excluded.origem,
+    assinante_codigo = coalesce(excluded.assinante_codigo, public.orbis_pro.assinante_codigo),
+    produto_id = coalesce(excluded.produto_id, public.orbis_pro.produto_id),
+    expira_em = excluded.expira_em, cancelado_em = null, atualizado_em = now();
+  return true;
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.admin_assinatura_manual(p_user uuid, p_ativar boolean, p_motivo text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_motivo text := btrim(coalesce(p_motivo, ''));
+begin
+  if not public.is_orbis_admin() then raise exception 'apenas admin'; end if;
+  if length(v_motivo) < 5 then raise exception 'Escreva o motivo (pelo menos 5 letras).'; end if;
+  if not exists (select 1 from public.profiles where user_id = p_user) then raise exception 'perfil não encontrado'; end if;
+  update public.profiles
+     set plan_status = case when p_ativar then 'active' else 'expired' end,
+         plan_type   = case when p_ativar then 'pro' else 'expired' end,
+         is_trial_active = false
+   where user_id = p_user;
+  insert into public.assinatura_manual (user_id, feito_por, acao, motivo)
+  values (p_user, auth.uid(), case when p_ativar then 'ativar' else 'desativar' end, v_motivo);
+  return jsonb_build_object('ok', true, 'plan_status', case when p_ativar then 'active' else 'expired' end);
+end $function$;
+
+CREATE OR REPLACE FUNCTION public.total_assinantes_app()
+ RETURNS integer
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select count(*)::int from public.profiles
+  where plan_status = 'active' and coalesce(billing_exempt, false) = false;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.lista_assinantes()
+ RETURNS TABLE(nome text, email text, comp_label text)
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select coalesce(nickname,'') as nome,
+         lower(trim(email))     as email,
+         comp_label
+  from public.profiles
+  where plan_status = 'active'
+    and coalesce(billing_exempt, false) = false
+    and email is not null and trim(email) <> '';
+$function$;
+
+CREATE OR REPLACE FUNCTION public.leads_assinantes_no_app()
+ RETURNS SETOF text
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select distinct lower(trim(l.email))
+  from public.leads l
+  join public.profiles p on lower(trim(p.email)) = lower(trim(l.email))
+  where p.plan_status='active' and coalesce(p.billing_exempt,false)=false and coalesce(l.email,'')<>''
+$function$;
+
+CREATE OR REPLACE FUNCTION public.beta_vagas_preenchidas()
+ RETURNS integer
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT count(*)::int
+  FROM public.profiles
+  WHERE COALESCE(is_demo, false) = false           -- ignora contas demo
+    AND (
+      plan_status = 'active'                        -- assinante
+      OR (
+        plan_status = 'trial'                       -- teste grátis...
+        AND COALESCE(trial_end, CURRENT_DATE) >= CURRENT_DATE  -- ...ainda válido
+      )
+    );
+$function$;
+
+CREATE OR REPLACE FUNCTION public._crm_trial_sem_assinar(p_user uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select exists (
+    select 1 from public.profiles p
+     where p.user_id = p_user
+       and not coalesce(p.billing_exempt, false) and not coalesce(p.is_demo, false)
+       and p.trial_end < now()
+       and coalesce(p.plan_status, '') <> 'active'
+       and not exists (select 1 from public.subscriptions s where s.user_id = p.user_id)
+       and not exists (select 1 from public._crm_compras_hotmart h where h.user_id = p.user_id)
+       and not exists (select 1 from public.orbis_hotmart_assinatura a where a.user_id = p.user_id)
+       and not exists (select 1 from public.crm_equipe e where e.user_id = p.user_id)
+  ) and not public.orbis_pro_ativo(p_user);
+$function$;
+
+CREATE OR REPLACE FUNCTION public._crm_assinante_sem_pro(p_user uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select exists (
+    select 1 from public.profiles p
+     where p.user_id = p_user
+       and not coalesce(p.billing_exempt, false) and not coalesce(p.is_demo, false)
+       and (p.plan_status = 'active'
+            or exists (select 1 from public.subscriptions s
+                        where s.user_id = p.user_id and s.status = 'active'
+                          and coalesce(s.grace_until, s.current_period_end) >= now()))
+  ) and not public.orbis_pro_ativo(p_user);
+$function$;
+
+-- ---------------------------------------------------------------------------------- the new objects
 do $$
 begin
-  if to_regclass('public.apple_assinaturas') is not null then
-    update public.bancos_extra_compras set ativo = false, ate = now(), atualizado_em = now() where chave like 'apple:%' and ativo;
+  if to_regclass('public.bancos_extra_compras') is not null then
+    update public.bancos_extra_compras set ativo = false, ate = least(ate, now()), atualizado_em = now() where chave like 'apple:%' and ativo;
   end if;
 end $$;
+drop trigger if exists zz_profiles_respeita_suspensao on public.profiles;
+drop function if exists public.receita_por_origem(date, date);
+drop function if exists public.receita_apple(date, date);
+drop function if exists public.apple_origem_comercial(date, date);
+drop function if exists public.apple_repasse_registrar(date, date, numeric, date, text);
+drop function if exists public.apple_taxa_definir(date, numeric, text);
+drop function if exists public.apple_transacao_registrar(text, text, uuid, text, text, timestamptz, timestamptz, bigint, text, text, timestamptz, text, boolean, text, text, timestamptz);
+drop function if exists public.apple_taxa_em(timestamptz);
+drop function if exists public.apple_conta_de_teste_remover(uuid);
+drop function if exists public.apple_conta_de_teste_registrar(uuid, text);
+drop function if exists public.apple_conta_de_teste(uuid);
+drop function if exists public.admin_liberar_acesso(uuid, text);
+drop function if exists public.admin_suspender_acesso(uuid, text);
+drop function if exists public.vant_acesso_recalcular(uuid);
+drop function if exists public.vant_plano_principal_valido(uuid);
+drop function if exists public.pro_cortesia_revogar(uuid);
+drop function if exists public.orbis_pro_vale(public.orbis_pro);
+drop function if exists public.profiles_respeita_suspensao();
+drop function if exists public.conta_suspensa(uuid);
 drop function if exists public.vant_direitos(uuid);
-drop function if exists public.apple_evento_registrar(text, text, text, text, text, uuid, timestamptz, jsonb);
+drop function if exists public.apple_conciliar_lista(integer);
+drop function if exists public.apple_evento_concluir(text, text);
+drop function if exists public.apple_evento_registrar(text, text, text, text, text, uuid, timestamptz, jsonb, text);
 drop function if exists public.apple_expirar_vencidas();
-drop function if exists public.apple_assinatura_gravar(uuid, text, text, text, timestamptz, timestamptz, text, timestamptz, boolean, timestamptz, text);
+drop function if exists public.apple_assinatura_gravar(uuid, text, text, text, timestamptz, timestamptz, text, timestamptz, boolean, timestamptz, text, boolean);
 drop function if exists public.apple_acesso_recalcular(uuid);
 drop function if exists public.vant_plano_pago_por_outro(uuid, text);
 drop function if exists public.hotmart_plano_valido(uuid);
@@ -213,9 +420,15 @@ drop function if exists public.apple_pro_valido(uuid);
 drop function if exists public.apple_plano_valido(uuid);
 drop function if exists public.apple_vale(public.apple_assinaturas);
 drop function if exists public.apple_produto(text);
+drop table if exists public.apple_transacoes;
+drop table if exists public.apple_repasses;
+drop table if exists public.apple_taxas;
 drop table if exists public.apple_acesso;
 drop table if exists public.apple_contas_de_teste;
 drop table if exists public.apple_eventos;
-drop table if exists public.apple_assinaturas;
+drop table if exists public.apple_assinaturas;   -- its trigger and apple_assinaturas_fixar_origem go below
+drop function if exists public.apple_assinaturas_fixar_origem();
+-- public.acesso_suspenso is KEPT: it holds only lifted suspensions (checked above), which are history.
+alter table public.orbis_pro drop column if exists cortesia, drop column if exists cortesia_ate;
 
 commit;

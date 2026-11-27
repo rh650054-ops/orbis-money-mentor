@@ -1,6 +1,7 @@
 -- 27/11/2026 (Rick): native Apple subscriptions on the iPhone, next to Hotmart (site and Android).
 -- DRAFT of Etapa 2. NOT applied to production: it is applied only with Rick's authorisation, after
--- the cases in supabase/tests/casos/4x_direitos_*.sql are green. Rollback: supabase/direitos-apple/rollback.sql.
+-- the cases in supabase/tests/casos/40..49 are green. Rollback: supabase/direitos-apple/rollback.sql.
+-- Deploy order, smoke and rollback: supabase/direitos-apple/README.md.
 --
 -- THE RULE: an account's access is the sum of what each origin guarantees right now (hotmart, apple,
 -- cortesia). An event of one provider updates only that provider's own record; it can take the
@@ -18,6 +19,7 @@
 --   apple_acesso           what Apple currently holds per account, so Apple only undoes what Apple did
 -- Changed (one guard or one "or" each; bodies otherwise identical to production on 27/11/2026):
 --   hotmart_acesso_aplicar, expire_overdue_subscriptions   the two places that block an account
+--   (hotmart_acesso_aplicar also takes the per-account lock that serialises access decisions)
 --   vant_pro_pleno, pro_anual, open_finance_limite, orbis_pro_status   the readers of the Pro
 -- NOT changed, on purpose: pro_revogar and pro_conceder. Pro bought through Apple never enters
 -- orbis_pro, so a Hotmart revocation cannot reach it.
@@ -40,6 +42,7 @@ create table if not exists public.apple_assinaturas (
   revogada_em timestamptz,
   assinado_em timestamptz not null,
   transaction_id text,
+  conferida_em timestamptz,
   criado_em timestamptz not null default now(),
   atualizado_em timestamptz not null default now(),
   constraint apple_assinaturas_nivel_so_no_plano check ((direito = 'plano') = (nivel is not null))
@@ -52,13 +55,16 @@ create table if not exists public.apple_eventos (
   subtipo text,
   ambiente text not null check (ambiente in ('Production', 'Sandbox')),
   original_transaction_id text,
+  transaction_id text,
   user_id uuid references auth.users (id) on delete set null,
   assinado_em timestamptz,
   recebido_em timestamptz not null default now(),
   resultado text,
+  concluido_em timestamptz,
   payload jsonb not null
 );
 create index if not exists apple_eventos_original_idx on public.apple_eventos (original_transaction_id, recebido_em desc);
+create index if not exists apple_eventos_transacao_idx on public.apple_eventos (transaction_id) where tipo in ('REFUND', 'REVOKE', 'REFUND_REVERSED');
 
 create table if not exists public.apple_contas_de_teste (
   user_id uuid primary key references auth.users (id) on delete cascade,
@@ -179,6 +185,10 @@ declare
   v_bancos integer := 0;
 begin
   if p_user is null then raise exception 'conta obrigatoria'; end if;
+  -- one access decision at a time per account, whoever makes it: the same lock is taken by
+  -- hotmart_acesso_aplicar. Without it, a Hotmart cancellation and an Apple purchase landing in the
+  -- same instant could each decide without seeing the other (casos/48, C3 and C4).
+  perform pg_advisory_xact_lock(hashtextextended('acesso:' || p_user::text, 0));
 
   -- extra bank: one slot per Apple add-on subscription, under its own key
   for r in select a.original_transaction_id, public.apple_vale(a) as vale,
@@ -217,15 +227,20 @@ end $$;
 --   ambiente_diferente      a Sandbox status never overwrites a Production subscription (or the reverse)
 --   grupo_diferente         a subscription never moves between the plan group and the bank group
 --   antigo_ignorado         Apple signed this status BEFORE the one already stored (out of order)
+--   periodo_antigo          a refund of an OLDER period of a subscription that has a newer one: the
+--                           access stays (the money side is recorded by apple_transacao_registrar)
+--   reembolsada             this very transaction was refunded or revoked in a notification that
+--                           arrived before any account claimed it: an old signed copy gives nothing
+-- p_conferida = true when the status came from the App Store Server API (not from the device).
 create or replace function public.apple_assinatura_gravar(
   p_user uuid, p_original text, p_produto text, p_ambiente text, p_expira timestamptz, p_assinado timestamptz,
   p_status text default 'ativa', p_tolerancia timestamptz default null, p_renova boolean default null,
-  p_revogada timestamptz default null, p_transacao text default null)
+  p_revogada timestamptz default null, p_transacao text default null, p_conferida boolean default false)
 returns text language plpgsql security definer set search_path to 'public' as $$
 declare
   a public.apple_assinaturas;
   c record;
-  v_user uuid;
+  v_user uuid := p_user;
 begin
   if coalesce(p_original, '') = '' or p_produto is null or p_expira is null or p_assinado is null then
     raise exception 'dados incompletos';
@@ -233,24 +248,40 @@ begin
   if p_ambiente is null or p_ambiente not in ('Production', 'Sandbox') then raise exception 'ambiente invalido'; end if;
   select * into c from public.apple_produto(p_produto);
   if not found then raise exception 'produto desconhecido: %', p_produto; end if;
+  -- an account token that is not an account of ours is the same as no token
+  if v_user is not null and not exists (select 1 from auth.users u where u.id = v_user) then v_user := null; end if;
 
-  select * into a from public.apple_assinaturas where original_transaction_id = p_original for update;
+  -- one writer at a time per subscription: the device, the notification and the reconciliation
+  -- may all arrive in the same second
+  perform pg_advisory_xact_lock(hashtextextended('apple:' || p_original, 0));
+  select * into a from public.apple_assinaturas where original_transaction_id = p_original;
+
   if a.original_transaction_id is null then
-    if p_user is null then return 'sem_dono'; end if;
+    if v_user is null then return 'sem_dono'; end if;
+    if p_revogada is null and p_transacao is not null and exists (
+         select 1 from public.apple_eventos e
+          where e.transaction_id = p_transacao and e.tipo in ('REFUND', 'REVOKE') and e.assinado_em >= p_assinado
+            and not exists (select 1 from public.apple_eventos r
+                             where r.transaction_id = p_transacao and r.tipo = 'REFUND_REVERSED' and r.assinado_em > e.assinado_em)) then
+      return 'reembolsada';
+    end if;
     insert into public.apple_assinaturas (original_transaction_id, user_id, produto, direito, nivel, anual, ambiente, status,
-                                          expira_em, tolerancia_ate, renova, revogada_em, assinado_em, transaction_id)
-    values (p_original, p_user, p_produto, c.direito, c.nivel, c.anual, p_ambiente, coalesce(p_status, 'ativa'),
-            p_expira, p_tolerancia, p_renova, p_revogada, p_assinado, p_transacao);
-    v_user := p_user;
+                                          expira_em, tolerancia_ate, renova, revogada_em, assinado_em, transaction_id, conferida_em)
+    values (p_original, v_user, p_produto, c.direito, c.nivel, c.anual, p_ambiente, coalesce(p_status, 'ativa'),
+            p_expira, p_tolerancia, p_renova, p_revogada, p_assinado, p_transacao, case when p_conferida then now() end);
   else
-    if p_user is not null and p_user <> a.user_id then return 'pertence_a_outra_conta'; end if;
+    if v_user is not null and v_user <> a.user_id then return 'pertence_a_outra_conta'; end if;
     if p_ambiente <> a.ambiente then return 'ambiente_diferente'; end if;
     if c.direito <> a.direito then return 'grupo_diferente'; end if;
     if p_assinado < a.assinado_em then return 'antigo_ignorado'; end if;
+    if p_revogada is not null and p_transacao is distinct from a.transaction_id and p_expira < a.expira_em then
+      return 'periodo_antigo';
+    end if;
     update public.apple_assinaturas
        set produto = p_produto, nivel = c.nivel, anual = c.anual, status = coalesce(p_status, 'ativa'),
-           expira_em = p_expira, tolerancia_ate = p_tolerancia, renova = p_renova, revogada_em = p_revogada,
-           assinado_em = p_assinado, transaction_id = coalesce(p_transacao, transaction_id), atualizado_em = now()
+           expira_em = p_expira, tolerancia_ate = p_tolerancia, renova = coalesce(p_renova, renova), revogada_em = p_revogada,
+           assinado_em = p_assinado, transaction_id = coalesce(p_transacao, transaction_id),
+           conferida_em = case when p_conferida then now() else conferida_em end, atualizado_em = now()
      where original_transaction_id = p_original;
     v_user := a.user_id;
   end if;
@@ -259,52 +290,93 @@ begin
   return 'gravada';
 end $$;
 
--- Hourly (scheduled only when this goes to production): an Apple plan whose period ended without a
--- notification stops holding the account.
+-- What the reconciliation should ask Apple about, oldest check first: every subscription that still
+-- gives a right, plus the ones that ended in the last days (a late renewal or a refund).
+create or replace function public.apple_conciliar_lista(p_limite integer default 50)
+returns table (original_transaction_id text, ambiente text, user_id uuid)
+language sql stable security definer set search_path to 'public' as $$
+  select a.original_transaction_id, a.ambiente, a.user_id
+    from public.apple_assinaturas a
+   where a.revogada_em is null
+     and greatest(a.expira_em, coalesce(a.tolerancia_ate, a.expira_em)) > now() - interval '7 days'
+     and (a.conferida_em is null or a.conferida_em < now() - interval '6 hours'
+          or greatest(a.expira_em, coalesce(a.tolerancia_ate, a.expira_em)) < now() + interval '1 hour')
+   order by a.conferida_em asc nulls first, a.expira_em asc
+   limit greatest(1, least(coalesce(p_limite, 50), 500));
+$$;
+
+-- Hourly (scheduled only when this goes to production), two repairs that need no notification:
+--   1. an Apple plan whose period ended stops holding the account;
+--   2. an account Apple is paying for whose plan is off is turned on again. It covers anything that
+--      blocked it without asking (the hourly Hotmart expiry racing with a purchase, a manual write).
+--      A suspended account stays blocked (the trigger of 20261127121000 refuses the write).
 create or replace function public.apple_expirar_vencidas()
 returns integer language plpgsql security definer set search_path to 'public' as $$
 declare r record; n integer := 0;
 begin
-  for r in select x.user_id from public.apple_acesso x where x.segura_plano and not public.apple_plano_valido(x.user_id) loop
+  for r in select x.user_id from public.apple_acesso x where x.segura_plano and not public.apple_plano_valido(x.user_id)
+           union
+           select a.user_id from public.apple_assinaturas a join public.profiles p on p.user_id = a.user_id
+            where a.direito = 'plano' and public.apple_vale(a) and p.plan_status is distinct from 'active'
+  loop
     perform public.apple_acesso_recalcular(r.user_id);
     n := n + 1;
   end loop;
   return n;
 end $$;
 
--- One notification is processed once. true = first time; false = Apple sent it again.
+-- One notification is processed once, and a notification whose processing failed is processed again
+-- when Apple re-sends it:
+--   novo       first time: process it, then apple_evento_concluir
+--   pendente   it was received before but never concluded (the first attempt failed): process it again
+--   repetido   already concluded: answer OK and do nothing
 create or replace function public.apple_evento_registrar(
-  p_uuid text, p_tipo text, p_subtipo text, p_ambiente text, p_original text, p_user uuid, p_assinado timestamptz, p_payload jsonb)
-returns boolean language plpgsql security definer set search_path to 'public' as $$
-declare v_n integer;
+  p_uuid text, p_tipo text, p_subtipo text, p_ambiente text, p_original text, p_user uuid, p_assinado timestamptz,
+  p_payload jsonb, p_transacao text default null)
+returns text language plpgsql security definer set search_path to 'public' as $$
+declare v_n integer; v_fim timestamptz;
 begin
   if coalesce(p_uuid, '') = '' or coalesce(p_tipo, '') = '' or p_payload is null then raise exception 'evento incompleto'; end if;
-  insert into public.apple_eventos (notification_uuid, tipo, subtipo, ambiente, original_transaction_id, user_id, assinado_em, payload)
-  values (p_uuid, p_tipo, p_subtipo, p_ambiente, p_original, p_user, p_assinado, p_payload)
+  insert into public.apple_eventos (notification_uuid, tipo, subtipo, ambiente, original_transaction_id, transaction_id, user_id, assinado_em, payload)
+  values (p_uuid, p_tipo, p_subtipo, p_ambiente, p_original, p_transacao,
+          (select u.id from auth.users u where u.id = p_user), p_assinado, p_payload)
   on conflict (notification_uuid) do nothing;
   get diagnostics v_n = row_count;
-  return v_n > 0;
+  if v_n > 0 then return 'novo'; end if;
+  select e.concluido_em into v_fim from public.apple_eventos e where e.notification_uuid = p_uuid;
+  return case when v_fim is null then 'pendente' else 'repetido' end;
 end $$;
+
+create or replace function public.apple_evento_concluir(p_uuid text, p_resultado text)
+returns void language sql security definer set search_path to 'public' as $$
+  update public.apple_eventos e
+     set resultado = p_resultado, concluido_em = now(),
+         user_id = coalesce(e.user_id, (select a.user_id from public.apple_assinaturas a where a.original_transaction_id = e.original_transaction_id))
+   where e.notification_uuid = p_uuid;
+$$;
 
 revoke all on function public.apple_vale(public.apple_assinaturas), public.apple_plano_valido(uuid), public.apple_pro_valido(uuid),
   public.apple_pro_anual_valido(uuid), public.hotmart_plano_valido(uuid), public.vant_plano_pago_por_outro(uuid, text),
   public.apple_acesso_recalcular(uuid),
-  public.apple_assinatura_gravar(uuid, text, text, text, timestamptz, timestamptz, text, timestamptz, boolean, timestamptz, text),
-  public.apple_expirar_vencidas(), public.apple_evento_registrar(text, text, text, text, text, uuid, timestamptz, jsonb),
+  public.apple_assinatura_gravar(uuid, text, text, text, timestamptz, timestamptz, text, timestamptz, boolean, timestamptz, text, boolean),
+  public.apple_expirar_vencidas(), public.apple_evento_registrar(text, text, text, text, text, uuid, timestamptz, jsonb, text),
+  public.apple_evento_concluir(text, text), public.apple_conciliar_lista(integer),
   public.apple_produto(text)
   from public, anon, authenticated;
 grant execute on function public.apple_vale(public.apple_assinaturas), public.apple_plano_valido(uuid), public.apple_pro_valido(uuid),
   public.apple_pro_anual_valido(uuid), public.hotmart_plano_valido(uuid), public.vant_plano_pago_por_outro(uuid, text),
   public.apple_acesso_recalcular(uuid),
-  public.apple_assinatura_gravar(uuid, text, text, text, timestamptz, timestamptz, text, timestamptz, boolean, timestamptz, text),
-  public.apple_expirar_vencidas(), public.apple_evento_registrar(text, text, text, text, text, uuid, timestamptz, jsonb),
+  public.apple_assinatura_gravar(uuid, text, text, text, timestamptz, timestamptz, text, timestamptz, boolean, timestamptz, text, boolean),
+  public.apple_expirar_vencidas(), public.apple_evento_registrar(text, text, text, text, text, uuid, timestamptz, jsonb, text),
+  public.apple_evento_concluir(text, text), public.apple_conciliar_lista(integer),
   public.apple_produto(text)
   to service_role;
 revoke all on function public.vant_direitos(uuid) from public, anon;
 grant execute on function public.vant_direitos(uuid) to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------------- the guards
--- Bodies below are production's of 27/11/2026 with ONE change each, marked "27/11".
+-- Bodies below are production's of 27/11/2026 with the changes marked "27/11": one each, plus the
+-- per-account lock at the top of hotmart_acesso_aplicar.
 
 create or replace function public.hotmart_acesso_aplicar(
   p_user uuid, p_acao text, p_sub text, p_purchase text, p_fim timestamptz default null, p_complete boolean default false
@@ -317,6 +389,8 @@ declare
   v_dono boolean;
 begin
   if auth.jwt() ->> 'role' is distinct from 'service_role' then raise exception 'so o servidor'; end if;
+  -- 27/11: one access decision at a time per account (the same lock apple_acesso_recalcular takes)
+  perform pg_advisory_xact_lock(hashtextextended('acesso:' || p_user::text, 0));
   select * into s from public.subscriptions where user_id = p_user for update;
   v_dono := s.id is null or v_sub is null or nullif(s.hotmart_subscription_id, '') is null
             or s.hotmart_subscription_id = v_sub;
