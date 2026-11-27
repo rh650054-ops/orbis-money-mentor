@@ -90,7 +90,7 @@ describe("after a purchase attempt", () => {
     [{ estado: "liberada", produto: PRODUTO.proAnual }, "Assinatura ativa", "Continuar"],
     [{ estado: "pendente_aprovacao", produto: PRODUTO.proAnual }, "Compra aguardando aprovação", null],
     [{ estado: "aguardando_servidor", produto: PRODUTO.proAnual, motivo: "sem_internet" }, "Pagamento recebido", "Tentar de novo"],
-    [{ estado: "aguardando_servidor", produto: PRODUTO.proAnual, motivo: "servidor" }, "Pagamento recebido", "Tentar de novo"],
+    [{ estado: "aguardando_servidor", produto: PRODUTO.proAnual, motivo: "servidor" }, "Confirmando sua assinatura", "Tentar de novo"],
     [{ estado: "de_outra_conta", produto: PRODUTO.proAnual }, "Compra de outra conta VANT", null],
     [{ estado: "recusada", produto: PRODUTO.proAnual, motivo: "reembolsada" }, "Esta compra foi reembolsada", null],
     [{ estado: "falhou", motivo: "sem_internet" }, "Sem internet", null],

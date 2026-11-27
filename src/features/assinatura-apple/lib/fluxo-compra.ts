@@ -54,6 +54,10 @@ export function criarFluxo(deps: Deps) {
     }
     if (resultado === "pertence_a_outra_conta") return { estado: "de_outra_conta", produto: t.produto };
     if (resultado === "tente_de_novo") return { estado: "aguardando_servidor", produto: t.produto, motivo: "servidor" };
+    // 27/11/2026: Apple paid and StoreKit verified it HERE, but our server refused the signature. That
+    // is our side failing (the first Sandbox purchase hit exactly this), never the customer's: keep it
+    // unfinished, say the payment is safe, and send it again until the server confirms it.
+    if (resultado === "assinatura_invalida" && t.verificadaNoAparelho !== false) return { estado: "aguardando_servidor", produto: t.produto, motivo: "servidor" };
     return { estado: "recusada", produto: t.produto, motivo: resultado };
   }
 

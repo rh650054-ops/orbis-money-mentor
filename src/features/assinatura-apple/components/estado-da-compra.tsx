@@ -14,7 +14,9 @@ export function textoDoEstado(r: ResultadoCompra): Texto {
     case "pendente_aprovacao":
       return { icone: <Clock className="w-7 h-7" />, titulo: "Compra aguardando aprovação", texto: "A Apple ainda precisa de uma aprovação (do responsável pela conta ou do banco). Nada foi cobrado. Assim que aprovarem, seu acesso libera sozinho.", cor: GOLD };
     case "aguardando_servidor": {
-      const porque = r.motivo === "sem_internet" ? "Você está sem internet." : r.motivo === "sessao" ? "Entre de novo na sua conta VANT." : "Nosso servidor não respondeu agora.";
+      // recoverable: the payment is safe and the app keeps trying by itself; nothing alarming here
+      if (r.motivo === "servidor") return { icone: <ShieldCheck className="w-7 h-7" />, titulo: "Confirmando sua assinatura", texto: "A Apple já confirmou o pagamento. Estamos liberando seu acesso, o que pode levar alguns instantes. Você não será cobrado de novo.", cor: GOLD };
+      const porque = r.motivo === "sem_internet" ? "Você está sem internet." : "Entre de novo na sua conta VANT.";
       return { icone: r.motivo === "sem_internet" ? <WifiOff className="w-7 h-7" /> : <ShieldCheck className="w-7 h-7" />, titulo: "Pagamento recebido", texto: `${porque} Sua compra está guardada e o acesso libera assim que confirmarmos. Você não será cobrado de novo.`, cor: GOLD };
     }
     case "de_outra_conta":

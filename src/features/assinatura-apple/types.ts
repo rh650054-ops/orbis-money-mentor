@@ -25,6 +25,8 @@ export interface TransacaoApple {
   expira?: number;
   revogada?: number;
   substituida?: boolean;
+  /** StoreKit itself checked Apple's signature on this iPhone (VerificationResult.verified) */
+  verificadaNoAparelho?: boolean;
 }
 
 export type RespostaDaLoja =

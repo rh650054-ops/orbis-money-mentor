@@ -210,11 +210,24 @@ describe("renewal, refund, upgrade and downgrade arrive through the listener", (
     expect(loja.chamadas.filter((c) => c.startsWith("concluir"))).toHaveLength(1);
   });
 
-  it("a signature the server refuses: not finished and reported, never treated as released", async () => {
+  it("a signature the server refuses on a transaction StoreKit did NOT verify: not finished and reported, never released", async () => {
     const { fluxo, loja, servidor } = montar();
     servidor.resposta = () => ({ tipo: "ok", resultados: [{ resultado: "assinatura_invalida" }] });
-    expect(await fluxo.processar(loja.nova(PRODUTO.proMensal, CONTA_A))).toEqual({ estado: "recusada", produto: PRODUTO.proMensal, motivo: "assinatura_invalida" });
+    const t = { ...loja.nova(PRODUTO.proMensal, CONTA_A), verificadaNoAparelho: false };
+    expect(await fluxo.processar(t)).toEqual({ estado: "recusada", produto: PRODUTO.proMensal, motivo: "assinatura_invalida" });
     expect(loja.naoConcluidas.size).toBe(1);
+  });
+
+  it("27/11: a purchase StoreKit verified but the server refused (our side failing): payment kept, not finished, retried until confirmed", async () => {
+    const { fluxo, loja, servidor } = montar();
+    servidor.resposta = () => ({ tipo: "ok", resultados: [{ resultado: "assinatura_invalida" }] });
+    const t = { ...loja.nova(PRODUTO.essencial, CONTA_A), verificadaNoAparelho: true };
+    expect(await fluxo.processar(t)).toEqual({ estado: "aguardando_servidor", produto: PRODUTO.essencial, motivo: "servidor" });
+    expect(loja.naoConcluidas.size).toBe(1);
+    // the server is fixed: the same unfinished purchase is confirmed by the legitimate path, once
+    servidor.resposta = () => ({ tipo: "ok", resultados: [{ resultado: "gravada" }] });
+    expect(await fluxo.recuperar()).toEqual([{ estado: "liberada", produto: PRODUTO.essencial }]);
+    expect(loja.naoConcluidas.size).toBe(0);
   });
 });
 
