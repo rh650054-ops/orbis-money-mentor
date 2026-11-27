@@ -20,7 +20,7 @@ preflight verde, drift sem divergência nova.
 Merge commit nos PRs empilhados · primeira publicação das 3 funções pela CLI · segunda conta
 de revisão · Sandbox só em contas de teste · sem re-aceite geral dos Termos.
 
-Essencial R$ 29,90/mês · Pro R$ 49,90/mês · Pro R$ 419,90/ano · Banco adicional R$ 12,90/mês ·
+Apple (decisão de 27/11): Essencial R$ 29,90/mês · Pro R$ 49,90/mês · Pro R$ 399,90/ano · Banco adicional R$ 12,90/mês ·
 dois grupos · só Brasil · site e Android seguem Hotmart · assinantes e teste gratuito atuais
 preservados · sem comissão automática sobre Apple nesta etapa · ajustes visuais do #374 aprovados
 (total anual em destaque, botão sem logo da Apple).
