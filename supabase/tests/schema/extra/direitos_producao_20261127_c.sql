@@ -54,7 +54,7 @@ AS $function$
 $function$;
 
 -- parceiros_resumo = production 32a930da42
-CREATE OR REPLACE FUNCTION public.parceiros_resumo(p_mes text)
+CREATE OR REPLACE FUNCTION public.parceiros_resumo(p_mes text DEFAULT NULL::text)
  RETURNS json
  LANGUAGE sql
  SECURITY DEFINER

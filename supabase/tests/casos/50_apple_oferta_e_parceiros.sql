@@ -85,6 +85,9 @@ select pg_temp.apple('o_apple', '1000000000005004', :'BANCO', :'fim30'::timestam
 select t.verdade('O7 an add-on already held through Apple is reported as such; a slot bought on Hotmart before is kept',
   pg_temp.oferta('o_apple') ->> 'banco' = 'ja_tem'
   and (select ativo from public.bancos_extra_compras where chave = 'SUB-BANCO-o'));
+select t.verdade('S1 the migrated parceiros_resumo keeps production''s signature, default included (27/11: the first apply failed on it)',
+  (select pg_get_function_arguments(p.oid) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'parceiros_resumo') = 'p_mes text DEFAULT NULL::text');
 select t.verdade('O8 it answers only about the logged-in account; without a session nothing is offered; anon cannot call it',
   (select public.assinatura_apple_oferta() ->> 'motivo') = 'sem_sessao'
   and t.erro('select public.assinatura_apple_oferta()', 'anon', pg_temp.id('o_livre')) like '42501|%');
