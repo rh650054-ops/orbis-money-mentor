@@ -8,7 +8,11 @@ import { PlanosAppleAviso, PlanosAppleSkeleton, PlanosAppleTela } from "./planos
 
 /** The native plans screen of the iPhone app. Prices come from StoreKit, the permission to offer a
     purchase comes from the server, and the purchase is confirmed on Apple's own sheet. */
-export function PlanosApple({ onLiberada }: { onLiberada?: () => void }) {
+export function PlanosApple({ onLiberada, aoTerPlano }: {
+  onLiberada?: () => void;
+  /** Blocking screen (end of trial): an account whose Apple plan is already on is told so and goes on. */
+  aoTerPlano?: () => void;
+}) {
   const { user } = useAuth();
   const oferta = useOfertaAppleQuery(user?.id);
   const produtos = useProdutosAppleQuery(PLANOS_PRINCIPAIS);
@@ -32,6 +36,11 @@ export function PlanosApple({ onLiberada }: { onLiberada?: () => void }) {
   if (oferta.isError || !oferta.data) {
     return <PlanosAppleAviso titulo="Não foi possível carregar os planos" texto="Verifique sua internet e tente de novo."
       acao={{ rotulo: "Tentar de novo", onClick: () => void oferta.refetch() }} />;
+  }
+  if (oferta.data.plano === "trocar" && aoTerPlano) {
+    const titulo = planos.find((x) => x.id === oferta.data?.apple?.produto)?.titulo;
+    return <PlanosAppleAviso titulo="Sua assinatura está ativa" texto={`${titulo ? `O ${titulo}` : "Seu plano"} pela Apple já está liberado nesta conta.`}
+      acao={{ rotulo: "Continuar", onClick: aoTerPlano }} />;
   }
   if (oferta.data.plano === "bloqueado") {
     const a = avisoDaOferta(oferta.data) ?? { titulo: "Plano indisponível para esta conta", texto: "Fale com o suporte da VANT." };

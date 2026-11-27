@@ -14,8 +14,8 @@ const PlanosApple = lazy(() => import("@/features/assinatura-apple").then((m) =>
 /** "apple" mode: Apple's native plans screen wherever the store app would show "assinar".
  *  telaCheia (27/11/2026): a full-screen paywall over the app, respecting the iPhone's safe areas,
  *  used where the paywall interrupts (end of trial, "assinar" taps). Inline inside pages otherwise. */
-export function TelaAssinarPelaApple({ onLiberada, onFechar, telaCheia, onVerificar, verificando, onSair }: {
-  onLiberada?: () => void; onFechar?: () => void; telaCheia?: boolean;
+export function TelaAssinarPelaApple({ onLiberada, aoTerPlano, onFechar, telaCheia, onVerificar, verificando, onSair }: {
+  onLiberada?: () => void; aoTerPlano?: () => void; onFechar?: () => void; telaCheia?: boolean;
   onVerificar?: () => void; verificando?: boolean; onSair?: () => void;
 }) {
   useEffect(() => {
@@ -26,7 +26,7 @@ export function TelaAssinarPelaApple({ onLiberada, onFechar, telaCheia, onVerifi
   }, [telaCheia]);
   const planos = (
     <Suspense fallback={<div aria-busy="true" className="h-[420px] rounded-[18px] animate-pulse" style={{ background: "#0e0e10" }} />}>
-      <PlanosApple onLiberada={onLiberada} />
+      <PlanosApple onLiberada={onLiberada} aoTerPlano={aoTerPlano} />
     </Suspense>
   );
   if (!telaCheia) return (

@@ -14,6 +14,8 @@ import { plataforma } from "./platform";
 
 export type ModoCobranca = "web" | "fora" | "link" | "apple";
 export const EVENTO_ASSINATURA_LOJA = "vant:assinatura-loja";
+/** Fired when an Apple purchase or the background recovery released the access (27/11/2026). */
+export const EVENTO_APPLE_LIBEROU = "vant:assinatura-apple-liberou";
 
 /** Fallback when the token cannot be created: /assinar without a token (3 plans, straight to
  *  Hotmart). Not the landing (beta.vantapp.com.br/#planos): its buttons are "Começar 3 dias

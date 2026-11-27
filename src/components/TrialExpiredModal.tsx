@@ -4,7 +4,7 @@ import { LogOut, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/shared/hooks/use-toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { EscolhaPlano } from "@/components/jornada/EscolhaPlano";
 import { useJornada } from "@/components/jornada/useJornada";
@@ -12,7 +12,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { useVoltaDoCheckout } from "@/hooks/useVoltaDoCheckout";
 import { verificarAcessoPago } from "@/shared/lib/verificar-acesso";
-import { assinaPelaApple, assinaPeloSite } from "@/shared/lib/cobranca-loja";
+import { EVENTO_APPLE_LIBEROU, assinaPelaApple, assinaPeloSite } from "@/shared/lib/cobranca-loja";
 import { TelaAssinarPelaApple, TelaAssinarPeloSite } from "@/shared/components/assinatura-loja";
 import { PixVencido, RenovarPix, useRenovacaoPixQuery, useRenovacaoVencidaQuery } from "@/features/renovacao";
 
@@ -73,8 +73,16 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
 
   /* iPhone, native billing: full-screen Apple paywall (27/11/2026). Same exits as before:
      "Já paguei, verificar acesso" and "Sair da conta"; no link, no Hotmart, no Pix. */
+  // the background recovery (RecuperadorApple) released the access: check it and leave this screen
+  useEffect(() => {
+    if (!isOpen || !assinaPelaApple()) return;
+    const liberou = () => window.location.reload();
+    window.addEventListener(EVENTO_APPLE_LIBEROU, liberou);
+    return () => window.removeEventListener(EVENTO_APPLE_LIBEROU, liberou);
+  }, [isOpen]);
+
   if (assinaPelaApple()) {
-    return isOpen ? <TelaAssinarPelaApple telaCheia onLiberada={() => void handleCheckAccess()} onVerificar={() => void handleCheckAccess()} verificando={isChecking} onSair={() => void handleLogout()} /> : null;
+    return isOpen ? <TelaAssinarPelaApple telaCheia onLiberada={() => void handleCheckAccess()} aoTerPlano={() => void handleCheckAccess()} onVerificar={() => void handleCheckAccess()} verificando={isChecking} onSair={() => void handleLogout()} /> : null;
   }
 
   return (
