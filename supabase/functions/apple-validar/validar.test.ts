@@ -201,9 +201,19 @@ describe("restoring purchases", () => {
     const deOutro = cadeia.assinar(transacao({ appAccountToken: CONTA_B, originalTransactionId: "2000000000000300", transactionId: "2000000000000301" }));
     const { r, corpo, db } = await validar({ transacoes: [plano, banco, plano, "lixo.lixo.lixo", deOutro] });
     expect(r.status).toBe(200);
-    expect(corpo.resultados?.map((x) => x.resultado)).toEqual(["gravada", "gravada", "assinatura_invalida", "pertence_a_outra_conta"]);
-    expect(db.de("apple_assinatura_gravar").map((c) => c.args.p_original)).toEqual(["2000000000000100", "2000000000000200"]);
+    // the bank add-on is out of sale (27/11/2026): no right, but the sale is still in the ledger
+    expect(corpo.resultados?.map((x) => x.resultado)).toEqual(["gravada", "produto_fora_de_venda", "assinatura_invalida", "pertence_a_outra_conta"]);
+    expect(db.de("apple_assinatura_gravar").map((c) => c.args.p_original)).toEqual(["2000000000000100"]);
     expect(db.de("apple_transacao_registrar").map((c) => c.args.p_transacao)).toEqual(["2000000000000101", "2000000000000201"]);
+  });
+
+  it("the bank add-on out of sale: the server gives no right to it, even with a valid signature", async () => {
+    const banco = cadeia.assinar(transacao({ productId: "app.vant.vendas.banco.mensal", price: 12900 }));
+    const { r, corpo, db } = await validar({ jws: banco });
+    expect(r.status).toBe(200);
+    expect(corpo.resultados?.[0]?.resultado).toBe("produto_fora_de_venda");
+    expect(db.de("apple_assinatura_gravar")).toEqual([]);
+    expect(db.de("apple_transacao_registrar")).toHaveLength(1);
   });
 
   it("restoring the same purchase again writes the same identifiers (the database keeps one subscription and one sale)", async () => {

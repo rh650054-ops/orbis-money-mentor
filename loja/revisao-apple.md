@@ -55,6 +55,37 @@ Support: https://app.vantapp.com.br/suporte · suporte@vantapp.com.br
 
 ---
 
+## Notas para o build com assinatura Apple (`VITE_COBRANCA_LOJA_IOS=apple`, 27/11/2026)
+
+Com esse build, o parágrafo "Purchases" acima **sai** e entra este (colar em inglês). Contas: ver
+`apple-assinaturas.md` §5 — `revisao.compra@vant.com.br` no campo "Sign-in required".
+
+> Purchases (Guidelines 3.1.1 and 3.1.2): on iPhone the subscriptions are sold only through In-App
+> Purchase. There is no link to an external purchase and no other payment method in this build.
+>
+> To test a purchase, sign in with the account in the sign-in fields (revisao.compra@vant.com.br).
+> It has no paid plan: while its free trial runs, open "Vender" and tap "Ver planos"; when the
+> trial is over, the plans screen ("Eleve o nível das suas vendas.") opens by itself. Plans: Essencial (monthly),
+> Pro (monthly) and Pro (annual), one subscription group. The screen shows
+> the price and period from the App Store, the auto-renewal terms, "Restaurar compras", and links to
+> the Terms of Use (https://app.vantapp.com.br/termos) and Privacy Policy
+> (https://app.vantapp.com.br/privacidade). After the purchase the plan is unlocked automatically;
+> "Gerenciar assinatura na Apple" opens the subscription management.
+>
+> To see every feature without buying, use the second account revisao.apple@vant.com.br (password
+> in the notes field below): it has complimentary access, so it shows "Sua conta já tem acesso"
+> instead of the plans.
+>
+> Customers who already subscribe on our website keep their access when they sign in; the app does
+> not offer them a second subscription.
+
+Conferir no TestFlight, antes de colar: o caminho "Vender" › "Ver planos" existe para a
+`revisao.compra` durante o teste (é a vitrine do Pro). Se não aparecer, trocar a frase pelo caminho
+real.
+
+Campo de senha da segunda conta: colocar a senha da `revisao.apple` no fim das notas (o campo
+"Sign-in required" só aceita uma conta).
+
 ## Antes de enviar
 - [x] Conta demo `revisao@vantapp.com.br` com Pro de cortesia, fora do ranking e 3 semanas de dados (23/10/2026)
 - [x] Nada no app da loja mostra preço nem checkout (modelo Néctar, 23/10/2026); o botão "Assinar" abre o site

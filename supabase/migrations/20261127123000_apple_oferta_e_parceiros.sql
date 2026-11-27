@@ -53,8 +53,9 @@ begin
   v_banco := case
     when public.conta_suspensa(u) then 'bloqueado'
     when exists (select 1 from public.apple_assinaturas x where x.user_id = u and x.direito = 'banco' and public.apple_vale(x)) then 'ja_tem'
-    when public.vant_plano_principal_valido(u) or public.vant_pro_pleno(u) then 'livre'
-    else 'sem_plano' end;
+    -- 27/11/2026 (Rick): the bank add-on is not sold on the iPhone in the first version; the Hotmart
+    -- add-on is untouched. To sell it later: 'livre' when the main plan is valid, else 'sem_plano'.
+    else 'bloqueado' end;
 
   return jsonb_build_object(
     'plano', case when v_motivo is not null then 'bloqueado' when a.original_transaction_id is not null then 'trocar' else 'livre' end,

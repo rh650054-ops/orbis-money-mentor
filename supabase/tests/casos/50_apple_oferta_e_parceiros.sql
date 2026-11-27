@@ -69,7 +69,7 @@ select t.verdade('O1 never paid, or test still running, or a Hotmart subscriptio
   pg_temp.oferta('o_livre') ->> 'plano' = 'livre' and pg_temp.oferta('o_teste') ->> 'plano' = 'livre' and pg_temp.oferta('o_cancelada') ->> 'plano' = 'livre'
   and pg_temp.oferta('o_livre') ->> 'motivo' is null);
 select t.verdade('O2 THE RULE: a valid Hotmart subscription is never offered another main plan on the iPhone',
-  pg_temp.oferta('o_hotmart') = jsonb_build_object('plano', 'bloqueado', 'motivo', 'hotmart_ativa', 'apple', null, 'banco', 'livre', 'conta_de_teste', false));
+  pg_temp.oferta('o_hotmart') = jsonb_build_object('plano', 'bloqueado', 'motivo', 'hotmart_ativa', 'apple', null, 'banco', 'bloqueado', 'conta_de_teste', false));
 select t.verdade('O3 the same protection for the tolerance period, a purchase still being processed and a pending payment',
   pg_temp.oferta('o_tolerancia') ->> 'motivo' = 'hotmart_em_tolerancia' and pg_temp.oferta('o_processando') ->> 'motivo' = 'hotmart_processando'
   and pg_temp.oferta('o_regularizar') ->> 'motivo' = 'hotmart_pagamento_pendente'
@@ -79,11 +79,10 @@ select t.verdade('O4 courtesy and suspended accounts are not offered a purchase 
 select t.verdade('O5 a plan that is already Apple''s: the change of plan goes through Apple, and the answer says which product and until when',
   pg_temp.oferta('o_apple') ->> 'plano' = 'trocar' and pg_temp.oferta('o_apple') #>> '{apple,produto}' = :'ESS'
   and (pg_temp.oferta('o_apple') #>> '{apple,ate}')::timestamptz > now() + interval '29 days');
-select t.verdade('O6 the bank add-on: offered to an account with a valid main plan (Hotmart, Apple or test), not to one without (it never gives the main plan)',
-  pg_temp.oferta('o_hotmart') ->> 'banco' = 'livre' and pg_temp.oferta('o_apple') ->> 'banco' = 'livre' and pg_temp.oferta('o_teste') ->> 'banco' = 'livre'
-  and pg_temp.oferta('o_livre') ->> 'banco' = 'sem_plano' and pg_temp.oferta('o_so_banco') ->> 'banco' = 'sem_plano');
+select t.verdade('O6 the bank add-on is not sold on the iPhone yet (27/11/2026): no account is offered it, with or without a main plan',
+  (select bool_and(pg_temp.oferta(k) ->> 'banco' = 'bloqueado') from unnest(array['o_hotmart', 'o_apple', 'o_teste', 'o_livre', 'o_so_banco']) k));
 select pg_temp.apple('o_apple', '1000000000005004', :'BANCO', :'fim30'::timestamptz, :'t0'::timestamptz) \gset x_
-select t.verdade('O7 one add-on per Apple account for now: once bought it is not offered again; a slot bought on Hotmart before is kept and does not prevent it',
+select t.verdade('O7 an add-on already held through Apple is reported as such; a slot bought on Hotmart before is kept',
   pg_temp.oferta('o_apple') ->> 'banco' = 'ja_tem'
   and (select ativo from public.bancos_extra_compras where chave = 'SUB-BANCO-o'));
 select t.verdade('O8 it answers only about the logged-in account; without a session nothing is offered; anon cannot call it',

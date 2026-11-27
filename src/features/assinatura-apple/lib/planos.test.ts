@@ -64,8 +64,9 @@ describe("who may buy is the server's answer", () => {
     expect(podeComprar(troca, PRODUTO.proAnual)).toBe(true);
   });
 
-  it("the bank add-on follows its own answer, also for a Hotmart subscriber", () => {
-    expect(podeComprar(oferta({ plano: "bloqueado", motivo: "hotmart_ativa", banco: "livre" }), PRODUTO.banco)).toBe(true);
+  it("the bank add-on is not sold on the iPhone yet (27/11/2026), whatever the server answers", () => {
+    expect(podeComprar(oferta({ plano: "bloqueado", motivo: "hotmart_ativa", banco: "livre" }), PRODUTO.banco)).toBe(false);
+    expect(podeComprar(oferta({ banco: "livre" }), PRODUTO.banco)).toBe(false);
     for (const banco of ["ja_tem", "sem_plano", "bloqueado"] as const) expect(podeComprar(oferta({ banco }), PRODUTO.banco)).toBe(false);
   });
 });

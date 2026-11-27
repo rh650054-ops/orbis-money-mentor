@@ -48,6 +48,12 @@ describe("the state comes from the signed documents", () => {
     expect(ok(estado(vencida, null, AGORA, AGORA)).p_status).toBe("expirada");
   });
 
+  it("the bank add-on is out of sale: no state to store (no right), but its ledger line still exists", () => {
+    const b: Transacao = { ...T, productId: "app.vant.vendas.banco.mensal", price: 12900 };
+    expect(estado(b, null, AGORA, AGORA)).toEqual({ erro: "produto_fora_de_venda" });
+    expect(linhaFinanceira(b, "u", AGORA)?.p_produto).toBe("app.vant.vendas.banco.mensal");
+  });
+
   it("renewal info of ANOTHER subscription is ignored", () => {
     const e = ok(estado(T, { originalTransactionId: "OUTRA", autoRenewStatus: 0, gracePeriodExpiresDate: AGORA + 99 * DIA }, AGORA, AGORA));
     expect(e.p_renova).toBeNull();

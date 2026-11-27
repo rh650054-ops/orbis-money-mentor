@@ -27,7 +27,7 @@ export default function Termos() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Termos de Uso</h1>
-            <p className="text-xs text-muted-foreground">Última atualização: 28 de julho de 2026</p>
+            <p className="text-xs text-muted-foreground">Última atualização: 27 de novembro de 2026</p>
           </div>
         </div>
 
@@ -59,10 +59,32 @@ export default function Termos() {
 
         <S t="4. Assinatura e pagamento">
           <p>
-            O acesso completo depende de assinatura paga, processada pela <strong>Hotmart</strong>.
-            Renovação, cancelamento e reembolso seguem as regras e prazos da plataforma de pagamento
-            e do plano contratado. O não pagamento na renovação suspende o acesso após o período de
-            carência. O cancelamento pode ser feito pela própria Hotmart a qualquer momento.
+            O acesso completo depende de assinatura paga. Os planos são Essencial (mensal), Pro
+            (mensal ou anual) e, como adicional, Banco adicional (mensal). Quem assina pelo site paga
+            pela <strong>Hotmart</strong>; quem assina dentro do app no iPhone paga pela{" "}
+            <strong>Apple</strong>, na conta Apple ID usada na compra.
+          </p>
+          <p>
+            <strong>Assinatura pelo iPhone (App Store):</strong> o preço e o período aparecem na tela
+            de planos e na confirmação da Apple antes da compra. O valor é cobrado na sua conta Apple
+            ID ao confirmar a compra. A assinatura <strong>renova automaticamente</strong> pelo mesmo
+            período e preço, e a cobrança da renovação acontece nas 24 horas antes do fim do período,
+            a menos que a renovação automática seja desligada pelo menos 24 horas antes do fim. Você
+            gerencia e cancela a assinatura nos Ajustes do iPhone → seu nome → Assinaturas (ou em
+            "Gerenciar assinatura" no app). O cancelamento vale a partir do fim do período já pago.
+            Pedidos de reembolso de compras pela App Store são feitos à Apple
+            (reportaproblem.apple.com), conforme as regras dela.
+          </p>
+          <p>
+            <strong>Assinatura pelo site (Hotmart):</strong> renovação, cancelamento e reembolso seguem
+            as regras e prazos da Hotmart e do plano contratado. O não pagamento na renovação suspende
+            o acesso após o período de carência. O cancelamento pode ser feito pela própria Hotmart a
+            qualquer momento.
+          </p>
+          <p>
+            Excluir a conta da Vant não cancela a assinatura sozinho: cancele também na Apple ou na
+            Hotmart, conforme onde você assinou. Os preços podem mudar; uma mudança de preço de
+            assinatura pela App Store segue as regras de aviso e consentimento da Apple.
           </p>
         </S>
 
