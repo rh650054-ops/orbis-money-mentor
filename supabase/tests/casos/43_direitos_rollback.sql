@@ -1,6 +1,6 @@
--- 27/11/2026: ROLLBACK of the three draft migrations. Migrations applied, used (a Sandbox test
+-- 27/11/2026: ROLLBACK of the four draft migrations. Migrations applied, used (a Sandbox test
 -- subscription, a courtesy that survived a Hotmart revocation, a lifted suspension), then
--- supabase/direitos-apple/rollback.sql: the sixteen functions are production's again (the photographs
+-- supabase/direitos-apple/rollback.sql: the eighteen functions are production's again (the photographs
 -- of casos/40 and casos/44 give today's answers), the new objects are gone, Hotmart data was never
 -- touched and nobody lost a courtesy.
 \ir direitos/preparo.sql
