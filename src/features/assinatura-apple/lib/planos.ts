@@ -1,5 +1,5 @@
 /* What the plans screen shows, computed from StoreKit's own prices (never a fixed value). Pure. */
-import { PRODUTO, type OfertaApple, type ProdutoApple } from "../types";
+import { BANCO_APPLE_A_VENDA, PRODUTO, type OfertaApple, type ProdutoApple } from "../types";
 
 export interface PlanoDaTela {
   id: string;
@@ -64,7 +64,7 @@ export function planosDaTela(produtos: ProdutoApple[]): PlanoDaTela[] {
 /** May this product be bought now? The server's answer decides; the app never guesses. */
 export function podeComprar(oferta: OfertaApple | null | undefined, produto: string): boolean {
   if (!oferta) return false;
-  if (produto === PRODUTO.banco) return oferta.banco === "livre";
+  if (produto === PRODUTO.banco) return BANCO_APPLE_A_VENDA && oferta.banco === "livre";
   if (oferta.plano === "livre") return true;
   return oferta.plano === "trocar" && oferta.apple?.produto !== produto;
 }

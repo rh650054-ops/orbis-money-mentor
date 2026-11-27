@@ -26,7 +26,12 @@ export async function aplicarEstado(
   db: Banco, user: string | null, t: Transacao, r: Renovacao | null, assinadoMs: number | undefined, conferida: boolean,
 ): Promise<Aplicado> {
   const e = estado(t, r, assinadoMs);
-  if ("erro" in e) return { resultado: e.erro, financeiro: null };
+  if ("erro" in e) {
+    // a product out of sale gives no right, but the money it moved is still recorded
+    const linha = e.erro === "produto_fora_de_venda" ? linhaFinanceira(t, user, assinadoMs) : null;
+    const financeiro = linha ? await chamar<string>(db, "apple_transacao_registrar", { ...linha }) : null;
+    return { resultado: e.erro, financeiro };
+  }
   const resultado = await chamar<string>(db, "apple_assinatura_gravar", { p_user: user, ...e, p_conferida: conferida });
   // the sale exists whoever claims it; a restore attempt by ANOTHER account writes nothing at all
   let financeiro: string | null = null;

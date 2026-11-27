@@ -35,7 +35,7 @@ export function useOfertaAppleQuery(userId: string | undefined) {
 export function useProdutosAppleQuery(ids: string[]) {
   return useQuery({
     queryKey: assinaturaAppleKeys.list({ ids }),
-    enabled: !!ponteApple(),
+    enabled: !!ponteApple() && ids.length > 0,
     staleTime: 5 * 60_000,
     retry: 1,
     refetchOnWindowFocus: false,

@@ -16,6 +16,11 @@ export const PRODUTOS = [
   "app.vant.vendas.banco.mensal",
 ] as const;
 
+/** Products Apple may still sign but the VANT does not sell yet (Rick, 27/11/2026: the bank add-on
+    is out of the first iPhone version). A transaction of one of them gives no right: it is only kept
+    in the ledger, so no money is ever unaccounted for. */
+export const FORA_DE_VENDA: readonly string[] = ["app.vant.vendas.banco.mensal"];
+
 export type Ambiente = "Production" | "Sandbox";
 
 /** The fields we read from a decoded signedTransactionInfo (JWSTransactionDecodedPayload). */
@@ -95,7 +100,7 @@ export interface Estado {
   p_original: string; p_produto: string; p_ambiente: Ambiente; p_expira: string; p_assinado: string;
   p_status: string; p_tolerancia: string | null; p_renova: boolean | null; p_revogada: string | null; p_transacao: string | null;
 }
-export type Recusa = { erro: "nao_e_assinatura" | "produto_desconhecido" | "transacao_incompleta" | "ambiente_invalido" | "app_diferente" };
+export type Recusa = { erro: "nao_e_assinatura" | "produto_desconhecido" | "produto_fora_de_venda" | "transacao_incompleta" | "ambiente_invalido" | "app_diferente" };
 
 /** Arguments of public.apple_assinatura_gravar, from the signed documents.
     assinadoMs = when Apple signed what we are acting on (the notification, or the transaction). */
@@ -103,6 +108,7 @@ export function estado(t: Transacao, r: Renovacao | null, assinadoMs: number | u
   if (t.bundleId !== BUNDLE_ID) return { erro: "app_diferente" };
   if (t.type !== "Auto-Renewable Subscription") return { erro: "nao_e_assinatura" };
   if (!t.productId || !(PRODUTOS as readonly string[]).includes(t.productId)) return { erro: "produto_desconhecido" };
+  if (FORA_DE_VENDA.includes(t.productId)) return { erro: "produto_fora_de_venda" };
   if (!ehAmbiente(t.environment)) return { erro: "ambiente_invalido" };
   const expira = iso(t.expiresDate);
   const assinado = iso(assinadoMs ?? t.signedDate);

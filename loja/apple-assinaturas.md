@@ -110,8 +110,20 @@ errado não pode ser reaproveitado: é outro produto.
 | VANT Planos | 1 | `app.vant.vendas.pro.anual` | Pro anual | 1 ano | R$ 419,90 |
 | VANT Planos | 1 | `app.vant.vendas.pro.mensal` | Pro mensal | 1 mês | R$ 49,90 |
 | VANT Planos | 2 | `app.vant.vendas.essencial.mensal` | Essencial mensal | 1 mês | R$ 29,90 |
-| VANT Banco adicional | 1 | `app.vant.vendas.banco.mensal` | Banco adicional | 1 mês | R$ 12,90 |
+| VANT Planos (decisão do Rick, 27/11) | — | `app.vant.vendas.banco.mensal` | Banco adicional | 1 mês | R$ 12,90 — **fora de venda no iPhone nesta versão** |
 
+- **Banco adicional (27/11/2026): cadastrado no mesmo grupo dos planos e FORA DE VENDA no iPhone.**
+  O app não oferece nem pede o produto à Apple; o servidor responde `banco: bloqueado` na oferta e,
+  se uma transação dele chegar (Sandbox), não concede direito nenhum (`produto_fora_de_venda`) — só
+  registra no livro financeiro. O adicional da Hotmart segue igual.
+  - **Não incluir este produto na submissão** (não marcar em "In-App Purchases and Subscriptions"
+    da versão). Sem submissão ele nunca fica à venda em produção.
+  - Risco de estar no mesmo grupo: dentro de um grupo a pessoa tem UMA assinatura por vez. No
+    Sandbox, trocar de plano para "Banco adicional" nos Ajustes do iPhone substitui o plano pelo
+    banco — e o servidor não dá acesso por ele. Não usar essa troca nos testes.
+  - Para vender depois, o adicional precisa de um grupo próprio (provavelmente com um id novo de
+    produto, porque um id da Apple não volta a ser usado) e de `BANCO_APPLE_A_VENDA = true` no app,
+    `FORA_DE_VENDA` vazio no servidor e a oferta de volta a `livre`/`sem_plano`.
 - **Níveis:** na Apple o nível 1 é o mais alto. Pro mensal e Pro anual no mesmo nível = trocar entre
   eles vale na próxima renovação; Essencial → Pro é upgrade imediato (com crédito proporcional da
   Apple); Pro → Essencial vale na próxima renovação. O servidor não depende disso (o nível vem do
@@ -191,8 +203,9 @@ Recomendo (a) na primeira submissão; se houver recusa por isso, (c).
 Pré-requisitos (todos verdes antes de abrir o app):
 - [x] Contrato de apps pagos, dados fiscais e conta bancária **Active** (27/11/2026).
 - [ ] Seções 2.2 a 2.7 feitas; foto B igual à foto A.
-- [ ] 4 produtos criados com os ids exatos, status "Ready to Submit".
-- [ ] Testador Sandbox criado e logado no iPhone; conta VANT registrada como conta de teste.
+- [x] 3 planos criados com os ids exatos, preços e níveis (27/11/2026); o Banco adicional fica fora de venda.
+- [x] Testador Sandbox criado (Brasil, 27/11/2026).
+- [ ] Testador logado no iPhone (Ajustes › App Store › Conta Sandbox); conta VANT registrada como conta de teste.
 - [ ] 🔒 Build do TestFlight com `VITE_COBRANCA_LOJA_IOS=apple` (seção 7).
 
 Compra:
@@ -204,7 +217,8 @@ Compra:
        (`ambiente = Sandbox`), 1 em `apple_transacoes`, eventos em `apple_eventos` (`SUBSCRIBED`).
 4. [ ] Indicadores e parceiros: nada muda (Sandbox fica fora; conferir com a foto C abaixo).
 5. [ ] Trocar para Pro mensal (upgrade imediato) → plano vira Pro; transação antiga `substituida`.
-6. [ ] Banco adicional em Conectar banco → compra no outro grupo; limite de bancos sobe.
+6. [ ] Conectar banco além do limite → cartão "Mais um banco" diz "O banco adicional ainda não está
+       disponível no iPhone.", sem preço, sem botão de compra e sem link para o site.
 7. [ ] Esperar uma renovação acelerada → `DID_RENEW` chega; `expira_em` avança.
 8. [ ] Desligar a renovação em Gerenciar assinatura → `DID_CHANGE_RENEWAL_STATUS`; acesso segue até
        o fim do período e depois cai (o `apple-conciliar` da hora confirma).

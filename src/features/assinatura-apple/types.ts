@@ -61,4 +61,6 @@ export const PRODUTO = {
   proAnual: "app.vant.vendas.pro.anual",
   banco: "app.vant.vendas.banco.mensal",
 } as const;
+/** Rick, 27/11/2026: the bank add-on is out of the first iPhone version (the server refuses it too). */
+export const BANCO_APPLE_A_VENDA = false;
 export const PLANOS_PRINCIPAIS: string[] = [PRODUTO.essencial, PRODUTO.proMensal, PRODUTO.proAnual];
