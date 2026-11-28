@@ -142,7 +142,7 @@ enum QuickAtividadeServidor {
             e.vendasDia = p.vendas ?? e.vendasDia
             e.abordagensDia = p.abordagens ?? e.abordagensDia
             e.rapidaValor = p.rapida?.valor ?? e.rapidaValor
-            if let ops = p.opcoes { e.botoes = ops.prefix(2).map { .init(id: $0.id, valor: $0.valor, rotulo: $0.rotulo) } }
+            if let ops = p.opcoes { e.botoes = ops.prefix(2).map { .init(id: $0.id, valor: $0.valor, rotulo: $0.legenda) } }
             if let b = p.bloco { e.bloco = b }
             if let t = p.totalBlocos { e.totalBlocos = t }
             if let i = data(p.blocoInicio), let f = data(p.blocoFim) { e.blocoInicio = i; e.blocoFim = f }

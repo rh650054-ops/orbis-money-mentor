@@ -14,6 +14,11 @@
 -- and charges ITS option: price, product, quantity and payment method all come from the server.
 -- If the option is gone or its price changed since the button was drawn, nothing is written and
 -- the fresh options go back to the phone. The DEFCON's configuration is only read, never changed.
+-- Review of 28/11 (Rick):
+--  - two products at the same price are two options (each its product id and its own label, e.g.
+--    "Brigadeiro · 1 un" / "Trufa · 1 un"): never merged by price, so the stock moves on the right one;
+--  - build 31 sends neither option nor price, so it can only be charged a value that cannot change
+--    under it: its button ("rapida") and its tap both use the VANT Quick config, as in build 31.
 -- ============================================================================================
 
 -- Payment method of an option: the last one used today for that value (as the DEFCON's own quick
@@ -55,8 +60,8 @@ begin
                    and ds.qty = o.qtd and abs(ds.amount - o.valor) < 0.005) as usos
       from opc o order by usos desc, qtd asc, valor asc, nome asc
   loop
+    -- one option per product and quantity: two products at the same price stay two options
     exit when jsonb_array_length(lista) >= 3;
-    continue when r.valor = any(valores);   -- the same price twice would be two identical buttons
     lista := lista || jsonb_build_object('id', 'p:' || r.produto || ':' || r.qtd, 'valor', r.valor, 'qtd', r.qtd,
       'produto', r.produto, 'nome', r.nome, 'metodo', public.vant_quick_metodo(p_uid, v_sessao, r.valor, r.produto), 'fonte', 'produto');
     valores := valores || r.valor;
@@ -85,17 +90,27 @@ begin
     lista := lista || jsonb_build_object('id', 'c', 'valor', round(c.valor, 2), 'qtd', 1, 'produto', null, 'nome', null,
       'metodo', c.metodo, 'fonte', 'config');
   end if;
-  return lista;
+
+  -- the label on each button: with more than one product among the options, the product's name
+  -- tells them apart ("Trufa · 1 un"); with one, "1 unidade" / "2 unidades" (Rick's mockup)
+  return (select coalesce(jsonb_agg(e || jsonb_build_object('rotulo',
+            case when e ->> 'fonte' <> 'produto' then 'Venda rápida'
+                 when (select count(distinct x ->> 'produto') from jsonb_array_elements(lista) x where x ->> 'fonte' = 'produto') > 1
+                   then (e ->> 'nome') || ' · ' || (e ->> 'qtd') || ' un'
+                 when (e ->> 'qtd')::int = 1 then '1 unidade'
+                 else (e ->> 'qtd') || ' unidades' end) order by n), '[]'::jsonb)
+            from jsonb_array_elements(lista) with ordinality as y(e, n));
 end $$;
 revoke all on function public.vant_quick_opcoes(uuid) from public, anon, authenticated;
 
--- The panel now carries the options. "rapida" stays (build 31 reads it): the first option, which is
--- also what a tap without an option id charges - what the button shows is what is registered.
+-- The panel now carries the options. "rapida" stays for build 31 exactly as before: the VANT Quick
+-- config, which is also the only thing a build-31 tap (no option, no price) can be charged.
 create or replace function public.vant_quick_painel(p_uid uuid) returns jsonb
 language plpgsql stable security definer set search_path to 'public' as $$
-declare s record; b record; v_vendas integer; v_ab integer; v_bloco_inicio timestamptz; v_fat numeric; v_opcoes jsonb;
+declare s record; b record; c record; v_vendas integer; v_ab integer; v_bloco_inicio timestamptz; v_fat numeric; v_opcoes jsonb;
 begin
   v_opcoes := public.vant_quick_opcoes(p_uid);
+  select * into c from public.vant_quick_config where user_id = p_uid;
   select * into s from public.challenge_sessions
    where user_id = p_uid and date = (now() at time zone 'America/Sao_Paulo')::date;
   if not found then return jsonb_build_object('sessao', null, 'opcoes', v_opcoes); end if;
@@ -118,8 +133,7 @@ begin
     'blocoEstado', b.timer_status,
     'blocoInicio', v_bloco_inicio, 'blocoFim', v_bloco_inicio + interval '1 hour',
     'opcoes', v_opcoes,
-    'rapida', case when jsonb_array_length(v_opcoes) = 0 then null
-                   else jsonb_build_object('valor', v_opcoes -> 0 -> 'valor', 'metodo', v_opcoes -> 0 ->> 'metodo') end);
+    'rapida', case when c.user_id is null then null else jsonb_build_object('valor', c.valor, 'metodo', c.metodo) end);
 end $$;
 revoke all on function public.vant_quick_painel(uuid) from public, anon, authenticated;
 
@@ -188,9 +202,22 @@ begin
   if not found or coalesce(b.timer_status, '') <> 'running' then return jsonb_build_object('ok', false, 'motivo', 'bloco_parado'); end if;
 
   if p_acao = 'venda' then
-    -- the option the button showed, rebuilt here: never a price, product or method from the phone
+    -- the option the button showed, rebuilt here: never a price, product or method from the phone.
+    --  - an option id: that option (V2 widget / lock screen);
+    --  - no id but a price (a V2 lock screen drawn before the list arrived): the first option, if its
+    --    price is the one drawn (checked below);
+    --  - neither (build 31): the VANT Quick config only, the value its button shows ("rapida")
     select e into o from jsonb_array_elements(public.vant_quick_opcoes(cr.user_id)) with ordinality as x(e, n)
-     where p_opcao is null or e ->> 'id' = p_opcao order by n limit 1;
+     where case when p_opcao is not null then e ->> 'id' = p_opcao
+                when p_valor is not null then true
+                else e ->> 'fonte' = 'config' end
+     order by n limit 1;
+    -- build 31 with a config whose value is also a product's or today's price (so it is not listed
+    -- as its own option): the config itself, never the product or another value
+    if o is null and p_opcao is null and p_valor is null then
+      select jsonb_build_object('id', 'c', 'valor', round(q.valor, 2), 'qtd', 1, 'produto', null, 'metodo', q.metodo, 'fonte', 'config')
+        into o from public.vant_quick_config q where q.user_id = cr.user_id;
+    end if;
     if o is null then
       return jsonb_build_object('ok', false, 'motivo', case when p_opcao is null then 'sem_valor' else 'opcao_indisponivel' end,
                                 'painel', public.vant_quick_painel(cr.user_id));

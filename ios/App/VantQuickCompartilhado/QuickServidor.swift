@@ -36,8 +36,11 @@ enum QuickServidor {
         var nome: String?
         var metodo: String?
         var fonte: String?
-        /// "1 unidade", "2 unidades" for a product; "Venda rápida" otherwise
-        var rotulo: String {
+        /// the server's label: "1 unidade", "2 unidades"; "Trufa · 1 un" when two products are listed
+        /// (two products at the same price must never look the same); "Venda rápida" otherwise
+        var rotulo: String? = nil
+        var legenda: String {
+            if let rotulo, !rotulo.isEmpty { return rotulo }
             guard fonte == "produto", let q = qtd else { return "Venda rápida" }
             return q == 1 ? "1 unidade" : "\(q) unidades"
         }
