@@ -1,6 +1,6 @@
 # ADR 0001 — DEFCON: the server becomes the source of the financial totals
 
-Status: **proposed** (28/11/2026). Nothing in this document is implemented or applied to production.
+Status: **approved by Rick on 28/11/2026** (architecture), with the guarantees of section 7. Implemented, inactive and not applied to production: PR feat/defcon-totais-servidor.
 Owner of the decision: Rick. Prerequisite of VANT Quick interactive (widget / Live Activity).
 
 ## 1. Problem
@@ -88,3 +88,65 @@ Kill switch: one server flag turns the guard trigger off for every session at on
 - Old-client approach counted from an outdated screen while another device also counts: the positive
   jump may under-count by the concurrent approaches; money is never affected (rows).
 - Server load: recompute touches one block per write (tens of rows); session lock serialises writers.
+
+## 7. Guarantees asked by Rick (28/11/2026) and how each is met
+
+### 7.1 Approaches of old clients, and a reliable conversion
+- **Where the divergence comes from.** An old client sends `approaches_count` as "its sales + its
+  standalone approaches". The guard keeps the server count and only ADDS the standalone approaches
+  the client knows beyond the ledger. That is exact while that screen is up to date. It can only
+  lose approaches when an old screen is outdated **and** another writer counted approaches in the
+  same block meanwhile. Case D3: the widget counts 2, the old screen still shows the count before
+  them, adds 1 and writes a lower number.
+- **Measured, never silent.** Each such write is stored as `defcon_conflitos.motivo = 'abordagens_desatualizadas'`.
+- **Removed where it matters:**
+  - an account is only switched on after a whole shadow period with **zero** old-client writes
+    (criterion in 7.5);
+  - VANT Quick (Phase 1) refuses to register on a session where an old client wrote
+    (`challenge_sessions.cliente_antigo_em`), so the widget and an old screen never count at the
+    same time.
+- **Sales are always exact.** They come from the rows, never from a counter, so the conversion
+  (sales ÷ approaches) is exact whenever the approaches are.
+
+### 7.2 Old ajustes and offline replays are never counted twice
+- Every ledger operation has the client's id as primary key (`on conflict do nothing`): case B3.
+- An absolute write from an old client is turned into a *difference against the current server
+  value*. A replay of the same write finds a difference of 0 and adds nothing: cases C2, D2, E3.
+- The offline-day RPC (`origem = 'offline'`) is never marked, so its replace-everything behaviour
+  stays as today.
+
+### 7.3 Manual sales vs. receipts verified by Open Finance
+- The ledger never writes bank tables (`banco_*`), `daily_sales.pix_manual` or `dinheiro_informado`.
+- A widget sale is a `defcon_sales` row like an app sale (a manual sale). The bank verification
+  keeps matching bank entries against those rows exactly as today.
+- A Nova Venda amount is an ajuste, not a sale row (case E5), as it is today.
+
+### 7.4 A rollback can never erase what the widget registered
+- A marked session stays marked forever: no client can unmark it (case F1).
+- Switching an account or the global switch off only affects **next** sessions (F2). The guards
+  keep protecting every marked session, including after a rollback (F1: an outdated old screen
+  after the switch-off still cannot lower the widget's sale).
+- VANT Quick is only allowed on marked sessions, so a widget sale never lands where no guard exists.
+
+### 7.5 Objective approval of the shadow mode (`defcon_sombra_aprovacao(desde, ate)`)
+
+All of these, over the period:
+
+| Criterion | Required |
+|---|---|
+| days measured | ≥ 3 consecutive |
+| sessions measured | ≥ 30 (or every active session, if fewer) |
+| unexplained financial divergence, day total (`total_sold` vs Σ sales) | **0** |
+| unexplained financial divergence, block (`achieved` vs ledger, beyond re-split / manual) | **0** |
+| sales per block divergence | **0** |
+| approaches divergence in marked (pilot) sessions | **0** |
+| outdated approaches from old clients in marked sessions | **0** |
+
+"Explained" means only re-split (same total) or manual amount; everything else blocks the next step.
+Each account is switched on only after it meets these criteria with zero old-client writes.
+
+### 7.6 Concurrency tested with real parallel connections
+- Case H1: two devices at once; the second waits for the session lock and both sales count.
+- Case H2: the same tap twice at once; it counts once.
+- Case H3: the widget and an old app at the same moment; nothing is overwritten.
+- Plus the old/new interleavings C1, C2, D2, D3 and F1.
