@@ -382,11 +382,13 @@ create trigger trg_defcon_guarda_sessao before update on public.challenge_sessio
 
 -- ---------- the ledger write for new clients (and VANT Quick, Phase 1) ----------
 -- p_id = the client's id of this operation (idempotency key). Returns the derived totals.
-create or replace function public.defcon_lancar(p_id uuid, p_tipo text, p_sessao uuid, p_bloco integer,
+-- The account is an argument here: this one is only callable by the server (VANT Quick passes the
+-- account of its device credential). Clients call defcon_lancar, which passes auth.uid().
+create or replace function public.defcon_lancar_conta(uid uuid, p_id uuid, p_tipo text, p_sessao uuid, p_bloco integer,
   p_valor numeric default null, p_metodo text default null, p_produto uuid default null, p_qtd numeric default null,
   p_split jsonb default null, p_origem text default 'app')
 returns jsonb language plpgsql security definer set search_path to 'public' as $$
-declare uid uuid := auth.uid(); s record; d record; atual record; feito boolean := true;
+declare s record; d record; atual record; feito boolean := true;
 begin
   if uid is null then raise exception 'nao_autenticado'; end if;
   if p_id is null then raise exception 'id_obrigatorio'; end if;
@@ -447,6 +449,15 @@ begin
                  (select count(*) from public.defcon_sales where session_id = p_sessao and not late and coalesce(method,'') <> 'gorjeta')
                + (select count(*) from public.defcon_abordagens where session_id = p_sessao)));
 end $$;
+revoke all on function public.defcon_lancar_conta(uuid, uuid, text, uuid, integer, numeric, text, uuid, numeric, jsonb, text) from public, anon, authenticated;
+
+create or replace function public.defcon_lancar(p_id uuid, p_tipo text, p_sessao uuid, p_bloco integer,
+  p_valor numeric default null, p_metodo text default null, p_produto uuid default null, p_qtd numeric default null,
+  p_split jsonb default null, p_origem text default 'app')
+returns jsonb language sql security definer set search_path to 'public' as $$
+  select public.defcon_lancar_conta(auth.uid(), p_id, p_tipo, p_sessao, p_bloco, p_valor, p_metodo, p_produto, p_qtd, p_split,
+                                    case when p_origem in ('widget','atividade') then 'app' else p_origem end)
+$$;
 revoke all on function public.defcon_lancar(uuid, text, uuid, integer, numeric, text, uuid, numeric, jsonb, text) from public, anon;
 grant execute on function public.defcon_lancar(uuid, text, uuid, integer, numeric, text, uuid, numeric, jsonb, text) to authenticated;
 
