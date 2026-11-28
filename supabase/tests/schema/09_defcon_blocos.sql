@@ -8,3 +8,10 @@ create table if not exists public.challenge_blocks (
   primary key (id), constraint challenge_blocks_session_block_unique unique (session_id, block_index));
 alter table public.challenge_blocks enable row level security;
 create extension if not exists dblink;
+-- defcon_occurrences as in production (28/11/2026): notes of a DEFCON block, deleted with the session.
+create table if not exists public.defcon_occurrences (
+  id uuid not null default gen_random_uuid(), user_id uuid not null,
+  session_id uuid not null references public.challenge_sessions(id) on delete cascade,
+  block_index integer not null, description text not null, created_at timestamptz not null default now(),
+  primary key (id));
+alter table public.defcon_occurrences enable row level security;
