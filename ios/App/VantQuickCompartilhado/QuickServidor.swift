@@ -25,6 +25,10 @@ enum QuickServidor {
         var blocoFim: String?
         var rapida: Rapida?
         struct Rapida: Codable { var valor: Double; var metodo: String }
+        /// the current block (what the Dynamic Island draws), from the DEFCON's own columns
+        var faturamentoBloco: Double?
+        var metaHora: Double?
+        var vendasBloco: Int?
         /// V2: the quick sale options the SERVER built (today's products and tiers, today's values,
         /// the VANT Quick config), best first. A tap names one; the server charges its own copy.
         var opcoes: [Opcao]?

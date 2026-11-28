@@ -149,7 +149,7 @@ public class VantQuickPlugin: CAPPlugin, CAPBridgedPlugin {
             await GerenteAtividade.atualizar(conta: conta, estado: estado)
             // interactive: the day's numbers are the server's, on top of the app's block timing
             if QuickArmazem.interativo, let ps = QuickArmazem.painelServidor, ps.conta == conta {
-                await QuickAtividadeServidor.aplicar(conta: conta, painel: ps.painel, aviso: nil, avisoOk: false)
+                await QuickAtividadeServidor.aplicar(conta: conta, painel: ps.painel, aviso: nil, avisoOk: false, blocoDoServidor: false)
             }
             call.resolve()
         }

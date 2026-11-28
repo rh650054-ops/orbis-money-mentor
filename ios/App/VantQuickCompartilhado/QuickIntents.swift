@@ -133,7 +133,10 @@ enum QuickAtividadeServidor {
         return iso.date(from: s) ?? ISO8601DateFormatter().date(from: s)
     }
 
-    static func aplicar(conta: String, painel: QuickServidor.Painel?, aviso: String?, avisoOk: Bool) async {
+    /// blocoDoServidor: copy the server's current block too (the Dynamic Island's numbers). True for a
+    /// panel just fetched (a tap's answer, a pull); false for the cached copy the app lays over its own
+    /// fresh block numbers (the app's block may already be ahead of that copy).
+    static func aplicar(conta: String, painel: QuickServidor.Painel?, aviso: String?, avisoOk: Bool, blocoDoServidor: Bool = true) async {
         guard let atividade = Activity<QuickAtributos>.activities.first(where: { $0.attributes.conta == conta }) else { return }
         var e = atividade.content.state
         if let p = painel {
@@ -147,6 +150,13 @@ enum QuickAtividadeServidor {
             if let t = p.totalBlocos { e.totalBlocos = t }
             if let i = data(p.blocoInicio), let f = data(p.blocoFim) { e.blocoInicio = i; e.blocoFim = f }
             if let est = p.blocoEstado { e.pausado = est != "running" }
+            // 28/11: without this the island kept the block value of when the block started (R$ 0)
+            // while the lock screen showed the server's day (R$ 120): same session, stale field
+            if blocoDoServidor {
+                if let v = p.faturamentoBloco { e.faturamentoBloco = v }
+                if let v = p.metaHora { e.metaHora = v }
+                if let v = p.vendasBloco { e.vendasBloco = v }
+            }
         }
         e.interativo = QuickArmazem.interativo
         e.aviso = aviso

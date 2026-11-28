@@ -129,3 +129,16 @@ select pg_temp.esperar();
 select public.vant_quick_executar(:'d_tk', 'venda', pg_temp.id('c4'), 'widget', null, 15) ->> 'motivo' as m \gset c4_
 select t.verdade('C4 a V2 button with no id drawn at R$ 15 while the first option is now Trufa R$ 20 (sold today): refused, nothing written',
   :'c4_m' = 'opcao_mudou' and not exists (select 1 from public.defcon_sales where id = pg_temp.id('c4')));
+-- build 31 resends the same tap (same id) when the answer is lost: one sale, the config's value, no product
+select pg_temp.esperar();
+select public.vant_quick_executar(:'d_tk', 'venda', pg_temp.id('c5')) ->> 'ok' as a \gset c5_
+select pg_temp.esperar();
+select public.vant_quick_executar(:'d_tk', 'venda', pg_temp.id('c5')) as r \gset c5_
+select t.verdade('C5 build 31 sends the same tap twice: one sale of R$ 12 (config), no product, the second answers "repetido"',
+  :'c5_a'::boolean and (:'c5_r'::jsonb ->> 'repetido')::boolean
+  and (select count(*) from public.defcon_sales where id = pg_temp.id('c5')) = 1
+  and exists (select 1 from public.defcon_sales where id = pg_temp.id('c5') and amount = 12 and product_id is null));
+select t.verdade('C6 build 31''s taps never moved any product stock (Brigadeiro 10, Bolo 10; Trufa 9 only from its own V2 button)',
+  (select stock_quantity from public.products where id = pg_temp.id('brig')) = 10
+  and (select stock_quantity from public.products where id = pg_temp.id('bolo')) = 10
+  and (select stock_quantity from public.products where id = pg_temp.id('trufa')) = 9);
