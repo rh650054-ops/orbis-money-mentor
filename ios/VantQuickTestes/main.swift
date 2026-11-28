@@ -123,5 +123,79 @@ checar("8e server answers without a stamp (old server) are still accepted (compa
        QuickOrdem.substituiCache(painel(gerado: 0, dia: 1, fatBloco: 1), conta: "A",
                                  atual: .init(conta: "A", quando: 0, painel: { var p = painel(gerado: 0, dia: 1, fatBloco: 1); p.geradoEm = nil; return p }())))
 
+// 9. block change while the app's own copy is behind (review 28/11, 2nd round)
+v = doApp(dia: 100, fatBloco: 100)
+v = servidor(v, painel(gerado: 1000, bloco: 1, dia: 120, fatBloco: 120, vendasBloco: 6))   // a tap the app has not seen
+v = QuickOrdem.comApp(v, doApp(bloco: 2, dia: 100, fatBloco: 0, inicio: 3600), interativo: true)
+checar("9a app starts block 2 with a stale day (R$ 100): the day stays the server's R$ 120",
+       v.bloco == 2 && v.faturamentoDia == 120 && v.faturamentoBloco == 0 && v.blocoInicio == t0.addingTimeInterval(3600))
+v = servidor(v, painel(gerado: 1100, bloco: 2, dia: 120, fatBloco: 0))
+checar("9b the pull after it confirms block 2 at R$ 0 and the day at R$ 120", v.bloco == 2 && v.faturamentoDia == 120)
+v = servidor(v, painel(gerado: 1200, bloco: 2, dia: 100, fatBloco: 0))
+checar("9c a later reversal of R$ 20 is drawn (reductions are never blocked)", v.faturamentoDia == 100)
+
+// 10. ties and microseconds
+v = servidor(doApp(dia: 0, fatBloco: 0), painel(gerado: 1000.250, dia: 40, fatBloco: 40))
+checar("10a microseconds order two answers of the same millisecond (1000.249 is older)",
+       QuickOrdem.comServidor(v, painel(gerado: 1000.249, dia: 20, fatBloco: 20)) == nil)
+checar("10b an exact tie is accepted (never treated as older): the later arrival is drawn",
+       QuickOrdem.comServidor(v, painel(gerado: 1000.250, dia: 60, fatBloco: 60))?.faturamentoDia == 60)
+
+// 11. Live Activity updates run one at a time (QuickFila)
+final class Caixa: @unchecked Sendable { var valor = 0; var dentro = 0; var maxDentro = 0; let trava = NSLock() }
+let caixa = Caixa()
+await withTaskGroup(of: Void.self) { g in
+    for _ in 0..<40 {
+        g.addTask {
+            await QuickFila.atividade.rodar {
+                caixa.trava.lock(); caixa.dentro += 1; caixa.maxDentro = max(caixa.maxDentro, caixa.dentro); let lido = caixa.valor; caixa.trava.unlock()
+                try? await Task.sleep(nanoseconds: UInt64.random(in: 100_000...2_000_000))   // an await, like activity.update
+                caixa.trava.lock(); caixa.valor = lido + 1; caixa.dentro -= 1; caixa.trava.unlock()
+            }
+        }
+    }
+}
+checar("11 40 concurrent read-modify-writes: none lost (40) and never two at once", caixa.valor == 40 && caixa.maxDentro == 1)
+
+// 12. batched pulls (QuickAgrupador)
+final class Contador: @unchecked Sendable { var n = 0; var inicios: [Date] = []; let trava = NSLock() }
+let cont = Contador()
+let agrupador = QuickAgrupador(intervaloMs: 50) {
+    cont.trava.lock(); cont.n += 1; cont.inicios.append(Date()); cont.trava.unlock()
+    try? await Task.sleep(nanoseconds: 30_000_000)
+}
+var ultimoPedido = Date()
+await withTaskGroup(of: Void.self) { g in
+    for k in 0..<25 {
+        g.addTask { try? await Task.sleep(nanoseconds: UInt64(k) * 2_000_000); await agrupador.pedir() }
+    }
+    ultimoPedido = Date().addingTimeInterval(0.048)
+}
+try? await Task.sleep(nanoseconds: 300_000_000)
+checar("12a 25 requests in 50 ms become at most 3 pulls (\(cont.n))", cont.n >= 1 && cont.n <= 3)
+checar("12b a pull started after the last request (no change is left without a fresh read)",
+       (cont.inicios.last ?? .distantPast) >= ultimoPedido.addingTimeInterval(-0.05))
+
+// 13. the widgets' cache under concurrent writers (files per answer, no lock)
+let pastaTeste = FileManager.default.temporaryDirectory.appendingPathComponent("vant-quick-teste-\(UUID().uuidString)", isDirectory: true)
+QuickArmazem.pastaDeTeste = pastaTeste
+QuickArmazem.conta = "A"
+let carimbos = (1...300).map { _ in Double(Int.random(in: 1_000_000...9_999_999)) / 1000 }
+DispatchQueue.concurrentPerform(iterations: carimbos.count) { k in
+    _ = QuickArmazem.guardarPainelServidor(conta: "A", painel(gerado: carimbos[k], dia: carimbos[k], fatBloco: 0))
+}
+checar("13a 300 answers written by 8+ threads at once: the newest one is the one read",
+       QuickArmazem.painelServidor?.painel.geradoEm == carimbos.max())
+_ = QuickArmazem.guardarPainelServidor(conta: "A", painel(gerado: 1, dia: 1, fatBloco: 0))
+checar("13b an older answer written afterwards does not replace it", QuickArmazem.painelServidor?.painel.geradoEm == carimbos.max())
+QuickArmazem.conta = "B"
+checar("13c account switch: B never reads A's cached panel", QuickArmazem.painelServidor == nil)
+checar("13d a late answer of A after the switch is not stored", !QuickArmazem.guardarPainelServidor(conta: "A", painel(gerado: 99_999, dia: 1, fatBloco: 0)))
+_ = QuickArmazem.guardarPainelServidor(conta: "B", painel(gerado: 5, dia: 7, fatBloco: 0))
+checar("13e B's own answer is read", QuickArmazem.painelServidor?.painel.faturamento == 7)
+QuickArmazem.limpar()
+checar("13f sign-out wipes every cached answer", QuickArmazem.painelServidor == nil)
+try? FileManager.default.removeItem(at: pastaTeste)
+
 print("\n\(total - falhas)/\(total) ok")
 exit(falhas == 0 ? 0 : 1)

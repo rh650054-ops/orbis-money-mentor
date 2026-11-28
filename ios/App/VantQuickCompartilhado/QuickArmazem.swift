@@ -15,9 +15,12 @@ enum QuickArmazem {
 
     /// The shared folder; nil when this process has no App Group (then nothing is shared).
     static var pasta: URL? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: grupo)?
+        if let pastaDeTeste { return pastaDeTeste }
+        return FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: grupo)?
             .appendingPathComponent("vant-quick", isDirectory: true)
     }
+    /// Only the plain-Swift tests set it (ios/VantQuickTestes): the app never does.
+    static var pastaDeTeste: URL? = nil
     static var disponivel: Bool { pasta != nil }
 
     private enum Chave {
@@ -121,11 +124,64 @@ enum QuickArmazem {
         get { ler(Texto.self, Chave.interativo)?.v == "1" }
         set { gravar(Texto(v: newValue ? "1" : "0"), Chave.interativo) }
     }
-    /// The last panel the SERVER returned (source of the totals), with when it arrived.
+    /// The newest panel the SERVER returned for the signed-in account (source of the totals).
+    ///
+    /// Review 28/11: the app, its intents and the widget extension write it from different
+    /// processes. A read-compare-write of one file could let an older answer land last. So each
+    /// answer is its own file, named by the server's time ("geradoEm", microseconds), created
+    /// atomically; readers take the newest file of the account. No lock is needed (Apple's TN2408
+    /// rules out NSFileCoordinator here, see `trava`), and no interleaving can make an older
+    /// answer win. Old files are swept best-effort; the newest few always stay.
     struct PainelDoServidor: Codable { let conta: String; let quando: Double; let painel: QuickServidor.Painel }
     static var painelServidor: PainelDoServidor? {
-        get { ler(PainelDoServidor.self, Chave.painelServidor) }
-        set { gravar(newValue, Chave.painelServidor) }
+        let conta = self.conta
+        let candidatos = paineis().filter { $0.nome.carimbo > 0 }
+        for c in candidatos.sorted(by: { $0.nome > $1.nome }) {
+            if let p = (try? Data(contentsOf: c.url)).flatMap({ try? JSONDecoder().decode(PainelDoServidor.self, from: $0) }),
+               conta == nil || p.conta == conta { return p }
+        }
+        // before this review there was one file: still read until the first new answer arrives
+        if let antigo = ler(PainelDoServidor.self, Chave.painelServidor), conta == nil || antigo.conta == conta { return antigo }
+        return nil
+    }
+
+    /// Stores a server answer for the widgets; false when a newer one of the account is already there.
+    @discardableResult
+    static func guardarPainelServidor(conta: String, _ p: QuickServidor.Painel) -> Bool {
+        guard self.conta == conta, let dir = pastaPaineis else { return false }   // the account changed meanwhile
+        guard QuickOrdem.substituiCache(p, conta: conta, atual: painelServidor) else { return false }
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let nome = NomePainel(carimbo: Int64(((p.geradoEm ?? 0) * 1000).rounded()), unico: UUID().uuidString)
+        escrever(PainelDoServidor(conta: conta, quando: Date().timeIntervalSince1970 * 1000, painel: p), dir.appendingPathComponent(nome.arquivo))
+        varrerPaineis(manter: 4)
+        if let antigo = arquivo(Chave.painelServidor) { try? FileManager.default.removeItem(at: antigo) }
+        return true
+    }
+
+    static func apagarPainelServidor() {
+        if let dir = pastaPaineis { try? FileManager.default.removeItem(at: dir) }
+        gravar(Optional<Texto>.none, Chave.painelServidor)
+    }
+
+    private static var pastaPaineis: URL? { pasta?.appendingPathComponent("paineis-servidor", isDirectory: true) }
+    struct NomePainel: Comparable {
+        let carimbo: Int64, unico: String
+        var arquivo: String { String(format: "%020lld", carimbo) + "-" + unico + ".json" }
+        init(carimbo: Int64, unico: String) { self.carimbo = carimbo; self.unico = unico }
+        init?(arquivo: String) {
+            guard arquivo.hasSuffix(".json"), let traco = arquivo.firstIndex(of: "-"), let c = Int64(arquivo[..<traco]) else { return nil }
+            carimbo = c; unico = String(arquivo[arquivo.index(after: traco)...].dropLast(5))
+        }
+        static func < (a: NomePainel, b: NomePainel) -> Bool { a.carimbo != b.carimbo ? a.carimbo < b.carimbo : a.unico < b.unico }
+    }
+    private static func paineis() -> [(nome: NomePainel, url: URL)] {
+        guard let dir = pastaPaineis,
+              let itens = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { return [] }
+        return itens.compactMap { u in NomePainel(arquivo: u.lastPathComponent).map { ($0, u) } }
+    }
+    private static func varrerPaineis(manter: Int) {
+        let todos = paineis().sorted { $0.nome > $1.nome }
+        for velho in todos.dropFirst(manter) { try? FileManager.default.removeItem(at: velho.url) }
     }
     /// The last tap whose answer never arrived: asked about later (QuickAcao.resolverDuvida).
     struct Duvida: Codable { let id: String; let tipo: String; let conta: String; let quando: Double }
@@ -143,6 +199,7 @@ enum QuickArmazem {
     /// Sign-out or account switch: everything of VANT Quick goes (also the old UserDefaults keys of build 29).
     static func limpar() {
         for c in Chave.todas { gravar(Optional<Texto>.none, c) }
+        apagarPainelServidor()
         QuickCofre.apagar()
         let antigo = UserDefaults(suiteName: grupo)
         for c in ["quick.conta", "quick.painel", "quick.config", "quick.pendentes", "quick.ultima"] { antigo?.removeObject(forKey: c) }

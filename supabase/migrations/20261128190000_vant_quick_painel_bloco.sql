@@ -18,7 +18,7 @@
 create or replace function public.vant_quick_painel(p_uid uuid) returns jsonb
 language plpgsql stable security definer set search_path to 'public' as $$
 declare s record; b record; c record; v_vendas integer; v_ab integer; v_bloco_inicio timestamptz; v_fat numeric; v_opcoes jsonb;
-        v_vendas_bloco integer; v_gerado numeric := round(extract(epoch from clock_timestamp()) * 1000);
+        v_vendas_bloco integer; v_gerado numeric := round(extract(epoch from clock_timestamp()) * 1000, 3);
 begin
   v_opcoes := public.vant_quick_opcoes(p_uid);
   select * into c from public.vant_quick_config where user_id = p_uid;

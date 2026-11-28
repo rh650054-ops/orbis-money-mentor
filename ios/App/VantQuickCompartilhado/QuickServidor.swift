@@ -208,6 +208,16 @@ enum QuickOrdem {
         }
         var v = app
         v.versao = mesmaSessao ? a.versao : nil
+        // review 28/11: a new block of the same session. The day belongs to the session, not to the
+        // block: keep the server's day figures (the app's copy may be behind a tap it has not seen);
+        // the block's money, counts and timing are the app's new block. The pull right after this
+        // write brings the server's figures of the new block.
+        if mesmaSessao, a.versao != nil {
+            v.faturamentoDia = a.faturamentoDia
+            v.metaDia = a.metaDia
+            v.vendasDia = a.vendasDia
+            v.abordagensDia = a.abordagensDia
+        }
         return v
     }
 
@@ -220,14 +230,44 @@ enum QuickOrdem {
     }
 }
 
-extension QuickArmazem {
-    /// Keeps the newest server panel of the account for the widgets (an older answer is dropped).
-    /// Several processes write here (app, intents, widgets): this narrows the window, it does not
-    /// make the file transactional.
-    @discardableResult
-    static func guardarPainelServidor(conta: String, _ p: QuickServidor.Painel) -> Bool {
-        guard QuickOrdem.substituiCache(p, conta: conta, atual: painelServidor) else { return false }
-        painelServidor = .init(conta: conta, quando: Date().timeIntervalSince1970 * 1000, painel: p)
-        return true
+
+// MARK: - Serial updates and batched pulls (review of 28/11/2026)
+
+/// Runs async operations strictly one after the other, in the order they were asked for. The Live
+/// Activity is read-modified-written by the app's mirror and by every tap's answer: without this,
+/// one could read the state, the other write a newer one, and the first write back over it.
+actor QuickFila {
+    static let atividade = QuickFila()
+    private var cauda: Task<Void, Never>? = nil
+    func rodar(_ op: @escaping @Sendable () async -> Void) async {
+        let anterior = cauda
+        let t = Task { await anterior?.value; await op() }
+        cauda = t
+        await t.value
+    }
+}
+
+/// Batches server pulls: at most one in flight; requests while it runs become ONE more pull after
+/// it (so the last request is always followed by a pull that started after it), with a short gap
+/// between pulls. A burst of DEFCON changes (a sale moves money, counts and the block at once) is
+/// one or two requests, not one per change.
+actor QuickAgrupador {
+    private var rodando = false
+    private var pendente = false
+    private let intervalo: UInt64
+    private let tarefa: @Sendable () async -> Void
+    init(intervaloMs: UInt64, tarefa: @escaping @Sendable () async -> Void) {
+        self.intervalo = intervaloMs * 1_000_000
+        self.tarefa = tarefa
+    }
+    func pedir() async {
+        if rodando { pendente = true; return }
+        rodando = true
+        repeat {
+            pendente = false
+            await tarefa()
+            if intervalo > 0 { try? await Task.sleep(nanoseconds: intervalo) }
+        } while pendente
+        rodando = false
     }
 }

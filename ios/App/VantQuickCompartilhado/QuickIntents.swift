@@ -131,16 +131,19 @@ enum QuickAtividadeServidor {
     /// older answer, another session's or an older block's is dropped (the tap's own line still
     /// shows). It never creates an activity and never touches another account's.
     static func aplicar(conta: String, painel: QuickServidor.Painel?, aviso: String?, avisoOk: Bool) async {
-        guard let atividade = Activity<QuickAtributos>.activities.first(where: { $0.attributes.conta == conta }) else { return }
-        var e = atividade.content.state
-        if let p = painel, let v = QuickOrdem.comServidor(e.vista, p) {
-            e.usar(v)
-            if let ops = p.opcoes { e.botoes = ops.prefix(2).map { .init(id: $0.id, valor: $0.valor, rotulo: $0.legenda) } }
+        // one read-modify-write at a time with the app's own writes (QuickFila)
+        await QuickFila.atividade.rodar {
+            guard let atividade = Activity<QuickAtributos>.activities.first(where: { $0.attributes.conta == conta }) else { return }
+            var e = atividade.content.state
+            if let p = painel, let v = QuickOrdem.comServidor(e.vista, p) {
+                e.usar(v)
+                if let ops = p.opcoes { e.botoes = ops.prefix(2).map { .init(id: $0.id, valor: $0.valor, rotulo: $0.legenda) } }
+            }
+            e.interativo = QuickArmazem.interativo
+            e.aviso = aviso
+            e.avisoOk = avisoOk
+            await atividade.update(ActivityContent(state: e, staleDate: e.blocoFim.addingTimeInterval(15 * 60)))
         }
-        e.interativo = QuickArmazem.interativo
-        e.aviso = aviso
-        e.avisoOk = avisoOk
-        await atividade.update(ActivityContent(state: e, staleDate: e.blocoFim.addingTimeInterval(15 * 60)))
     }
 }
 #endif
