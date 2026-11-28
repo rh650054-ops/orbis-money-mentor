@@ -73,12 +73,12 @@ jobs:
             [[ "$VERSAO_ATUAL" =~ ^[0-9]+$ ]] || { echo "publicar exige versao_atual (número)"; exit 2; }
           fi
       # actions/checkout v4.4.0 — the comparison tools always come from the workflow's own commit
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: { path: ferramenta }
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: { ref: "${{ inputs.sha }}", path: alvo }
       - if: inputs.acao == 'publicar'
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: { ref: "${{ inputs.base_sha }}", path: base }
       - name: Confirmar commits
         run: |
@@ -131,9 +131,9 @@ jobs:
     env:
       ANTES: ${{ needs.verificar.outputs.antes }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: { path: ferramenta }
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: { ref: "${{ inputs.sha }}", path: alvo }
       - name: Instalar Supabase CLI (versão fixa)
         run: bash ferramenta/scripts/edge-ci.sh instalar_cli
