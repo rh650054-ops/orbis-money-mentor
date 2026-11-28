@@ -12,10 +12,11 @@ import { COR, EsqueletoResumo } from "@/features/financas-resumo";
 import { usePainelQuery } from "../api/use-painel-query";
 import { useSaldoDisponivel } from "../api/use-saldo-disponivel";
 import { useOcultarValores } from "../lib/ocultar";
-import { bancosRepetidos } from "../lib/saldo";
+import { bancosRepetidos, type ContaNoSaldo } from "../lib/saldo";
 import { SaldoDisponivel } from "./saldo-disponivel";
 import { GrupoContas } from "./grupo-contas";
 import { ConectarBanco, OrganizacaoFinanceira } from "./organizacao";
+import { ExtratoBanco } from "./extrato-banco";
 
 interface Props { h: HomeFinancas; userId: string | undefined; email?: string | null; onGerenciar: () => void; onMudou: () => void }
 
@@ -28,9 +29,10 @@ export function BancosAba({ h, userId, email, onGerenciar, onMudou }: Props) {
   const atualizar = useAtualizarAgoraMutation();
   const [folha, setFolha] = useState(false);
   const [gaveta, setGaveta] = useState<AbaPainel | null>(null);
+  const [extrato, setExtrato] = useState<ContaNoSaldo | null>(null);
   if (!c) return <EsqueletoResumo rotulo="Saldo disponível" />;
   const de = (p: "trabalho" | "pessoal" | "sem") => c.contas.filter((x) => x.papel === p);
-  const comuns = { oculto, repetidos: bancosRepetidos(c.contas), ligando: banco.ligando, onAbrir: () => setFolha(true), onAutorizar: (item: string) => void banco.ligar(item) };
+  const comuns = { oculto, repetidos: bancosRepetidos(c.contas), ligando: banco.ligando, onAbrir: (conta?: ContaNoSaldo) => (conta ? setExtrato(conta) : setFolha(true)), onAutorizar: (item: string) => void banco.ligar(item) };
 
   return (
     <>
@@ -55,6 +57,8 @@ export function BancosAba({ h, userId, email, onGerenciar, onMudou }: Props) {
       {/* the emergency reserve is a "caixinha" the person picks (04/10): same card, values masked when hidden */}
       <ReservaCaixinha userId={userId} oculto={oculto} />
 
+      <ExtratoBanco conta={extrato} userId={userId} oculto={oculto} onFechar={() => setExtrato(null)}
+        onGerenciar={() => { setExtrato(null); setFolha(true); }} />
       {bancosQ.data && (
         <GerenciarFolha aberta={folha} onFechar={() => { setFolha(false); onMudou(); }} bancos={bancosQ.data.bancos} contas={bancosQ.data.contas}
           atualizando={atualizar.isPending} onAtualizar={() => atualizar.mutate()} />
