@@ -84,11 +84,16 @@ public class VantQuickPlugin: CAPPlugin, CAPBridgedPlugin {
 
     /// The server's panel of this account (display only, no limit counted), into the widgets and
     /// the Live Activity. Only when this account may use VANT Quick interactive.
-    static func puxarDoServidor() async {
+    /// Batched (QuickAgrupador): a burst of DEFCON changes asks for one or two pulls, never one per
+    /// change; the last request is always followed by a pull that started after it.
+    private static let agrupador = QuickAgrupador(intervaloMs: 700) { await VantQuickPlugin.puxarAgora() }
+    static func puxarDoServidor() async { await agrupador.pedir() }
+
+    private static func puxarAgora() async {
         guard QuickArmazem.interativo, let conta = QuickArmazem.conta else { return }
         await QuickAcao.resolverDuvida()
         if case .confirmada(let p) = await QuickServidor.enviar(acao: "painel", id: nil, origem: "widget"), let p, QuickArmazem.conta == conta {
-            QuickArmazem.painelServidor = .init(conta: conta, quando: Date().timeIntervalSince1970 * 1000, painel: p)
+            QuickArmazem.guardarPainelServidor(conta: conta, p)
             WidgetCenter.shared.reloadAllTimelines()
             #if canImport(ActivityKit)
             if #available(iOS 16.2, *) { await QuickAtividadeServidor.aplicar(conta: conta, painel: p, aviso: nil, avisoOk: false) }
@@ -110,7 +115,7 @@ public class VantQuickPlugin: CAPPlugin, CAPBridgedPlugin {
         let ativo = call.getBool("ativo") ?? false
         if QuickArmazem.interativo != ativo {
             QuickArmazem.interativo = ativo
-            if !ativo { QuickArmazem.painelServidor = nil }
+            if !ativo { QuickArmazem.apagarPainelServidor() }
             DispatchQueue.main.async { WidgetCenter.shared.reloadAllTimelines() }
         }
         if ativo { Task { await VantQuickPlugin.puxarDoServidor() } }
@@ -132,7 +137,7 @@ public class VantQuickPlugin: CAPPlugin, CAPBridgedPlugin {
         #if canImport(ActivityKit)
         guard #available(iOS 16.2, *) else { return call.resolve() }
         if call.getString("acao") == "encerrar" {
-            Task { await GerenteAtividade.encerrar(); call.resolve() }
+            Task { await QuickFila.atividade.rodar { await GerenteAtividade.encerrar() }; call.resolve() }
             return
         }
         guard let d = call.getObject("dados"), let conta = d["conta"] as? String, conta == QuickArmazem.conta,
@@ -144,14 +149,26 @@ public class VantQuickPlugin: CAPPlugin, CAPBridgedPlugin {
             vendasBloco: d["vendasBloco"] as? Int ?? 0, pausado: d["pausado"] as? Bool ?? false,
             faturamentoDia: d["faturamentoDia"] as? Double ?? 0, metaDia: d["metaDia"] as? Double ?? 0,
             vendasDia: d["vendasDia"] as? Int ?? 0, abordagensDia: d["abordagensDia"] as? Int ?? 0,
-            rapidaValor: d["rapidaValor"] as? Double, interativo: QuickArmazem.interativo)
+            rapidaValor: d["rapidaValor"] as? Double, interativo: QuickArmazem.interativo,
+            sessao: d["sessao"] as? String)
         Task {
-            await GerenteAtividade.atualizar(conta: conta, estado: estado)
-            // interactive: the day's numbers are the server's, on top of the app's block timing
-            if QuickArmazem.interativo, let ps = QuickArmazem.painelServidor, ps.conta == conta {
-                await QuickAtividadeServidor.aplicar(conta: conta, painel: ps.painel, aviso: nil, avisoOk: false)
+            let interativo = QuickArmazem.interativo
+            // one read-modify-write at a time with the taps' answers (QuickFila)
+            await QuickFila.atividade.rodar {
+                var e = estado
+                // review 28/11: the app's copy may be older than a tap it has not seen yet. Interactive:
+                // QuickOrdem keeps the server's numbers of the same session and block; the app moves
+                // the timing, the block and the session. Not interactive: the app's copy, as always.
+                if interativo, let atual = Activity<QuickAtributos>.activities.first(where: { $0.attributes.conta == conta })?.content.state {
+                    e.usar(QuickOrdem.comApp(atual.vista, estado.vista, interativo: true))
+                    if e.sessao == atual.sessao { e.botoes = atual.botoes }
+                }
+                await GerenteAtividade.atualizar(conta: conta, estado: e)
             }
             call.resolve()
+            // then the server's numbers, fresh (never the cached copy: it can be older than the app);
+            // answers that cross each other are ordered by QuickOrdem
+            if interativo { await VantQuickPlugin.puxarDoServidor() }
         }
         #else
         call.resolve()
@@ -175,7 +192,7 @@ public class VantQuickPlugin: CAPPlugin, CAPBridgedPlugin {
         QuickArmazem.limpar()
         WidgetCenter.shared.reloadAllTimelines()
         #if canImport(ActivityKit)
-        if #available(iOS 16.2, *) { Task { await GerenteAtividade.encerrar(); call.resolve() }; return }
+        if #available(iOS 16.2, *) { Task { await QuickFila.atividade.rodar { await GerenteAtividade.encerrar() }; call.resolve() }; return }
         #endif
         call.resolve()
     }

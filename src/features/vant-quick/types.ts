@@ -28,6 +28,8 @@ export interface Painel {
 /** The current DEFCON block, for the Live Activity (lock screen and Dynamic Island). */
 export interface Atividade {
   conta: string;
+  /** the DEFCON session shown (review 28/11: answers of another session are dropped) */
+  sessao?: string | null;
   inicio: number;
   fim: number;
   bloco: number;

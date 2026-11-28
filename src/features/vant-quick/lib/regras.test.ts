@@ -23,4 +23,10 @@ describe("what the widgets show", () => {
     expect(atividadeDoBloco({ conta: CONTA, inicio: null, fim, bloco: 0, totalBlocos: 8, faturamentoBloco: 0, metaHora: 0, vendasBloco: 0, pausado: false, ...DIA })).toBeNull();
     expect(atividadeDoBloco({ conta: CONTA, inicio: fim, fim: inicio, bloco: 0, totalBlocos: 8, faturamentoBloco: 0, metaHora: 0, vendasBloco: 0, pausado: false, ...DIA })).toBeNull();
   });
+  it("review 28/11: the Live Activity is told which DEFCON session it shows (late answers of another are dropped)", () => {
+    const inicio = new Date(AGORA), fim = new Date(AGORA + 3_600_000);
+    const base = { conta: CONTA, inicio, fim, bloco: 0, totalBlocos: 8, faturamentoBloco: 0, metaHora: 0, vendasBloco: 0, pausado: false, ...DIA };
+    expect(atividadeDoBloco({ ...base, sessao: "8c88a596" })!.sessao).toBe("8c88a596");
+    expect(atividadeDoBloco(base)!.sessao).toBeNull();
+  });
 });
