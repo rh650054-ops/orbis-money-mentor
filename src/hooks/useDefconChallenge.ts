@@ -1,6 +1,10 @@
 import { marcarFimDoDia } from "@/features/constancia";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  aplicarLivroNosBlocos, apagarVendaDoLivro, contadoresDoLivro, guardarLancamento, lancamentosPendentes,
+  marcarSessaoLivro, redistribuirBloco, usaLivro, vendasDoLivro, avisarRecusadosNaoVistos,
+} from "@/shared/lib/livro-defcon";
 import { avisar } from "@/shared/lib/avisar";
 import { garantirPlanoDoDia } from "@/shared/lib/plano-do-dia";
 import { getBrazilDate, getBrazilDateDaysAgo, getBrazilTime } from "@/shared/lib/date-utils";
@@ -270,6 +274,12 @@ export function useDefconChallenge(userId: string | undefined) {
       approaches_count: approaches,
     };
     if (sales !== undefined) payload.sales_count = sales;
+    // livro-razão: os contadores são do servidor; aqui só fechar o bloco interessa
+    if (usaLivro(sid)) {
+      if (!fechar) return;
+      delete payload.approaches_count;
+      delete payload.sales_count;
+    }
     if (fechar) { payload.ended_at = new Date().toISOString(); payload.status = "done"; }
     // celular primeiro (valor absoluto, o último vence), o carteiro faz o upsert
     await filaContadoresBloco(payload);
@@ -284,13 +294,18 @@ export function useDefconChallenge(userId: string | undefined) {
       setSessionSales([]);
       return;
     }
-    const [{ data, error }, fila] = await Promise.all([
+    const [{ data, error }, fila, livro] = await Promise.all([
       supabase.from("defcon_sales").select("*").eq("session_id", id).order("created_at", { ascending: true }),
       lerFilaDoDia(planIdRef.current, id),
+      lancamentosPendentes({ sessao: id }),
     ]);
+    const daFila = [...fila.vendas, ...vendasDoLivro(livro, userId ?? "")];
+    // uma venda apagada que ainda não subiu o "apagar" não volta pra lista
+    const apagando = new Set(livro.filter((l) => l.tipo === "apagar_venda").map((l) => l.id));
+    const fora = <T extends { id?: unknown }>(v: T[]) => v.filter((x) => !apagando.has(String(x.id)));
     // sem sinal: mantém a lista que já está na tela + o que está na fila
-    if (error) { setSessionSales((prev) => juntarVendas(prev, fila.vendas)); return; }
-    setSessionSales(juntarVendas(data || [], fila.vendas));
+    if (error) { setSessionSales((prev) => fora(juntarVendas(prev, daFila))); return; }
+    setSessionSales(fora(juntarVendas(data || [], daFila)));
   }, []);
 
   const advanceToNextBlock = useCallback(async () => {
@@ -585,7 +600,8 @@ export function useDefconChallenge(userId: string | undefined) {
 
     // o que ainda está na fila do celular é mais novo que o servidor: soma por cima
     const fila = await lerFilaDoDia(planData.id, null);
-    const blocosComFila = aplicarFilaNosBlocos(loadedBlocks, fila.blocos);
+    // + os lançamentos do livro-razão que ainda não subiram (sessão marcada pelo servidor)
+    const blocosComFila = aplicarLivroNosBlocos(aplicarFilaNosBlocos(loadedBlocks, fila.blocos), await lancamentosPendentes({ plano: planData.id }));
     setBlocks(blocosComFila);
     const total = recalcTotal(blocosComFila);
     setTotalSold(total);
@@ -604,6 +620,10 @@ export function useDefconChallenge(userId: string | undefined) {
     }
 
     if (session) {
+      // o servidor decide se a sessão é do livro-razão (totais somados por ele)
+      marcarSessaoLivro(session.id, !!(session as { totais_servidor?: boolean }).totais_servidor);
+      // um registro recusado pelo servidor enquanto ninguém via a tela: avisa agora
+      avisarRecusadosNaoVistos();
       setSessionId(session.id);
       sessionStartedAtRef.current = session.started_at ?? null;
       // Restaura o tempo ocioso acumulado (segundos em pausa) pra continuar somando.
@@ -621,12 +641,20 @@ export function useDefconChallenge(userId: string | undefined) {
       {
         // contadores que ainda estão na fila do celular vencem os do servidor
         const filaSessao = await lerFilaDoDia(null, session.id);
+        const livroSessao = contadoresDoLivro(await lancamentosPendentes({ sessao: session.id }));
         const cbs = [...(challengeBlocks || [])].map((b) => {
           const f = filaSessao.contadores.get(b.block_index);
           return f ? { ...b, approaches_count: f.approaches_count, ...(f.sales_count != null ? { sales_count: f.sales_count } : {}) } : b;
         });
         for (const [idx, f] of filaSessao.contadores) {
           if (!cbs.some((b) => b.block_index === idx)) cbs.push({ block_index: idx, approaches_count: f.approaches_count, sales_count: f.sales_count ?? 0 } as never);
+        }
+        // livro-razão: o que ainda não subiu soma por cima do que o servidor contou
+        for (const [idx, l] of livroSessao) {
+          const i = cbs.findIndex((b) => b.block_index === idx);
+          if (i < 0) cbs.push({ block_index: idx, approaches_count: Math.max(0, l.abordagens), sales_count: Math.max(0, l.vendas) } as never);
+          else cbs[i] = { ...cbs[i]!, approaches_count: Math.max(0, (cbs[i]!.approaches_count || 0) + l.abordagens),
+            sales_count: Math.max(0, Number((cbs[i] as { sales_count?: number }).sales_count || 0) + l.vendas) } as never;
         }
         const totalApp = cbs.reduce((sum, b) => sum + (b.approaches_count || 0), 0);
         setTotalApproaches(totalApp);
@@ -838,6 +866,37 @@ export function useDefconChallenge(userId: string | undefined) {
     return () => window.removeEventListener("orbis:fila", aoMudar);
   }, [userId, loadSessionSales]);
 
+  /* LIVRO-RAZÃO: os totais são do servidor, e o widget / a tela bloqueada podem ter vendido
+     enquanto o app estava fechado. Ao voltar pro app, relê bloco, contadores e vendas em
+     silêncio (sem tela de carregamento). Só aplica se não há lançamento esperando na fila
+     antes NEM depois da leitura: assim nunca mostra uma venda a menos nem duas vezes. */
+  const atualizarDoServidor = useCallback(async () => {
+    const sid = sessionIdRef.current, pid = planIdRef.current;
+    if (!sid || !pid || !usaLivro(sid)) return;
+    if ((await lancamentosPendentes({ sessao: sid })).length) return;
+    const [{ data: hb, error: e1 }, { data: cb, error: e2 }] = await Promise.all([
+      supabase.from("hourly_goal_blocks").select("id, achieved_amount, valor_dinheiro, valor_cartao, valor_pix, valor_calote, valor_gorjeta").eq("plan_id", pid),
+      supabase.from("challenge_blocks").select("block_index, approaches_count, sales_count").eq("session_id", sid),
+    ]);
+    if (e1 || e2 || !hb || !cb) return;
+    if ((await lancamentosPendentes({ sessao: sid })).length || sessionIdRef.current !== sid) return;
+    const porId = new Map((hb as { id: string }[]).map((b) => [b.id, b as Record<string, number> & { id: string }]));
+    const novos = blocksRef.current.map((b) => {
+      const v = porId.get(b.id);
+      return v ? { ...b, achieved_amount: Number(v.achieved_amount) || 0, valor_dinheiro: Number(v.valor_dinheiro) || 0, valor_cartao: Number(v.valor_cartao) || 0,
+        valor_pix: Number(v.valor_pix) || 0, valor_calote: Number(v.valor_calote) || 0, valor_gorjeta: Number(v.valor_gorjeta) || 0 } : b;
+    });
+    setBlocks(novos);
+    setTotalSold(recalcTotal(novos));
+    const cont = cb as { block_index: number; approaches_count: number | null; sales_count: number | null }[];
+    setTotalApproaches(cont.reduce((s, b) => s + (b.approaches_count || 0), 0));
+    setTotalSalesCount(cont.reduce((s, b) => s + (b.sales_count || 0), 0));
+    const atual = cont.find((b) => b.block_index === currentBlockIndexRef.current);
+    setBlockApproaches(atual?.approaches_count || 0);
+    setBlockSalesCount(atual?.sales_count || 0);
+    await loadSessionSales(sid);
+  }, [loadSessionSales]);
+
   /* VOLTOU PRO APP: se a carga anterior ficou pendurada (aba congelada), refaz.
      É o caso do vendedor que bloqueia o telefone ou sai pra responder uma mensagem. */
   useEffect(() => {
@@ -846,6 +905,7 @@ export function useDefconChallenge(userId: string | undefined) {
       if (document.visibilityState !== "visible") return;
       if (carregando.current) return;
       if (loadingRef.current) void loadData();
+      else void atualizarDoServidor();
     };
     document.addEventListener("visibilitychange", aoVoltar);
     window.addEventListener("focus", aoVoltar);
@@ -853,7 +913,7 @@ export function useDefconChallenge(userId: string | undefined) {
       document.removeEventListener("visibilitychange", aoVoltar);
       window.removeEventListener("focus", aoVoltar);
     };
-  }, [userId, loadData]);
+  }, [userId, loadData, atualizarDoServidor]);
 
   /* PULSO DO FOCO (BUG-008, 18/10): o robô do banco (pluggy-hora) só lê o banco
      de hora em hora enquanto a sessão foi tocada nos últimos 30 min — e ela só era
@@ -1043,7 +1103,7 @@ export function useDefconChallenge(userId: string | undefined) {
 
     const { data: existingSession } = await supabase
       .from("challenge_sessions")
-      .select("id")
+      .select("*")   // "*" (not the new column by name): works before and after the ledger migration
       .eq("user_id", userId)
       .eq("date", today)
       .maybeSingle();
@@ -1063,6 +1123,7 @@ export function useDefconChallenge(userId: string | undefined) {
         })
         .eq("id", existingSession.id);
       sid = existingSession.id;
+      marcarSessaoLivro(sid, !!(existingSession as { totais_servidor?: boolean }).totais_servidor);
     } else {
       const { data: newSession } = await supabase
         .from("challenge_sessions")
@@ -1075,10 +1136,12 @@ export function useDefconChallenge(userId: string | undefined) {
           current_block_index: 0,
           total_sold: totalSold,
         })
-        .select("id")
+        .select("*")
         .single();
       if (!newSession) return;
       sid = newSession.id;
+      // o servidor marca (ou não) a sessão nova; daqui em diante as vendas seguem o que ele disse
+      marcarSessaoLivro(sid, !!(newSession as { totais_servidor?: boolean }).totais_servidor);
     }
 
     setSessionId(sid);
@@ -1190,6 +1253,15 @@ export function useDefconChallenge(userId: string | undefined) {
     // CELULAR PRIMEIRO (19/10): a venda é guardada no aparelho ANTES de qualquer rede.
     // O carteiro leva pro servidor em ordem; sinal fraco ou app fechado não perdem nada.
     if (linha) setSessionSales((prev) => [...prev, linha]);
+    // Sessão do livro-razão (servidor soma): um lançamento com o id da venda, nada absoluto.
+    if (linha && usaLivro(sessionId)) {
+      await guardarLancamento({
+        id: linha.id, tipo: "venda", sessao: linha.session_id, plano: planIdRef.current, bloco: currentBlockIndex,
+        valor: amount, metodo: method, produto: produto?.id ?? null, qtd: produto ? Math.max(1, produto.qty) : null, criadoEm: linha.created_at,
+      });
+      enviarFila();
+      return;
+    }
     await queueBlockOffline(blockState, userId, planIdRef.current, planDateRef.current);
     await queueVendaOffline(linha, newTotal);
     if (sessionId) await saveBlockApproaches(sessionId, currentBlockIndex, newApproaches, newBlockSales);
@@ -1235,6 +1307,25 @@ export function useDefconChallenge(userId: string | undefined) {
     }
     setTotalSold(newTotal);
 
+    // Sessão do livro-razão: apagar é UM lançamento (o servidor desconta dinheiro, venda e
+    // abordagem). Se a venda ainda nem subiu, ela só sai da fila. A tela muda igual a antes.
+    if (sessionId && usaLivro(sessionId)) {
+      await apagarVendaDoLivro({
+        id: String(sale.id), tipoVenda: isTip ? "gorjeta" : isLate ? "venda_tardia" : "venda", sessao: sessionId, plano: planIdRef.current,
+        bloco: blockIdx, valor: amount, metodo: isTip ? "gorjeta" : method, tardia: isLate, criadoEm: new Date().toISOString(),
+      });
+      if (!isLate && !isTip) {
+        setTotalSalesCount(prev => Math.max(0, prev - 1));
+        setTotalApproaches(prev => Math.max(0, prev - 1));
+        if (blockIdx === currentBlockIndex) {
+          setBlockSalesCount(prev => Math.max(0, prev - 1));
+          setBlockApproaches(prev => Math.max(0, prev - 1));
+        }
+      }
+      enviarFila();
+      deletingSalesRef.current.delete(sale.id);
+      return;
+    }
     // CELULAR PRIMEIRO (19/10): apagar também vai pra fila. Se a venda ainda nem
     // tinha subido, ela só sai da fila e nunca chega no servidor.
     await apagarVendaOffline(sale.id);
@@ -1301,6 +1392,11 @@ export function useDefconChallenge(userId: string | undefined) {
       : null;
     // celular primeiro, carteiro depois (ver addSale)
     if (linha) setSessionSales((prev) => [...prev, linha]);
+    if (linha && usaLivro(sessionId)) {
+      await guardarLancamento({ id: linha.id, tipo: "venda_tardia", sessao: linha.session_id, plano: planIdRef.current, bloco: blockIdx, valor: amount, metodo: "pix", criadoEm: linha.created_at });
+      enviarFila();
+      return;
+    }
     await queueBlockOffline(blockState, userId, planIdRef.current, planDateRef.current);
     await queueVendaOffline(linha, newTotal);
     enviarFila();
@@ -1333,6 +1429,11 @@ export function useDefconChallenge(userId: string | undefined) {
     // celular primeiro, carteiro depois (ver addSale). A gorjeta vira LINHA em
     // defcon_sales (method='gorjeta') pra aparecer no histórico e poder ser cancelada.
     if (linha) setSessionSales((prev) => [...prev, linha]);
+    if (linha && usaLivro(sessionId)) {
+      await guardarLancamento({ id: linha.id, tipo: "gorjeta", sessao: linha.session_id, plano: planIdRef.current, bloco: currentBlockIndex, valor: amount, metodo: "gorjeta", criadoEm: linha.created_at });
+      enviarFila();
+      return;
+    }
     await queueBlockOffline(blockState, userId, planIdRef.current, planDateRef.current);
     await queueVendaOffline(linha, newTotal);
     enviarFila();
@@ -1344,6 +1445,13 @@ export function useDefconChallenge(userId: string | undefined) {
     setBlockApproaches(newApproaches);
     setTotalApproaches(prev => prev + 1);
 
+    // Sessão do livro-razão: UMA abordagem com id próprio (o servidor conta; nunca um total).
+    if (sessionId && usaLivro(sessionId)) {
+      await guardarLancamento({ id: novaLinhaVenda({ user_id: userId ?? "", session_id: sessionId, block_index: currentBlockIndex, amount: 0, method: "dinheiro", late: false }).id,
+        tipo: "abordagem", sessao: sessionId, plano: planIdRef.current, bloco: currentBlockIndex, criadoEm: new Date().toISOString() });
+      enviarFila();
+      return;
+    }
     // Persist to DB immediately (passa também as vendas do bloco pra manter o upsert consistente).
     // AWAIT obrigatório: garante que a abordagem fique gravada antes de retornar,
     // pra não perder a última contagem se o app for morto logo após o toque.
@@ -1400,6 +1508,34 @@ export function useDefconChallenge(userId: string | undefined) {
 
     const blks = blocksRef.current;
     const totalFromBlocks = blks.reduce((sum, b) => sum + b.valor_dinheiro + b.valor_cartao + b.valor_pix + b.valor_calote, 0);
+
+    // Sessão do livro-razão: a mesma divisão, mas cada bloco vai pro servidor como UMA
+    // redistribuição explícita (mesmo total do bloco, centavo por centavo).
+    if (usaLivro(sessionIdRef.current)) {
+      const novos = new Map<string, { valor_dinheiro: number; valor_cartao: number; valor_pix: number; valor_calote: number; achieved_amount: number }>();
+      for (const block of blks) {
+        const blockTotal = round2(block.valor_dinheiro + block.valor_cartao + block.valor_pix + block.valor_calote);
+        if (blockTotal <= 0 || totalFromBlocks <= 0) continue;
+        const ratio = blockTotal / totalFromBlocks;
+        const d = round2(dinheiro * ratio), c = round2(cartao * ratio), p = round2(pix * ratio);
+        let cal = round2(calote * ratio), dd = d;
+        const resto = round2(blockTotal - (d + c + p + cal));        // o centavo do arredondamento
+        if (cal + resto >= 0) cal = round2(cal + resto); else dd = round2(d + resto);
+        try {
+          await redistribuirBloco(block.id, { dinheiro: dd, cartao: c, pix: p, calote: cal });
+        } catch (e) {
+          avisar.usuario(e instanceof Error && e.message === "valores_mudaram"
+            ? "Entrou venda nova enquanto você ajustava. Confira os valores e salve de novo."
+            : "Não consegui salvar a divisão. Tenta de novo.", e, "DEFCON: dividir recebimentos (livro)");
+          void loadData();
+          return;
+        }
+        novos.set(block.id, { valor_dinheiro: dd, valor_cartao: c, valor_pix: p, valor_calote: cal, achieved_amount: blockTotal });
+      }
+      setBlocks(prev => prev.map(b => { const n = novos.get(b.id); return n ? { ...b, ...n } : b; }));
+      await syncBlocksToDailySales(userId, planDateRef.current);
+      return;
+    }
 
     for (const block of blks) {
       const blockTotal = block.valor_dinheiro + block.valor_cartao + block.valor_pix + block.valor_calote;
