@@ -63,12 +63,12 @@ enum QuickAcao {
         case .confirmada(let painel):
             // the account may have changed while waiting: never show one account's numbers to another
             guard QuickArmazem.conta == conta else { return }
-            if let painel { QuickArmazem.painelServidor = .init(conta: conta, quando: Date().timeIntervalSince1970 * 1000, painel: painel) }
+            if let painel { QuickArmazem.guardarPainelServidor(conta: conta, painel) }
             await anunciar(id: id, tipo: tipo, estado: "confirmada", texto: confirmada, ok: true, painel: painel, conta: conta)
         case .recusada(let motivo, let painel):
             // nothing was written; a fresh panel (new options, e.g. a changed price) still redraws the buttons
             if let painel, QuickArmazem.conta == conta {
-                QuickArmazem.painelServidor = .init(conta: conta, quando: Date().timeIntervalSince1970 * 1000, painel: painel)
+                QuickArmazem.guardarPainelServidor(conta: conta, painel)
             }
             await anunciar(id: id, tipo: tipo, estado: "recusada", texto: QuickServidor.frase(motivo), ok: false, painel: painel, conta: conta)
         case .inconclusiva:
@@ -88,7 +88,7 @@ enum QuickAcao {
         switch await QuickServidor.situacao(id: d.id) {
         case .existe(let painel):
             QuickArmazem.duvida = nil
-            if let painel { QuickArmazem.painelServidor = .init(conta: d.conta, quando: Date().timeIntervalSince1970 * 1000, painel: painel) }
+            if let painel { QuickArmazem.guardarPainelServidor(conta: d.conta, painel) }
             await anunciar(id: d.id, tipo: d.tipo, estado: "confirmada", texto: "\(nome) confirmada", ok: true, painel: painel, conta: d.conta)
         case .naoExiste(let painel):
             QuickArmazem.duvida = nil
@@ -127,31 +127,23 @@ enum QuickAcao {
 /// creates one (the app does, with the real session) and never touches another account's.
 @available(iOS 16.2, *)
 enum QuickAtividadeServidor {
-    private static let iso: ISO8601DateFormatter = { let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]; return f }()
-    private static func data(_ s: String?) -> Date? {
-        guard let s else { return nil }
-        return iso.date(from: s) ?? ISO8601DateFormatter().date(from: s)
-    }
-
+    /// The server's answer into the running Live Activity of the account, through QuickOrdem: an
+    /// older answer, another session's or an older block's is dropped (the tap's own line still
+    /// shows). It never creates an activity and never touches another account's.
     static func aplicar(conta: String, painel: QuickServidor.Painel?, aviso: String?, avisoOk: Bool) async {
-        guard let atividade = Activity<QuickAtributos>.activities.first(where: { $0.attributes.conta == conta }) else { return }
-        var e = atividade.content.state
-        if let p = painel {
-            e.faturamentoDia = p.faturamento ?? e.faturamentoDia
-            e.metaDia = p.meta ?? e.metaDia
-            e.vendasDia = p.vendas ?? e.vendasDia
-            e.abordagensDia = p.abordagens ?? e.abordagensDia
-            e.rapidaValor = p.rapida?.valor ?? e.rapidaValor
-            if let ops = p.opcoes { e.botoes = ops.prefix(2).map { .init(id: $0.id, valor: $0.valor, rotulo: $0.legenda) } }
-            if let b = p.bloco { e.bloco = b }
-            if let t = p.totalBlocos { e.totalBlocos = t }
-            if let i = data(p.blocoInicio), let f = data(p.blocoFim) { e.blocoInicio = i; e.blocoFim = f }
-            if let est = p.blocoEstado { e.pausado = est != "running" }
+        // one read-modify-write at a time with the app's own writes (QuickFila)
+        await QuickFila.atividade.rodar {
+            guard let atividade = Activity<QuickAtributos>.activities.first(where: { $0.attributes.conta == conta }) else { return }
+            var e = atividade.content.state
+            if let p = painel, let v = QuickOrdem.comServidor(e.vista, p) {
+                e.usar(v)
+                if let ops = p.opcoes { e.botoes = ops.prefix(2).map { .init(id: $0.id, valor: $0.valor, rotulo: $0.legenda) } }
+            }
+            e.interativo = QuickArmazem.interativo
+            e.aviso = aviso
+            e.avisoOk = avisoOk
+            await atividade.update(ActivityContent(state: e, staleDate: e.blocoFim.addingTimeInterval(15 * 60)))
         }
-        e.interativo = QuickArmazem.interativo
-        e.aviso = aviso
-        e.avisoOk = avisoOk
-        await atividade.update(ActivityContent(state: e, staleDate: e.blocoFim.addingTimeInterval(15 * 60)))
     }
 }
 #endif
