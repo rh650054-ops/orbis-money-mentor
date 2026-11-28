@@ -16,7 +16,7 @@ struct DefconAtividade: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("BLOCO \(ctx.state.bloco)").font(.system(size: 10, weight: .black)).foregroundStyle(Estilo.ouro)
-                        Text(Estilo.reaisCurto(ctx.state.faturamentoBloco)).font(.system(size: 22, weight: .black, design: .rounded)).foregroundStyle(Estilo.texto)
+                        Text(Estilo.reaisCurto(ctx.state.faturamentoDia)).font(.system(size: 22, weight: .black, design: .rounded)).foregroundStyle(Estilo.texto)
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
@@ -34,7 +34,10 @@ struct DefconAtividade: Widget {
                     }
                 }
             } compactLeading: {
-                Text(Estilo.reaisCurto(ctx.state.faturamentoBloco)).font(.system(size: 13, weight: .black)).foregroundStyle(Estilo.ouro)
+                // 28/11: the island shows the SAME revenue as the lock screen (faturamentoDia). The
+                // block's revenue is not updated by a tap made with the app in the background
+                // (QuickAtividadeServidor only receives the day from the server), so it stayed at R$ 0.
+                Text(Estilo.reaisCurto(ctx.state.faturamentoDia)).font(.system(size: 13, weight: .black)).foregroundStyle(Estilo.ouro)
             } compactTrailing: {
                 Cronometro(s: ctx.state, tamanho: 13).frame(maxWidth: 48)
             } minimal: {
