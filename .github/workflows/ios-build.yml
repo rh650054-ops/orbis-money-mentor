@@ -106,6 +106,8 @@ jobs:
           VERSION_NAME: ${{ inputs.version_name }}
           BUILD_NUMBER: ${{ github.run_number }}
           ENVIAR: ${{ inputs.enviar }}
+          DIST_CERT_P12_BASE64: ${{ secrets.DIST_CERT_P12_BASE64 }}
+          DIST_CERT_PASSWORD: ${{ secrets.DIST_CERT_PASSWORD }}
         run: |
           if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_P8_BASE64" ] || [ -z "$APPLE_TEAM_ID" ]; then
             echo "::notice::Apple secrets not set yet: stopped after the Simulator build (stage 1)."
@@ -138,6 +140,51 @@ jobs:
           esac
           AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
 
+          # Signing mode. Without DIST_CERT_P12_BASE64 nothing changes: Apple's cloud signing, exactly as
+          # in build 19. With it ("proprio"), the export uses our own Apple Distribution certificate and
+          # the two App Store profiles created by hand in the portal, because Apple's API key cannot read
+          # App Groups and so cannot create the VANT Quick profile by itself (401 on xcbuild/v1/appGroups).
+          MODO=nuvem
+          if [ -n "$DIST_CERT_P12_BASE64" ]; then
+            MODO=proprio
+            [ -n "$DIST_CERT_PASSWORD" ] || { echo "::error::DIST_CERT_PASSWORD is missing."; exit 1; }
+            # Temporary keychain with a random password; deleted in the "Clean up signing" step.
+            KC="$RUNNER_TEMP/vant-assinatura.keychain-db"
+            KCPASS=$(openssl rand -hex 24)
+            security create-keychain -p "$KCPASS" "$KC"
+            security set-keychain-settings -lut 3600 "$KC"
+            security unlock-keychain -p "$KCPASS" "$KC"
+            P12="$RUNNER_TEMP/dist.p12"
+            echo "$DIST_CERT_P12_BASE64" | tr -d ' \r\n' | base64 --decode > "$P12"
+            security import "$P12" -k "$KC" -P "$DIST_CERT_PASSWORD" -f pkcs12 -T /usr/bin/codesign -T /usr/bin/security >/dev/null \
+              || { rm -f "$P12"; echo "::error::Could not import the .p12 (wrong DIST_CERT_PASSWORD or bad base64)."; exit 1; }
+            rm -f "$P12"
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KCPASS" "$KC" >/dev/null
+            security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+            IDENT=$(security find-identity -v -p codesigning "$KC" | grep -o '"Apple Distribution[^"]*"' | head -1 | tr -d '"')
+            [ -n "$IDENT" ] || { echo "::error::The .p12 has no valid Apple Distribution identity (certificate + private key)."; exit 1; }
+            echo "::notice::Own certificate loaded: $IDENT"
+
+            # The two App Store profiles are read from Apple with the API key (that part is allowed).
+            mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+            for NOME in "VANT App Store" "VANT Quick App Store"; do
+              curl -s -G -H "Authorization: Bearer $JWT" --data-urlencode "filter[name]=$NOME" \
+                --data-urlencode "filter[profileState]=ACTIVE" "https://api.appstoreconnect.apple.com/v1/profiles" > "$RUNNER_TEMP/perfil.json"
+              ARQ="$RUNNER_TEMP/perfil.mobileprovision"
+              node -e 'const d=JSON.parse(require("fs").readFileSync(process.argv[1])).data||[];
+                if(!d.length){process.exit(3)}
+                require("fs").writeFileSync(process.argv[2],Buffer.from(d[0].attributes.profileContent,"base64"))' \
+                "$RUNNER_TEMP/perfil.json" "$ARQ" || { echo "::error::Active profile \"$NOME\" not found in the Apple portal."; exit 1; }
+              UUID=$(security cms -D -i "$ARQ" | plutil -extract UUID raw -)
+              cp "$ARQ" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
+              cp "$ARQ" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$UUID.mobileprovision"
+              security cms -D -i "$ARQ" | grep -q 'group.app.vant.vendas' \
+                || { echo "::error::Profile \"$NOME\" was made before App Groups was enabled. Edit it in the portal (Save) to regenerate."; exit 1; }
+              echo "::notice::Profile \"$NOME\" installed ($UUID), with the App Group."
+            done
+            rm -f "$RUNNER_TEMP/perfil.json" "$RUNNER_TEMP/perfil.mobileprovision"
+          fi
+
           # unsigned archive: no "Apple Development" certificate is created (see the header)
           xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/VANT.xcarchive" \
@@ -167,6 +214,26 @@ jobs:
             <key>signingStyle</key><string>automatic</string>
           </dict></plist>
           PLIST
+          if [ "$MODO" = "proprio" ]; then
+            cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>${DESTINO}</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key><dict>
+              <key>app.vant.vendas</key><string>VANT App Store</string>
+              <key>app.vant.vendas.quick</key><string>VANT Quick App Store</string>
+            </dict>
+          </dict></plist>
+          PLIST
+            # manual signing: no provisioning updates, the upload still authenticates with the key
+            AUTH=(-authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+          fi
+          echo "::notice::Signing mode: $MODO"
 
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/VANT.xcarchive" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" \
@@ -199,3 +266,11 @@ jobs:
           else
             echo "::notice::Build $VERSION_NAME ($BUILD_NUMBER) sent to App Store Connect. It shows up in TestFlight after Apple processes it (~15-30 min)."
           fi
+
+      - name: Clean up signing
+        if: always()
+        run: |
+          KC="$RUNNER_TEMP/vant-assinatura.keychain-db"
+          [ -f "$KC" ] && security delete-keychain "$KC" || true
+          rm -f "$RUNNER_TEMP"/AuthKey.p8 "$RUNNER_TEMP"/dist.p12
+          rm -rf "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
