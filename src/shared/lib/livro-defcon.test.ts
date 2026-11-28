@@ -3,7 +3,10 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const servidor = { aplicados: new Set<string>(), chamadas: [] as Record<string, unknown>[], cair: false, recusar: "" };
+const servidor = { aplicados: new Set<string>(), chamadas: [] as Record<string, unknown>[], cair: false, recusar: "",
+  vendas: new Set<string>(), lapides: new Set<string>(), segurarVenda: null as Promise<void> | null };
+const avisos: string[] = [];
+vi.mock("./avisar", () => ({ avisar: { usuario: (m: string) => { avisos.push(m); }, erro: () => undefined, silencioso: () => undefined } }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     rpc: async (nome: string, args: Record<string, unknown>) => {
@@ -11,6 +14,13 @@ vi.mock("@/integrations/supabase/client", () => ({
       if (servidor.cair) return { data: null, error: { message: "Failed to fetch" } };
       if (servidor.recusar) return { data: null, error: { message: servidor.recusar } };
       if (nome === "defcon_redistribuir_bloco") return { data: { livro: args.p_bloco_id === "b-livro" }, error: null };
+      const id = String(args.p_id);
+      // the same rules as defcon_lancar: a closed id never becomes a sale; delete closes the id
+      if (args.p_tipo === "apagar_venda") { servidor.vendas.delete(id); servidor.lapides.add(id); }
+      else if (args.p_tipo !== "abordagem") {
+        if (servidor.segurarVenda) { const s = servidor.segurarVenda; servidor.segurarVenda = null; await s; }
+        if (!servidor.lapides.has(id)) servidor.vendas.add(id);
+      }
       servidor.aplicados.add(`${args.p_tipo}:${args.p_id}`);
       return { data: { aplicado: true }, error: null };
     },
@@ -24,8 +34,8 @@ import { getUnsynced, removeOfflineRecord } from "./offline-db";
 import { syncAllPendingData } from "./offline-sync";
 import { contarPendentes, lerFilaDoDia } from "./fila-defcon";
 import {
-  aplicarLivroNosBlocos, apagarVendaDoLivro, contadoresDoLivro, guardarLancamento, lancamentosPendentes, marcarSessaoLivro,
-  redistribuirBloco, usaLivro, vendasDoLivro, type Lancamento,
+  aplicarLivroNosBlocos, apagarVendaDoLivro, avisarRecusadosNaoVistos, contadoresDoLivro, guardarLancamento, lancamentosPendentes,
+  lancamentosRecusados, marcarSessaoLivro, redistribuirBloco, usaLivro, vendasDoLivro, type Lancamento,
 } from "./livro-defcon";
 
 const base = { sessao: "s1", plano: "p1", bloco: 0, criadoEm: "2026-11-28T12:00:00.000Z" };
@@ -34,6 +44,7 @@ const bloco = (x: Partial<Record<string, number>> = {}) => ({ id: "b", achieved_
 
 beforeEach(async () => {
   servidor.aplicados.clear(); servidor.chamadas = []; servidor.cair = false; servidor.recusar = "";
+  servidor.vendas.clear(); servidor.lapides.clear(); servidor.segurarVenda = null; avisos.length = 0;
   for (const r of await getUnsynced("pending_venda")) await removeOfflineRecord("pending_venda", r.id);
   localStorage.clear();
 });
@@ -69,13 +80,29 @@ describe("the queue", () => {
     expect([...servidor.aplicados]).toEqual(["venda:v2"]);
   });
 
-  it("deleting a sale that never went up: it just leaves the queue (the server never sees either)", async () => {
+  it("deleting a sale that never went up: it leaves the queue, and the delete still goes (it closes the id)", async () => {
     servidor.cair = true;
     await guardarLancamento(l({ id: "v3", tipo: "venda", valor: 7, metodo: "cartao" }));
     await apagarVendaDoLivro({ ...base, id: "v3", tipoVenda: "venda", valor: 7, metodo: "cartao" });
     servidor.cair = false;
     await syncAllPendingData();
-    expect(servidor.chamadas.filter((c) => c.nome === "defcon_lancar")).toEqual([]);
+    expect(servidor.chamadas.filter((c) => c.nome === "defcon_lancar").map((c) => `${c.p_tipo}:${c.p_id}`)).toEqual(["apagar_venda:v3"]);
+    expect(servidor.vendas.has("v3")).toBe(false);
+  });
+
+  it("THE RACE: the sale is being sent when the seller deletes it — it never survives on the server", async () => {
+    // the server answers the sale slowly: the delete happens while that request is on its way
+    let soltar: () => void = () => undefined;
+    servidor.segurarVenda = new Promise<void>((r) => { soltar = r; });
+    await guardarLancamento(l({ id: "v9", tipo: "venda", valor: 12, metodo: "pix" }));
+    const carteiro = syncAllPendingData();                       // picks the sale up and sends it
+    await vi.waitFor(() => expect(servidor.chamadas.some((c) => c.p_id === "v9")).toBe(true));
+    await apagarVendaDoLivro({ ...base, id: "v9", tipoVenda: "venda", valor: 12, metodo: "pix" });   // seller deletes NOW
+    soltar();                                                    // the sale lands on the server
+    await carteiro;
+    await syncAllPendingData();                                  // the delete goes up
+    expect(servidor.vendas.has("v9")).toBe(false);
+    expect(await lancamentosPendentes({ sessao: "s1" })).toEqual([]);
   });
 
   it("deleting a sale that already went up: one 'apagar_venda' with that sale's id", async () => {
@@ -84,14 +111,41 @@ describe("the queue", () => {
     await apagarVendaDoLivro({ ...base, id: "v4", tipoVenda: "gorjeta", valor: 2, metodo: "gorjeta" });
     await syncAllPendingData();
     expect(servidor.chamadas.map((c) => `${c.p_tipo}:${c.p_id}`)).toEqual(["gorjeta:v4", "apagar_venda:v4"]);
+    expect(servidor.vendas.has("v4")).toBe(false);
   });
 
-  it("a definitive refusal (session deleted) leaves the queue; a network error does not", async () => {
-    servidor.recusar = "sessao_invalida";
-    await guardarLancamento(l({ id: "v5", tipo: "abordagem" }));
+  it("a definitive refusal is never silent: kept on the phone and the seller is told what was NOT registered", async () => {
+    servidor.recusar = "valor_invalido";
+    await guardarLancamento(l({ id: "v5", tipo: "venda", valor: 15, metodo: "pix" }));
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     await syncAllPendingData();
-    expect(await lancamentosPendentes({ sessao: "s1" })).toEqual([]);
+    expect(await lancamentosPendentes({ sessao: "s1" })).toEqual([]);                    // no endless retry
+    expect(lancamentosRecusados()).toEqual([expect.objectContaining({ lancamento: expect.objectContaining({ id: "v5", valor: 15 }), motivo: "valor_invalido" })]);
+    expect(avisos.at(-1)).toMatch(/venda de R\$\s?15,00 não foi aceita.*NÃO está no seu dia/);
+  });
+
+  it("missed it (app in the background)? Told again when the DEFCON opens, once", async () => {
+    servidor.recusar = "sessao_invalida";
+    await guardarLancamento(l({ id: "v7", tipo: "gorjeta", valor: 3, metodo: "gorjeta" }));
+    await guardarLancamento(l({ id: "a7", tipo: "abordagem" }));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await syncAllPendingData();
+    avisos.length = 0;
+    // the refusals were shown while nobody looked: they are still "unseen" only if the toast had no
+    // screen; simulate by marking them unseen
+    localStorage.setItem("defcon_livro_recusados", JSON.stringify(lancamentosRecusados().map((r) => ({ ...r, visto: false }))));
+    avisarRecusadosNaoVistos();
+    expect(avisos).toEqual([expect.stringMatching(/2 registros do DEFCON não foram aceitos/)]);
+    avisarRecusadosNaoVistos();
+    expect(avisos).toHaveLength(1);
+  });
+
+  it("a network error is not a refusal: it stays in the queue", async () => {
+    servidor.cair = true;
+    await guardarLancamento(l({ id: "v8", tipo: "venda", valor: 1, metodo: "pix" }));
+    await syncAllPendingData();
+    expect(await lancamentosPendentes({ sessao: "s1" })).toHaveLength(1);
+    expect(lancamentosRecusados()).toEqual([]);
   });
 
   it("the banner counts ledger sales as sales; the old counters overlay ignores count-less block closes", async () => {

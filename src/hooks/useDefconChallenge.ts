@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   aplicarLivroNosBlocos, apagarVendaDoLivro, contadoresDoLivro, guardarLancamento, lancamentosPendentes,
-  marcarSessaoLivro, redistribuirBloco, usaLivro, vendasDoLivro,
+  marcarSessaoLivro, redistribuirBloco, usaLivro, vendasDoLivro, avisarRecusadosNaoVistos,
 } from "@/shared/lib/livro-defcon";
 import { avisar } from "@/shared/lib/avisar";
 import { garantirPlanoDoDia } from "@/shared/lib/plano-do-dia";
@@ -622,6 +622,8 @@ export function useDefconChallenge(userId: string | undefined) {
     if (session) {
       // o servidor decide se a sessão é do livro-razão (totais somados por ele)
       marcarSessaoLivro(session.id, !!(session as { totais_servidor?: boolean }).totais_servidor);
+      // um registro recusado pelo servidor enquanto ninguém via a tela: avisa agora
+      avisarRecusadosNaoVistos();
       setSessionId(session.id);
       sessionStartedAtRef.current = session.started_at ?? null;
       // Restaura o tempo ocioso acumulado (segundos em pausa) pra continuar somando.

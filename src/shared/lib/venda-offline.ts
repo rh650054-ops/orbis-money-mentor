@@ -78,12 +78,14 @@ export async function guardarTotalSessaoOffline(sessionId: string, totalSessao: 
   } catch { /* sem IndexedDB: a tela já mostra o valor certo; a próxima venda corrige */ }
 }
 
-/** Excluir uma venda: se ela ainda estava na fila, só sai dela (nunca chega no servidor);
- *  senão entra na fila um pedido de apagar, que o carteiro leva em ordem. */
+/** Excluir uma venda: se ela ainda estava na fila, sai dela; e o pedido de apagar entra na fila
+ *  SEMPRE (ela pode estar sendo enviada neste momento), e o carteiro o leva em ordem. */
 export async function apagarVendaOffline(vendaId: string): Promise<void> {
   try {
     const pendentes = await getUnsynced("pending_venda");
-    if (pendentes.some((r) => r.id === vendaId)) { await removeOfflineRecord("pending_venda", vendaId); return; }
+    // the sale may be on its way right now (the courier already took it): leaving the queue is not
+    // enough, so the delete is ALWAYS queued too (deleting an id the server lacks changes nothing)
+    if (pendentes.some((r) => r.id === vendaId)) await removeOfflineRecord("pending_venda", vendaId);
     await addOfflineRecord("pending_venda", {
       id: `apagar:${vendaId}`, store: "pending_venda",
       data: { tipo: "apagar", venda_id: vendaId }, created_at: new Date().toISOString(), synced: false,

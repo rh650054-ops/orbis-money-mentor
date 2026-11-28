@@ -12,6 +12,7 @@
    ============================================================ */
 import { supabase } from "@/integrations/supabase/client";
 import { addOfflineRecord, getUnsynced, removeOfflineRecord, type OfflineRecord } from "./offline-db";
+import { avisar } from "./avisar";
 
 export type TipoLancamento = "venda" | "venda_tardia" | "gorjeta" | "abordagem" | "apagar_venda";
 export type Metodo = "dinheiro" | "pix" | "cartao" | "gorjeta";
@@ -55,10 +56,13 @@ export async function guardarLancamento(l: Lancamento): Promise<void> {
   });
 }
 
-/** Apagar uma venda: se ela ainda nem subiu, só sai da fila (o servidor nunca a vê). */
+/** Apagar uma venda. Se ela ainda está na fila, sai dela; e o "apagar" vai pro servidor SEMPRE,
+    mesmo assim: a venda pode estar sendo enviada neste exato momento (o carteiro já a pegou), ou
+    um envio atrasado na rede pode chegar depois. O servidor encerra o id no "apagar" (lápide), e
+    qualquer chegada dessa venda depois disso é recusada: uma venda apagada nunca sobrevive. */
 export async function apagarVendaDoLivro(l: Omit<Lancamento, "tipo"> & { tipoVenda: "venda" | "venda_tardia" | "gorjeta" }): Promise<void> {
   const pendente = (await getUnsynced("pending_venda")).find((r) => r.id === chave({ tipo: l.tipoVenda, id: l.id }));
-  if (pendente) { await removeOfflineRecord("pending_venda", pendente.id); return; }
+  if (pendente) await removeOfflineRecord("pending_venda", pendente.id);
   const { tipoVenda: _t, ...resto } = l;
   await guardarLancamento({ ...resto, tipo: "apagar_venda" });
 }
@@ -74,7 +78,39 @@ export async function lancamentosPendentes(f: { sessao?: string | null; plano?: 
 
 /* ---------- o carteiro ---------- */
 // Recusas definitivas: tentar de novo nunca vai dar certo (sessão apagada, dado impossível).
-const DEFINITIVAS = ["sessao_invalida", "valor_invalido", "bloco_invalido", "tipo_invalido", "id_obrigatorio", "origem_invalida", "23503"];
+// NUNCA somem em silêncio: ficam guardadas no aparelho e o vendedor é avisado (registrarRecusa).
+const DEFINITIVAS = ["sessao_invalida", "sessao_nao_servidor", "valor_invalido", "bloco_invalido", "tipo_invalido", "id_obrigatorio", "origem_invalida", "23503"];
+
+export interface Recusado { lancamento: Lancamento; motivo: string; quando: string; visto: boolean }
+const CHAVE_RECUSADOS = "defcon_livro_recusados";
+export function lancamentosRecusados(): Recusado[] {
+  try { const v = JSON.parse(localStorage.getItem(CHAVE_RECUSADOS) ?? "[]"); return Array.isArray(v) ? (v as Recusado[]) : []; } catch { return []; }
+}
+function gravarRecusados(v: Recusado[]): void {
+  try { localStorage.setItem(CHAVE_RECUSADOS, JSON.stringify(v.slice(-100))); } catch { /* sem espaço: o aviso já foi dado */ }
+}
+const reais = (v?: number) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+function fraseDaRecusa(l: Lancamento): string | null {
+  if (l.tipo === "venda" || l.tipo === "venda_tardia") return `Uma venda de ${reais(l.valor)} não foi aceita pelo servidor e NÃO está no seu dia. Registre de novo.`;
+  if (l.tipo === "gorjeta") return `Uma gorjeta de ${reais(l.valor)} não foi aceita pelo servidor e NÃO está no seu dia. Registre de novo.`;
+  if (l.tipo === "abordagem") return "Uma abordagem não foi aceita pelo servidor e não está no seu dia.";
+  return null; // apagar algo que já não existe: nada a refazer
+}
+function registrarRecusa(l: Lancamento, motivo: string): void {
+  const frase = fraseDaRecusa(l);
+  gravarRecusados([...lancamentosRecusados(), { lancamento: l, motivo, quando: new Date().toISOString(), visto: !frase }]);
+  if (frase) avisar.usuario(frase, motivo, "DEFCON: lançamento recusado");
+}
+/** Ao abrir o DEFCON: o que foi recusado e o vendedor ainda não viu é avisado de novo (o carteiro
+    pode ter rodado com o app em segundo plano, quando o aviso passou sem ninguém ver). */
+export function avisarRecusadosNaoVistos(): void {
+  const todos = lancamentosRecusados();
+  const novos = todos.filter((r) => !r.visto);
+  if (!novos.length) return;
+  avisar.usuario(novos.length === 1 ? (fraseDaRecusa(novos[0]!.lancamento) ?? "Um registro não foi aceito pelo servidor.")
+    : `${novos.length} registros do DEFCON não foram aceitos pelo servidor e NÃO estão no seu dia. Registre de novo.`, "recusados", "DEFCON: recusados");
+  gravarRecusados(todos.map((r) => ({ ...r, visto: true })));
+}
 
 /** Sobe um lançamento. true = pode sair da fila (aplicado, já aplicado antes, ou impossível). */
 export async function subirLancamento(l: Lancamento): Promise<boolean> {
@@ -86,7 +122,7 @@ export async function subirLancamento(l: Lancamento): Promise<boolean> {
   });
   if (!error) return true;
   const txt = `${error.message ?? ""} ${error.code ?? ""}`;
-  if (DEFINITIVAS.some((d) => txt.includes(d))) { console.error("[livro] lançamento recusado de vez:", l.tipo, l.id, error.message); return true; }
+  if (DEFINITIVAS.some((d) => txt.includes(d))) { registrarRecusa(l, error.message ?? txt.trim()); return true; }
   return false; // sem sinal / servidor fora: fica na fila e sobe depois, com o MESMO id
 }
 
