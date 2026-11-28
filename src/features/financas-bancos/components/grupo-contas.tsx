@@ -13,7 +13,7 @@ export type TipoGrupo = "trabalho" | "pessoal" | "sem";
 const COR_DO_GRUPO: Record<TipoGrupo, string> = { trabalho: COR.ouro, pessoal: COR.azul, sem: COR.sub };
 const TITULO: Record<TipoGrupo, string> = { trabalho: "Contas de trabalho", pessoal: "Contas pessoais", sem: "Sem classificação" };
 
-function Logo({ l }: { l: LinhaConta }) {
+export function Logo({ l }: { l: LinhaConta }) {
   const url = l.conexao?.institution_logo;
   return url
     ? <img src={url} alt="" className="w-10 h-10 max-[359px]:w-8 max-[359px]:h-8 rounded-[12px] shrink-0 object-contain p-1" style={{ background: "#fff" }} />
@@ -26,7 +26,8 @@ interface Props {
   tipo: TipoGrupo; linhas: ContaNoSaldo[]; oculto: boolean; ligando: boolean;
   /** institution names connected more than once (lower case) */
   repetidos?: Set<string>;
-  onAbrir: () => void; onAutorizar: (itemId: string) => void;
+  /** with an account: its statement; without: the management sheet ("Classificar") */
+  onAbrir: (conta?: ContaNoSaldo) => void; onAutorizar: (itemId: string) => void;
 }
 
 export function GrupoContas({ tipo, linhas, oculto, ligando, onAbrir, onAutorizar, repetidos }: Props) {
@@ -47,7 +48,7 @@ export function GrupoContas({ tipo, linhas, oculto, ligando, onAbrir, onAutoriza
           {tipo === "sem" && <p className="text-[12.5px] mt-1" style={{ color: COR.sub }}>Diga se é de trabalho ou pessoal.</p>}
         </div>
         {tipo === "sem"
-          ? <button type="button" onClick={onAbrir} className="text-[13px] font-extrabold shrink-0 min-h-9" style={{ color: COR.ouro }}>Classificar</button>
+          ? <button type="button" onClick={() => onAbrir()} className="text-[13px] font-extrabold shrink-0 min-h-9" style={{ color: COR.ouro }}>Classificar</button>
           : <div className="text-right shrink-0 max-w-[55%]">
               {total == null
                 ? <p className="text-[13px] font-bold mt-0.5" style={{ color: COR.mute }}>sem leitura recente</p>
@@ -65,7 +66,7 @@ export function GrupoContas({ tipo, linhas, oculto, ligando, onAbrir, onAutoriza
           const desde = l.conexao?.last_synced_at ? diaCurto(l.conexao.last_synced_at) : null;
           return (
             <div key={l.id} className="py-3" style={{ borderTop: `1px solid ${COR.linha}` }}>
-              <button type="button" onClick={onAbrir} aria-label={`Detalhes de ${l.banco}`}
+              <button type="button" onClick={() => onAbrir(l)} aria-label={`Extrato de ${l.banco}`}
                 className="w-full flex items-center gap-3 max-[359px]:gap-2 text-left active:opacity-70">
                 <Logo l={l} />
                 <span className="flex-1 min-w-0">
