@@ -10,7 +10,8 @@
 //      (already concluded: answer OK, do nothing). A failure after the receipt returns 500, so Apple
 //      sends it again and it is processed again.
 //   3. OWNER: the account Apple signed in the transaction (appAccountToken), or the account that
-//      already owns the subscription. A notification never moves a subscription to another account.
+//      already owns the subscription. A notification never moves a subscription to another account:
+//      when it carries another account's token, it is applied to the original owner (option B).
 //   4. ORDER: the database keeps the status Apple signed LAST, whatever the arrival order.
 //   5. STATE from the signed documents, not from the notification's name (regras.ts).
 // Sandbox notifications are accepted and stored; they give access only to a registered test account.
@@ -66,6 +67,15 @@ export async function tratarWebhook(req: Request, deps: Deps = depsDoServidor())
     // 3, 4, 5. owner, order and state are decided in the database from the signed documents
     let resultado = "sem_transacao";
     if (t && tipo !== "TEST") resultado = (await aplicarEstado(deps.db, dono, t, r, n.signedDate, false)).resultado;
+    // 27/11/2026 (Rick, option B): a subscription stays with its ORIGINAL owner whatever VANT account
+    // was open on the iPhone when the plan was changed. Apple then signs the next transactions with the
+    // token of that other account; the token never moves the subscription, and the owner still gets
+    // Apple's signed status (renewal, change, expiry) and the sale in the ledger. Same path as the
+    // reconciliation (no account = the owner already stored). The other account gets nothing.
+    if (t && resultado === "pertence_a_outra_conta") {
+      const noDono = await aplicarEstado(deps.db, null, t, r, n.signedDate, false);
+      resultado = noDono.resultado === "gravada" ? "gravada_no_dono" : noDono.resultado;
+    }
     await chamar(deps.db, "apple_evento_concluir", { p_uuid: uuid, p_resultado: resultado });
     console.log("apple-webhook: event", linhaDeLog({ ...ids, resultado, user: dono }));
     return json({ ok: true, resultado });
