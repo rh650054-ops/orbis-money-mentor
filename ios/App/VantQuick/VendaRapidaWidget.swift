@@ -184,7 +184,7 @@ private struct BotaoVenda: View {
         Button(intent: RegistrarVendaIntent(origem: origem, opcao: o.id, valor: o.valor)) {
             VStack(spacing: 2) {
                 Text(o.rotulo.uppercased()).font(.system(size: 9.5, weight: .bold)).tracking(0.6).opacity(0.75)
-                Text("+ \(Estilo.reaisCurto(o.valor))").font(.system(size: alto > 50 ? 21 : 16, weight: .heavy, design: .rounded))
+                Text("+ \(Estilo.reaisCurto(o.valor))").font(.system(size: alto >= 48 ? 20 : 16, weight: .heavy, design: .rounded))
                     .minimumScaleFactor(0.6).lineLimit(1)
             }
             .foregroundStyle(tintaBotao)
@@ -248,18 +248,19 @@ private struct UltimaOperacao: View {
 private struct Grande: View {
     let d: DiaQuick
     let e: VendaEntrada
+    // iOS gives the large widget about 306 × 322 pt inside its margins: heights below add up to ~312
     var body: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 4) {
             Cabecalho(d: d)
             VStack(spacing: 0) {
                 Text("BLOCO \(String(format: "%02d", d.bloco ?? 1)) · TEMPO RESTANTE").font(.system(size: 10, weight: .semibold)).tracking(0.4)
                     .foregroundStyle(Estilo.apagado)
-                Relogio(d: d, tamanho: 44)
+                Relogio(d: d, tamanho: 38)
             }
             HStack(alignment: .lastTextBaseline) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Faturamento do dia").font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Estilo.apagado)
-                    Text(Estilo.reais(d.faturamento)).font(.system(size: 22, weight: .heavy, design: .rounded)).foregroundStyle(Estilo.verde)
+                    Text(Estilo.reais(d.faturamento)).font(.system(size: 20, weight: .heavy, design: .rounded)).foregroundStyle(Estilo.verde)
                         .minimumScaleFactor(0.6).lineLimit(1)
                 }
                 Spacer()
@@ -280,10 +281,10 @@ private struct Grande: View {
                 Divider().overlay(Color.white.opacity(0.08))
                 Text("VENDA RÁPIDA").font(.system(size: 9.5, weight: .bold)).tracking(2.5).foregroundStyle(Estilo.apagado)
                 HStack(spacing: 8) {
-                    if d.opcoes.isEmpty { SemOpcao() }
-                    ForEach(d.opcoes.prefix(2), id: \.id) { BotaoVenda(o: $0, origem: "widget", apagado: d.pausado) }
+                    if d.opcoes.isEmpty { SemOpcao(alto: 50) }
+                    ForEach(d.opcoes.prefix(2), id: \.id) { BotaoVenda(o: $0, origem: "widget", alto: 50, apagado: d.pausado) }
                 }
-                BotaoAbordagem(origem: "widget")
+                BotaoAbordagem(origem: "widget", alto: 36)
                 UltimaOperacao(u: e.ultima)
             }
         }
@@ -337,14 +338,15 @@ private struct Pequeno: View {
     let d: DiaQuick
     let e: VendaEntrada
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        // ~126 × 126 pt inside the margins: heights add up to ~123
+        VStack(alignment: .leading, spacing: 4) {
             HStack { Cabecalho(d: d, compacto: true); Relogio(d: d, tamanho: 14) }
             Text(Estilo.reaisCurto(d.faturamento)).font(.system(size: 19, weight: .heavy, design: .rounded)).foregroundStyle(Estilo.verde)
                 .minimumScaleFactor(0.6).lineLimit(1)
             BarraOuro(valor: d.progresso, altura: 4)
             if e.interativo {
-                if let o = d.opcoes.first { BotaoVenda(o: o, origem: "widget", alto: 42, apagado: d.pausado) } else { SemOpcao(alto: 42) }
-                BotaoAbordagem(origem: "widget", alto: 28)
+                if let o = d.opcoes.first { BotaoVenda(o: o, origem: "widget", alto: 40, apagado: d.pausado) } else { SemOpcao(alto: 40) }
+                BotaoAbordagem(origem: "widget", alto: 26)
             } else {
                 Faltam(d: d, tamanho: 10)
                 Spacer(minLength: 0)
