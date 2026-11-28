@@ -20,9 +20,16 @@ struct RegistrarVendaIntent: LiveActivityIntent {
     static var openAppWhenRun: Bool = false
     static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
     @Parameter(title: "Origem") var origem: String
-    init() { origem = "widget" }
-    init(origem: String) { self.origem = origem }
-    func perform() async throws -> some IntentResult { await QuickAcao.executar("venda", origem: origem); return .result() }
+    /// V2: the server's option this button shows ("p:<produto>:<qtd>", "v:<centavos>", "c") and its
+    /// price. The server rebuilds its options and charges ITS copy; a changed price is refused.
+    @Parameter(title: "Opção") var opcao: String
+    @Parameter(title: "Valor") var valor: Double
+    init() { origem = "widget"; opcao = ""; valor = 0 }
+    init(origem: String, opcao: String = "", valor: Double = 0) { self.origem = origem; self.opcao = opcao; self.valor = valor }
+    func perform() async throws -> some IntentResult {
+        await QuickAcao.executar("venda", origem: origem, opcao: opcao.isEmpty ? nil : opcao, valor: valor > 0 ? valor : nil)
+        return .result()
+    }
 }
 
 @available(iOS 17.0, *)
@@ -39,8 +46,9 @@ struct RegistrarAbordagemIntent: LiveActivityIntent {
 }
 
 enum QuickAcao {
-    static func executar(_ tipo: String, origem: String) async {
+    static func executar(_ tipo: String, origem: String, opcao: String? = nil, valor: Double? = nil) async {
         let nome = tipo == "abordagem" ? "Abordagem" : "Venda"
+        let confirmada = tipo == "venda" && valor != nil ? "Venda de \(reais(valor!)) confirmada" : "\(nome) confirmada"
         let agora = Date().timeIntervalSince1970 * 1000
         let id = UUID().uuidString.lowercased()
         guard QuickArmazem.interativo, let conta = QuickArmazem.conta else {
@@ -51,18 +59,22 @@ enum QuickAcao {
         await resolverDuvida()
         QuickArmazem.ultima = .init(id: id, tipo: tipo, estado: "registrando", texto: nil, quando: agora)
         recarregar()
-        switch await QuickServidor.enviar(acao: tipo, id: id, origem: origem) {
+        switch await QuickServidor.enviar(acao: tipo, id: id, origem: origem, opcao: opcao, valor: valor) {
         case .confirmada(let painel):
             // the account may have changed while waiting: never show one account's numbers to another
             guard QuickArmazem.conta == conta else { return }
             if let painel { QuickArmazem.painelServidor = .init(conta: conta, quando: Date().timeIntervalSince1970 * 1000, painel: painel) }
-            await anunciar(id: id, tipo: tipo, estado: "confirmada", texto: "\(nome) confirmada ✓", ok: true, painel: painel, conta: conta)
-        case .recusada(let motivo):
-            await anunciar(id: id, tipo: tipo, estado: "recusada", texto: QuickServidor.frase(motivo), ok: false, conta: conta)
+            await anunciar(id: id, tipo: tipo, estado: "confirmada", texto: confirmada, ok: true, painel: painel, conta: conta)
+        case .recusada(let motivo, let painel):
+            // nothing was written; a fresh panel (new options, e.g. a changed price) still redraws the buttons
+            if let painel, QuickArmazem.conta == conta {
+                QuickArmazem.painelServidor = .init(conta: conta, quando: Date().timeIntervalSince1970 * 1000, painel: painel)
+            }
+            await anunciar(id: id, tipo: tipo, estado: "recusada", texto: QuickServidor.frase(motivo), ok: false, painel: painel, conta: conta)
         case .inconclusiva:
             // kept to be asked about later by its id: never shown as done, never sent again as new
             QuickArmazem.duvida = .init(id: id, tipo: tipo, conta: conta, quando: Date().timeIntervalSince1970 * 1000)
-            await anunciar(id: id, tipo: tipo, estado: "nao_confirmada", texto: "Sem resposta — \(nome.lowercased()) não confirmada", ok: false, conta: conta)
+            await anunciar(id: id, tipo: tipo, estado: "nao_confirmada", texto: "Sem conexão — \(nome.lowercased()) não confirmada", ok: false, conta: conta)
         }
     }
 
@@ -77,7 +89,7 @@ enum QuickAcao {
         case .existe(let painel):
             QuickArmazem.duvida = nil
             if let painel { QuickArmazem.painelServidor = .init(conta: d.conta, quando: Date().timeIntervalSince1970 * 1000, painel: painel) }
-            await anunciar(id: d.id, tipo: d.tipo, estado: "confirmada", texto: "\(nome) confirmada ✓", ok: true, painel: painel, conta: d.conta)
+            await anunciar(id: d.id, tipo: d.tipo, estado: "confirmada", texto: "\(nome) confirmada", ok: true, painel: painel, conta: d.conta)
         case .naoExiste(let painel):
             QuickArmazem.duvida = nil
             await anunciar(id: d.id, tipo: d.tipo, estado: "recusada", texto: "\(nome) não registrada — toque de novo", ok: false, painel: painel, conta: d.conta)
@@ -93,6 +105,14 @@ enum QuickAcao {
         #if canImport(ActivityKit)
         if #available(iOS 16.2, *), let conta { await QuickAtividadeServidor.aplicar(conta: conta, painel: painel, aviso: texto, avisoOk: ok) }
         #endif
+    }
+
+    /// R$ 1.234,50 (here and not Estilo: this file is also compiled into the app, Estilo is not)
+    static func reais(_ v: Double) -> String {
+        let f = NumberFormatter()
+        f.numberStyle = .currency; f.locale = Locale(identifier: "pt_BR"); f.currencyCode = "BRL"
+        f.maximumFractionDigits = 2; f.minimumFractionDigits = 2
+        return f.string(from: NSNumber(value: v)) ?? "R$ \(v)"
     }
 
     static func recarregar() {
@@ -122,6 +142,7 @@ enum QuickAtividadeServidor {
             e.vendasDia = p.vendas ?? e.vendasDia
             e.abordagensDia = p.abordagens ?? e.abordagensDia
             e.rapidaValor = p.rapida?.valor ?? e.rapidaValor
+            if let ops = p.opcoes { e.botoes = ops.prefix(2).map { .init(id: $0.id, valor: $0.valor, rotulo: $0.rotulo) } }
             if let b = p.bloco { e.bloco = b }
             if let t = p.totalBlocos { e.totalBlocos = t }
             if let i = data(p.blocoInicio), let f = data(p.blocoFim) { e.blocoInicio = i; e.blocoFim = f }
