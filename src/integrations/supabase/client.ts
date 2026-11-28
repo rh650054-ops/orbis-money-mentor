@@ -43,11 +43,15 @@ const buscaComPrazo: typeof fetch = (entrada, init) => {
   return fetch(entrada, { ...init, signal: controle.signal }).finally(() => clearTimeout(alarme));
 };
 
+export const VANT_CLIENTE = "vant-livro/2 supabase-js";
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
   },
-  global: { fetch: buscaComPrazo },
+  // x-client-info (a header supabase-js always sends, so CORS already allows it) now says that
+  // this app writes the DEFCON of server-derived sessions through the ledger (defcon_lancar).
+  // The server reads it only to tell this app from older builds that write totals.
+  global: { fetch: buscaComPrazo, headers: { "x-client-info": VANT_CLIENTE } },
 });

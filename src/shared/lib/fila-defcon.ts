@@ -60,7 +60,7 @@ export async function filaAtualizar(tabela: TabelaFila, id: string, patch: Recor
 
 /** Abordagens/vendas do bloco (challenge_blocks) — valor absoluto, a última vence. */
 export async function filaContadoresBloco(p: {
-  session_id: string; user_id: string; block_index: number; approaches_count: number;
+  session_id: string; user_id: string; block_index: number; approaches_count?: number;
   sales_count?: number; ended_at?: string; status?: string;
 }): Promise<void> {
   const chave = `contadores:${p.session_id}:${p.block_index}`;
@@ -107,7 +107,8 @@ export async function lerFilaDoDia(planId: string | null, sessionId: string | nu
     for (const r of defcon) {
       const d = r.data as Record<string, unknown>;
       const p = d.payload as Record<string, unknown> | undefined;
-      if (d.type === "contadores" && p && p.session_id === sessionId) {
+      // (a sessão do livro-razão fecha o bloco sem contadores: o servidor é quem conta)
+      if (d.type === "contadores" && p && p.session_id === sessionId && p.approaches_count != null) {
         fila.contadores.set(Number(p.block_index), { approaches_count: Number(p.approaches_count) || 0, sales_count: p.sales_count == null ? undefined : Number(p.sales_count) });
       }
     }
@@ -142,7 +143,10 @@ export async function contarPendentes(): Promise<number> {
     const [a, b, c, d] = await Promise.all([
       getUnsynced("pending_sales"), getUnsynced("pending_venda"), getUnsynced("pending_defcon"), getUnsynced("pending_approaches"),
     ]);
-    const vendas = b.filter((r: OfflineRecord) => (r.data as { tipo?: string }).tipo === "venda").length;
+    const vendas = b.filter((r: OfflineRecord) => {
+      const d = r.data as { tipo?: string; lancamento?: { tipo?: string } };
+      return d.tipo === "venda" || (d.tipo === "lancar" && ["venda", "venda_tardia", "gorjeta"].includes(String(d.lancamento?.tipo)));
+    }).length;
     // vendas são o que o vendedor entende; o resto (bloco, total, contadores) só conta se não houver venda
     return vendas > 0 ? vendas : a.length + c.length + d.length + b.length;
   } catch { return 0; }

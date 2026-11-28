@@ -700,6 +700,8 @@ export type Database = {
       }
       challenge_sessions: {
         Row: {
+          cliente_antigo_em: string | null
+          totais_servidor: boolean
           created_at: string
           current_block_index: number
           daily_goal: number
@@ -724,6 +726,8 @@ export type Database = {
           worked_minutes: number | null
         }
         Insert: {
+          cliente_antigo_em?: string | null
+          totais_servidor?: boolean
           created_at?: string
           current_block_index?: number
           daily_goal: number
@@ -748,6 +752,8 @@ export type Database = {
           worked_minutes?: number | null
         }
         Update: {
+          cliente_antigo_em?: string | null
+          totais_servidor?: boolean
           created_at?: string
           current_block_index?: number
           daily_goal?: number

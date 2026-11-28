@@ -78,14 +78,16 @@ describe("DEFCON offline-first", () => {
     expect(await contarPendentes()).toBe(0);
   });
 
-  it("excluir uma venda que ainda não subiu: ela sai da fila e nunca chega no servidor", async () => {
+  it("excluir uma venda que ainda não subiu: ela sai da fila, nunca chega no servidor, e o apagar vai mesmo assim", async () => {
     semSinal = true;
     await guardarVendaOffline(venda("v9", 50), 50);
     await apagarVendaOffline("v9");
     semSinal = false;
     await syncAllPendingData();
     expect(servidor.vendas.has("v9")).toBe(false);
-    expect(servidor.apagadas).toEqual([]); // nem precisou pedir pra apagar
+    // 28/11: o pedido de apagar vai SEMPRE (a venda podia estar sendo enviada naquele instante);
+    // apagar um id que o servidor não tem não muda nada
+    expect(servidor.apagadas).toEqual(["v9"]);
   });
 
   it("excluir uma venda que já subiu: o pedido de apagar vai pela fila", async () => {
