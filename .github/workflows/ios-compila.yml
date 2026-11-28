@@ -1,0 +1,51 @@
+# Compile check of the native iOS code (app + VANT Quick widget extension) on pull requests.
+#
+# A TECHNICAL check: it compiles the Swift for the iOS Simulator, UNSIGNED. It signs nothing, uses no
+# secret, uploads nothing and produces no TestFlight build (that is ios-build.yml, run by hand).
+# Before it existed, Swift was only compiled by ios-build.yml, so a PR could not prove its Swift.
+name: iOS compile check
+
+on:
+  pull_request:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-compila.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-compila-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compila:
+    runs-on: macos-15
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Pick the newest Xcode on the runner
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+      - name: Install dependencies
+        run: npm ci
+      - name: Placeholder web bundle (the web app is not under test here)
+        run: mkdir -p dist && echo '<!doctype html><title>VANT</title>' > dist/index.html && npx cap sync ios
+      - name: Compile app + VANT Quick for the Simulator (unsigned)
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "$RUNNER_TEMP/build.log" | grep -E "error:|warning: .*VantQuick|\*\* BUILD" || true
+          grep -q "\*\* BUILD SUCCEEDED \*\*" "$RUNNER_TEMP/build.log"
+          test -d "$(find ~/Library/Developer/Xcode/DerivedData -path '*Release-iphonesimulator/App.app/PlugIns/VantQuick.appex' -maxdepth 8 | head -1)" \
+            && echo "VANT Quick extension compiled and embedded."

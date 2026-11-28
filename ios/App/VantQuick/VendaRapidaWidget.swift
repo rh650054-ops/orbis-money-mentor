@@ -33,8 +33,10 @@ struct VendaVista: View {
 
     var body: some View {
         Group {
-            if e.conta == nil {
-                Aviso(titulo: "VANT Quick", texto: "Entre na VANT para vender pelo widget.")
+            if !QuickArmazem.disponivel {
+                Aviso(titulo: "VANT Quick", texto: "Widget sem acesso aos dados da VANT. Reinstale o app.")
+            } else if e.conta == nil {
+                Aviso(titulo: "VANT Quick", texto: "Abra a VANT com sua conta para vender pelo widget.")
             } else {
                 VStack(spacing: 8) {
                     if familia == .systemMedium {

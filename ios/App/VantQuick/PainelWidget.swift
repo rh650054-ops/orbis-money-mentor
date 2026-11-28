@@ -24,7 +24,10 @@ struct PainelProvedor: TimelineProvider {
     private func agora() -> PainelEntrada {
         let conta = QuickArmazem.conta
         let p = QuickArmazem.painel
-        return PainelEntrada(date: Date(), conta: conta, painel: p?.conta == conta ? p : nil)
+        let painel = p?.conta == conta ? p : nil
+        // what the widget saw, for the check in Minha Conta (no sensitive data: account id and a date)
+        QuickArmazem.leitura = .init(quando: Date().timeIntervalSince1970 * 1000, viuConta: conta, painelData: painel?.data)
+        return PainelEntrada(date: Date(), conta: conta, painel: painel)
     }
 }
 
@@ -34,8 +37,10 @@ struct PainelVista: View {
 
     var body: some View {
         Group {
-            if e.conta == nil {
-                Aviso(titulo: "VANT", texto: "Entre na VANT para ver seu dia aqui.")
+            if !QuickArmazem.disponivel {
+                Aviso(titulo: "VANT", texto: "Widget sem acesso aos dados da VANT. Reinstale o app.")
+            } else if e.conta == nil {
+                Aviso(titulo: "VANT", texto: "Abra a VANT com sua conta para ver seu dia aqui.")
             } else if let p = e.painel, p.data == Estilo.hojeNoBrasil(e.date) {
                 if familia == .accessoryRectangular { travada(p) } else { cheia(p) }
             } else {

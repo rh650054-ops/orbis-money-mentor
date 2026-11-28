@@ -13,7 +13,21 @@ interface PluginQuick {
   concluir(o: { id: string; estado: EstadoAcao; texto?: string }): Promise<void>;
   atividade(o: { acao: "atualizar"; dados: Atividade } | { acao: "encerrar" }): Promise<void>;
   limpar(): Promise<void>;
+  estado(): Promise<EstadoQuick>;
   addListener(evento: "acao", f: () => void): Promise<PluginListenerHandle>;
+}
+
+/** Diagnosis of the widget channel (Minha Conta). */
+export interface EstadoQuick {
+  /** the App Group container exists in the app */
+  grupo: boolean;
+  temConta: boolean;
+  painelData?: string;
+  painelEm?: number;
+  /** when the widget last built its timeline, and whether it saw this account */
+  widgetLeuEm?: number;
+  widgetViuConta?: boolean;
+  widgetPainelData?: string;
 }
 
 const nativo = registerPlugin<PluginQuick>("VantQuick");
@@ -34,6 +48,7 @@ export const quick = {
   atualizarAtividade: (dados: Atividade) => seguro(() => nativo.atividade({ acao: "atualizar", dados }), undefined),
   encerrarAtividade: () => seguro(() => nativo.atividade({ acao: "encerrar" }), undefined),
   limpar: () => seguro(() => nativo.limpar(), undefined),
+  estado: () => seguro<EstadoQuick | null>(() => nativo.estado(), null),
   aoTocarNoWidget: (f: () => void) => seguro(() => nativo.addListener("acao", f), null),
 };
 export type { Acao };

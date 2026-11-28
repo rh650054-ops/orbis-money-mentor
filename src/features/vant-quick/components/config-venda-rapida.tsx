@@ -6,6 +6,7 @@ import { formatCurrency } from "@/shared/lib/utils";
 import { quick, temQuick } from "../api/ponte";
 import { lerConfig, salvarConfig } from "../lib/memoria";
 import type { ConfigQuick } from "../types";
+import { DiagnosticoWidget } from "./diagnostico-widget";
 
 const METODOS: { id: ConfigQuick["metodo"]; rotulo: string }[] = [{ id: "dinheiro", rotulo: "Dinheiro" }, { id: "pix", rotulo: "Pix" }, { id: "cartao", rotulo: "Cartão" }];
 
@@ -47,6 +48,7 @@ export function ConfigVendaRapida() {
           ))}
         </div>
         <Botao tipo="ouro" disabled={!valido} onClick={salvar}>Salvar venda rápida</Botao>
+        <DiagnosticoWidget />
       </div>
     </Secao>
   );

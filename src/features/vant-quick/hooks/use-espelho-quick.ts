@@ -5,6 +5,8 @@ import { atividadeDoBloco, painelDoDia } from "../lib/regras";
 
 /** The DEFCON numbers VANT Quick mirrors (from useDefconChallenge). */
 export interface DefconParaEspelho {
+  /** true while the DEFCON is (re)loading its session: its numbers and phase are not real yet */
+  loading: boolean;
   phase: string;
   totalSold: number;
   dailyGoal: number;
@@ -24,7 +26,9 @@ const ATIVA = new Set(["running", "break", "lunch_pause", "block_report"]);
 export function useEspelhoQuick(conta: string | null, d: DefconParaEspelho) {
   const tempo = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!temQuick() || !conta) return;
+    // while loading, totals are 0 and phase is "idle" by default: mirroring them would blank the
+    // widget and end the Live Activity every time the DEFCON screen opens or comes back (build 29)
+    if (!temQuick() || !conta || d.loading) return;
     if (tempo.current) clearTimeout(tempo.current);
     // a few changes in a row (a sale = money, count and approach) become one widget update
     tempo.current = setTimeout(() => {
@@ -34,17 +38,17 @@ export function useEspelhoQuick(conta: string | null, d: DefconParaEspelho) {
       }));
     }, 800);
     return () => { if (tempo.current) clearTimeout(tempo.current); };
-  }, [conta, d.totalSold, d.dailyGoal, d.totalSalesCount, d.totalApproaches]);
+  }, [conta, d.loading, d.totalSold, d.dailyGoal, d.totalSalesCount, d.totalApproaches]);
 
   const bloco = d.blocks[d.currentBlockIndex];
   const inicio = d.blockStartedAt?.getTime() ?? null, fim = d.blockEndTime?.getTime() ?? null;
   useEffect(() => {
-    if (!temQuick() || !conta) return;
+    if (!temQuick() || !conta || d.loading) return;
     if (!ATIVA.has(d.phase)) { void quick.encerrarAtividade(); return; }
     const a = atividadeDoBloco({
       conta, inicio: inicio ? new Date(inicio) : null, fim: fim ? new Date(fim) : null, bloco: d.currentBlockIndex, totalBlocos: d.blocks.length,
       faturamentoBloco: bloco?.achieved_amount ?? 0, metaHora: bloco?.target_amount ?? 0, vendasBloco: d.blockSalesCount, pausado: d.phase !== "running",
     });
     if (a) void quick.atualizarAtividade(a);
-  }, [conta, d.phase, d.currentBlockIndex, d.blocks.length, bloco?.achieved_amount, bloco?.target_amount, d.blockSalesCount, inicio, fim]);
+  }, [conta, d.loading, d.phase, d.currentBlockIndex, d.blocks.length, bloco?.achieved_amount, bloco?.target_amount, d.blockSalesCount, inicio, fim]);
 }
