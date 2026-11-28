@@ -7,7 +7,7 @@
    Os números viram "dias de rua" (o lucro médio de um dia trabalhado nos últimos
    30 dias), que é a régua que o vendedor entende.
    ============================================================ */
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { ChevronRight, CreditCard, Landmark, PiggyBank } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Gaveta } from "@/shared/components/gaveta";
@@ -40,6 +40,12 @@ export interface Painel {
 type Aba = "cartao" | "dividas" | "guardado";
 
 const reais = (v: number) => formatCurrency(v).replace(/,00$/, "");
+/* 28/11 (Bancos, hide values): the inner screens read the amounts through useReais(), so with
+   values hidden the text itself is "R$ •••••" (nothing readable for a screen reader, nothing to
+   un-blur). Titles, layout and navigation of the screens are unchanged. */
+const OcultoNoPainel = createContext(false);
+const MASCARA = "R$ •••••";
+function useReais() { return useContext(OcultoNoPainel) ? (_v: number) => MASCARA : reais; }
 const ddmm = (iso: string | null) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : "");
 const mesCurto = (iso: string) =>
   new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
@@ -64,6 +70,7 @@ function Caixa({ children, tom }: { children: React.ReactNode; tom?: "gold" | "r
 const Rotulo = ({ children, cor = MUTE }: { children: React.ReactNode; cor?: string }) =>
   <p className="text-[10px] font-black tracking-[.15em]" style={{ color: cor }}>{children}</p>;
 function Barra({ pct, cor }: { pct: number; cor: string }) {
+  if (useContext(OcultoNoPainel)) return <div className="h-[7px] rounded-full mt-2.5" style={{ background: "#1c1c1b" }} aria-hidden />;
   return (
     <div className="h-[7px] rounded-full overflow-hidden mt-2.5" style={{ background: "#1c1c1b" }}>
       <i className="block h-full rounded-full" style={{ width: `${Math.max(2, Math.min(100, pct))}%`, background: cor }} />
@@ -76,6 +83,7 @@ function Vazio({ texto }: { texto: string }) {
 
 /* ---------------- 2 · CARTÃO ---------------- */
 export function TelaCartao({ p }: { p: Painel }) {
+  const reais = useReais();
   if (!p.tem_cartao) return <Vazio texto="Seu banco não liberou o cartão. Liga o cartão na tela do banco pra ver aqui a fatura, o vencimento e as parcelas que ainda vêm." />;
   const hoje = hojeISO();
   const maxMes = Math.max(1, ...p.parcelas_por_mes.map((m) => m.valor));
@@ -171,6 +179,7 @@ export function TelaCartao({ p }: { p: Painel }) {
 
 /* ---------------- 3 · DÍVIDAS ---------------- */
 export function TelaDividas({ p }: { p: Painel }) {
+  const reais = useReais();
   const juros = (p.juros_mes.emprestimo ?? 0) + (p.juros_mes.especial ?? 0);
   const faturaAtrasada = p.cartoes.filter((c) => !c.vence_estimado && c.vence && c.vence < hojeISO() && (c.fatura ?? 0) > 0);
   const itens = [
@@ -229,6 +238,8 @@ const TIPO_INV: Record<string, string> = {
   CONTA_RESERVA: "sua conta de reserva", FIXED_INCOME: "renda fixa", MUTUAL_FUND: "fundo", SECURITY: "previdência", EQUITY: "ações", COE: "COE", ETF: "ETF", OTHER: "outro",
 };
 export function TelaGuardado({ p }: { p: Painel }) {
+  const reais = useReais();
+  const oculto = useContext(OcultoNoPainel);
   const numero = p.saldo_contas + p.guardado - p.dividas;
   return (
     <div className="space-y-2.5">
@@ -255,7 +266,7 @@ export function TelaGuardado({ p }: { p: Painel }) {
         <div className="text-center">
           <Rotulo cor={GOLD}>SEU NÚMERO</Rotulo>
           <p className="text-[24px] font-black tabular-nums leading-tight mt-1" style={{ color: numero < 0 ? RED : GOLD }}>
-            {numero < 0 ? "− " : ""}{reais(Math.abs(numero))}
+            {numero < 0 && !oculto ? "− " : ""}{reais(Math.abs(numero))}
           </p>
           <p className="text-[11px] mt-1" style={{ color: "#b9b3a6" }}>
             saldo {reais(p.saldo_contas)} + guardado {reais(p.guardado)} − dívidas {reais(p.dividas)}
@@ -301,6 +312,37 @@ export function PainelLista({ p, abrir }: { p: Painel; abrir: (a: Aba) => void }
 }
 
 const TITULO: Record<Aba, string> = { cartao: "CARTÃO", dividas: "DÍVIDAS", guardado: "GUARDADO" };
+export type AbaPainel = Aba;
+
+/** financas_painel(), read once a day from the bank (pluggy-dia). null when it failed. */
+export async function carregarPainel(): Promise<Painel | null> {
+  const { data, error } = await (supabase as unknown as { rpc: (f: string) => Promise<{ data: unknown; error: unknown }> }).rpc("financas_painel");
+  if (error) { avisar.silencioso("financas_painel", error); return null; }
+  return data as Painel;
+}
+
+/** The three detail screens (cartão, dívidas, guardado) in their drawer. Shared by the old list and Bancos (28/11). */
+/** `oculto` (28/11, Bancos): with values hidden, every amount of the detail screen is masked. */
+export function PainelGaveta({ p, aba, onFechar, oculto = false }: { p: Painel; aba: Aba | null; onFechar: () => void; oculto?: boolean }) {
+  return (
+    <Gaveta open={aba !== null} onOpenChange={(o) => { if (!o) onFechar(); }} titulo={aba ? TITULO[aba] : ""}
+      style={{ background: "#0b0b0c", borderColor: "rgba(255,255,255,.08)" }}>
+        <div className="px-4 flex flex-col gap-3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
+          <p className="font-mono text-[10px] font-bold tracking-[.18em] text-center" style={{ color: MUTE }}>{aba ? TITULO[aba] : ""}</p>
+          <OcultoNoPainel.Provider value={oculto}>
+            {aba === "cartao" && <TelaCartao p={p} />}
+            {aba === "dividas" && <TelaDividas p={p} />}
+            {aba === "guardado" && <TelaGuardado p={p} />}
+          </OcultoNoPainel.Provider>
+          {p.leitura && (
+            <p className="text-[10px] font-bold text-center" style={{ color: MUTE }}>
+              lido do banco às {new Date(p.leitura).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })} · atualiza toda madrugada
+            </p>
+          )}
+        </div>
+    </Gaveta>
+  );
+}
 
 export function FinancasPainel({ userId }: { userId?: string }) {
   const [p, setP] = useState<Painel | null>(null);
@@ -309,11 +351,7 @@ export function FinancasPainel({ userId }: { userId?: string }) {
   useEffect(() => {
     if (!userId) return;
     let vivo = true;
-    (async () => {
-      const { data, error } = await (supabase as unknown as { rpc: (f: string) => Promise<{ data: unknown; error: unknown }> }).rpc("financas_painel");
-      if (error) { avisar.silencioso("financas_painel", error); return; }
-      if (vivo) setP(data as Painel);
-    })();
+    void carregarPainel().then((d) => { if (vivo && d) setP(d); });
     return () => { vivo = false; };
   }, [userId]);
 
@@ -321,20 +359,7 @@ export function FinancasPainel({ userId }: { userId?: string }) {
   return (
     <>
       <PainelLista p={p} abrir={setAba} />
-      <Gaveta open={aba !== null} onOpenChange={(o) => { if (!o) setAba(null); }} titulo={aba ? TITULO[aba] : ""}
-        style={{ background: "#0b0b0c", borderColor: "rgba(255,255,255,.08)" }}>
-          <div className="px-4 flex flex-col gap-3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
-            <p className="font-mono text-[10px] font-bold tracking-[.18em] text-center" style={{ color: MUTE }}>{aba ? TITULO[aba] : ""}</p>
-            {aba === "cartao" && <TelaCartao p={p} />}
-            {aba === "dividas" && <TelaDividas p={p} />}
-            {aba === "guardado" && <TelaGuardado p={p} />}
-            {p.leitura && (
-              <p className="text-[10px] font-bold text-center" style={{ color: MUTE }}>
-                lido do banco às {new Date(p.leitura).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })} · atualiza toda madrugada
-              </p>
-            )}
-          </div>
-      </Gaveta>
+      <PainelGaveta p={p} aba={aba} onFechar={() => setAba(null)} />
     </>
   );
 }

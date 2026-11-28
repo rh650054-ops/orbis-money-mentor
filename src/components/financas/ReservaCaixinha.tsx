@@ -19,7 +19,9 @@ const LINHA = "rgba(255,255,255,.07)";
 const reais = (v: number) => formatCurrency(v).replace(/,00$/, "");
 const tipo = (c: Caixinha) => (c.tipo || "caixinha").replace(/_/g, " ").toLowerCase();
 
-export function ReservaCaixinha({ userId }: { userId?: string }) {
+/** `oculto` (28/11, Bancos): the eye of the Bancos screen also hides the reserve amounts. */
+export function ReservaCaixinha({ userId, oculto = false }: { userId?: string; oculto?: boolean }) {
+  const valor = (v: number) => (oculto ? "R$ •••••" : reais(v));
   const [lista, setLista] = useState<Caixinha[] | null>(null);
   const [aberto, setAberto] = useState(false);
   const [salvando, setSalvando] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export function ReservaCaixinha({ userId }: { userId?: string }) {
         <span className="flex-1 min-w-0">
           <span className="block text-[10px] font-black tracking-[.16em]" style={{ color: MUTE }}>SUA RESERVA</span>
           {marcadas.length > 0
-            ? <span className="block text-[18px] font-black tabular-nums">{reais(total)} <span className="text-[12px] font-bold" style={{ color: SUB }}>em {marcadas.length} {marcadas.length === 1 ? "caixinha" : "caixinhas"}</span></span>
+            ? <span className="block text-[18px] font-black tabular-nums">{valor(total)} <span className="text-[12px] font-bold" style={{ color: SUB }}>em {marcadas.length} {marcadas.length === 1 ? "caixinha" : "caixinhas"}</span></span>
             : <span className="block text-[14px] font-extrabold" style={{ color: AZUL }}>Qual caixinha é a sua reserva?</span>}
         </span>
         <ChevronDown className="w-4 h-4 shrink-0 transition-transform" style={{ color: MUTE, transform: aberto ? "rotate(180deg)" : undefined }} />
@@ -76,7 +78,7 @@ export function ReservaCaixinha({ userId }: { userId?: string }) {
                       : c.reserva ? <Check className="w-3.5 h-3.5" style={{ color: "#0b1520" }} strokeWidth={3} /> : null}
                   </span>
                   <span className="flex-1 min-w-0 text-[13px] font-bold truncate" style={{ color: SUB }}>{tipo(c)}</span>
-                  <span className="text-[15px] font-black tabular-nums">{reais(c.saldo)}</span>
+                  <span className="text-[15px] font-black tabular-nums">{valor(c.saldo)}</span>
                 </button>
               ))}
             </div>
