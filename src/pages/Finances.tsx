@@ -28,8 +28,6 @@ import {
   PiggyBank,
  
   AlertTriangle,
-  RotateCw,
-  RotateCcw,
   Copy,
   Paperclip,
   FileText,
@@ -41,7 +39,6 @@ import {
   Lightbulb,
   TrendingUp,
   ChevronRight,
-  Flame,
   ShieldCheck,
   Receipt
 } from "lucide-react";
@@ -57,7 +54,8 @@ import { DicaDoOrbis, type DicaContexto } from "@/components/financas/DicaDoOrbi
 import { useFinancasHome } from "@/components/financas/FinancasHome";
 import { FinancasPainel } from "@/components/financas/FinancasPainel";
 import { ReservaCaixinha } from "@/components/financas/ReservaCaixinha";
-import { AbasNav, abaValida, SeuDinheiro, ParaResolver, Movimento, BancosLista, ConviteBanco, type AbaFinancas } from "@/components/financas/FinancasAbas";
+import { AbasNav, abaValida, ParaResolver, BancosLista, ConviteBanco, type AbaFinancas } from "@/components/financas/FinancasAbas";
+import { DinheiroDisponivel, PrioridadeHoje, MeuNegocio, FolegoFinanceiro, FluxoDeCaixa, EsqueletoResumo, SecaoResumo, mesDoResumo } from "@/features/financas-resumo";
 import { RaioXAba } from "@/features/raiox";
 import { ToastAction } from "@/shared/ui/toast";
 import { MesBlindadoCard } from "@/components/financas/planejar/MesBlindadoCard";
@@ -305,7 +303,6 @@ export default function Finances() {
   // Planejador "pagar em X dias úteis" por conta vencida (id -> nº de dias úteis).
   const [prazoVencida, setPrazoVencida] = useState<Record<string, number>>({});
   // "Próximos dias": projeção de quanto guardar nos próximos dias de trabalho
-  const [showProjecao, setShowProjecao] = useState(false);
   const [showProjecaoMetas, setShowProjecaoMetas] = useState(false);
   const [urgentesAberto, setUrgentesAberto] = useState(false);
   const [vencidasAberto, setVencidasAberto] = useState(false);
@@ -2182,170 +2179,6 @@ export default function Finances() {
   }
 
   // Peças que aparecem em mais de uma aba (ou mudam de lugar) — 04/10.
-  const renderGuardarHoje = (compacto: boolean) => (
-    <>
-      <Card className="rounded-[18px] border" style={{ background: "#0e0e10", borderColor: "#3a2f0c" }}>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-black tracking-[.16em] text-muted-foreground">GUARDAR HOJE</p>
-            {!isLoadingData && (sequencia.atual > 0 ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-black" style={{ background: "#2a1205", border: "1px solid rgba(255,122,26,.4)", color: "#ff9d4d" }}>
-                <Flame className="w-3.5 h-3.5" strokeWidth={2.5} />
-                {sequencia.atual} dia{sequencia.atual === 1 ? "" : "s"} seguido{sequencia.atual === 1 ? "" : "s"}
-              </span>
-            ) : !diaGuardadoFechado && summary.netToday > 0 && alvoHoje > 0 ? (
-              <span className="text-xs text-muted-foreground tabular-nums">
-                <b className="text-foreground">{Math.min(999, Math.round((alvoHoje / summary.netToday) * 100))}%</b> do lucro de hoje
-              </span>
-            ) : null)}
-          </div>
-
-          {guardarCarregando ? (
-            <Skeleton className="h-10 w-40 mt-2" />
-          ) : diaGuardadoFechado ? (
-            <>
-              <div className="mt-2 flex items-end justify-between gap-3">
-                <p className="text-[22px] leading-none font-black tracking-tight tabular-nums flex items-center gap-2" style={{ color: "#3DD68C" }}>
-                  <Check className="w-6 h-6" strokeWidth={3} />
-                  {savedTodayAmount > 0 ? `Guardou ${formatCurrency(savedTodayAmount)}` : "Já guardou hoje"}
-                </p>
-                <button
-                  onClick={handleDesfazerGuardei}
-                  title="Reverter o guardar de hoje"
-                  aria-label="Reverter o guardar de hoje"
-                  className="w-9 h-9 rounded-xl border border-border bg-background flex items-center justify-center text-muted-foreground active:scale-90 transition shrink-0"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">Dia fechado. Amanhã aparece o novo valor.</p>
-            </>
-          ) : (
-            <>
-              <div className="mt-2 flex items-end justify-between gap-3">
-                <p className="text-[28px] leading-none min-w-0 whitespace-nowrap truncate font-black tracking-tight tabular-nums" style={{ color: "#F5B800" }}>
-                  {formatCurrency(restanteGuardarHoje)}
-                </p>
-                <div className="text-right text-xs text-muted-foreground leading-relaxed tabular-nums shrink-0">
-                  contas <b className="text-foreground">{formatCurrency(billsShareToday)}</b><br />
-                  objetivos <b className="text-foreground">{formatCurrency(goalShareToday)}</b>
-                </div>
-              </div>
-              {savedTodayAmount > 0 && (
-                <p className="text-xs text-muted-foreground mt-1.5">já guardou {formatCurrency(savedTodayAmount)} hoje</p>
-              )}
-              {/* (Rick, 10/09) de onde vem o número: uma linha por conta */}
-              {!compacto && todayIsWorkDay && bills.length > 0 && (() => {
-                const cicloAtual = getBrazilDate().slice(0, 7);
-                const linhas = billsOrdenadas
-                  .filter((b) => !b.paid && !(b.recurring && b.paid_cycle === cicloAtual))
-                  .map((b) => {
-                    const quitada = Number(b.saved_amount) >= Number(b.amount) && Number(b.amount) > 0;
-                    const nd = nextDueDate(b);
-                    const dias = workingDaysUntil(nd ? toYMD(nd) : null);
-                    return { b, quitada, over: isOverdue(b), dias, porDia: perDay(b), falta: remaining(b) };
-                  })
-                  .filter((l) => l.porDia > 0 || l.quitada)
-                  .sort((a, z) => z.porDia - a.porDia);
-                if (linhas.length === 0) return null;
-                const mostrar = linhas.slice(0, 4);
-                return (
-                  <div className="mt-3 flex flex-col" style={{ borderTop: "1px solid #1e1d21" }}>
-                    {mostrar.map((l) => (
-                      <div key={l.b.id} className="flex items-center justify-between gap-2.5 h-[34px] text-[12.5px]" style={{ borderTop: "1px solid rgba(255,255,255,.04)" }}>
-                        <span className="min-w-0 truncate" style={{ color: "#a9a49c" }}>
-                          {l.b.name}{" "}
-                          {l.quitada
-                            ? <span style={{ color: "#3DD68C" }}>· já coberta</span>
-                            : <span style={{ color: "#7b766e" }}>· faltam {formatCurrency(l.falta)} em {l.dias} {l.dias === 1 ? "dia" : "dias"}</span>}
-                        </span>
-                        <span className="tabular-nums font-extrabold shrink-0" style={{ color: l.quitada ? "#7b766e" : undefined }}>{formatCurrency(l.quitada ? 0 : l.porDia)}</span>
-                      </div>
-                    ))}
-                    {linhas.length > mostrar.length && (
-                      <p className="text-[11.5px] h-7 flex items-center" style={{ color: "#7b766e" }}>+ {linhas.length - mostrar.length} {linhas.length - mostrar.length === 1 ? "conta" : "contas"}</p>
-                    )}
-                  </div>
-                );
-              })()}
-              {!todayIsWorkDay && compacto && (
-                <p className="text-xs text-muted-foreground mt-1.5">Hoje é seu descanso.</p>
-              )}
-              {!todayIsWorkDay && !compacto && (
-                <p className="text-xs text-muted-foreground mt-1.5">
-                  Hoje é seu descanso.
-                  {proximoDiaTrabalho && proximoDiaTrabalho.valor > 0 ? <> Próximo dia de trabalho ({proximoDiaTrabalho.label}): <b className="text-foreground">{formatCurrency(proximoDiaTrabalho.valor)}</b>.</> : null}
-                  {" "}Vendeu hoje mesmo assim? Registra no DEFCON que o valor aparece.
-                </p>
-              )}
-              {todayIsWorkDay && restanteGuardarHoje > 0 ? (
-                <button
-                  onClick={handleGuardeiTudo}
-                  className="w-full h-[52px] mt-3 rounded-[14px] font-black text-[15px] tracking-wide flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
-                  style={{ background: "#F5B800", color: "#1a1305", boxShadow: "0 8px 26px rgba(245,184,0,.2)" }}
-                >
-                  <Check className="w-5 h-5" strokeWidth={3} />
-                  GUARDEI {formatCurrency(restanteGuardarHoje)}
-                </button>
-              ) : todayIsWorkDay && bills.length === 0 && goals.length === 0 ? (
-                <p className="text-xs text-muted-foreground mt-2">Cadastre uma conta ou um objetivo e a Vant calcula quanto separar por dia.</p>
-              ) : null}
-              {compacto ? (
-                <button type="button" onClick={() => irAba("planejar")} className="flex items-center gap-0.5 h-8 mt-2 text-[13px] font-extrabold" style={{ color: "#F5B800" }}>
-                  Ver planejamento <ChevronRight className="w-4 h-4" strokeWidth={2.6} />
-                </button>
-              ) : (
-              <div className="flex items-center justify-center gap-1.5 mt-2.5 text-xs text-muted-foreground">
-                <button onClick={() => { setCustomSaveValue(""); setCustomSaveOpen(true); }} className="py-1 font-semibold text-foreground/70 active:text-foreground">guardei outro valor</button>
-                {bills.length > 0 && (
-                  <>
-                    <span>·</span>
-                    <button onClick={() => setShowProjecao((v) => !v)} className="py-1 font-semibold text-foreground/70 active:text-foreground">{showProjecao ? "fechar próximos dias" : "ver próximos dias"}</button>
-                  </>
-                )}
-              </div>
-              )}
-            </>
-          )}
-
-          {!guardarCarregando && ultimoGuardei && (
-            <button
-              onClick={handleDesfazerGuardei}
-              className="w-full h-10 mt-2 rounded-xl border border-border text-muted-foreground font-semibold text-xs active:scale-[0.98] transition flex items-center justify-center gap-2"
-            >
-              <RotateCw className="w-3.5 h-3.5" /> Desfazer o último "Guardei"
-            </button>
-          )}
-
-          {!compacto && !isLoadingData && (bills.length > 0 || goals.length > 0) && (
-            <>
-              <div className="flex items-end justify-between gap-3 mt-3 pt-3 border-t border-border/60">
-                <div>
-                  <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground uppercase">Últimos 7 dias de trabalho</p>
-                  <div className="flex gap-1.5 mt-2">
-                    {sequencia.ultimos.map((d) => (
-                      <span
-                        key={d.k}
-                        title={d.k}
-                        className="w-3 h-3 rounded-[4px]"
-                        style={d.estado === "on" ? { background: "#3DD68C" } : d.estado === "hoje" ? { border: "2px solid #F5B800" } : sequencia.jaGuardouAlgumDia ? { background: "#3a1a20" } : { background: "#1c1b20" }}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground uppercase">Recorde</p>
-                  <p className="text-[16px] font-black tabular-nums mt-0.5 text-foreground">{sequencia.recorde > 0 ? `${sequencia.recorde} dia${sequencia.recorde === 1 ? "" : "s"}` : "—"}</p>
-                </div>
-              </div>
-
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-    </>
-  );
   // PARA RESOLVER (Resumo): vencidas primeiro; sem vencida, o que vence hoje.
   const pendencia = (() => {
     if (overdueBillsOrdenadas.length > 0) {
@@ -2408,50 +2241,32 @@ export default function Finances() {
         </button>
       )}
 
+      {/* RESUMO (redesign 28/11/2026): dinheiro → prioridade → meu negócio → fôlego → fluxo de caixa.
+          Mesmos dados e ações de antes; só a ordem e o visual mudaram. */}
       {aba === "resumo" && (
         <>
-          {comBanco && casa && <SeuDinheiro h={casa} onVerBancos={() => irAba("bancos")} />}
-      {/* SEU MÊS (04/10): lucro em verde e grande; faturamento e custos embaixo; margem no anel. */}
-      <Card className="rounded-[18px] border shadow-lg" style={{ background: "linear-gradient(170deg,#141006 0%,#0b0b0d 70%)", borderColor: "#3a2f0c", boxShadow: "0 0 30px rgba(245,184,0,.08)" }}>
-        <CardContent className="p-4">
-          <p className="text-[10px] font-black tracking-[.16em]" style={{ color: "#c9a227" }}>SEU MÊS</p>
-          {isLoadingData ? (
-            <Skeleton className="h-11 w-44 mt-2" />
-          ) : (() => {
-            const vendido = Number(summary.totalProfit) || 0;
-            const custos = Math.max(0, vendido - summary.monthlyNetProfit);
-            const margem = vendido > 0 ? Math.max(0, Math.min(100, (summary.monthlyNetProfit / vendido) * 100)) : 0;
-            return (
-              <>
-                <p className="text-[28px] leading-none font-black tracking-tight tabular-nums mt-2" style={{ color: summary.monthlyNetProfit >= 0 ? "#3DD68C" : "#F2465A" }}>
-                  {formatCurrency(summary.monthlyNetProfit)}
-                </p>
-                <p className="text-[13px] mt-2" style={{ color: "#a9a49c" }}><b className="text-foreground">{summary.monthlyNetProfit >= 0 ? "lucro" : "prejuízo"}</b> · depois dos custos</p>
-                <div className="flex items-center gap-3 mt-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,.06)" }}>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#7b766e" }}>FATURAMENTO</p>
-                    <p className="text-[18px] font-black tabular-nums mt-0.5 text-foreground truncate">{formatCurrency(vendido)}</p>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#7b766e" }}>CUSTOS</p>
-                    <p className="text-[18px] font-black tabular-nums mt-0.5 truncate" style={{ color: "#ff8a7a" }}>{formatCurrency(custos)}</p>
-                  </div>
-                  <div className="flex flex-col items-center shrink-0">
-                    <Anel pct={margem} size={52} stroke={6} cor={margem >= 50 ? "#3DD68C" : "#F5B800"}>
-                      <span className="text-[12px] font-black tabular-nums">{Math.round(margem)}%</span>
-                    </Anel>
-                    <span className="text-[9px] font-black tracking-[.1em] mt-1" style={{ color: "#7b766e" }}>MARGEM</span>
-                  </div>
-                </div>
-                <p className="text-[12px] mt-2 tabular-nums" style={{ color: "#7b766e" }}>
-                  hoje <b className="text-foreground">{formatCurrency(summary.netToday)}</b> · média <b className="text-foreground">{formatCurrency(summary.mediaDiariaLiquida)}</b>/dia
-                  {summary.debtToday > 0 && <> · fiado <b style={{ color: "#F2B43A" }}>{formatCurrency(summary.debtToday)}</b></>}
-                </p>
-              </>
-            );
-          })()}
-        </CardContent>
-      </Card>
+          {comBanco && casa && <DinheiroDisponivel h={casa} onVerBancos={() => irAba("bancos")} />}
+          {casa && !comBanco && (
+            <ConviteBanco onLigar={() => navigate("/verificar")} texto="Saldo, fôlego e gastos aparecem aqui sozinhos, sem digitar nada." />
+          )}
+          {!casa && isLoadingData && <EsqueletoResumo rotulo="Dinheiro disponível" />}
+
+          <PrioridadeHoje
+            carregando={guardarCarregando}
+            temPlanejamento={bills.length > 0 || goals.length > 0}
+            diaFechado={diaGuardadoFechado}
+            diaDeTrabalho={todayIsWorkDay}
+            restante={restanteGuardarHoje}
+            contas={billsShareToday}
+            objetivos={goalShareToday}
+            guardouHoje={savedTodayAmount}
+            sequencia={isLoadingData ? 0 : sequencia.atual}
+            pctDoLucro={!diaGuardadoFechado && summary.netToday > 0 && alvoHoje > 0 ? Math.min(999, Math.round((alvoHoje / summary.netToday) * 100)) : null}
+            podeDesfazer={!guardarCarregando && Boolean(ultimoGuardei) && !diaGuardadoFechado}
+            onGuardei={handleGuardeiTudo}
+            onDesfazer={handleDesfazerGuardei}
+            onPlanejar={() => irAba("planejar")}
+          />
 
           {!isLoadingData && pendencia && (
             <ParaResolver
@@ -2463,8 +2278,25 @@ export default function Finances() {
               onVerContas={() => irAba("planejar")}
             />
           )}
-          {comBanco && casa && <Movimento h={casa} onVer={() => irAba("raiox")} />}
-          {renderGuardarHoje(true)}
+
+          <SecaoResumo titulo="Meu negócio" lado={mesDoResumo()} />
+          <MeuNegocio
+            carregando={isLoadingData}
+            faturamento={Number(summary.totalProfit) || 0}
+            lucro={summary.monthlyNetProfit}
+            vendidoHoje={summary.grossToday}
+            lucroHoje={summary.netToday}
+            mediaDiaria={summary.mediaDiariaLiquida}
+            fiadoHoje={summary.debtToday}
+          />
+
+          {comBanco && casa && <FolegoFinanceiro h={casa} onPlanejar={() => irAba("planejar")} />}
+          {comBanco && casa && (
+            <>
+              <SecaoResumo titulo="Fluxo de caixa" lado={mesDoResumo()} />
+              <FluxoDeCaixa h={casa} onVer={() => irAba("raiox")} />
+            </>
+          )}
         </>
       )}
 
@@ -3100,10 +2932,6 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
             o que caiu. */}
 
         {aba === "bancos" && !comBanco && essencialTravado && <BancosTravado onPro={() => navigate("/pro")} />}
-
-        {aba === "resumo" && casa && !comBanco && (
-          <ConviteBanco onLigar={() => navigate("/verificar")} texto="Saldo, fôlego e gastos aparecem aqui sozinhos, sem digitar nada." />
-        )}
 
         {/* ANÁLISE (05/10, redesenho): gastos do mês → Vant percebeu → categorias → revisar → Raio-X → ferramentas */}
         {aba === "raiox" && (
