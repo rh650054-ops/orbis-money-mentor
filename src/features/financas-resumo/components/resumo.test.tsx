@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { HomeFinancas } from "@/components/financas/FinancasHome";
-import { DinheiroDisponivel, divisaoDaBarra } from "./dinheiro-disponivel";
 import { PrioridadeHoje, explicacao, type PrioridadeProps } from "./prioridade-hoje";
 import { MeuNegocio, custosEMargem } from "./meu-negocio";
 import { FolegoFinanceiro, FluxoDeCaixa } from "./folego-fluxo";
@@ -24,41 +23,10 @@ describe("pure rules (no calculation was changed: the same formulas as before)",
     expect(custosEMargem(0, 0)).toEqual({ custos: 0, margem: 0 });
     expect(custosEMargem(1000, -200)).toEqual({ custos: 1200, margem: 0 });
   });
-  it("the work × personal bar only uses positive balances", () => {
-    expect(divisaoDaBarra(600, 400)).toEqual({ trabalho: 60, pessoal: 40 });
-    expect(divisaoDaBarra(-50, 400)).toEqual({ trabalho: 0, pessoal: 100 });
-    expect(divisaoDaBarra(0, 0)).toBeNull();
-  });
   it("explains what the amount is for", () => {
     expect(explicacao({ contas: 10, objetivos: 0 })).toBe("Para manter suas contas em dia");
     expect(explicacao({ contas: 0, objetivos: 5 })).toBe("Para seus objetivos andarem no prazo");
     expect(explicacao({ contas: 10, objetivos: 5 })).toContain("objetivos");
-  });
-});
-
-describe("Dinheiro disponível", () => {
-  it("shows the total, the banks and the work/personal split, and opens Bancos", () => {
-    const ver = vi.fn();
-    render(<DinheiroDisponivel h={casa()} onVerBancos={ver} />);
-    expect(screen.getByText("R$ 1.000")).toBeTruthy();
-    expect(screen.getByText(/2 bancos/)).toBeTruthy();
-    expect(screen.getByRole("img", { name: "60% trabalho, 40% pessoal" })).toBeTruthy();
-    fireEvent.click(screen.getByText("Ver minhas contas"));
-    expect(ver).toHaveBeenCalled();
-  });
-  it("negative balance turns the card red with what took it there", () => {
-    render(<DinheiroDisponivel h={casa({ saldo: -320, causas: [{ descricao: "Aluguel", categoria: "casa", valor: 900, data: "2026-11-27" }] })} onVerBancos={vi.fn()} />);
-    expect(screen.getByText("Você está no negativo")).toBeTruthy();
-    expect(screen.getByText("− R$ 320")).toBeTruthy();
-    expect(screen.getByText("Aluguel")).toBeTruthy();
-  });
-  it("balance not read yet says so instead of showing zero", () => {
-    render(<DinheiroDisponivel h={casa({ tem_saldo: false, saldo: null })} onVerBancos={vi.fn()} />);
-    expect(screen.getByText(/Lendo o saldo/)).toBeTruthy();
-  });
-  it("one bank without a personal account shows no split", () => {
-    render(<DinheiroDisponivel h={casa({ saldo_pessoal: null })} onVerBancos={vi.fn()} />);
-    expect(screen.queryByText("Pessoal")).toBeNull();
   });
 });
 

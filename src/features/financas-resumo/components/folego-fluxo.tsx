@@ -6,7 +6,9 @@ import { ArrowDownLeft, ArrowUpRight, ShieldCheck } from "lucide-react";
 import type { HomeFinancas } from "@/components/financas/FinancasHome";
 import { Atalho, Cartao, COR, comSinal, Divisor, reais, Titulo, Valor } from "./pecas";
 
-export function FolegoFinanceiro({ h, onPlanejar }: { h: HomeFinancas; onPlanejar: () => void }) {
+/** `parcial` (28/11): the fôlego keeps its calculation (financas_home), which counts every known
+    balance; when some are not recent the card says so instead of hiding it. */
+export function FolegoFinanceiro({ h, onPlanejar, parcial = false }: { h: HomeFinancas; onPlanejar: () => void; parcial?: boolean }) {
   const [comoCalcula, setComoCalcula] = useState(false);
   const dias = h.folego_dias;
   const cor = dias == null ? COR.sub : dias < 7 ? COR.vermelho : dias < 15 ? COR.ouro : COR.verde;
@@ -27,6 +29,7 @@ export function FolegoFinanceiro({ h, onPlanejar }: { h: HomeFinancas; onPlaneja
       {dias != null ? (
         <>
           <p className="text-[13.5px] mt-3" style={{ color: COR.texto }}>Tempo estimado pagando apenas suas contas fixas.</p>
+          {parcial && <p className="text-[12.5px] font-semibold mt-1.5" style={{ color: "#F2B43A" }}>Conta também saldos sem confirmação recente.</p>}
           <button type="button" onClick={() => setComoCalcula((v) => !v)} aria-expanded={comoCalcula}
             className="self-start min-h-9 text-[12.5px] font-bold underline underline-offset-2" style={{ color: COR.sub }}>
             {comoCalcula ? "Fechar" : "Como calculamos?"}
