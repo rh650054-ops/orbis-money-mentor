@@ -73,6 +73,26 @@ describe("VANT Quick mirror of the DEFCON", () => {
     expect(so("encerrar")).toHaveLength(1);
   });
 
+  it("the revenue of the Live Activity (lock screen AND Dynamic Island) is the day's: 0 → 20 → 40, an approach does not change it", async () => {
+    const zero = { ...base, totalSold: 0, totalSalesCount: 0, totalApproaches: 0, blockSalesCount: 0,
+      blocks: [{ achieved_amount: 0, target_amount: 50 }, { achieved_amount: 0, target_amount: 50 }] };
+    const { rerender } = renderHook((d: DefconParaEspelho) => useEspelhoQuick(CONTA, d), { initialProps: zero });
+    const ultima = () => so("atividade").at(-1)!.arg as { faturamentoDia: number };
+    expect(ultima().faturamentoDia).toBe(0);
+    rerender({ ...zero, totalSold: 20, totalSalesCount: 1, totalApproaches: 1 });
+    expect(ultima().faturamentoDia).toBe(20);
+    rerender({ ...zero, totalSold: 40, totalSalesCount: 2, totalApproaches: 2 });
+    expect(ultima().faturamentoDia).toBe(40);
+    rerender({ ...zero, totalSold: 40, totalSalesCount: 2, totalApproaches: 3 });   // an approach
+    expect(ultima().faturamentoDia).toBe(40);
+    // session over: the Live Activity ends; the next session starts its own, from its own numbers
+    rerender({ ...zero, phase: "finished", totalSold: 40 });
+    expect(so("encerrar")).toHaveLength(1);
+    chamadas.length = 0;
+    rerender({ ...zero });
+    expect(ultima().faturamentoDia).toBe(0);
+  });
+
   it("practice run / no account: nothing at all", async () => {
     renderHook(() => useEspelhoQuick(null, base));
     await act(async () => { vi.advanceTimersByTime(2000); });
