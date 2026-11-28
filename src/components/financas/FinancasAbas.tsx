@@ -30,16 +30,17 @@ const hora = (iso: string) =>
 const nomeMes = () => new Date().toLocaleDateString("pt-BR", { month: "long", timeZone: "America/Sao_Paulo" });
 
 /** bancosTravado (25/10): Essencial vê a aba Bancos com cadeado, com o que o Pro mostraria (fosco). */
-export function abaValida(v: string | null, comBanco: boolean, bancosTravado = false): AbaFinancas {
+/** bancosVazio (28/11): a Pro account with no bank sees the tab with the "first bank" empty state. */
+export function abaValida(v: string | null, comBanco: boolean, bancosTravado = false, bancosVazio = false): AbaFinancas {
   if (v === "planejar" || v === "raiox") return v;
   if (v === "analise") return "raiox";   // links antigos
-  if (v === "bancos" && (comBanco || bancosTravado)) return v;
+  if (v === "bancos" && (comBanco || bancosTravado || bancosVazio)) return v;
   return "resumo";
 }
 
 /* ---------- navegação: texto, ouro no selecionado, sem botões grandes ---------- */
-export function AbasNav({ aba, onAba, comBanco, bancosTravado = false }: { aba: AbaFinancas; onAba: (a: AbaFinancas) => void; comBanco: boolean; bancosTravado?: boolean }) {
-  const lista: AbaFinancas[] = comBanco || bancosTravado ? ["resumo", "bancos", "planejar", "raiox"] : ["resumo", "planejar", "raiox"];
+export function AbasNav({ aba, onAba, comBanco, bancosTravado = false, bancosVazio = false }: { aba: AbaFinancas; onAba: (a: AbaFinancas) => void; comBanco: boolean; bancosTravado?: boolean; bancosVazio?: boolean }) {
+  const lista: AbaFinancas[] = comBanco || bancosTravado || bancosVazio ? ["resumo", "bancos", "planejar", "raiox"] : ["resumo", "planejar", "raiox"];
   // 05/10: o sublinhado ouro desliza até a aba escolhida (~200ms, ease-out) e
   // acompanha a largura do texto.
   const botoes = useRef<Partial<Record<AbaFinancas, HTMLButtonElement | null>>>({});
@@ -47,7 +48,7 @@ export function AbasNav({ aba, onAba, comBanco, bancosTravado = false }: { aba: 
   useLayoutEffect(() => {
     const el = botoes.current[aba];
     if (el) setBarra({ x: el.offsetLeft, w: el.offsetWidth });
-  }, [aba, comBanco, bancosTravado]);
+  }, [aba, comBanco, bancosTravado, bancosVazio]);
   return (
     <div role="tablist" aria-label="Partes das finanças" className="relative flex gap-5 overflow-x-auto" style={{ borderBottom: `1px solid ${LINHA}` }}>
       {lista.map((a) => {
@@ -128,43 +129,6 @@ export function ParaResolver({ qtd, total, principal, vencidas, onResolver, onVe
       )}
       <Link onClick={onVerContas}>Ver contas</Link>
     </Caixa>
-  );
-}
-
-/* ---------- BANCOS · saldo de cada conta, com o papel (trabalho/reserva) ---------- */
-export function BancosLista({ h, onGerenciar }: { h: HomeFinancas; onGerenciar: () => void }) {
-  const linhas = h.contas && h.contas.length > 0
-    ? h.contas.map((c) => ({ id: c.id, banco: c.banco ?? "Banco", saldo: c.saldo, papel: c.papel }))
-    : h.bancos.map((b, i) => ({ id: String(i), banco: b.banco ?? "Banco", saldo: b.saldo as number | null, papel: null as "trabalho" | "pessoal" | null }));
-  return (
-    <section className="orbis-card-in rounded-[18px] border px-4 py-3" style={{ background: "#0e0e10", borderColor: LINHA }}>
-      <div className="flex items-center justify-between gap-2 pb-1">
-        <Rotulo>Seus bancos</Rotulo>
-        <button type="button" onClick={onGerenciar} className="inline-flex items-center gap-0.5 h-8 text-[12.5px] font-extrabold" style={{ color: GOLD }}>
-          Gerenciar <ChevronRight className="w-4 h-4" strokeWidth={2.6} />
-        </button>
-      </div>
-      {linhas.map((l, i) => (
-        <div key={l.id} className="flex items-center gap-3 py-3" style={{ borderTop: i === 0 ? "none" : `1px solid ${LINHA}` }}>
-          <span className="w-9 h-9 rounded-[11px] shrink-0 flex items-center justify-center" style={{ background: "#1a1a19" }}>
-            <Landmark className="w-[17px] h-[17px]" style={{ color: SUB }} />
-          </span>
-          <span className="flex-1 min-w-0 flex items-center gap-2">
-            <span className="text-[15px] font-extrabold truncate">{l.banco}</span>
-            {l.papel && (
-              <span className="text-[9.5px] font-black tracking-[.1em] uppercase rounded-full px-2 py-0.5 shrink-0"
-                style={l.papel === "trabalho"
-                  ? { color: GOLD, border: "1px solid rgba(245,184,0,.45)", background: "#1a1305" }
-                  : { color: "#d8d2c6", border: "1px solid rgba(255,255,255,.18)", background: "#16161a" }}>
-                {l.papel}
-              </span>
-            )}
-          </span>
-          <span className="text-[16px] font-black tabular-nums shrink-0">{l.saldo == null ? "—" : reais(l.saldo)}</span>
-        </div>
-      ))}
-      {h.atualizado && <p className="text-[11px] font-bold pt-1" style={{ color: MUTE }}>lido às {hora(h.atualizado)} · atualiza de hora em hora</p>}
-    </section>
   );
 }
 
