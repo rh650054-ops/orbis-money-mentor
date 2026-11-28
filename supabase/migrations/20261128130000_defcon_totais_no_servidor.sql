@@ -14,10 +14,11 @@
 --     (hourly_goal_blocks.valor_*, achieved_amount, approaches_count; challenge_blocks counts;
 --     challenge_sessions.total_sold; daily_sales money columns) are DERIVED by defcon_recalcular;
 --   * an absolute write from any client is disarmed by the guard triggers: protected columns
---     are replaced by the derived values. Legitimate intents hidden in an absolute write are kept
---     as ledger rows: a re-split with the same total -> ajuste; a manual amount -> ajuste;
---     more standalone approaches than the ledger knows -> approach rows. Recomputed from the
---     difference, so an offline replay of the same write adds nothing (idempotent).
+--     are replaced by the derived values. A split change is NEVER turned into money (a re-split
+--     and a sale from an outdated screen look the same in absolute values): the new app re-splits
+--     with an explicit ledger operation. Only unambiguous intents of OLD clients are kept: an
+--     achieved-only bump (Nova Venda) -> manual ajuste; more standalone approaches than the ledger
+--     knows -> approach rows. Taken as a difference, so an offline replay adds nothing.
 --   * everything a guard could not explain is kept in defcon_conflitos.
 -- ============================================================================================
 
@@ -285,27 +286,29 @@ begin
   perform set_config('vant.sem_recalculo', '1', true);
   if (new.valor_dinheiro, new.valor_cartao, new.valor_pix, new.valor_calote)
      is distinct from (old.valor_dinheiro, old.valor_cartao, old.valor_pix, old.valor_calote) then
-    if abs(t_new - t_old) < 0.005 then
-      -- "Como recebeu": same money, other split -> ajuste (a replay sends the same split: diff 0)
-      insert into public.defcon_ajustes (id, user_id, session_id, block_index, tipo, dinheiro, cartao, pix, calote, origem)
-      values (gen_random_uuid(), new.user_id, loc.sessao, loc.idx, 'redistribuicao',
-              round(coalesce(new.valor_dinheiro,0) - coalesce(old.valor_dinheiro,0), 2),
-              round(coalesce(new.valor_cartao,0) - coalesce(old.valor_cartao,0), 2),
-              round(coalesce(new.valor_pix,0) - coalesce(old.valor_pix,0), 2),
-              round(coalesce(new.valor_calote,0) - coalesce(old.valor_calote,0), 2), 'legado');
-    else
-      -- money moved without a ledger row: a sale/delete of an old client (its row arrives on its own)
-      -- or a total computed from an outdated screen. Never applied; kept for the audit.
-      insert into public.defcon_conflitos (user_id, session_id, block_index, tabela, motivo, enviado, mantido, cliente_novo)
-      values (new.user_id, loc.sessao, loc.idx, 'hourly_goal_blocks', 'total_absoluto_ignorado',
-              jsonb_build_object('dinheiro', new.valor_dinheiro, 'cartao', new.valor_cartao, 'pix', new.valor_pix, 'calote', new.valor_calote, 'achieved', new.achieved_amount),
-              jsonb_build_object('dinheiro', old.valor_dinheiro, 'cartao', old.valor_cartao, 'pix', old.valor_pix, 'calote', old.valor_calote, 'achieved', old.achieved_amount), v_novo);
-    end if;
+    -- NEVER turned into money. A re-split with the same total and a sale written from an outdated
+    -- screen look identical in absolute values (widget sells 20 by Pix, the old screen writes its
+    -- own cash sale of 20 over it: same total, other split). Reading it as a re-split would move
+    -- the widget's Pix into cash. So: ignored and kept for the audit. The new app re-splits with an
+    -- explicit ledger operation (defcon_lancar 'redistribuir'); an old app's re-split on a marked
+    -- session does not apply (logged, and the account is only switched on with no old builds).
+    insert into public.defcon_conflitos (user_id, session_id, block_index, tabela, motivo, enviado, mantido, cliente_novo)
+    values (new.user_id, loc.sessao, loc.idx, 'hourly_goal_blocks',
+            case when abs(t_new - t_old) < 0.005 then 'redistribuicao_absoluta_ignorada' else 'total_absoluto_ignorado' end,
+            jsonb_build_object('dinheiro', new.valor_dinheiro, 'cartao', new.valor_cartao, 'pix', new.valor_pix, 'calote', new.valor_calote, 'achieved', new.achieved_amount),
+            jsonb_build_object('dinheiro', old.valor_dinheiro, 'cartao', old.valor_cartao, 'pix', old.valor_pix, 'calote', old.valor_calote, 'achieved', old.achieved_amount), v_novo);
+  elsif coalesce(new.achieved_amount,0) < coalesce(old.achieved_amount,0) then
+    -- achieved went DOWN with the split untouched: an outdated screen that does not know a manual
+    -- amount (today's DEFCON rewrites achieved as the split's sum). Never a money change: logged.
+    insert into public.defcon_conflitos (user_id, session_id, block_index, tabela, motivo, enviado, mantido, cliente_novo)
+    values (new.user_id, loc.sessao, loc.idx, 'hourly_goal_blocks', 'achieved_menor_ignorado',
+            jsonb_build_object('achieved', new.achieved_amount), jsonb_build_object('achieved', old.achieved_amount), v_novo);
   elsif new.achieved_amount is distinct from old.achieved_amount then
-    -- achieved alone moved (Nova Venda outside the DEFCON adds to the hour block): manual amount
+    -- achieved alone went UP, split untouched: only the Nova Venda form does this (the DEFCON always
+    -- writes the split with it), read-modify-write on the fresh row -> a manual amount. Unambiguous.
     insert into public.defcon_ajustes (id, user_id, session_id, block_index, tipo, extra, origem)
     values (gen_random_uuid(), new.user_id, loc.sessao, loc.idx, 'valor_manual',
-            round(coalesce(new.achieved_amount,0) - coalesce(old.achieved_amount,0), 2), 'legado');
+            round(coalesce(new.achieved_amount,0) - coalesce(old.achieved_amount,0), 2), case when v_novo then 'app' else 'legado' end);
   end if;
   perform set_config('vant.sem_recalculo', '', true);
 
@@ -331,8 +334,14 @@ begin
   if tg_op = 'INSERT' and exists (select 1 from public.challenge_blocks where session_id = new.session_id and block_index = new.block_index) then
     return new;
   end if;
-  if not v_novo then update public.challenge_sessions set cliente_antigo_em = now() where id = s.id; end if;
   d := public.defcon_derivar(new.session_id, new.block_index);
+  if v_novo then
+    -- the ledger client registers approaches through defcon_lancar: what it writes here (closing a
+    -- block, status) carries no count to read
+    new.approaches_count := d.abordagens; new.sales_count := d.vendas;
+    return new;
+  end if;
+  update public.challenge_sessions set cliente_antigo_em = now() where id = s.id;
   -- the client's own view: approaches = its sales + its standalone approaches. On a brand-new row a
   -- missing sales_count arrives as the default 0: then the server's count is used (never over-counts)
   avulsas_cliente := coalesce(new.approaches_count, 0)
@@ -386,9 +395,9 @@ create trigger trg_defcon_guarda_sessao before update on public.challenge_sessio
 -- account of its device credential). Clients call defcon_lancar, which passes auth.uid().
 create or replace function public.defcon_lancar_conta(uid uuid, p_id uuid, p_tipo text, p_sessao uuid, p_bloco integer,
   p_valor numeric default null, p_metodo text default null, p_produto uuid default null, p_qtd numeric default null,
-  p_split jsonb default null, p_origem text default 'app')
+  p_split jsonb default null, p_origem text default 'app', p_criado_em timestamptz default null)
 returns jsonb language plpgsql security definer set search_path to 'public' as $$
-declare s record; d record; atual record; feito boolean := true;
+declare s record; d record; atual record; feito boolean := true; v_quando timestamptz;
 begin
   if uid is null then raise exception 'nao_autenticado'; end if;
   if p_id is null then raise exception 'id_obrigatorio'; end if;
@@ -397,21 +406,24 @@ begin
   if not found or s.user_id <> uid then raise exception 'sessao_invalida'; end if;
   if not s.totais_servidor then raise exception 'sessao_nao_servidor'; end if;  -- the client keeps today's path
   if p_bloco is null or p_bloco < 0 then raise exception 'bloco_invalido'; end if;
+  -- when it happened on the phone (an offline sale goes up later and keeps its hour): never in the
+  -- future, never before the session's day
+  v_quando := least(now(), greatest(coalesce(p_criado_em, now()), s.date::timestamptz - interval '1 day'));
 
   if p_tipo in ('venda','venda_tardia','gorjeta') then
     if p_valor is null or p_valor <= 0 or p_valor > 5000 then raise exception 'valor_invalido'; end if;
-    insert into public.defcon_sales (id, user_id, session_id, block_index, amount, method, late, product_id, qty)
+    insert into public.defcon_sales (id, user_id, session_id, block_index, amount, method, late, product_id, qty, created_at)
     values (p_id, uid, p_sessao, p_bloco, round(p_valor, 2),
             case p_tipo when 'gorjeta' then 'gorjeta' when 'venda_tardia' then 'pix' else coalesce(nullif(p_metodo,''),'dinheiro') end,
-            p_tipo = 'venda_tardia', p_produto, greatest(1, coalesce(p_qtd, 1)))
+            p_tipo = 'venda_tardia', p_produto, greatest(1, coalesce(p_qtd, 1)), v_quando)
     on conflict (id) do nothing;
     feito := found;
   elsif p_tipo = 'apagar_venda' then
     delete from public.defcon_sales where id = p_id and user_id = uid and session_id = p_sessao;
     feito := found;
   elsif p_tipo = 'abordagem' then
-    insert into public.defcon_abordagens (id, user_id, session_id, block_index, origem)
-    values (p_id, uid, p_sessao, p_bloco, p_origem) on conflict (id) do nothing;
+    insert into public.defcon_abordagens (id, user_id, session_id, block_index, origem, criado_em)
+    values (p_id, uid, p_sessao, p_bloco, p_origem, v_quando) on conflict (id) do nothing;
     feito := found;
   elsif p_tipo = 'redistribuir' then
     -- p_split = the block's target split {dinheiro, cartao, pix, calote}; the difference to the derived
@@ -449,17 +461,17 @@ begin
                  (select count(*) from public.defcon_sales where session_id = p_sessao and not late and coalesce(method,'') <> 'gorjeta')
                + (select count(*) from public.defcon_abordagens where session_id = p_sessao)));
 end $$;
-revoke all on function public.defcon_lancar_conta(uuid, uuid, text, uuid, integer, numeric, text, uuid, numeric, jsonb, text) from public, anon, authenticated;
+revoke all on function public.defcon_lancar_conta(uuid, uuid, text, uuid, integer, numeric, text, uuid, numeric, jsonb, text, timestamptz) from public, anon, authenticated;
 
 create or replace function public.defcon_lancar(p_id uuid, p_tipo text, p_sessao uuid, p_bloco integer,
   p_valor numeric default null, p_metodo text default null, p_produto uuid default null, p_qtd numeric default null,
-  p_split jsonb default null, p_origem text default 'app')
+  p_split jsonb default null, p_origem text default 'app', p_criado_em timestamptz default null)
 returns jsonb language sql security definer set search_path to 'public' as $$
   select public.defcon_lancar_conta(auth.uid(), p_id, p_tipo, p_sessao, p_bloco, p_valor, p_metodo, p_produto, p_qtd, p_split,
-                                    case when p_origem in ('widget','atividade') then 'app' else p_origem end)
+                                    case when p_origem in ('widget','atividade') then 'app' else p_origem end, p_criado_em)
 $$;
-revoke all on function public.defcon_lancar(uuid, text, uuid, integer, numeric, text, uuid, numeric, jsonb, text) from public, anon;
-grant execute on function public.defcon_lancar(uuid, text, uuid, integer, numeric, text, uuid, numeric, jsonb, text) to authenticated;
+revoke all on function public.defcon_lancar(uuid, text, uuid, integer, numeric, text, uuid, numeric, jsonb, text, timestamptz) from public, anon;
+grant execute on function public.defcon_lancar(uuid, text, uuid, integer, numeric, text, uuid, numeric, jsonb, text, timestamptz) to authenticated;
 
 -- ---------- shadow mode ----------
 -- For every session of a day (marked or not) compares what the clients wrote with what the ledger
