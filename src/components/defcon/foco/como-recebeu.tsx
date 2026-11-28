@@ -2,6 +2,7 @@
    redistribui pelos blocos da hora (proporcional ao vendido) e ressincroniza o daily_sales;
    o que faltar pro total vira "não recebido". Movido do DefconHub (18/10/2026). */
 import { useState, type ReactNode } from "react";
+import { redistribuirBloco } from "@/shared/lib/livro-defcon";
 import { Banknote, Check, Coins, CreditCard, Pencil, Smartphone, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
@@ -52,6 +53,9 @@ export function ComoRecebeu({ userId, planId, totals, totalVendido, pelobanco = 
           const bp = ultimo ? Math.round((p - accP) * 100) / 100 : Math.round(p * ratio * 100) / 100;
           accD += bd; accC += bc; accP += bp;
           const bcal = Math.max(0, Math.round((bt - (bd + bc + bp)) * 100) / 100);
+          // DEFCON pelo livro-razão: a mesma correção vira uma redistribuição explícita no servidor
+          // (mesmo total do bloco). Fora dele (false), o caminho de sempre.
+          if (await redistribuirBloco(b.id, { dinheiro: bd, cartao: bc, pix: bp, calote: bcal })) continue;
           const { error } = await supabase.from("hourly_goal_blocks").update({ valor_dinheiro: bd, valor_cartao: bc, valor_pix: bp, valor_calote: bcal, achieved_amount: Math.round((bd + bc + bp + bcal) * 100) / 100 }).eq("id", b.id);
           if (error) throw error;
         }

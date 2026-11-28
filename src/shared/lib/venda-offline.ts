@@ -13,6 +13,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { addOfflineRecord, getUnsynced, removeOfflineRecord, type OfflineRecord } from "./offline-db";
+import { subirLancamento, type Lancamento } from "./livro-defcon";
 
 export interface LinhaVenda {
   id: string;
@@ -98,6 +99,8 @@ export async function esquecerTotalSessaoOffline(sessionId: string): Promise<voi
 /** Sobe um item da fila. true = pode tirar da fila. */
 export async function subirVendaPendente(record: OfflineRecord): Promise<boolean> {
   const d = record.data;
+  // DEFCON pelo livro-razão: um lançamento com id próprio (o servidor soma, sem repetir)
+  if (d.tipo === "lancar") return subirLancamento(d.lancamento as Lancamento);
   if (d.tipo === "venda") {
     const { error } = await supabase
       .from("defcon_sales")
