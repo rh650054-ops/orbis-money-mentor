@@ -37,7 +37,9 @@ begin
   perform set_config('request.headers', '', false);
   insert into public.defcon_sales (id, user_id, session_id, block_index, amount, method) values (p_id, p_user, p_sessao, p_idx, p_valor, 'dinheiro')
   on conflict (id) do nothing;
-  update public.hourly_goal_blocks set valor_dinheiro = p_tela_dinheiro + p_valor, achieved_amount = p_tela_dinheiro + p_valor
+  -- the whole split from ITS screen (that screen had only cash), as queueBlockOffline sends it
+  update public.hourly_goal_blocks set valor_dinheiro = p_tela_dinheiro + p_valor, valor_pix = 0, valor_cartao = 0, valor_calote = 0,
+         achieved_amount = p_tela_dinheiro + p_valor
    where id = (pg_temp.bloco(p_user, p_idx)).id;
   update public.challenge_sessions set total_sold = p_tela_total + p_valor where id = p_sessao;
   insert into public.challenge_blocks (session_id, user_id, block_index, approaches_count, sales_count)
@@ -113,6 +115,37 @@ select pg_temp.venda_antiga(pg_temp.u('rick'), :'r_s', 0, pg_temp.id('a1'), 10, 
 select t.igual('C2 replay of the old write: nothing counted twice (block 80)', (pg_temp.bloco(pg_temp.u('rick'), 0)).achieved_amount, 80);
 select t.igual('C2 ...total 50', pg_temp.total(:'r_s'), 50);
 select t.igual('C2 ...3 sales', (pg_temp.cont(:'r_s', 0)).ve, 3);
+-- ======================================================================================
+-- 2b. The coincidence: an outdated old screen whose absolute write has the SAME total
+-- ======================================================================================
+-- server now: block 80 (30 opening + 20 + 20 widget + 10). The widget sells R$ 20 by PIX:
+select pg_temp.lancar(pg_temp.u('rick'), pg_temp.id('w-pix'), 'venda', :'r_s', 0, 20, 'pix', 'widget');
+-- the old app, still showing 80 all in cash, sells R$ 20 in CASH and writes cash = 100, pix = 0:
+-- the same total the server has (100). As a "re-split" it would turn the widget's Pix into cash.
+select pg_temp.venda_antiga(pg_temp.u('rick'), :'r_s', 0, pg_temp.id('a-coinc'), 20, 80, 50, 4, 4);
+select t.verdade('C3 same-total outdated write: no ajuste is created (Pix 20 stays Pix, cash 30+20+20+10+20 = 100)',
+  (select valor_pix = 20 and valor_dinheiro = 100 and achieved_amount = 120 from pg_temp.bloco(pg_temp.u('rick'), 0))
+  and not exists (select 1 from public.defcon_ajustes where session_id = :'r_s' and tipo = 'redistribuicao'));
+select t.igual('C3 ...session total = every sale (20 + 20 + 10 + 20 + 20)', pg_temp.total(:'r_s'), 90);
+select t.verdade('C3 ...and the outdated write is in the audit', exists (select 1 from public.defcon_conflitos where session_id = :'r_s' and motivo in ('redistribuicao_absoluta_ignorada','total_absoluto_ignorado')));
+-- the same coincidence with the block write arriving BEFORE its sale row (the other queue order):
+-- the absolute total equals the server's exactly, the case a "re-split" reading would have taken
+select pg_temp.lancar(pg_temp.u('rick'), pg_temp.id('w-pix2'), 'venda', :'r_s', 0, 10, 'pix', 'widget');
+select set_config('request.headers', '', false);
+update public.hourly_goal_blocks set valor_dinheiro = 130, valor_pix = 0, valor_cartao = 0, valor_calote = 0, achieved_amount = 130
+ where id = (pg_temp.bloco(pg_temp.u('rick'), 0)).id;   -- screen: 120 all cash (+ its own 10 cash) = 130 = server total
+insert into public.defcon_sales (id, user_id, session_id, block_index, amount, method) values (pg_temp.id('a-coinc2'), pg_temp.u('rick'), :'r_s', 0, 10, 'dinheiro');
+select t.verdade('C3b block write first, same total as the server: nothing moved (Pix 30 stays Pix), then its row: 140',
+  (select valor_pix = 30 and valor_dinheiro = 110 and achieved_amount = 140 from pg_temp.bloco(pg_temp.u('rick'), 0))
+  and exists (select 1 from public.defcon_conflitos where session_id = :'r_s' and motivo = 'redistribuicao_absoluta_ignorada')
+  and not exists (select 1 from public.defcon_ajustes where session_id = :'r_s' and tipo = 'redistribuicao'));
+-- an outdated screen that does not know the manual amount: achieved lower, same split
+update public.hourly_goal_blocks set achieved_amount = 100 where id = (pg_temp.bloco(pg_temp.u('rick'), 0)).id;
+select t.verdade('C4 achieved written LOWER with the same split: no negative ajuste, value kept (140), logged',
+  (pg_temp.bloco(pg_temp.u('rick'), 0)).achieved_amount = 140
+  and not exists (select 1 from public.defcon_ajustes where session_id = :'r_s' and extra < 0)
+  and exists (select 1 from public.defcon_conflitos where session_id = :'r_s' and motivo = 'achieved_menor_ignorado'));
+
 
 -- ======================================================================================
 -- 3. Approaches and conversion
@@ -150,13 +183,23 @@ select t.igual('E1 delete: money reverted (23 - 10)', (pg_temp.bloco(pg_temp.u('
 select t.igual('E1 ...and the sale + its approach (6 - 1)', (pg_temp.cont(:'d_s', 0)).ab, 5);
 select (pg_temp.lancar(pg_temp.u('duo'), pg_temp.id('d-v1'), 'apagar_venda', :'d_s', 0)) as j \gset e2_
 select t.verdade('E2 deleting again changes nothing', not (:'e2_j'::jsonb ->> 'aplicado')::boolean and (pg_temp.bloco(pg_temp.u('duo'), 0)).achieved_amount = 13);
--- old client "Como recebeu": 5 cash + 8 pix becomes 3 cash + 10 pix (same 13)
+-- an OLD client's absolute re-split (5 cash + 8 pix -> 3 cash + 10 pix): never turned into money
 update public.hourly_goal_blocks set valor_dinheiro = 3, valor_pix = 10, achieved_amount = 13 where id = (pg_temp.bloco(pg_temp.u('duo'), 0)).id;
-select t.verdade('E3 old "Como recebeu" re-split with the same total: applied (3 cash, 10 pix)',
+select t.verdade('E3 old client absolute re-split on a marked session: NOT applied (cash 5, pix 8 stay), logged',
+  (select valor_dinheiro = 5 and valor_pix = 8 and achieved_amount = 13 from pg_temp.bloco(pg_temp.u('duo'), 0))
+  and exists (select 1 from public.defcon_conflitos where session_id = :'d_s' and motivo = 'redistribuicao_absoluta_ignorada')
+  and not exists (select 1 from public.defcon_ajustes where session_id = :'d_s' and tipo = 'redistribuicao'));
+-- the NEW app re-splits explicitly ("Como recebeu" through the ledger)
+select pg_temp.lancar(pg_temp.u('duo'), pg_temp.id('d-rs'), 'redistribuir', :'d_s', 0, null, null, 'app', '{"dinheiro":3,"pix":10,"cartao":0,"calote":0}');
+select t.verdade('E3 new app re-split: applied (3 cash, 10 pix, same 13)',
   (select valor_dinheiro = 3 and valor_pix = 10 and achieved_amount = 13 from pg_temp.bloco(pg_temp.u('duo'), 0)));
-update public.hourly_goal_blocks set valor_dinheiro = 3, valor_pix = 10, achieved_amount = 13 where id = (pg_temp.bloco(pg_temp.u('duo'), 0)).id;
-select t.igual('E3 ...its replay adds no second ajuste', (select count(*) from public.defcon_ajustes where session_id = :'d_s' and tipo = 'redistribuicao'), 1);
+select pg_temp.lancar(pg_temp.u('duo'), pg_temp.id('d-rs'), 'redistribuir', :'d_s', 0, null, null, 'app', '{"dinheiro":3,"pix":10,"cartao":0,"calote":0}');
+select t.igual('E3 ...its replay (same id) adds no second ajuste', (select count(*) from public.defcon_ajustes where session_id = :'d_s' and tipo = 'redistribuicao'), 1);
 select t.igual('E3 the session total is not touched by a re-split (sales only)', pg_temp.total(:'d_s'), 13);
+-- calote through a re-split: part of the cash becomes "not received"
+select pg_temp.lancar(pg_temp.u('duo'), pg_temp.id('d-cal'), 'redistribuir', :'d_s', 0, null, null, 'app', '{"dinheiro":1,"pix":10,"cartao":0,"calote":2}');
+select t.verdade('E3 calote: 2 of the cash become calote, block total still 13',
+  (select valor_dinheiro = 1 and valor_calote = 2 and achieved_amount = 13 from pg_temp.bloco(pg_temp.u('duo'), 0)));
 select t.verdade('E4 a re-split that changes the total is refused for the new client',
   t.erro($q$select public.defcon_lancar(md5('id-rs')::uuid, 'redistribuir', '$q$ || :'d_s' || $q$'::uuid, 0, null, null, null, null, '{"dinheiro":1,"pix":1}'::jsonb, 'app')$q$, null, pg_temp.u('duo')) like '%redistribuicao_muda_total%');
 -- Nova Venda outside the DEFCON (DailySalesForm) adds 7 to the hour block (achieved only)
@@ -172,8 +215,8 @@ select public.defcon_desligar_conta(pg_temp.u('rick'));
 update public.challenge_sessions set totais_servidor = false where id = :'r_s';
 select t.verdade('F1 account switched off: its marked session stays marked (a client cannot unmark it)', (select totais_servidor from public.challenge_sessions where id = :'r_s'));
 select pg_temp.venda_antiga(pg_temp.u('rick'), :'r_s', 0, pg_temp.id('a2'), 5, 0, 0, 0, 0);   -- a very outdated old screen
-select t.igual('F1 ...and it still protects the widget sale (80 + 5, not 5)', (pg_temp.bloco(pg_temp.u('rick'), 0)).achieved_amount, 85);
-select t.igual('F1 ...session total 50 + 5', pg_temp.total(:'r_s'), 55);
+select t.igual('F1 ...and it still protects the widget sales (140 + 5, not 5)', (pg_temp.bloco(pg_temp.u('rick'), 0)).achieved_amount, 145);
+select t.igual('F1 ...session total 110 + 5', pg_temp.total(:'r_s'), 115);
 update public.defcon_persistencia_config set marcar_novas = false;
 select pg_temp.plano(pg_temp.u('volta'), current_date + 1);
 select pg_temp.sessao(pg_temp.u('volta'), current_date + 1) as s \gset v_
@@ -261,3 +304,35 @@ select t.verdade('I3 approval refuses: unexplained divergences, too few days and
                        'divergencias financeiras nao explicadas (bloco)', 'abordagens desatualizadas de clientes antigos (sessoes marcadas)')));
 select t.verdade('I3 ...and passes the criteria that hold (sales per block)',
   (select ok from public.defcon_sombra_aprovacao(current_date - 1, current_date) where criterio = 'divergencias de vendas por bloco'));
+
+-- ======================================================================================
+-- 9. The new app: offline sales keep their hour; closing a block sends no counts to read
+-- ======================================================================================
+select pg_temp.plano(pg_temp.u('volta2'));
+insert into public.defcon_persistencia_contas (user_id) values (pg_temp.u('volta2'));
+select pg_temp.sessao(pg_temp.u('volta2')) as s \gset j_
+select pg_temp.lancar(pg_temp.u('volta2'), pg_temp.id('j-on'), 'venda', :'j_s', 0, 9, 'dinheiro', 'app');
+select t.logar(pg_temp.u('volta2'));
+select public.defcon_lancar(pg_temp.id('j-off2'), 'venda', :'j_s'::uuid, 0, 7, 'pix', null, null, null, 'app', now() - interval '40 minutes');
+select t.verdade('J1 a sale made offline 40 min ago and sent now keeps its own hour',
+  (select created_at < now() - interval '39 minutes' from public.defcon_sales where id = pg_temp.id('j-off2')));
+select public.defcon_lancar(pg_temp.id('j-fut'), 'venda', :'j_s'::uuid, 0, 7, 'pix', null, null, null, 'app', now() + interval '3 days');
+select t.verdade('J1 ...a time in the future is never accepted', (select created_at <= now() from public.defcon_sales where id = pg_temp.id('j-fut')));
+select pg_temp.lancar(pg_temp.u('volta2'), pg_temp.id('j-ab'), 'abordagem', :'j_s', 0, null, null, 'widget');
+select t.verdade('J1 a signed-in client cannot claim to be the widget (origin forced to app)',
+  (select origem = 'app' from public.defcon_abordagens where id = pg_temp.id('j-ab')));
+-- closing the block: the new app upserts status/ended_at with whatever counters it has (here 0)
+select set_config('request.headers', '{"x-vant-cliente":"2"}', false);
+insert into public.challenge_blocks (session_id, user_id, block_index, approaches_count, sales_count, status, ended_at)
+values (:'j_s', pg_temp.u('volta2'), 0, 0, 0, 'done', now())
+on conflict (session_id, block_index) do update set approaches_count = excluded.approaches_count, sales_count = excluded.sales_count, status = excluded.status, ended_at = excluded.ended_at;
+select t.verdade('J2 new app closing a block: counts stay the server''s (3 sales, 4 approaches), status saved, nothing logged as a conflict',
+  (select approaches_count = 4 and sales_count = 3 and status = 'done' from public.challenge_blocks where session_id = :'j_s' and block_index = 0)
+  and not exists (select 1 from public.defcon_conflitos where session_id = :'j_s')
+  and (select cliente_antigo_em is null from public.challenge_sessions where id = :'j_s'));
+-- stock: a ledger sale of a product goes through the same stock trigger path (product id + qty on the row)
+select pg_temp.lancar(pg_temp.u('volta2'), pg_temp.id('j-prod'), 'venda', :'j_s', 0, 10, 'dinheiro', 'app') ;
+select t.logar(pg_temp.u('volta2'));
+select public.defcon_lancar(pg_temp.id('j-prod2'), 'venda', :'j_s'::uuid, 0, 10, 'dinheiro', pg_temp.id('produto'), 3);
+select t.verdade('J3 product and quantity reach the sale row (what the stock trigger reads)',
+  (select product_id = pg_temp.id('produto') and qty = 3 from public.defcon_sales where id = pg_temp.id('j-prod2')));
