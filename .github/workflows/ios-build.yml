@@ -264,7 +264,7 @@ jobs:
               echo "::notice::$NOME signed (${QUEM#Authority=}) with App Group group.app.vant.vendas."
               # entitlements are public metadata (no secrets): print them for the record
               echo "--- entitlements of $NOME ---"; plutil -p "$RUNNER_TEMP/ent-$NOME.plist"
-              grep -A1 'get-task-allow' "$RUNNER_TEMP/ent-$NOME.plist" | grep -q '<true/>' \
+              [ "$(plutil -extract get-task-allow raw "$RUNNER_TEMP/ent-$NOME.plist" 2>/dev/null)" = "true" ] \
                 && { echo "::error::$NOME has get-task-allow=true (debug build)."; exit 1; } || true
             done
           else
