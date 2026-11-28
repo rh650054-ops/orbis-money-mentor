@@ -138,17 +138,23 @@ jobs:
           esac
           AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
 
-          # Archive signed ad-hoc ("-"): no "Apple Development" certificate is created (see the header),
-          # but the entitlements (App Group of VANT Quick) stay inside the binaries, and the export
-          # re-signs with exactly those. A fully unsigned archive would lose them.
+          # unsigned archive: no "Apple Development" certificate is created (see the header)
           xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/VANT.xcarchive" \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER="" \
-            CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="-" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             MARKETING_VERSION="$VERSION_NAME" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             archive | tail -40
           test -d "$RUNNER_TEMP/VANT.xcarchive/Products/Applications/App.app/PlugIns/VantQuick.appex" \
             || { echo "::error::The VANT Quick extension is not embedded in the archive."; exit 1; }
+          # The export re-signs each binary with the entitlements it finds in the binary's own
+          # signature, and an unsigned binary has none: the App Group of VANT Quick would be lost.
+          # So stamp them with a local ad-hoc signature ("-", no certificate, nothing at Apple),
+          # inner code first. Xcode 26 forbids ad-hoc inside the build, codesign itself does not.
+          APPDIR="$RUNNER_TEMP/VANT.xcarchive/Products/Applications/App.app"
+          find "$APPDIR/Frameworks" -maxdepth 1 \( -name '*.framework' -o -name '*.dylib' \) -exec codesign --force --sign - {} \; 2>/dev/null || true
+          codesign --force --sign - --entitlements ios/App/VantQuick/VantQuick.entitlements "$APPDIR/PlugIns/VantQuick.appex"
+          codesign --force --sign - --entitlements ios/App/App/App.entitlements "$APPDIR"
           [ "$ENVIAR" = "false" ] && DESTINO=export || DESTINO=upload
 
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
