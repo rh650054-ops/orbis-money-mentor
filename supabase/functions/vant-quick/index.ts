@@ -19,14 +19,17 @@ const ACOES = new Set(["venda", "abordagem", "painel", "status"]);
 const ORIGENS = new Set(["widget", "atividade"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TOKEN = /^vq1_[0-9a-f]{64}$/;
+/** A quick sale option as the server names it (vant_quick_opcoes): product/tier, a value of today's sales, or the config. */
+const OPCAO = /^(p:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:[0-9]{1,3}|v:[0-9]{1,7}|c)$/;
 
 /** HTTP status of each refusal: the iPhone shows the reason and never calls a refusal "confirmed". */
 const STATUS: Record<string, number> = {
   credencial_invalida: 401, credencial_expirada: 401,
-  desativado: 503,
+  desativado: 503, bloqueado: 403,
   rapido_demais: 429, limite_do_dia: 429,
   encerrada: 409,
   sem_defcon: 409, defcon_nao_habilitado: 409, atualize_outro_aparelho: 409, bloco_parado: 409, sem_valor: 409,
+  opcao_indisponivel: 409, opcao_mudou: 409,
   acao_invalida: 400, origem_invalida: 400, id_obrigatorio: 400,
 };
 
@@ -37,14 +40,22 @@ export async function tratarVantQuick(req: Request, deps: Deps = depsDoServidor(
   if (req.method !== "POST") return json({ ok: false, motivo: "metodo" }, 405);
   const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
   if (!TOKEN.test(token)) return json({ ok: false, motivo: "credencial_invalida" }, 401);
-  const corpo = (await req.json().catch(() => null)) as { acao?: unknown; id?: unknown; origem?: unknown } | null;
+  const corpo = (await req.json().catch(() => null)) as { acao?: unknown; id?: unknown; origem?: unknown; opcao?: unknown; valor?: unknown } | null;
   const acao = typeof corpo?.acao === "string" ? corpo.acao : "";
   const origem = typeof corpo?.origem === "string" ? corpo.origem : "widget";
   const id = typeof corpo?.id === "string" ? corpo.id.toLowerCase() : null;
   if (!ACOES.has(acao) || !ORIGENS.has(origem)) return json({ ok: false, motivo: "acao_invalida" }, 400);
   if (acao !== "painel" && (!id || !UUID.test(id))) return json({ ok: false, motivo: "id_obrigatorio" }, 400);
+  // the option the button showed and its price: the SQL rebuilds the options and charges its own
+  // (build 31 sends neither: the first option, the one its button shows)
+  const opcao = acao === "venda" && typeof corpo?.opcao === "string" ? corpo.opcao : null;
+  const valor = acao === "venda" && typeof corpo?.valor === "number" && Number.isFinite(corpo.valor) ? corpo.valor : null;
+  if (opcao !== null && !OPCAO.test(opcao)) return json({ ok: false, motivo: "opcao_indisponivel" }, 409);
 
-  const { data, error } = await deps.db.rpc("vant_quick_executar", { p_token: token, p_acao: acao, p_id: acao === "painel" ? null : id, p_origem: origem });
+  const args: Record<string, unknown> = { p_token: token, p_acao: acao, p_id: acao === "painel" ? null : id, p_origem: origem };
+  if (opcao !== null) args.p_opcao = opcao;
+  if (valor !== null) args.p_valor = valor;
+  const { data, error } = await deps.db.rpc("vant_quick_executar", args);
   if (error) {
     // the database did not answer: the tap's outcome is UNKNOWN; the iPhone resends the same id
     console.error("vant-quick: database error", acao);

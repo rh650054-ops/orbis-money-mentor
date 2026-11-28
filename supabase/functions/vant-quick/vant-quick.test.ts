@@ -31,8 +31,38 @@ describe("vant-quick", () => {
     expect(r.status).toBe(200);
     expect(await r.json()).toMatchObject({ ok: true, aplicado: true });
     expect(db.chamadas).toEqual([{ n: "vant_quick_executar", a: { p_token: TK, p_acao: "venda", p_id: ID, p_origem: "atividade" } }]);
-    const sql = readFileSync(fileURLToPath(new URL("../../migrations/20261128140000_vant_quick_interativo.sql", import.meta.url)), "utf8");
-    expect(sql).toMatch(/function public\.vant_quick_executar\(p_token text, p_acao text, p_id uuid default null, p_origem text default 'widget'\)/);
+    const sql = readFileSync(fileURLToPath(new URL("../../migrations/20261128180000_vant_quick_opcoes.sql", import.meta.url)), "utf8");
+    expect(sql).toMatch(/function public\.vant_quick_executar\(p_token text, p_acao text, p_id uuid default null, p_origem text default 'widget',\s+p_opcao text default null, p_valor numeric default null\)/);
+  });
+
+  it("V2: the sale names its option and the price its button showed; both reach the SQL as is", async () => {
+    const PROD = "p:5d41402a-bc4b-2a76-b971-9d911017c592:2";
+    for (const opcao of [PROD, "v:2000", "c"]) {
+      const db = banco({ ok: true, aplicado: true });
+      await tratar(pedir({ acao: "venda", id: ID, origem: "widget", opcao, valor: 35 }), { db });
+      expect(db.chamadas[0]?.a).toEqual({ p_token: TK, p_acao: "venda", p_id: ID, p_origem: "widget", p_opcao: opcao, p_valor: 35 });
+    }
+    // an approach never carries an option
+    const db = banco({ ok: true });
+    await tratar(pedir({ acao: "abordagem", id: ID, opcao: "c", valor: 10 }), { db });
+    expect(db.chamadas[0]?.a).toEqual({ p_token: TK, p_acao: "abordagem", p_id: ID, p_origem: "widget" });
+  });
+
+  it("V2: a malformed option is refused at the door (409), the database is not called", async () => {
+    for (const opcao of ["p:nao-e-uuid:1", "x:1", "c; drop", "v:"]) {
+      const db = banco({ ok: true });
+      const r = await tratar(pedir({ acao: "venda", id: ID, opcao, valor: 20 }), { db });
+      expect(r.status).toBe(409);
+      expect(db.chamadas).toHaveLength(0);
+    }
+  });
+
+  it("V2: option gone / price changed / account blocked keep their reason, never 2xx", async () => {
+    for (const [motivo, status] of [["opcao_indisponivel", 409], ["opcao_mudou", 409], ["bloqueado", 403]] as const) {
+      const r = await tratar(pedir({ acao: "venda", id: ID, opcao: "c", valor: 10 }), { db: banco({ ok: false, motivo, painel: { opcoes: [] } }) });
+      expect(r.status).toBe(status);
+      expect(await r.json()).toMatchObject({ ok: false, motivo, painel: { opcoes: [] } });
+    }
   });
 
   it("no or malformed credential: 401 without touching the database", async () => {

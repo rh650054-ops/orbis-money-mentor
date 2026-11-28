@@ -24,6 +24,13 @@ enum Estilo {
         f.maximumFractionDigits = 0; f.minimumFractionDigits = 0
         return f.string(from: NSNumber(value: v)) ?? reais(v)
     }
+    /// Button price: "R$ 20" for a whole value, "R$ 12,50" otherwise (Rick's mockup, 28/11).
+    static func reaisBotao(_ v: Double) -> String {
+        guard abs(v - v.rounded()) < 0.005 else { return reais(v) }
+        let f = moeda.copy() as! NumberFormatter
+        f.maximumFractionDigits = 0; f.minimumFractionDigits = 0
+        return f.string(from: NSNumber(value: v)) ?? reais(v)
+    }
     static func porcento(_ v: Double) -> String { "\(Int((v * 100).rounded()))%" }
 
     /// Today in Brazil (YYYY-MM-DD), the same day key the app writes.

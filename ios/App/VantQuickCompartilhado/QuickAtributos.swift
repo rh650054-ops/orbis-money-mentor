@@ -30,6 +30,15 @@ struct QuickAtributos: ActivityAttributes {
         /// last tap: "Venda confirmada ✓", "Sem resposta — não confirmada", a refusal...
         var aviso: String? = nil
         var avisoOk: Bool = false
+        /// V2: the quick sale buttons (the server's options, at most 2), each with the price it shows
+        var botoes: [Botao]? = nil
+    }
+
+    /// One quick sale button of the lock screen: the server's option id and the price drawn on it.
+    struct Botao: Codable, Hashable {
+        var id: String
+        var valor: Double
+        var rotulo: String
     }
 }
 #endif

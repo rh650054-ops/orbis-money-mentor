@@ -38,7 +38,7 @@ function FormularioVendaRapida({ conta }: { conta: string }) {
     const c = salvarConfig(conta, { valor, metodo });
     void quick.salvarConfig(c.valor, formatCurrency(c.valor));
     servidor.mutate(c, {
-      onSuccess: () => toast({ title: "Venda rápida salva", description: `O widget registra ${formatCurrency(c.valor)} em ${METODOS.find((m) => m.id === c.metodo)?.rotulo.toLowerCase()}.` }),
+      onSuccess: () => toast({ title: "Venda rápida salva", description: `Sem produto nem venda no dia, o widget registra ${formatCurrency(c.valor)} em ${METODOS.find((m) => m.id === c.metodo)?.rotulo.toLowerCase()}.` }),
       onError: () => toast({ title: "Não consegui salvar no servidor", description: "Confira a internet e salve de novo. O widget usa o último valor salvo lá.", variant: "destructive" }),
     });
   };
@@ -47,7 +47,7 @@ function FormularioVendaRapida({ conta }: { conta: string }) {
     <Secao titulo="VANT QUICK" id="sec-vant-quick">
       <div className="rounded-[16px] p-3.5 flex flex-col gap-3" style={{ background: COR.card, border: `1px solid ${COR.borda}` }}>
         <p className="text-[12.5px] leading-snug" style={{ color: COR.suave }}>
-          Valor da venda rápida do widget. Cada toque registra uma venda deste valor no bloco do DEFCON em andamento.
+          Os botões do widget usam primeiro os produtos e combos da sua Carga do dia e os valores que você já vendeu hoje no DEFCON. Este valor entra quando ainda não houver nenhum deles.
         </p>
         <label className="flex flex-col gap-1.5">
           <span className="text-[11px] font-black tracking-[.12em]" style={{ color: COR.apagado }}>VALOR (R$)</span>
