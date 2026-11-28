@@ -22,7 +22,7 @@
 # cloud signing ("Distribution Managed" certificate, kept by Apple, reused by every run). Before,
 # the archive was signed with an "Apple Development" certificate that Xcode created on every run
 # (the runner keeps nothing), until the account hit Apple's limit and build 15 was refused.
-# The app declares no entitlements (no .entitlements file), so nothing is lost by signing at export.
+# Entitlements (VANT Quick App Group) are stamped into the unsigned archive and kept by the export.
 # "enviar = false" checks the whole signing without uploading a build to TestFlight.
 #   Billing:   "link" by default since 24/11/2026 (Rick's decision, all store versions):
 #              no access -> yellow "VER PLANOS E ASSINAR" / "RENOVAR ASSINATURA" opening the

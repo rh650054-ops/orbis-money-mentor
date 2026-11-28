@@ -4,9 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const A = "6261573e-d339-466d-b7de-665d2b6c76f4", B = "071d204d-6e19-4cbd-ad0a-6345da37858b";
 let usuario: { id: string } | null = { id: A };
+let carregando = false;
 const chamadas: string[] = [];
 let tocar: (() => void) | null = null;
-vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: usuario, loading: false }) }));
+vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: usuario, loading: carregando }) }));
 vi.mock("../api/ponte", () => ({
   temQuick: () => true,
   quick: {
@@ -23,7 +24,7 @@ import { VigiaQuick } from "./vigia-quick";
 function Onde() { return <p data-testid="rota">{useLocation().pathname}</p>; }
 const montar = (rota = "/") => render(<MemoryRouter initialEntries={[rota]}><VigiaQuick /><Routes><Route path="*" element={<Onde />} /></Routes></MemoryRouter>);
 
-beforeEach(() => { chamadas.length = 0; localStorage.clear(); usuario = { id: A }; });
+beforeEach(() => { chamadas.length = 0; localStorage.clear(); usuario = { id: A }; carregando = false; });
 
 describe("VANT Quick's guard", () => {
   it("stamps the signed-in account and its quick sale for the widget", async () => {
@@ -57,5 +58,21 @@ describe("VANT Quick's guard", () => {
     await waitFor(() => expect(tocar).not.toBeNull());
     act(() => tocar?.());
     expect(r.getByTestId("rota").textContent).toBe("/defcon");
+  });
+  it("app opening or coming back from the background (session reloading): nothing is wiped", async () => {
+    carregando = true; usuario = null;                 // boot: session not restored yet
+    const r = montar();
+    await act(async () => { await Promise.resolve(); });
+    expect(chamadas).toEqual([]);
+    carregando = false; usuario = { id: A };           // restored
+    r.rerender(<MemoryRouter><VigiaQuick /></MemoryRouter>);
+    await waitFor(() => expect(chamadas).toContain(`conta:${A}`));
+    chamadas.length = 0;
+    carregando = true;                                 // background → foreground: auth refreshes
+    r.rerender(<MemoryRouter><VigiaQuick /></MemoryRouter>);
+    carregando = false;
+    r.rerender(<MemoryRouter><VigiaQuick /></MemoryRouter>);
+    await act(async () => { await Promise.resolve(); });
+    expect(chamadas).not.toContain("limpar");
   });
 });

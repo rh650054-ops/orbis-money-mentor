@@ -1,5 +1,6 @@
 import Capacitor
 import Foundation
+import UIKit
 import WidgetKit
 #if canImport(ActivityKit)
 import ActivityKit
@@ -19,11 +20,17 @@ public class VantQuickPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "pendentes", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "concluir", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "atividade", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "limpar", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "limpar", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "estado", returnType: CAPPluginReturnPromise)
     ]
 
+    /// Performance widget reloads: at most one per 30 s (WidgetKit budget), but never dropped. A change
+    /// inside the window is reloaded when the window ends (build 29 dropped it: a sale right after the
+    /// DEFCON started never reached the widget), and at once when the app goes to the background.
     private var ultimoRecarregarPainel = Date.distantPast
+    private var recargaPendente: DispatchWorkItem?
     private var observador: NSObjectProtocol?
+    private var observadorFundo: NSObjectProtocol?
 
     override public func load() {
         // a widget tap made while the app is open (or that opened it): the web side is told at once;
@@ -31,13 +38,38 @@ public class VantQuickPlugin: CAPPlugin, CAPBridgedPlugin {
         observador = NotificationCenter.default.addObserver(forName: QuickToque.aviso, object: nil, queue: .main) { [weak self] _ in
             self?.notifyListeners("acao", data: [:], retainUntilConsumed: true)
         }
+        // leaving the app (home screen, lock): the widgets get the last numbers right away
+        observadorFundo = NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self, let pendente = self.recargaPendente else { return }
+            pendente.cancel(); self.recargaPendente = nil
+            self.recarregarPainelAgora()
+        }
     }
 
-    deinit { if let observador { NotificationCenter.default.removeObserver(observador) } }
+    deinit {
+        if let observador { NotificationCenter.default.removeObserver(observador) }
+        if let observadorFundo { NotificationCenter.default.removeObserver(observadorFundo) }
+    }
+
+    private func recarregarPainelAgora() {
+        ultimoRecarregarPainel = Date()
+        WidgetCenter.shared.reloadTimelines(ofKind: "VantPainel")
+    }
+
+    private func recarregarPainel() {
+        let espera = 30 - Date().timeIntervalSince(ultimoRecarregarPainel)
+        if espera <= 0 { recargaPendente?.cancel(); recargaPendente = nil; recarregarPainelAgora(); return }
+        guard recargaPendente == nil else { return }   // one trailing reload already scheduled
+        let item = DispatchWorkItem { [weak self] in self?.recargaPendente = nil; self?.recarregarPainelAgora() }
+        recargaPendente = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + espera, execute: item)
+    }
 
     @objc func definirConta(_ call: CAPPluginCall) {
-        let nova = call.getString("conta")
-        if QuickArmazem.conta != nova { QuickArmazem.conta = nova; WidgetCenter.shared.reloadAllTimelines() }
+        // always written and always reloaded (once per app start / account change): build 29 reloaded
+        // only when the value changed, so a widget that had read "no account" never asked again
+        QuickArmazem.conta = call.getString("conta")
+        DispatchQueue.main.async { WidgetCenter.shared.reloadAllTimelines() }
         call.resolve()
     }
 
@@ -56,11 +88,7 @@ public class VantQuickPlugin: CAPPlugin, CAPBridgedPlugin {
               let painel = try? JSONDecoder().decode(QuickArmazem.Painel.self, from: dados),
               painel.conta == QuickArmazem.conta else { return call.resolve() }
         QuickArmazem.painel = painel
-        // WidgetKit budget: the performance widget is reloaded at most every 30 s from here
-        if Date().timeIntervalSince(ultimoRecarregarPainel) > 30 {
-            ultimoRecarregarPainel = Date()
-            WidgetCenter.shared.reloadTimelines(ofKind: "VantPainel")
-        }
+        DispatchQueue.main.async { [weak self] in self?.recarregarPainel() }
         call.resolve()
     }
 
@@ -102,6 +130,19 @@ public class VantQuickPlugin: CAPPlugin, CAPBridgedPlugin {
         #else
         call.resolve()
         #endif
+    }
+
+    /// Diagnosis for Minha Conta: is the App Group there, what the app wrote, what the widget last saw.
+    @objc func estado(_ call: CAPPluginCall) {
+        let conta = QuickArmazem.conta
+        var r: [String: Any] = ["grupo": QuickArmazem.disponivel, "temConta": conta != nil]
+        if let p = QuickArmazem.painel { r["painelData"] = p.data; r["painelEm"] = p.atualizadoEm }
+        if let l = QuickArmazem.leitura {
+            r["widgetLeuEm"] = l.quando
+            r["widgetViuConta"] = l.viuConta != nil && l.viuConta == conta
+            if let d = l.painelData { r["widgetPainelData"] = d }
+        }
+        call.resolve(r)
     }
 
     @objc func limpar(_ call: CAPPluginCall) {
