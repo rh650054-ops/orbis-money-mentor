@@ -336,3 +336,38 @@ select t.logar(pg_temp.u('volta2'));
 select public.defcon_lancar(pg_temp.id('j-prod2'), 'venda', :'j_s'::uuid, 0, 10, 'dinheiro', pg_temp.id('produto'), 3);
 select t.verdade('J3 product and quantity reach the sale row (what the stock trigger reads)',
   (select product_id = pg_temp.id('produto') and qty = 3 from public.defcon_sales where id = pg_temp.id('j-prod2')));
+
+-- ======================================================================================
+-- 10. Deleted while it was being sent: a deleted sale never survives on the server
+-- ======================================================================================
+select pg_temp.plano(pg_temp.u('apaga'));
+insert into public.defcon_persistencia_contas (user_id) values (pg_temp.u('apaga'));
+select pg_temp.sessao(pg_temp.u('apaga')) as s \gset k_
+-- K1: the delete reaches the server FIRST (the sale's request was delayed on the network)
+select pg_temp.lancar(pg_temp.u('apaga'), pg_temp.id('k1'), 'apagar_venda', :'k_s', 0, 10, 'dinheiro');
+select (pg_temp.lancar(pg_temp.u('apaga'), pg_temp.id('k1'), 'venda', :'k_s', 0, 10, 'dinheiro')) as j \gset k1_
+select t.verdade('K1 the sale arriving AFTER its delete is refused: no row, block 0',
+  not (:'k1_j'::jsonb ->> 'aplicado')::boolean and (:'k1_j'::jsonb ->> 'encerrado')::boolean
+  and not exists (select 1 from public.defcon_sales where id = pg_temp.id('k1'))
+  and (select achieved_amount = 0 from pg_temp.bloco(pg_temp.u('apaga'), 0)));
+-- K2: normal order (sale up, then deleted) and then a late duplicate of the same sale request
+select pg_temp.lancar(pg_temp.u('apaga'), pg_temp.id('k2'), 'venda', :'k_s', 0, 7, 'pix');
+select pg_temp.lancar(pg_temp.u('apaga'), pg_temp.id('k2'), 'apagar_venda', :'k_s', 0, 7, 'pix');
+select pg_temp.lancar(pg_temp.u('apaga'), pg_temp.id('k2'), 'venda', :'k_s', 0, 7, 'pix');
+select t.verdade('K2 deleted after it went up, then a late duplicate of the sale: stays deleted',
+  not exists (select 1 from public.defcon_sales where id = pg_temp.id('k2')) and (select achieved_amount = 0 from pg_temp.bloco(pg_temp.u('apaga'), 0)));
+-- K3: the race with real connections: the sale's transaction is open when the delete arrives
+select dblink_connect('ka', current_setting('vant.teste_conexao'));
+select dblink_connect('kb', current_setting('vant.teste_conexao'));
+select dblink_exec('ka', 'begin');
+select * from dblink('ka', format($q$select set_config('request.jwt.claim.sub', %L, false), public.defcon_lancar(%L, 'venda', %L, 0, 9, 'dinheiro')::text$q$,
+  pg_temp.u('apaga'), pg_temp.id('k3'), :'k_s')) as x(a text, b text);
+select dblink_send_query('kb', format($q$select set_config('request.jwt.claim.sub', %L, false), public.defcon_lancar(%L, 'apagar_venda', %L, 0, 9, 'dinheiro')::text$q$,
+  pg_temp.u('apaga'), pg_temp.id('k3'), :'k_s'));
+select pg_sleep(0.3);
+select dblink_exec('ka', 'commit');
+select * from dblink_get_result('kb') as x(a text, b text);
+select t.verdade('K3 sale being sent + delete at the same moment: deleted, block 0',
+  not exists (select 1 from public.defcon_sales where id = pg_temp.id('k3')) and (select achieved_amount = 0 from pg_temp.bloco(pg_temp.u('apaga'), 0)));
+select dblink_disconnect('ka'); select dblink_disconnect('kb');
+select t.igual('K4 a client cannot read nor forge the closed ids', t.linhas_como('authenticated', pg_temp.u('apaga'), 'select * from public.defcon_ids_encerrados'), -1);

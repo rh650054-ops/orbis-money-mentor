@@ -68,6 +68,19 @@ create table if not exists public.defcon_ajustes (
 );
 create index if not exists defcon_ajustes_sessao on public.defcon_ajustes (session_id, block_index);
 
+-- Ids that can never become a sale/approach again ("lápides"): a deleted sale, or a VANT Quick tap
+-- the iPhone asked about and the server did not have. A request delayed on the network that arrives
+-- AFTER that (the sale being sent while the seller deletes it; the tap whose answer was lost) is
+-- refused, so a deleted sale never survives and an answer given to the iPhone never changes.
+create table if not exists public.defcon_ids_encerrados (
+  id uuid primary key,
+  user_id uuid not null,
+  motivo text not null check (motivo in ('apagada','consultada_sem_registro')),
+  criado_em timestamptz not null default now()
+);
+alter table public.defcon_ids_encerrados enable row level security;
+revoke all on public.defcon_ids_encerrados from anon, authenticated;
+
 create table if not exists public.defcon_conflitos (
   id bigint generated always as identity primary key,
   user_id uuid, session_id uuid, block_index integer,
@@ -410,6 +423,11 @@ begin
   -- future, never before the session's day
   v_quando := least(now(), greatest(coalesce(p_criado_em, now()), s.date::timestamptz - interval '1 day'));
 
+  -- an id already closed (deleted, or answered "not registered") never becomes a sale/approach
+  if p_tipo in ('venda','venda_tardia','gorjeta','abordagem') and exists (select 1 from public.defcon_ids_encerrados where id = p_id) then
+    return jsonb_build_object('aplicado', false, 'encerrado', true, 'id', p_id);
+  end if;
+
   if p_tipo in ('venda','venda_tardia','gorjeta') then
     if p_valor is null or p_valor <= 0 or p_valor > 5000 then raise exception 'valor_invalido'; end if;
     insert into public.defcon_sales (id, user_id, session_id, block_index, amount, method, late, product_id, qty, created_at)
@@ -421,6 +439,8 @@ begin
   elsif p_tipo = 'apagar_venda' then
     delete from public.defcon_sales where id = p_id and user_id = uid and session_id = p_sessao;
     feito := found;
+    -- whether it was there or not (still on its way): this id is closed for good
+    insert into public.defcon_ids_encerrados (id, user_id, motivo) values (p_id, uid, 'apagada') on conflict (id) do nothing;
   elsif p_tipo = 'abordagem' then
     insert into public.defcon_abordagens (id, user_id, session_id, block_index, origem, criado_em)
     values (p_id, uid, p_sessao, p_bloco, p_origem, v_quando) on conflict (id) do nothing;
