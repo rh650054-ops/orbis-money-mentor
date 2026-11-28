@@ -53,38 +53,59 @@ Measured on the 213 account-days: by-date readers see **R$ 147,970.83 more** tha
 
 If the server refused write 2, writes 1, 3, 4 and 5 still run. The session would survive with its sales and `total_sold`, without block counters, with zeroed blocks and a zeroed day. The app then reloads a partly reset day. That is worse than today. Old builds cannot be changed, so any containment must accept the five writes as they come.
 
-## 4. Immediate containment (proposal C0): keep everything the restart deletes, change no result
+## 4. Immediate containment C0: data preservation, NOT the fix (PR #403, draft)
 
-Server only, transparent to every build, no financial change:
+The first proposal (one `before delete` trigger on the session) was wrong: write 1 deletes the block counters **before** the session (Rick, 28/11). C0 now archives **row by row on each destructive write, from the first one**:
 
-- `before delete` trigger on `challenge_sessions`: copies the session row and the rows the cascade is about to delete (`defcon_abordagens`, `defcon_ajustes`, `defcon_occurrences`, the `challenge_blocks` counters) into append-only archive tables (`defcon_arquivo_*`, same columns plus `arquivado_em`, `motivo = 'reinicio_app'`, `cliente` from `x-client-info`). It also writes one row in `defcon_reinicios` (session id, account, day, number and sum of the sales left behind, stock-moving sales).
-- The delete then proceeds exactly as today: same response to the app, same reset, no partial state.
-- From then on, every sale left behind resolves to an archived session (`defcon_sales.session_id` → `defcon_arquivo_sessoes.id`). New sales are no longer "unlinked", and the approaches and ledger corrections are no longer lost.
-- Reversible: dropping the trigger restores today's behaviour; the archive tables are only read.
-- Concurrency: the trigger runs inside the delete's own transaction, so a VANT Quick tap that holds the session lock (`FOR UPDATE`) makes the delete wait, and vice versa. No tap is lost between archive and delete.
-- RLS: archives readable by the owner (select) and by the service role; no client write.
+| Write | Kept (full old row, as JSON) | Step |
+|---|---|---|
+| 1 delete `challenge_blocks` | counters | `contadores` |
+| 2 delete `challenge_sessions` (+ cascade) | session, approaches, ledger corrections, notes, counters re-created meanwhile | `sessao`, … |
+| 3 delete `hourly_goal_blocks '⏱%'` | +1h blocks | `blocos_extras` |
+| 4 zero the blocks | each block **before** zeroing | `blocos_zerados` |
+| 5 zero `daily_sales` | the day **before** zeroing | `dia_zerado` |
+| a sale later written for the deleted session (offline upload) | recorded and linked to the event | — |
 
-C0 does not fix the double meaning of the orphan sales for the by-date readers. That needs the decision of section 5 (A).
+Properties (all tested in `supabase/tests/casos/60_defcon_c0_preservacao.sql`):
+- One event per account and day (10-minute window, advisory lock), one copy per (event, table, row, step), so retries archive nothing new. A step missing from the event means that write never ran (`defcon_c0_resumo` reports it as partial).
+- It never blocks a client. Errors become warnings, and an ordinary sale costs nothing extra (`WHEN` filters run before any function call).
+- VANT Quick: the session delete waits for the tap's session lock, so the archived session includes the tap.
+- Account deletion: nothing is archived inside `apagar_dados_do_usuario` / `conta_teste_zerar` (`pg_context`) or for an unknown user. Archive rows cascade with `auth.users`, which covers the admin path that deletes the auth user last.
+- RLS: owner reads, no client writes. Retention: 400 days (decision pending), with a purge function and no cron created.
+
+C0 does not change the double meaning of the orphan sales for the by-date readers; that is A/B/C plus the reconciliation.
 
 ## 5. Target architecture: three different operations
 
 Each one is a single `SECURITY DEFINER` RPC, atomic, idempotent by a client id (`p_id`, kept in `defcon_ids_encerrados` like the ledger's taps), with `FOR UPDATE` on the session (the same lock VANT Quick takes), and one row in an append-only audit table (who, when, client, before/after totals).
 
-### A. Restart the operation (`defcon_reiniciar_jornada(p_sessao, p_id)`)
-The day's **sales are kept**: they were real, and their money, stock and cost stay.
-- The session is **not** deleted. Its timer, the current block, the pauses and the block plan return to the start (a new `jornada` number on the session, so reports can tell the two runs apart).
-- The day's revenue is **unchanged** (derived from the sales, ADR 0001). The user is told before confirming: "As vendas de hoje continuam registradas".
-- Approaches are kept with their `jornada` (conversion per run and per day both computable).
+### Data model (proposal)
 
-### B. Reverse a sale (`defcon_estornar_venda(p_venda, p_motivo, p_id)`)
-- The sale row is kept, marked `estornada_em` / `estorno_motivo` / `estornada_por`. Revenue, ranking, X1 and profit readers exclude reversed sales.
-- Its effects are undone **exactly once**: stock, flavour, ingredients, `qty_sold`, cost and `product_sales_log`, guarded by the reversal row's unique key (a second call answers "já estornada").
-- Allowed on any day the user may edit. A sale already conciliated (`mp_vendas.defcon_sale_id`, Open Finance match) is refused with "venda conciliada", and points to the bank screen.
+| Change | Purpose |
+|---|---|
+| `challenge_sessions.jornada int not null default 1` | the current run of the day's operation; A increments it |
+| `defcon_jornadas (session_id, jornada, iniciada_em, encerrada_em, motivo, cliente)` | history of the runs (who, when, why) |
+| `jornada int` on `defcon_abordagens`, `defcon_ajustes`, `challenge_blocks` (unique becomes `(session_id, jornada, block_index)`), `defcon_sales` | approaches, corrections and counters per run; sales keep the run they happened in |
+| `defcon_sales.estornada_em / estorno_motivo / estornada_por / estorno_devolveu_estoque` | B: the original row stays, marked |
+| `defcon_estornos (venda_id pk, id_operacao unique, devolveu_estoque, efeitos jsonb, criado_em)` | B exactly once: the effects actually undone |
+| `defcon_descartes (id, id_operacao unique, ids uuid[], motivo, devolveu_estoque, confirmacao, criado_em)` + rows moved to `defcon_arquivo` | C with an audit trail |
+| view `defcon_vendas_validas` = not reversed, not discarded | the ONE reader filter for ranking, X1, profit goals, reports |
+| `defcon_operacoes (id_operacao pk, tipo, user_id, resultado jsonb, criado_em)` | idempotency of A/B/C (a resent call returns the first answer) |
 
-### C. Discard wrong or test records (`defcon_descartar(p_ids[], p_motivo, p_devolver_estoque bool, p_id)`)
-- Explicit confirmation listing every record and its value. The rows move to `defcon_arquivo_*` with the reason (`teste`, `duplicada_confirmada`); they are never physically lost.
-- Stock is returned **only** when the user says the products did not leave (`p_devolver_estoque`). The default is no, which avoids physical/digital stock drift.
-- Conciliated sales are refused (same rule as B).
+### RPC contracts (proposal)
+
+All three: `security definer`, `auth.uid()` must own the session or sale, a client `p_id_operacao uuid` (a retry returns the stored answer), `FOR UPDATE` on the session (the lock VANT Quick takes), one transaction, one audit row.
+
+| RPC | Input | Answer | Refuses |
+|---|---|---|---|
+| `defcon_reiniciar_jornada(p_sessao, p_id_operacao, p_motivo)` | session | `{ok, jornada, vendas_preservadas, valor_preservado}` | session of another account; a day already closed |
+| `defcon_estornar_venda(p_venda, p_id_operacao, p_motivo, p_devolver_estoque bool)` | sale | `{ok, ja_estornada, efeitos}` | `venda_conciliada` (mp_vendas / Open Finance match), `competicao_encerrada` (a sale of a closed competition or awarded period: kept, its own correction flow), another account |
+| `defcon_descartar(p_ids uuid[], p_id_operacao, p_motivo, p_devolver_estoque bool, p_confirmacao text)` | sales or records | `{ok, descartados, valor, devolvido}` | missing or wrong confirmation (must repeat the count and total shown), conciliated sales, another account |
+
+- **A, restart the run**: sales, the day's revenue, cost and stock stay untouched. The timer, the current block and the pauses go back to the start of `jornada + 1`; earlier runs' blocks and approaches stay readable. The app shows "Nenhuma venda será apagada" before confirming.
+- **Interaction with #401** (Rick, 28/11): the Live Activity refuses an older block of the same session. A restart is legitimate only as a new **run**, so the Live Activity's mark becomes `(sessao, jornada)`. Within a run, an older block is refused; a newer run starts over at block 1; a late answer of the previous run is refused like one of another session.
+- **B, reversal**: cancelling the money and returning the goods are separate. `p_devolver_estoque` defaults to false (the product left with the customer unless the seller says otherwise). Stock, variant, ingredients, `qty_sold` and cost move only when it is true, exactly once (`defcon_estornos`). Competition and prize closing rules are respected (refused after the close, so a closed ranking never changes silently).
+- **C, discard**: explicit confirmation, rows archived (never physically lost), stock only by consent, no silent financial deletion (the count and value removed are in the answer and in the audit).
 
 ### Old clients
 Builds that still call the five writes go through C0 (section 4) until a minimum version is enforced. New builds call A / B / C. A server switch (`defcon_persistencia_config`) decides when the old path is refused (with an update message), never before most users have moved.
@@ -92,47 +113,48 @@ Builds that still call the five writes go through C0 (section 4) until a minimum
 ### Concerns checked
 Operation atomic on the server (one RPC, one transaction) · idempotency (`p_id`) · concurrency with VANT Quick (`FOR UPDATE` on the session, the advisory lock per tap) · financial history kept (archive, no physical delete) · stock and cost moved once, only by B or by C with explicit consent · Open Finance and machine payments: conciliated sales are protected · ranking, X1, profit goals read "not reversed, not discarded" in one shared view (`defcon_vendas_validas`) instead of each filtering on its own · audit table on every operation.
 
-## 6. Historical records (the 1,982 sales): classification, no change
+## 6. Historical records: classification (no change to any record)
 
-Rule from Rick: **two sales are never duplicates just because they share value and payment method.**
+The query is `arquitetura/0002-classificacao.sql` (read only, versioned, fixed cutoff). It returns one row per sale with its class and its evidence: the pair in the live session, when it was entered, the session's share paired, and the original and re-entry durations.
 
-Classes, per deleted session, from signals:
+**Universe** at cutoff `2026-11-28 20:00 UTC`: **1,987 sales, 295 sessions, 92 accounts, R$ 150,544.98**. The first audit (~18:40 UTC) saw 1,982 / 294 / R$ 149,721.98. The difference (5 sales, 1 session, R$ 823.00) is a customer restart on 28/11 between 16:06 and 16:08 BRT, between the two queries: the incident is still happening. One deleted session spans midnight (18→19/09), so a session's day is the day of its first sale.
 
-| Class | Signals (all read-only) |
-|---|---|
-| test | account in `apple_contas_de_teste` or review/test e-mail |
-| confirmed legitimate | linked to a machine payment (`mp_vendas`) or to a bank entry matched by Open Finance |
-| probable legitimate | no new session that day, or the new session repeats none of the old sales after the restart |
-| possible repetition | a new session that day whose sales, **after** the restart, repeat ≥ 80% of the old ones **in the same order** (value, method, product, quantity), entered much faster than the original pace (≤ ⅓ of the original span or ≤ 10 min) |
-| inconclusive | everything else |
+Every sale has exactly one class (one `CASE`, first rule that holds), and the classes add up to the universe:
 
-Preliminary read-only count (28/11, session level; one session was counted in two classes, to check):
-
-| Class | Sessions | Sales | Value | With product | Accounts |
+| Class | Sales | Value | With product | Sessions* | Accounts* |
 |---|---|---|---|---|---|
-| probable legitimate | 284 | 1,904 | R$ 149,291.98 | 109 | 91 |
-| inconclusive | 6 | 44 | R$ 753.00 | 35 | 5 |
-| possible repetition | 4 | 35 | R$ 420.00 | 35 | 3 |
-| test | 1 | 4 | R$ 80.00 | 0 | 1 |
-| confirmed legitimate | 0 | 0 | — | — | — |
+| L probable legitimate | 1,368 | R$ 140,254.98 | 124 | 232 | 82 |
+| I inconclusive | 400 | R$ 6,923.00 | 20 | 98 | 40 |
+| R possible repetition | 215 | R$ 3,287.00 | 35 | 21 | 10 |
+| T test | 4 | R$ 80.00 | 0 | 1 | 1 |
+| C confirmed legitimate | 0 | — | — | — | — |
+| **Total (unique)** | **1,987** | **R$ 150,544.98** | **179** | **295** | **92** |
 
-The earlier signal "1,062 sales with an equal value and method in the new session" over-counts. With the order and pace rules, the possible repetitions are 35 sales.
+\* A session or an account can hold sales of several classes, so those columns overlap (their sum is above the unique total). The 619 pairs are 619 different live sales (1 to 1).
+
+**Corrections to the first count (28/11, same day).**
+1. Product compared with `USING (product_id)`: a NULL product never matched NULL, so most pairs were lost (35 "repetitions").
+2. Each deleted session was compared with the same live sales: a day with three restarts used the same 52 live sales three times.
+3. The two counts were taken at different moments without a fixed cutoff.
+
+The thresholds (80%, ⅓ of the span, 10 min) are **investigative heuristics only**, not proof of duplication (Rick, 28/11). Value and method alone never classify.
+
+**Concentration.** Three accounts hold R$ 111,438 of the R$ 150,545: one with five sales totalling R$ 51,234 on 12/08, one with 42 sales totalling R$ 32,300 on 07/08, and one with 636 sales across 35 sessions. Values that high in one session are a signal for the per-account review (a typo or a test), not a class.
 
 ## 7. Reconciliation plan (separate, not executed)
 
-1. **Snapshot**: copy the 1,982 rows and every derived figure (stock, `qty_sold`, cost, `daily_sales`) to a dated read-only schema. This is the rollback point.
-2. **Classification table** `defcon_reconciliacao` (sale id, class, signals as JSON, rule version), written by a read-only job. Re-runnable, versioned.
-3. **Report per account** (sessions, sales, value, products, class, evidence) for Rick's review. Nothing changes without his explicit decision per class, and per account for "possible repetition" and "inconclusive".
-4. **Actions**, only after approval and only through the section 5 operations:
-   - probable or confirmed legitimate: link to the archived session (C0 tables), no money or stock change;
+1. **Classification table** `defcon_reconciliacao (venda_id, classe, regra, evidencia jsonb, versao_regra, corte)`, filled by the read-only query. Re-runnable, versioned, with the cutoff stored.
+2. **Per-account review** by Rick. Nothing changes without his decision per account; R and I always per account. The report is `reconciliacao_por_conta_*.csv`.
+3. **Actions only through the operations of §5, one audit row each:**
+   - legitimate: linked to the archived session (C0 tables); money and stock untouched;
    - test: C (discard), stock untouched unless confirmed;
-   - confirmed repetition: B (reverse), stock once.
-5. **Audit and reversal**: every action writes its before/after. A per-batch undo reads the snapshot and the audit (no hand edits).
-6. **Verification**: after each batch, the session totals, `daily_sales`, ranking, X1 and profit goals of the affected days are recomputed and compared with the expected figures.
+   - confirmed repetition: B (reverse), stock only if the goods came back.
+4. **Reversal by compensating operations**, never by restoring snapshots. Undoing a reversal is a new counter-entry (re-apply the sale's effects once, audited). A snapshot restore could overwrite legitimate sales made after the reconciliation. Snapshots exist only for **comparison** in the verification step.
+5. **Verification after each batch**: session totals, `daily_sales`, ranking, X1, profit goals and stock of the affected days, recomputed and compared with the expected figures (snapshot + the batch's own audit).
+6. Until Rick decides otherwise, the by-date screens **keep counting** the orphan sales (no reader changes now).
 
 ## 8. Decisions needed from Rick
 
-1. C0 (archive on delete) as the immediate containment.
-2. A, B and C as the target, and the restart's new meaning ("as vendas continuam").
-3. Whether by-date readers (profit, X1, sobrar) should exclude sales of restarted sessions **before** the reconciliation (it changes figures users see).
-4. The classification thresholds (80% / ⅓ of the span / 10 min) before the per-account report.
+1. C0 (PR #403): authorize its application; retention period (400 days proposed) and the purge schedule.
+2. The data model and RPC contracts of §5 before any implementation, including the meaning of B for closed competitions and awards.
+3. The per-account review of classes R and I (215 + 400 sales), starting with the three concentrated accounts.
