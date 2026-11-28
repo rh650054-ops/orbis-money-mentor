@@ -135,7 +135,7 @@ enum QuickArmazem {
     struct PainelDoServidor: Codable { let conta: String; let quando: Double; let painel: QuickServidor.Painel }
     static var painelServidor: PainelDoServidor? {
         let conta = self.conta
-        let candidatos = paineis().filter { $0.nome.carimbo > 0 }
+        let candidatos = paineis().filter { conta == nil || $0.nome.conta == conta }
         for c in candidatos.sorted(by: { $0.nome > $1.nome }) {
             if let p = (try? Data(contentsOf: c.url)).flatMap({ try? JSONDecoder().decode(PainelDoServidor.self, from: $0) }),
                conta == nil || p.conta == conta { return p }
@@ -151,9 +151,9 @@ enum QuickArmazem {
         guard self.conta == conta, let dir = pastaPaineis else { return false }   // the account changed meanwhile
         guard QuickOrdem.substituiCache(p, conta: conta, atual: painelServidor) else { return false }
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let nome = NomePainel(carimbo: Int64(((p.geradoEm ?? 0) * 1000).rounded()), unico: UUID().uuidString)
+        let nome = NomePainel(carimbo: Int64(((p.geradoEm ?? 0) * 1000).rounded()), conta: conta, unico: UUID().uuidString)
         escrever(PainelDoServidor(conta: conta, quando: Date().timeIntervalSince1970 * 1000, painel: p), dir.appendingPathComponent(nome.arquivo))
-        varrerPaineis(manter: 4)
+        varrerPaineis(conta: conta, manter: 4)
         if let antigo = arquivo(Chave.painelServidor) { try? FileManager.default.removeItem(at: antigo) }
         return true
     }
@@ -164,13 +164,17 @@ enum QuickArmazem {
     }
 
     private static var pastaPaineis: URL? { pasta?.appendingPathComponent("paineis-servidor", isDirectory: true) }
+    /// "<server time, µs>_<account>_<unique>.json": the account is in the name, so a reader and the
+    /// sweep never mix accounts (a fresh account's answer is never swept by another's newer ones).
     struct NomePainel: Comparable {
-        let carimbo: Int64, unico: String
-        var arquivo: String { String(format: "%020lld", carimbo) + "-" + unico + ".json" }
-        init(carimbo: Int64, unico: String) { self.carimbo = carimbo; self.unico = unico }
+        let carimbo: Int64, conta: String, unico: String
+        var arquivo: String { String(format: "%020lld", carimbo) + "_" + conta + "_" + unico + ".json" }
+        init(carimbo: Int64, conta: String, unico: String) { self.carimbo = carimbo; self.conta = conta; self.unico = unico }
         init?(arquivo: String) {
-            guard arquivo.hasSuffix(".json"), let traco = arquivo.firstIndex(of: "-"), let c = Int64(arquivo[..<traco]) else { return nil }
-            carimbo = c; unico = String(arquivo[arquivo.index(after: traco)...].dropLast(5))
+            guard arquivo.hasSuffix(".json") else { return nil }
+            let partes = arquivo.dropLast(5).split(separator: "_", omittingEmptySubsequences: false)
+            guard partes.count == 3, let c = Int64(partes[0]) else { return nil }
+            carimbo = c; conta = String(partes[1]); unico = String(partes[2])
         }
         static func < (a: NomePainel, b: NomePainel) -> Bool { a.carimbo != b.carimbo ? a.carimbo < b.carimbo : a.unico < b.unico }
     }
@@ -179,9 +183,13 @@ enum QuickArmazem {
               let itens = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { return [] }
         return itens.compactMap { u in NomePainel(arquivo: u.lastPathComponent).map { ($0, u) } }
     }
-    private static func varrerPaineis(manter: Int) {
-        let todos = paineis().sorted { $0.nome > $1.nome }
-        for velho in todos.dropFirst(manter) { try? FileManager.default.removeItem(at: velho.url) }
+    /// Keeps the newest few answers of the account; another account's answers are removed (they
+    /// are never shown to this one, and they should not stay on the phone).
+    private static func varrerPaineis(conta: String, manter: Int) {
+        let todos = paineis()
+        for outro in todos where outro.nome.conta != conta { try? FileManager.default.removeItem(at: outro.url) }
+        let daConta = todos.filter { $0.nome.conta == conta }.sorted { $0.nome > $1.nome }
+        for velho in daConta.dropFirst(manter) { try? FileManager.default.removeItem(at: velho.url) }
     }
     /// The last tap whose answer never arrived: asked about later (QuickAcao.resolverDuvida).
     struct Duvida: Codable { let id: String; let tipo: String; let conta: String; let quando: Double }
