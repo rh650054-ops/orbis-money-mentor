@@ -6,6 +6,8 @@ const leu = Date.UTC(2026, 10, 28, 11, 5);   // 08:05 in Brazil
 describe("widget diagnosis in Minha Conta", () => {
   it("tells each failure apart", () => {
     expect(lerDiagnostico(null).ok).toBe(false);
+    // builds 29/30: SceneDelegate never registered the plugin
+    expect(lerDiagnostico({ grupo: true, temConta: true }, false).texto).toMatch(/não carregou neste build/);
     expect(lerDiagnostico({ grupo: false, temConta: false }).texto).toMatch(/App Group/);
     expect(lerDiagnostico({ grupo: true, temConta: false }).texto).toMatch(/ainda não foi enviada/);
     expect(lerDiagnostico({ grupo: true, temConta: true }).texto).toMatch(/ainda não leu/);

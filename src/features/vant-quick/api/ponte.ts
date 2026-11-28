@@ -1,4 +1,4 @@
-import { registerPlugin, type PluginListenerHandle } from "@capacitor/core";
+import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import { plataforma } from "@/shared/lib/platform";
 import type { Acao, Atividade, EstadoAcao, Painel } from "../types";
 
@@ -32,6 +32,8 @@ export interface EstadoQuick {
 
 const nativo = registerPlugin<PluginQuick>("VantQuick");
 export const temQuick = () => plataforma() === "ios";
+/** the native side is really there (false = the plugin was not registered in this build) */
+export const pluginCarregado = () => temQuick() && Capacitor.isPluginAvailable("VantQuick");
 
 async function seguro<T>(f: () => Promise<T>, padrao: T): Promise<T> {
   if (!temQuick()) return padrao;
