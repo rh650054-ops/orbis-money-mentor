@@ -1,17 +1,5 @@
 import { z } from "zod";
 
-/** One tap on the home-screen widget, written by the App Intent into the App Group (iOS).
-    It carries NO amount: the amount is always the one configured in the app. */
-export const AcaoSchema = z.object({
-  id: z.string().uuid(),
-  tipo: z.enum(["venda", "abordagem"]),
-  /** ms since epoch, when the tap happened */
-  criadoEm: z.number().int().positive(),
-  /** the VANT account stamped by the app in the App Group when the tap happened (null = none signed in) */
-  conta: z.string().uuid().nullable(),
-});
-export type Acao = z.infer<typeof AcaoSchema>;
-
 /** The quick sale configured by the user, kept per account on this device. */
 export const ConfigQuickSchema = z.object({
   valor: z.number().positive().max(5000),
@@ -48,7 +36,12 @@ export interface Atividade {
   metaHora: number;
   vendasBloco: number;
   pausado: boolean;
+  /** the day, as the app shows it (the iPhone replaces it with the server's after a widget tap) */
+  faturamentoDia: number;
+  metaDia: number;
+  vendasDia: number;
+  abordagensDia: number;
+  /** the VANT Quick sale value, null when not set */
+  rapidaValor: number | null;
 }
 
-/** What the widget shows about the last tap. */
-export type EstadoAcao = "pendente_sync" | "confirmada" | "recusada";

@@ -17,8 +17,8 @@ public class VantQuickPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "definirConta", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "salvarConfig", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "salvarPainel", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "pendentes", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "concluir", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "guardarCredencial", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "definirInterativo", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "atividade", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "limpar", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "estado", returnType: CAPPluginReturnPromise)
@@ -33,16 +33,15 @@ public class VantQuickPlugin: CAPPlugin, CAPBridgedPlugin {
     private var observadorFundo: NSObjectProtocol?
 
     override public func load() {
-        // a widget tap made while the app is open (or that opened it): the web side is told at once;
-        // retainUntilConsumed keeps it until the web side is listening (cold start)
-        observador = NotificationCenter.default.addObserver(forName: QuickToque.aviso, object: nil, queue: .main) { [weak self] _ in
-            self?.notifyListeners("acao", data: [:], retainUntilConsumed: true)
+        // coming back to the app: the widgets and the Live Activity re-read the SERVER's totals
+        observador = NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { _ in
+            Task { await VantQuickPlugin.puxarDoServidor() }
         }
         // leaving the app (home screen, lock): the widgets get the last numbers right away
         observadorFundo = NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
-            guard let self, let pendente = self.recargaPendente else { return }
-            pendente.cancel(); self.recargaPendente = nil
-            self.recarregarPainelAgora()
+            guard let self else { return }
+            if let pendente = self.recargaPendente { pendente.cancel(); self.recargaPendente = nil; self.recarregarPainelAgora() }
+            Task { await VantQuickPlugin.puxarDoServidor() }
         }
     }
 
@@ -83,32 +82,49 @@ public class VantQuickPlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve()
     }
 
+    /// The server's panel of this account (display only, no limit counted), into the widgets and
+    /// the Live Activity. Only when this account may use VANT Quick interactive.
+    static func puxarDoServidor() async {
+        guard QuickArmazem.interativo, let conta = QuickArmazem.conta else { return }
+        await QuickAcao.resolverDuvida()
+        if case .confirmada(let p) = await QuickServidor.enviar(acao: "painel", id: nil, origem: "widget"), let p, QuickArmazem.conta == conta {
+            QuickArmazem.painelServidor = .init(conta: conta, quando: Date().timeIntervalSince1970 * 1000, painel: p)
+            WidgetCenter.shared.reloadAllTimelines()
+            #if canImport(ActivityKit)
+            if #available(iOS 16.2, *) { await QuickAtividadeServidor.aplicar(conta: conta, painel: p, aviso: nil, avisoOk: false) }
+            #endif
+        }
+    }
+
+    /// The device credential (shown once by the server) goes to the Keychain; the project URL (public)
+    /// to the App Group. Never to UserDefaults, never logged.
+    @objc func guardarCredencial(_ call: CAPPluginCall) {
+        guard let token = call.getString("token"), token.hasPrefix("vq1_"), token.count == 68,
+              let servidor = call.getString("servidor"), servidor.hasPrefix("https://") else { return call.reject("dados") }
+        guard QuickCofre.guardar(token) else { return call.reject("keychain") }
+        QuickArmazem.servidor = servidor
+        call.resolve()
+    }
+
+    @objc func definirInterativo(_ call: CAPPluginCall) {
+        let ativo = call.getBool("ativo") ?? false
+        if QuickArmazem.interativo != ativo {
+            QuickArmazem.interativo = ativo
+            if !ativo { QuickArmazem.painelServidor = nil }
+            DispatchQueue.main.async { WidgetCenter.shared.reloadAllTimelines() }
+        }
+        if ativo { Task { await VantQuickPlugin.puxarDoServidor() } }
+        call.resolve()
+    }
+
     @objc func salvarPainel(_ call: CAPPluginCall) {
+        // interactive: the server's panel is the one shown (the screen may not know a widget sale yet)
+        if QuickArmazem.interativo { return call.resolve() }
         guard let bruto = call.getObject("painel"), let dados = try? JSONSerialization.data(withJSONObject: bruto),
               let painel = try? JSONDecoder().decode(QuickArmazem.Painel.self, from: dados),
               painel.conta == QuickArmazem.conta else { return call.resolve() }
         QuickArmazem.painel = painel
         DispatchQueue.main.async { [weak self] in self?.recarregarPainel() }
-        call.resolve()
-    }
-
-    @objc func pendentes(_ call: CAPPluginCall) {
-        let acoes: [[String: Any]] = QuickArmazem.pendentes.map {
-            ["id": $0.id, "tipo": $0.tipo, "criadoEm": $0.criadoEm, "conta": $0.conta as Any? ?? NSNull()]
-        }
-        call.resolve(["acoes": acoes])
-    }
-
-    @objc func concluir(_ call: CAPPluginCall) {
-        guard let id = call.getString("id"), let estado = call.getString("estado"),
-              ["pendente_sync", "confirmada", "recusada"].contains(estado) else { return call.reject("dados") }
-        let tipo = QuickArmazem.pendentes.first(where: { $0.id == id })?.tipo ?? QuickArmazem.ultima?.tipo ?? "venda"
-        QuickArmazem.remover(id)
-        // the status line follows the LAST tap only
-        if QuickArmazem.ultima == nil || QuickArmazem.ultima?.id == id || estado == "recusada" {
-            QuickArmazem.ultima = QuickArmazem.Ultima(id: id, tipo: tipo, estado: estado, texto: call.getString("texto"), quando: Date().timeIntervalSince1970 * 1000)
-        }
-        WidgetCenter.shared.reloadTimelines(ofKind: "VantVendaRapida")
         call.resolve()
     }
 
@@ -125,8 +141,18 @@ public class VantQuickPlugin: CAPPlugin, CAPBridgedPlugin {
             blocoInicio: Date(timeIntervalSince1970: inicio / 1000), blocoFim: Date(timeIntervalSince1970: fim / 1000),
             bloco: d["bloco"] as? Int ?? 1, totalBlocos: d["totalBlocos"] as? Int ?? 1,
             faturamentoBloco: d["faturamentoBloco"] as? Double ?? 0, metaHora: d["metaHora"] as? Double ?? 0,
-            vendasBloco: d["vendasBloco"] as? Int ?? 0, pausado: d["pausado"] as? Bool ?? false)
-        Task { await GerenteAtividade.atualizar(conta: conta, estado: estado); call.resolve() }
+            vendasBloco: d["vendasBloco"] as? Int ?? 0, pausado: d["pausado"] as? Bool ?? false,
+            faturamentoDia: d["faturamentoDia"] as? Double ?? 0, metaDia: d["metaDia"] as? Double ?? 0,
+            vendasDia: d["vendasDia"] as? Int ?? 0, abordagensDia: d["abordagensDia"] as? Int ?? 0,
+            rapidaValor: d["rapidaValor"] as? Double, interativo: QuickArmazem.interativo)
+        Task {
+            await GerenteAtividade.atualizar(conta: conta, estado: estado)
+            // interactive: the day's numbers are the server's, on top of the app's block timing
+            if QuickArmazem.interativo, let ps = QuickArmazem.painelServidor, ps.conta == conta {
+                await QuickAtividadeServidor.aplicar(conta: conta, painel: ps.painel, aviso: nil, avisoOk: false)
+            }
+            call.resolve()
+        }
         #else
         call.resolve()
         #endif

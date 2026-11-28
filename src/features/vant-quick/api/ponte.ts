@@ -1,6 +1,6 @@
-import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { plataforma } from "@/shared/lib/platform";
-import type { Acao, Atividade, EstadoAcao, Painel } from "../types";
+import type { Atividade, Painel } from "../types";
 
 /* The native side of VANT Quick (ios/App/App/VantQuickPlugin.swift): App Group storage, widget
    reloads and the DEFCON Live Activity. iPhone only; everywhere else every call is a no-op.
@@ -9,12 +9,11 @@ interface PluginQuick {
   definirConta(o: { conta: string | null }): Promise<void>;
   salvarConfig(o: { valor: number; rotulo: string } | { valor: null; rotulo: null }): Promise<void>;
   salvarPainel(o: { painel: Painel }): Promise<void>;
-  pendentes(): Promise<{ acoes: unknown[] }>;
-  concluir(o: { id: string; estado: EstadoAcao; texto?: string }): Promise<void>;
+  guardarCredencial(o: { token: string; servidor: string }): Promise<void>;
+  definirInterativo(o: { ativo: boolean }): Promise<void>;
   atividade(o: { acao: "atualizar"; dados: Atividade } | { acao: "encerrar" }): Promise<void>;
   limpar(): Promise<void>;
   estado(): Promise<EstadoQuick>;
-  addListener(evento: "acao", f: () => void): Promise<PluginListenerHandle>;
 }
 
 /** Diagnosis of the widget channel (Minha Conta). */
@@ -45,12 +44,11 @@ export const quick = {
   salvarConfig: (valor: number | null, rotulo: string | null) =>
     seguro(() => nativo.salvarConfig(valor === null || rotulo === null ? { valor: null, rotulo: null } : { valor, rotulo }), undefined),
   salvarPainel: (painel: Painel) => seguro(() => nativo.salvarPainel({ painel }), undefined),
-  pendentes: async (): Promise<unknown[]> => (await seguro(() => nativo.pendentes(), { acoes: [] as unknown[] })).acoes ?? [],
-  concluir: (id: string, estado: EstadoAcao, texto?: string) => seguro(() => nativo.concluir({ id, estado, ...(texto ? { texto } : {}) }), undefined),
+  /** the device credential goes straight to the Keychain (never kept on the web side) */
+  guardarCredencial: (token: string, servidor: string) => seguro(async () => { await nativo.guardarCredencial({ token, servidor }); return true; }, false),
+  definirInterativo: (ativo: boolean) => seguro(() => nativo.definirInterativo({ ativo }), undefined),
   atualizarAtividade: (dados: Atividade) => seguro(() => nativo.atividade({ acao: "atualizar", dados }), undefined),
   encerrarAtividade: () => seguro(() => nativo.atividade({ acao: "encerrar" }), undefined),
   limpar: () => seguro(() => nativo.limpar(), undefined),
   estado: () => seguro<EstadoQuick | null>(() => nativo.estado(), null),
-  aoTocarNoWidget: (f: () => void) => seguro(() => nativo.addListener("acao", f), null),
 };
-export type { Acao };

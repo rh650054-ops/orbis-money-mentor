@@ -31,6 +31,10 @@
 		A7C0DE00000000000000001A /* DefconAtividade.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE00000000000000000A /* DefconAtividade.swift */; };
 		A7C0DE00000000000000001B /* Estilo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE00000000000000000B /* Estilo.swift */; };
 		A7C0DE00000000000000001C /* VantQuick.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A7C0DE00000000000000000E /* VantQuick.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A7C0DE000000000000000102 /* QuickCofre.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE000000000000000101 /* QuickCofre.swift */; };
+		A7C0DE000000000000000103 /* QuickCofre.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE000000000000000101 /* QuickCofre.swift */; };
+		A7C0DE000000000000000105 /* QuickServidor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE000000000000000104 /* QuickServidor.swift */; };
+		A7C0DE000000000000000106 /* QuickServidor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE000000000000000104 /* QuickServidor.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -60,6 +64,8 @@
 		A7C0DE00000000000000000C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A7C0DE00000000000000000D /* VantQuick.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = VantQuick.entitlements; sourceTree = "<group>"; };
 		A7C0DE00000000000000000E /* VantQuick.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VantQuick.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A7C0DE000000000000000101 /* QuickCofre.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCofre.swift; sourceTree = "<group>"; };
+		A7C0DE000000000000000104 /* QuickServidor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickServidor.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -125,6 +131,8 @@
 			isa = PBXGroup;
 			children = (
 				A7C0DE000000000000000004 /* QuickArmazem.swift */,
+				A7C0DE000000000000000104 /* QuickServidor.swift */,
+				A7C0DE000000000000000101 /* QuickCofre.swift */,
 				A7C0DE000000000000000005 /* QuickAtributos.swift */,
 				A7C0DE000000000000000006 /* QuickIntents.swift */,
 			);
@@ -261,6 +269,8 @@
 				A7C0DE000000000000000013 /* QuickIntents.swift in Sources */,
 				A7C0DE000000000000000012 /* QuickAtributos.swift in Sources */,
 				A7C0DE000000000000000011 /* QuickArmazem.swift in Sources */,
+				A7C0DE000000000000000105 /* QuickServidor.swift in Sources */,
+				A7C0DE000000000000000102 /* QuickCofre.swift in Sources */,
 				A7C0DE000000000000000010 /* MainViewController.swift in Sources */,
 				A7C0DE00000000000000000F /* VantQuickPlugin.swift in Sources */,
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
@@ -273,6 +283,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A7C0DE000000000000000014 /* QuickArmazem.swift in Sources */,
+				A7C0DE000000000000000106 /* QuickServidor.swift in Sources */,
+				A7C0DE000000000000000103 /* QuickCofre.swift in Sources */,
 				A7C0DE000000000000000015 /* QuickAtributos.swift in Sources */,
 				A7C0DE000000000000000016 /* QuickIntents.swift in Sources */,
 				A7C0DE000000000000000017 /* VantQuickBundle.swift in Sources */,

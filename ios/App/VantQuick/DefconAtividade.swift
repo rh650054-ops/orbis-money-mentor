@@ -64,23 +64,54 @@ struct Cronometro: View {
     }
 }
 
+/// Lock screen, as in Rick's mockup (28/11/2026): day revenue and block countdown, goal progress,
+/// "Faltam", the approach and quick sale buttons, and sales · approaches · conversion.
 struct TelaBloqueada: View {
     let s: QuickAtributos.ContentState
+    private var progressoDia: Double { s.metaDia > 0 ? min(1, s.faturamentoDia / s.metaDia) : 0 }
+    private var conversao: String { s.abordagensDia > 0 ? Estilo.porcento(Double(s.vendasDia) / Double(s.abordagensDia)) : "—" }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("DEFCON · BLOCO \(s.bloco)/\(s.totalBlocos)").font(.system(size: 11, weight: .black)).tracking(1.2).foregroundStyle(Estilo.ouro)
+            HStack {
+                Text("VANT QUICK").font(.system(size: 13, weight: .black)).foregroundStyle(Estilo.ouro)
                 Spacer()
-                Cronometro(s: s, tamanho: 24)
+                Text(s.pausado ? "DEFCON EM PAUSA" : "DEFCON ATIVO").font(.system(size: 11, weight: .bold)).foregroundStyle(s.pausado ? Estilo.apagado : Estilo.ouro)
             }
-            HStack(alignment: .lastTextBaseline, spacing: 6) {
-                Text(Estilo.reaisCurto(s.faturamentoBloco)).font(.system(size: 30, weight: .black, design: .rounded)).foregroundStyle(Estilo.texto)
-                Text("de \(Estilo.reaisCurto(s.metaHora))").font(.system(size: 13, weight: .bold)).foregroundStyle(Estilo.apagado)
+            HStack(alignment: .lastTextBaseline) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Faturamento").font(.system(size: 11, weight: .semibold)).foregroundStyle(Estilo.apagado)
+                    Text(Estilo.reais(s.faturamentoDia)).font(.system(size: 26, weight: .black, design: .rounded)).foregroundStyle(Estilo.texto)
+                        .minimumScaleFactor(0.6).lineLimit(1)
+                }
                 Spacer()
-                Text("\(s.vendasBloco) \(s.vendasBloco == 1 ? "venda" : "vendas")").font(.system(size: 14, weight: .black)).foregroundStyle(Estilo.texto)
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text("Tempo restante").font(.system(size: 11, weight: .semibold)).foregroundStyle(Estilo.apagado)
+                    Cronometro(s: s, tamanho: 24).foregroundStyle(Estilo.ouro)
+                }
             }
-            BarraOuro(valor: progresso(s))
+            BarraOuro(valor: progressoDia, altura: 6)
+            Text(s.metaDia > s.faturamentoDia ? "Faltam \(Estilo.reais(s.metaDia - s.faturamentoDia)) para a meta" : "Meta do dia batida ✓")
+                .font(.system(size: 11.5, weight: .semibold)).foregroundStyle(Estilo.apagado)
+            if s.interativo {
+                HStack(spacing: 8) {
+                    Button(intent: RegistrarAbordagemIntent(origem: "atividade")) {
+                        Label("+ Abordagem", systemImage: "person.badge.plus").font(.system(size: 14, weight: .black))
+                            .foregroundStyle(Estilo.texto).frame(maxWidth: .infinity, minHeight: 40)
+                            .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                    }.buttonStyle(.plain)
+                    Button(intent: RegistrarVendaIntent(origem: "atividade")) {
+                        Text(s.rapidaValor.map { "+ \(Estilo.reais($0)) Venda" } ?? "Definir valor")
+                            .font(.system(size: 14, weight: .black)).foregroundStyle(Color(red: 26 / 255, green: 18 / 255, blue: 0))
+                            .frame(maxWidth: .infinity, minHeight: 40)
+                            .background(Estilo.ouro, in: RoundedRectangle(cornerRadius: 12))
+                    }.buttonStyle(.plain).disabled(s.rapidaValor == nil)
+                }
+            }
+            Text(s.aviso ?? "\(s.vendasDia) \(s.vendasDia == 1 ? "venda" : "vendas") · \(s.abordagensDia) \(s.abordagensDia == 1 ? "abordagem" : "abordagens") · \(conversao) conversão")
+                .font(.system(size: 11.5, weight: .semibold)).foregroundStyle(s.aviso == nil ? Estilo.apagado : (s.avisoOk ? Estilo.verde : Estilo.coral))
+                .frame(maxWidth: .infinity).lineLimit(1).minimumScaleFactor(0.7)
         }
-        .padding(16)
+        .padding(14)
     }
 }

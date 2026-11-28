@@ -23,7 +23,8 @@ enum QuickArmazem {
     private enum Chave {
         static let conta = "conta", painel = "painel", config = "config"
         static let pendentes = "pendentes", ultima = "ultima", leitura = "leitura"
-        static let todas = [conta, painel, config, pendentes, ultima, leitura]
+        static let servidor = "servidor", interativo = "interativo", painelServidor = "painel-servidor", duvida = "duvida"
+        static let todas = [conta, painel, config, pendentes, ultima, leitura, servidor, interativo, painelServidor, duvida]
     }
 
     /// One tap on the widget. It carries no amount: the app uses its own configuration.
@@ -110,6 +111,26 @@ enum QuickArmazem {
     static var leitura: Leitura? { get { ler(Leitura.self, Chave.leitura) } set { gravar(newValue, Chave.leitura) } }
     static var pendentes: [Acao] { ler([Acao].self, Chave.pendentes) ?? [] }
 
+    /// Project URL (public) for the vant-quick call, written by the app.
+    static var servidor: String? {
+        get { ler(Texto.self, Chave.servidor)?.v }
+        set { gravar(newValue.map(Texto.init(v:)), Chave.servidor) }
+    }
+    /// The server allows this account to register from the widget / Live Activity (both switches on).
+    static var interativo: Bool {
+        get { ler(Texto.self, Chave.interativo)?.v == "1" }
+        set { gravar(Texto(v: newValue ? "1" : "0"), Chave.interativo) }
+    }
+    /// The last panel the SERVER returned (source of the totals), with when it arrived.
+    struct PainelDoServidor: Codable { let conta: String; let quando: Double; let painel: QuickServidor.Painel }
+    static var painelServidor: PainelDoServidor? {
+        get { ler(PainelDoServidor.self, Chave.painelServidor) }
+        set { gravar(newValue, Chave.painelServidor) }
+    }
+    /// The last tap whose answer never arrived: asked about later (QuickAcao.resolverDuvida).
+    struct Duvida: Codable { let id: String; let tipo: String; let conta: String; let quando: Double }
+    static var duvida: Duvida? { get { ler(Duvida.self, Chave.duvida) } set { gravar(newValue, Chave.duvida) } }
+
     /// A new tap. Each tap has its own id (two real sales in a row are two taps). Taps older than
     /// a day are dropped and the queue is capped, so a forgotten widget never piles up actions.
     static func adicionar(_ a: Acao) {
@@ -122,6 +143,7 @@ enum QuickArmazem {
     /// Sign-out or account switch: everything of VANT Quick goes (also the old UserDefaults keys of build 29).
     static func limpar() {
         for c in Chave.todas { gravar(Optional<Texto>.none, c) }
+        QuickCofre.apagar()
         let antigo = UserDefaults(suiteName: grupo)
         for c in ["quick.conta", "quick.painel", "quick.config", "quick.pendentes", "quick.ultima"] { antigo?.removeObject(forKey: c) }
     }

@@ -18,17 +18,38 @@ struct PainelProvedor: TimelineProvider {
         completion(context.isPreview ? placeholder(in: context) : agora())
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<PainelEntrada>) -> Void) {
-        // the app reloads it when the numbers change; this is only the fallback (day change, staleness)
-        completion(Timeline(entries: [agora()], policy: .after(Date().addingTimeInterval(15 * 60))))
+        // the app reloads it when the numbers change; this is only the fallback (day change, staleness).
+        // Interactive: ask the server first (display only, short timeout), so a sale made on the lock
+        // screen or another device also shows here.
+        guard QuickArmazem.interativo, let conta = QuickArmazem.conta else {
+            return completion(Timeline(entries: [agora()], policy: .after(Date().addingTimeInterval(15 * 60))))
+        }
+        Task {
+            if #available(iOS 17.0, *) { await QuickAcao.resolverDuvida() }
+            if case .confirmada(let p) = await QuickServidor.enviar(acao: "painel", id: nil, origem: "widget"), let p, QuickArmazem.conta == conta {
+                QuickArmazem.painelServidor = .init(conta: conta, quando: Date().timeIntervalSince1970 * 1000, painel: p)
+            }
+            completion(Timeline(entries: [agora()], policy: .after(Date().addingTimeInterval(15 * 60))))
+        }
     }
     private func agora() -> PainelEntrada {
         let conta = QuickArmazem.conta
-        let p = QuickArmazem.painel
+        // interactive: the SERVER's numbers (source of the totals); otherwise what the app wrote
+        let p = QuickArmazem.interativo ? (QuickArmazem.painelServidor.flatMap { $0.conta == conta ? daServidor($0) : nil } ?? QuickArmazem.painel) : QuickArmazem.painel
         let painel = p?.conta == conta ? p : nil
         // what the widget saw, for the check in Minha Conta (no sensitive data: account id and a date)
         QuickArmazem.leitura = .init(quando: Date().timeIntervalSince1970 * 1000, viuConta: conta, painelData: painel?.data)
         return PainelEntrada(date: Date(), conta: conta, painel: painel)
     }
+}
+
+/// The server's panel in the widget's own shape (no DEFCON today = nil).
+private func daServidor(_ ps: QuickArmazem.PainelDoServidor) -> QuickArmazem.Painel? {
+    let p = ps.painel
+    guard p.sessao != nil, let fat = p.faturamento, let meta = p.meta else { return nil }
+    return .init(conta: ps.conta, data: Estilo.hojeNoBrasil(Date(timeIntervalSince1970: ps.quando / 1000)), faturamento: fat, meta: meta,
+                 restante: p.restante ?? max(0, meta - fat), progresso: p.progresso ?? 0, vendas: p.vendas ?? 0,
+                 abordagens: p.abordagens ?? 0, conversao: p.conversao, atualizadoEm: ps.quando)
 }
 
 struct PainelVista: View {

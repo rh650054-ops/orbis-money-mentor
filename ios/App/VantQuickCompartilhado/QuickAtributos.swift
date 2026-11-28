@@ -18,6 +18,18 @@ struct QuickAtributos: ActivityAttributes {
         var metaHora: Double
         var vendasBloco: Int
         var pausado: Bool
+        // the day, as the SERVER totals it (after a confirmed tap) or as the app shows it
+        var faturamentoDia: Double = 0
+        var metaDia: Double = 0
+        var vendasDia: Int = 0
+        var abordagensDia: Int = 0
+        /// the VANT Quick sale value; nil = not set (the sale button then says so)
+        var rapidaValor: Double? = nil
+        /// the buttons register in the background (server allows it for this account)
+        var interativo: Bool = false
+        /// last tap: "Venda confirmada ✓", "Sem resposta — não confirmada", a refusal...
+        var aviso: String? = nil
+        var avisoOk: Bool = false
     }
 }
 #endif

@@ -2,19 +2,22 @@ import AppIntents
 import SwiftUI
 import WidgetKit
 
-/// Home screen: one tap = one quick sale (the amount configured in the app) or one approach.
-/// The buttons open the VANT, which executes the tap in the running DEFCON block; the status line
-/// shows "registrando" → "salva, sincronizando" → "confirmada" (or why it was refused).
+/// Home screen: one tap = one quick sale (the VANT Quick value of the account) or one approach,
+/// registered by the SERVER in the background, without opening the VANT (after unlocking). The
+/// status line shows "registrando" → "confirmada" (server answer) or why it was not registered.
+/// Without the server's permission for this account (interativo), no buttons are shown.
 struct VendaEntrada: TimelineEntry {
     let date: Date
     let conta: String?
     let config: QuickArmazem.Config?
     let ultima: QuickArmazem.Ultima?
+    var interativo: Bool = false
+    var valorServidor: Double? = nil
 }
 
 struct VendaProvedor: TimelineProvider {
     func placeholder(in context: Context) -> VendaEntrada {
-        VendaEntrada(date: Date(), conta: "x", config: .init(valor: 10, rotulo: "R$ 10,00"), ultima: nil)
+        VendaEntrada(date: Date(), conta: "x", config: .init(valor: 10, rotulo: "R$ 10,00"), ultima: nil, interativo: true)
     }
     func getSnapshot(in context: Context, completion: @escaping (VendaEntrada) -> Void) {
         completion(context.isPreview ? placeholder(in: context) : agora())
@@ -23,7 +26,10 @@ struct VendaProvedor: TimelineProvider {
         completion(Timeline(entries: [agora()], policy: .after(Date().addingTimeInterval(30 * 60))))
     }
     private func agora() -> VendaEntrada {
-        VendaEntrada(date: Date(), conta: QuickArmazem.conta, config: QuickArmazem.config, ultima: QuickArmazem.ultima)
+        let conta = QuickArmazem.conta
+        let ps = QuickArmazem.painelServidor
+        return VendaEntrada(date: Date(), conta: conta, config: QuickArmazem.config, ultima: QuickArmazem.ultima,
+                            interativo: QuickArmazem.interativo, valorServidor: ps?.conta == conta ? ps?.painel.rapida?.valor : nil)
     }
 }
 
@@ -37,6 +43,8 @@ struct VendaVista: View {
                 Aviso(titulo: "VANT Quick", texto: "Widget sem acesso aos dados da VANT. Reinstale o app.")
             } else if e.conta == nil {
                 Aviso(titulo: "VANT Quick", texto: "Abra a VANT com sua conta para vender pelo widget.")
+            } else if !e.interativo {
+                Aviso(titulo: "VANT Quick", texto: "O registro pelo widget ainda não foi liberado para a sua conta.")
             } else {
                 VStack(spacing: 8) {
                     if familia == .systemMedium {
@@ -52,10 +60,10 @@ struct VendaVista: View {
     }
 
     private var botaoVenda: some View {
-        Button(intent: RegistrarVendaIntent()) {
+        Button(intent: RegistrarVendaIntent(origem: "widget")) {
             VStack(spacing: 2) {
                 Text("VENDA").font(.system(size: 10, weight: .black)).tracking(1.4)
-                Text(e.config?.rotulo ?? "Definir valor").font(.system(size: e.config == nil ? 13 : 19, weight: .black, design: .rounded))
+                Text(rotuloVenda ?? "Definir valor").font(.system(size: rotuloVenda == nil ? 13 : 19, weight: .black, design: .rounded))
                     .minimumScaleFactor(0.6).lineLimit(1)
             }
             .foregroundStyle(Color(red: 26 / 255, green: 18 / 255, blue: 0))
@@ -63,11 +71,14 @@ struct VendaVista: View {
             .background(LinearGradient(colors: [Estilo.ouroClaro, Estilo.ouro], startPoint: .top, endPoint: .bottom), in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(e.config.map { "Registrar venda de \($0.rotulo)" } ?? "Abrir a VANT para definir a venda rápida")
+        .accessibilityLabel(rotuloVenda.map { "Registrar venda de \($0)" } ?? "Defina o valor no VANT Quick")
     }
 
+    /// The server's value of the account's VANT Quick sale (what will be charged), else the app's copy.
+    private var rotuloVenda: String? { e.valorServidor.map(Estilo.reais) ?? e.config?.rotulo }
+
     private var botaoAbordagem: some View {
-        Button(intent: RegistrarAbordagemIntent()) {
+        Button(intent: RegistrarAbordagemIntent(origem: "widget")) {
             Text("ABORDAGEM").font(.system(size: 12, weight: .black)).tracking(1)
                 .foregroundStyle(Estilo.ouro)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -82,7 +93,7 @@ struct VendaVista: View {
             let (texto, cor) = frase(u)
             Text(texto).font(.system(size: 10.5, weight: .bold)).foregroundStyle(cor).lineLimit(1).minimumScaleFactor(0.7)
         } else {
-            Text("Toque para registrar no DEFCON").font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Estilo.apagado).lineLimit(1).minimumScaleFactor(0.7)
+            Text("Registra no bloco do DEFCON").font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Estilo.apagado).lineLimit(1).minimumScaleFactor(0.7)
         }
     }
 
@@ -90,8 +101,8 @@ struct VendaVista: View {
         let nome = u.tipo == "abordagem" ? "Abordagem" : "Venda"
         switch u.estado {
         case "registrando": return ("Registrando \(nome.lowercased())…", Estilo.apagado)
-        case "pendente_sync": return ("\(nome) salva · sincronizando", Estilo.ouro)
         case "confirmada": return ("\(nome) confirmada ✓", Estilo.verde)
+        case "nao_confirmada": return (u.texto ?? "Sem resposta — não confirmada", Estilo.coral)
         default: return (u.texto ?? "Não registrada", Estilo.coral)
         }
     }
@@ -101,7 +112,7 @@ struct VendaRapidaWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "VantVendaRapida", provider: VendaProvedor()) { VendaVista(e: $0) }
             .configurationDisplayName("VANT — Venda rápida")
-            .description("Registre a venda rápida ou uma abordagem no bloco do DEFCON em andamento.")
+            .description("Registre a venda rápida do VANT Quick ou uma abordagem no DEFCON, sem abrir o app.")
             .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
