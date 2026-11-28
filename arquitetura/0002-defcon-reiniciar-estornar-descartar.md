@@ -1,6 +1,6 @@
 # ADR 0002 — DEFCON: restart the day's operation, reverse a sale, discard test records (P1)
 
-Status: **proposal — nothing implemented, nothing changed in production.** Classified **P1** by Rick (28/11/2026).
+Status: **accepted (Rick, 28/11/2026)** — the A/B/C architecture of §5 is approved; its implementation has **not** started and needs a separate go. C0 (§4) is in production since 28/11/2026 (PR #403, migration 20261129100000). Classified **P1** by Rick (28/11/2026).
 Owner of the decision: Rick. Separate from PR #401 (Dynamic Island).
 
 ## 1. Incident
@@ -53,7 +53,7 @@ Measured on the 213 account-days: by-date readers see **R$ 147,970.83 more** tha
 
 If the server refused write 2, writes 1, 3, 4 and 5 still run. The session would survive with its sales and `total_sold`, without block counters, with zeroed blocks and a zeroed day. The app then reloads a partly reset day. That is worse than today. Old builds cannot be changed, so any containment must accept the five writes as they come.
 
-## 4. Immediate containment C0: data preservation, NOT the fix (PR #403, draft)
+## 4. Immediate containment C0: data preservation, NOT the fix (PR #403, in production since 28/11/2026)
 
 The first proposal (one `before delete` trigger on the session) was wrong: write 1 deletes the block counters **before** the session (Rick, 28/11). C0 now archives **row by row on each destructive write, from the first one**:
 
@@ -155,6 +155,7 @@ The thresholds (80%, ⅓ of the span, 10 min) are **investigative heuristics onl
 
 ## 8. Decisions needed from Rick
 
-1. C0 (PR #403): authorize its application; retention period (400 days proposed) and the purge schedule.
-2. The data model and RPC contracts of §5 before any implementation, including the meaning of B for closed competitions and awards.
-3. The per-account review of classes R and I (215 + 400 sales), starting with the three concentrated accounts.
+1. ~~C0 (PR #403): authorize its application~~ — **decided 28/11/2026**: applied; retention 400 days (account deletion still removes everything at once). Purge schedule still open: nothing expires before 2027-12, so `defcon_c0_expurgar()` needs a weekly cron before then.
+2. ~~The data model and RPC contracts of §5~~ — **decided 28/11/2026**: A/B/C approved as documented here; implementation waits for Rick's go. Open inside it: the meaning of B for closed competitions and awards.
+3. No historical sale is changed (Rick, 28/11/2026): the 1,987 sales of §6 stay exactly as they are.
+4. The per-account review of classes R and I (215 + 400 sales), starting with the three concentrated accounts.
