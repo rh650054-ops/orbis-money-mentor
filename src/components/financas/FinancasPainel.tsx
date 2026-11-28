@@ -311,15 +311,27 @@ export async function carregarPainel(): Promise<Painel | null> {
 }
 
 /** The three detail screens (cartão, dívidas, guardado) in their drawer. Shared by the old list and Bancos (28/11). */
-export function PainelGaveta({ p, aba, onFechar }: { p: Painel; aba: Aba | null; onFechar: () => void }) {
+/** `oculto` (28/11, Bancos): with values hidden, the detail is blurred and hidden from screen
+    readers until the person asks to see it. The inner screens themselves are unchanged. */
+export function PainelGaveta({ p, aba, onFechar, oculto = false, onMostrar }: { p: Painel; aba: Aba | null; onFechar: () => void; oculto?: boolean; onMostrar?: () => void }) {
   return (
     <Gaveta open={aba !== null} onOpenChange={(o) => { if (!o) onFechar(); }} titulo={aba ? TITULO[aba] : ""}
       style={{ background: "#0b0b0c", borderColor: "rgba(255,255,255,.08)" }}>
         <div className="px-4 flex flex-col gap-3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
           <p className="font-mono text-[10px] font-bold tracking-[.18em] text-center" style={{ color: MUTE }}>{aba ? TITULO[aba] : ""}</p>
-          {aba === "cartao" && <TelaCartao p={p} />}
-          {aba === "dividas" && <TelaDividas p={p} />}
-          {aba === "guardado" && <TelaGuardado p={p} />}
+          <div className="relative">
+            <div aria-hidden={oculto || undefined} style={oculto ? { filter: "blur(9px)", pointerEvents: "none", userSelect: "none" } : undefined}>
+              {aba === "cartao" && <TelaCartao p={p} />}
+              {aba === "dividas" && <TelaDividas p={p} />}
+              {aba === "guardado" && <TelaGuardado p={p} />}
+            </div>
+            {oculto && (
+              <div className="absolute inset-0 flex items-start justify-center pt-10">
+                <button type="button" onClick={onMostrar} className="h-11 px-5 rounded-full text-[13px] font-black"
+                  style={{ background: "#F5B800", color: "#1A1200" }}>Valores ocultos · Mostrar</button>
+              </div>
+            )}
+          </div>
           {p.leitura && (
             <p className="text-[10px] font-bold text-center" style={{ color: MUTE }}>
               lido do banco às {new Date(p.leitura).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })} · atualiza toda madrugada

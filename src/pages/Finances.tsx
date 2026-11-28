@@ -2299,7 +2299,8 @@ export default function Finances() {
         </>
       )}
 
-      {aba === "bancos" && casa && (
+      {/* only with a bank: without one the tab exists only for Essencial, as the Pro lock (below) */}
+      {aba === "bancos" && casa && comBanco && (
         <>
           {/* BANCOS (redesign 28/11/2026): saldo → contas de trabalho → pessoais → conectar → organização → reserva */}
           <BancosAba h={casa} userId={user?.id} email={user?.email} onGerenciar={() => navigate("/verificar")} onMudou={recarregarCasa} />

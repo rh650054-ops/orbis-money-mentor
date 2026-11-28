@@ -9,7 +9,8 @@ import { BancoExtra } from "@/components/conectar/PapelContas";
 import { GerenciarFolha, useAtualizarAgoraMutation, useBancosQuery, useLigarBanco } from "@/features/vender";
 import { COR } from "@/features/financas-resumo";
 import { usePainelQuery } from "../api/use-painel-query";
-import { agrupar } from "../lib/contas";
+import { agrupar, totalDoGrupo } from "../lib/contas";
+import { bancosRepetidos, qualidade } from "../lib/qualidade";
 import { useOcultarValores } from "../lib/ocultar";
 import { SaldoDisponivel } from "./saldo-disponivel";
 import { GrupoContas } from "./grupo-contas";
@@ -18,7 +19,7 @@ import { ConectarBanco, OrganizacaoFinanceira } from "./organizacao";
 interface Props { h: HomeFinancas; userId: string | undefined; email?: string | null; onGerenciar: () => void; onMudou: () => void }
 
 export function BancosAba({ h, userId, email, onGerenciar, onMudou }: Props) {
-  const { oculto, alternar } = useOcultarValores();
+  const { oculto, alternar } = useOcultarValores(userId);
   const bancosQ = useBancosQuery(userId);
   const painelQ = usePainelQuery(userId);
   const banco = useLigarBanco(true);
@@ -26,11 +27,15 @@ export function BancosAba({ h, userId, email, onGerenciar, onMudou }: Props) {
   const [folha, setFolha] = useState(false);
   const [gaveta, setGaveta] = useState<AbaPainel | null>(null);
   const g = agrupar(h, bancosQ.data?.bancos ?? []);
-  const comuns = { oculto, ligando: banco.ligando, onAbrir: () => setFolha(true), onAutorizar: (item: string) => void banco.ligar(item) };
+  const todas = [...g.trabalho, ...g.pessoal, ...g.semPapel];
+  // completeness is judged only once the connections (status, last read) are loaded
+  const q = bancosQ.data ? qualidade(todas) : null;
+  const repetidos = bancosRepetidos(todas);
+  const comuns = { oculto, repetidos, ligando: banco.ligando, onAbrir: () => setFolha(true), onAutorizar: (item: string) => void banco.ligar(item) };
 
   return (
     <>
-      <SaldoDisponivel h={h} oculto={oculto} onOcultar={alternar} />
+      <SaldoDisponivel h={h} oculto={oculto} onOcultar={alternar} q={q} semPapel={g.semPapel.length ? totalDoGrupo(g.semPapel) : null} />
       <div className="flex items-baseline justify-between pt-2 -mb-1">
         <h2 className="text-[17px] font-black" style={{ color: COR.texto }}>Suas contas</h2>
         <button type="button" onClick={onGerenciar} className="text-[12.5px] font-extrabold min-h-9" style={{ color: COR.ouro }}>Gerenciar</button>
@@ -45,11 +50,11 @@ export function BancosAba({ h, userId, email, onGerenciar, onMudou }: Props) {
         <>
           <h2 className="text-[17px] font-black pt-2 -mb-1" style={{ color: COR.texto }}>Organização financeira</h2>
           <OrganizacaoFinanceira p={painelQ.data} oculto={oculto} abrir={setGaveta} />
-          <PainelGaveta p={painelQ.data} aba={gaveta} onFechar={() => setGaveta(null)} />
+          <PainelGaveta p={painelQ.data} aba={gaveta} onFechar={() => setGaveta(null)} oculto={oculto} onMostrar={alternar} />
         </>
       )}
       {/* the emergency reserve is a "caixinha" the person picks (04/10): same card, unchanged */}
-      <ReservaCaixinha userId={userId} />
+      <ReservaCaixinha userId={userId} oculto={oculto} />
 
       {bancosQ.data && (
         <GerenciarFolha aberta={folha} onFechar={() => { setFolha(false); onMudou(); }} bancos={bancosQ.data.bancos} contas={bancosQ.data.contas}

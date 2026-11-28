@@ -34,7 +34,7 @@ function Linha({ icone, titulo, valor, sub, cor, oculto, onClick, primeira }: {
         <span className="block text-[12px] truncate" style={{ color: COR.mute }}>{sub}</span>
       </span>
       {valor != null && <span className="text-[15px] font-black tabular-nums shrink-0" style={{ color: valor > 0 ? cor : COR.texto }}>{dinheiro(valor, oculto)}</span>}
-      <ChevronRight className="w-4 h-4 shrink-0" style={{ color: COR.mute }} aria-hidden />
+      <ChevronRight className="w-4 h-4 shrink-0 max-[359px]:hidden" style={{ color: COR.mute }} aria-hidden />
     </button>
   );
 }

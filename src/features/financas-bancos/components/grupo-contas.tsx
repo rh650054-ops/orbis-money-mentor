@@ -5,6 +5,7 @@ import { statusDoBanco } from "@/features/vender";
 import { Pilula } from "@/shared/components/vant-status";
 import { Cartao, COR } from "@/features/financas-resumo";
 import { totalDoGrupo, type LinhaConta } from "../lib/contas";
+import { qualidade } from "../lib/qualidade";
 import { dinheiro } from "../lib/ocultar";
 
 export type TipoGrupo = "trabalho" | "pessoal" | "sem";
@@ -14,21 +15,24 @@ const TITULO: Record<TipoGrupo, string> = { trabalho: "Contas de trabalho", pess
 function Logo({ l }: { l: LinhaConta }) {
   const url = l.conexao?.institution_logo;
   return url
-    ? <img src={url} alt="" className="w-10 h-10 rounded-[12px] shrink-0 object-contain p-1" style={{ background: "#fff" }} />
-    : <span className="w-10 h-10 rounded-[12px] shrink-0 grid place-items-center" style={{ background: "#1a1916", border: `1px solid ${COR.borda}` }}>
+    ? <img src={url} alt="" className="w-10 h-10 max-[359px]:w-8 max-[359px]:h-8 rounded-[12px] shrink-0 object-contain p-1" style={{ background: "#fff" }} />
+    : <span className="w-10 h-10 max-[359px]:w-8 max-[359px]:h-8 rounded-[12px] shrink-0 grid place-items-center" style={{ background: "#1a1916", border: `1px solid ${COR.borda}` }}>
         <Landmark className="w-4 h-4" style={{ color: COR.sub }} aria-hidden />
       </span>;
 }
 
 interface Props {
   tipo: TipoGrupo; linhas: LinhaConta[]; oculto: boolean; ligando: boolean;
+  /** institution names connected more than once (lower case) */
+  repetidos?: Set<string>;
   onAbrir: () => void; onAutorizar: (itemId: string) => void;
 }
 
-export function GrupoContas({ tipo, linhas, oculto, ligando, onAbrir, onAutorizar }: Props) {
+export function GrupoContas({ tipo, linhas, oculto, ligando, onAbrir, onAutorizar, repetidos }: Props) {
   if (linhas.length === 0) return null;
   const cor = COR_DO_GRUPO[tipo];
   const total = totalDoGrupo(linhas);
+  const parcial = total != null && !qualidade(linhas).completo;
   return (
     <Cartao rotulo={TITULO[tipo]}>
       <div className="flex items-start justify-between gap-3">
@@ -40,28 +44,37 @@ export function GrupoContas({ tipo, linhas, oculto, ligando, onAbrir, onAutoriza
         </div>
         {tipo === "sem"
           ? <button type="button" onClick={onAbrir} className="text-[13px] font-extrabold shrink-0 min-h-9" style={{ color: COR.ouro }}>Classificar</button>
-          : <p className="text-[18px] font-black tabular-nums shrink-0" style={{ color: total == null ? COR.mute : cor }}>{dinheiro(total, oculto)}</p>}
+          : <div className="text-right shrink-0">
+              <p className="text-[18px] font-black tabular-nums" style={{ color: total == null ? COR.mute : cor }}>{dinheiro(total, oculto)}</p>
+              {parcial && <p className="text-[11px] font-bold" style={{ color: "#F2B43A" }}>parcial</p>}
+            </div>}
       </div>
       <div className="mt-2 -mb-2">
         {linhas.map((l) => {
           const st = l.conexao ? statusDoBanco(l.conexao.status, l.conexao.last_synced_at) : null;
           const desconectado = !!st?.autorizar;
+          // a connection that answers but sent no balance is not shown as healthy
+          const pilula = l.saldo == null && st?.rotulo === "ATIVO" ? { tom: "atencao" as const, rotulo: "SEM SALDO" } : st ? { tom: st.tom, rotulo: st.rotulo } : { tom: "neutro" as const, rotulo: "SEM DADOS" };
+          const desde = l.conexao?.last_synced_at ? new Date(l.conexao.last_synced_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" }) : null;
           return (
             <div key={l.id} className="py-3" style={{ borderTop: `1px solid ${COR.linha}` }}>
               <button type="button" onClick={onAbrir} aria-label={`Detalhes de ${l.banco}`}
-                className="w-full flex items-center gap-3 text-left active:opacity-70">
+                className="w-full flex items-center gap-3 max-[359px]:gap-2 text-left active:opacity-70">
                 <Logo l={l} />
                 <span className="flex-1 min-w-0">
                   <span className="block text-[14.5px] font-black truncate" style={{ color: COR.texto }}>{l.banco}</span>
-                  <span className="block text-[12px] truncate" style={{ color: desconectado ? COR.vermelho : COR.mute }}>{desconectado ? "conexão interrompida" : st ? st.detalhe : "sem dados da conexão"}</span>
-                </span>
-                <span className="text-right shrink-0">
-                  <span className="block text-[15px] font-black tabular-nums" style={{ color: l.saldo == null ? COR.mute : (l.saldo < 0 && !oculto) ? COR.vermelho : COR.texto }}>
-                    {dinheiro(l.saldo, oculto)}
+                  <span className="flex items-center gap-1.5 mt-1 min-w-0">
+                    <span className="shrink-0"><Pilula tom={pilula.tom}>{pilula.rotulo}</Pilula></span>
+                    <span className="text-[12px] truncate" style={{ color: desconectado ? COR.vermelho : COR.mute }}>{desconectado ? (desde ? `desde ${desde}` : "sem leitura") : st ? st.detalhe : "sem dados da conexão"}</span>
                   </span>
-                  <span className="inline-block mt-1"><Pilula tom={st?.tom ?? "neutro"}>{st?.rotulo ?? "SEM DADOS"}</Pilula></span>
+                  {repetidos?.has(l.banco.trim().toLowerCase()) && (
+                    <span className="block text-[11.5px] truncate" style={{ color: "#F2B43A" }}>conectado 2 vezes</span>
+                  )}
                 </span>
-                <ChevronRight className="w-4 h-4 shrink-0" style={{ color: COR.mute }} aria-hidden />
+                <span className="text-[15px] max-[359px]:text-[14px] font-black tabular-nums shrink-0 text-right" style={{ color: l.saldo == null ? COR.mute : (l.saldo < 0 && !oculto) ? COR.vermelho : COR.texto }}>
+                  {dinheiro(l.saldo, oculto)}
+                </span>
+                <ChevronRight className="w-4 h-4 shrink-0 max-[359px]:hidden" style={{ color: COR.mute }} aria-hidden />
               </button>
               {desconectado && l.conexao && (
                 <button type="button" onClick={() => onAutorizar(l.conexao!.item_id)} disabled={ligando}

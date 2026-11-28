@@ -1,16 +1,22 @@
-/* "Hide values" on the Bancos screen: a per-device convenience, remembered in this browser only. */
+/* "Hide values" on the Bancos screen, remembered on this device FOR THIS ACCOUNT. The key starts
+   with "orbis_" so signing out clears it (useAuth.signOut), and it carries the account id so a
+   second account on the same phone never inherits the first one's choice. */
 import { useState } from "react";
 import { reais } from "@/features/financas-resumo";
 
-const CHAVE = "vant:financas:ocultar-valores";
-const ler = () => { try { return localStorage.getItem(CHAVE) === "1"; } catch { return false; } };
+const chave = (userId: string | undefined) => `orbis_ocultar_valores:${userId ?? "anonimo"}`;
+const ler = (userId: string | undefined) => { try { return localStorage.getItem(chave(userId)) === "1"; } catch { return false; } };
 
-export function useOcultarValores() {
-  const [oculto, setOculto] = useState(ler);
-  const alternar = () => setOculto((v) => {
-    try { localStorage.setItem(CHAVE, v ? "0" : "1"); } catch { /* private window: only for this visit */ }
-    return !v;
-  });
+export function useOcultarValores(userId: string | undefined) {
+  const [estado, setEstado] = useState(() => ({ dono: userId, oculto: ler(userId) }));
+  // another account signed in on this screen: read ITS choice, never carry the previous one
+  const oculto = estado.dono === userId ? estado.oculto : ler(userId);
+  if (estado.dono !== userId) setEstado({ dono: userId, oculto });
+  const alternar = () => {
+    const novo = !oculto;
+    try { localStorage.setItem(chave(userId), novo ? "1" : "0"); } catch { /* private window: only for this visit */ }
+    setEstado({ dono: userId, oculto: novo });
+  };
   return { oculto, alternar };
 }
 
