@@ -39,8 +39,10 @@ function novoId(): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
-export function novaLinhaVenda(v: Omit<LinhaVenda, "id" | "created_at">): LinhaVenda {
-  return { ...v, id: novoId(), created_at: new Date().toISOString() };
+/** id: only VANT Quick passes one (the widget tap's own id), so a tap delivered twice is the SAME
+    sale; every other caller gets a new id, exactly as before. */
+export function novaLinhaVenda(v: Omit<LinhaVenda, "id" | "created_at">, id?: string): LinhaVenda {
+  return { ...v, id: id ?? novoId(), created_at: new Date().toISOString() };
 }
 
 const chaveSessao = (sessionId: string) => `sessao:${sessionId}`;

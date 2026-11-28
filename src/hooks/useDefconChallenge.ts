@@ -1138,6 +1138,8 @@ export function useDefconChallenge(userId: string | undefined) {
     amount: number,
     method: "dinheiro" | "pix" | "cartao" = "dinheiro",
     produto?: { id: string; qty: number } | null,
+    /** VANT Quick only: the widget tap's id becomes the sale's id (same sale if delivered twice) */
+    idVenda?: string,
   ) => {
     if (!userId || phase !== "running" || amount <= 0) return;
 
@@ -1183,7 +1185,7 @@ export function useDefconChallenge(userId: string | undefined) {
       ? novaLinhaVenda({
           user_id: userId, session_id: sessionId, block_index: currentBlockIndex, amount, method, late: false,
           ...(produto ? { product_id: produto.id, qty: Math.max(1, produto.qty) } : {}),
-        })
+        }, idVenda)
       : null;
     // CELULAR PRIMEIRO (19/10): a venda é guardada no aparelho ANTES de qualquer rede.
     // O carteiro leva pro servidor em ordem; sinal fraco ou app fechado não perdem nada.

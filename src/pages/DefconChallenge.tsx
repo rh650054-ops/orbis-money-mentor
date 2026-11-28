@@ -1,3 +1,4 @@
+import { useVantQuickDefcon } from "@/features/vant-quick";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -37,6 +38,9 @@ export default function DefconChallenge() {
   const acessoProdutos = useAcessoProdutosQuery(user?.id);
   const semCarga = acessoProdutos.data?.liberado === false;
   const realDefcon = useDefconChallenge(treino ? undefined : user?.id);
+  // VANT Quick (iPhone): widget taps run through THIS instance's own sale/approach code; the session
+  // is mirrored to the widget and the Live Activity. Off in the practice run.
+  useVantQuickDefcon(treino ? null : user?.id ?? null, realDefcon);
   const onbDefcon = useDefconOnboarding(user?.id);
   const defcon: any = treino ? onbDefcon : realDefcon;
   // Treino guiado: quando o tour termina (ou o usuário ENCERRA no treino), mostra o

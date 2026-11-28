@@ -138,13 +138,17 @@ jobs:
           esac
           AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
 
-          # unsigned archive: no "Apple Development" certificate is created (see the header)
+          # Archive signed ad-hoc ("-"): no "Apple Development" certificate is created (see the header),
+          # but the entitlements (App Group of VANT Quick) stay inside the binaries, and the export
+          # re-signs with exactly those. A fully unsigned archive would lose them.
           xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/VANT.xcarchive" \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER="" \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="-" \
             MARKETING_VERSION="$VERSION_NAME" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             archive | tail -40
+          test -d "$RUNNER_TEMP/VANT.xcarchive/Products/Applications/App.app/PlugIns/VantQuick.appex" \
+            || { echo "::error::The VANT Quick extension is not embedded in the archive."; exit 1; }
           [ "$ENVIAR" = "false" ] && DESTINO=export || DESTINO=upload
 
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
@@ -168,6 +172,16 @@ jobs:
             ASSINATURA=$(codesign -dvv "$RUNNER_TEMP"/ipa/Payload/*.app 2>&1 | grep '^Authority=' | head -1)
             echo "::notice::Signing check only, nothing uploaded. Signed by: ${ASSINATURA#Authority=}"
             [[ "$ASSINATURA" == *"Apple Distribution"* ]] || { echo "::error::The export is not signed with an Apple Distribution certificate."; exit 1; }
+            # VANT Quick: the extension must be signed too, and both must carry the shared App Group.
+            for ALVO in "$RUNNER_TEMP"/ipa/Payload/*.app "$RUNNER_TEMP"/ipa/Payload/*.app/PlugIns/VantQuick.appex; do
+              NOME=$(basename "$ALVO")
+              QUEM=$(codesign -dvv "$ALVO" 2>&1 | grep '^Authority=' | head -1)
+              [[ "$QUEM" == *"Apple Distribution"* ]] || { echo "::error::$NOME is not signed with Apple Distribution."; exit 1; }
+              codesign -d --entitlements :- "$ALVO" 2>/dev/null > "$RUNNER_TEMP/ent-$NOME.plist"
+              grep -q 'group.app.vant.vendas' "$RUNNER_TEMP/ent-$NOME.plist" \
+                || { echo "::error::$NOME is missing the App Group group.app.vant.vendas."; cat "$RUNNER_TEMP/ent-$NOME.plist"; exit 1; }
+              echo "::notice::$NOME signed (${QUEM#Authority=}) with App Group group.app.vant.vendas."
+            done
           else
             echo "::notice::Build $VERSION_NAME ($BUILD_NUMBER) sent to App Store Connect. It shows up in TestFlight after Apple processes it (~15-30 min)."
           fi

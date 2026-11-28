@@ -1,6 +1,7 @@
 /* /my-account — "Minha conta" redesigned (Rick, 18/10/2026): four clear ideas —
    my data (private), my public profile, my activity, who sees what — plus the plan.
    Order: card · public profile · activity · account data · plan · privacy · actions. */
+import { ConfigVendaRapida } from "@/features/vant-quick";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
@@ -69,6 +70,7 @@ export default function ContaPage() {
       <PlanoCard plano={plano} />
       <PrivacidadeCard conta={conta} />
       <IaContaCard />
+      <ConfigVendaRapida />
       <AcoesConta />
 
       <EditarDadosFolha aberta={folha === "dados"} onFechar={() => setFolha(null)} conta={conta} />
