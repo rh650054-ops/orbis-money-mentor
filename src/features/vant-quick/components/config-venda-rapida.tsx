@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
 import { Botao, COR, Secao } from "@/shared/components/vant-ui";
 import { formatCurrency } from "@/shared/lib/utils";
 import { quick, temQuick } from "../api/ponte";
+import { quickKeys, salvarConfigServidor } from "../api/credencial";
 import { lerConfig, salvarConfig } from "../lib/memoria";
 import type { ConfigQuick } from "../types";
 import { DiagnosticoWidget } from "./diagnostico-widget";
@@ -14,10 +16,20 @@ const METODOS: { id: ConfigQuick["metodo"]; rotulo: string }[] = [{ id: "dinheir
 export function ConfigVendaRapida() {
   const { user } = useAuth();
   const conta = user?.id ?? null;
-  const atual = conta ? lerConfig(conta) : null;
+  if (!temQuick() || !conta) return null;
+  return <FormularioVendaRapida conta={conta} />;
+}
+
+function FormularioVendaRapida({ conta }: { conta: string }) {
+  const atual = lerConfig(conta);
   const [texto, setTexto] = useState(atual ? String(atual.valor).replace(".", ",") : "");
   const [metodo, setMetodo] = useState<ConfigQuick["metodo"]>(atual?.metodo ?? "dinheiro");
-  if (!temQuick() || !conta) return null;
+  const qc = useQueryClient();
+  // the server's copy is the value a widget tap charges: success is only said once it is saved there
+  const servidor = useMutation({
+    mutationFn: (c: ConfigQuick) => salvarConfigServidor(c.valor, c.metodo),
+    onSuccess: () => qc.invalidateQueries({ queryKey: quickKeys.all }),
+  });
 
   const valor = Number(texto.replace(/\./g, "").replace(",", "."));
   const valido = Number.isFinite(valor) && valor > 0 && valor <= 5000;
@@ -25,7 +37,10 @@ export function ConfigVendaRapida() {
     if (!valido) return;
     const c = salvarConfig(conta, { valor, metodo });
     void quick.salvarConfig(c.valor, formatCurrency(c.valor));
-    toast({ title: "Venda rápida salva", description: `O widget registra ${formatCurrency(c.valor)} em ${METODOS.find((m) => m.id === c.metodo)?.rotulo.toLowerCase()}.` });
+    servidor.mutate(c, {
+      onSuccess: () => toast({ title: "Venda rápida salva", description: `O widget registra ${formatCurrency(c.valor)} em ${METODOS.find((m) => m.id === c.metodo)?.rotulo.toLowerCase()}.` }),
+      onError: () => toast({ title: "Não consegui salvar no servidor", description: "Confira a internet e salve de novo. O widget usa o último valor salvo lá.", variant: "destructive" }),
+    });
   };
 
   return (
@@ -47,7 +62,7 @@ export function ConfigVendaRapida() {
             </button>
           ))}
         </div>
-        <Botao tipo="ouro" disabled={!valido} onClick={salvar}>Salvar venda rápida</Botao>
+        <Botao tipo="ouro" disabled={!valido || servidor.isPending} onClick={salvar}>{servidor.isPending ? "Salvando…" : "Salvar venda rápida"}</Botao>
         <DiagnosticoWidget />
       </div>
     </Secao>

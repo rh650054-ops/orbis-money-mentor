@@ -1,32 +1,4 @@
-import { AcaoSchema, ConfigQuickSchema, type Acao, type Atividade, type ConfigQuick, type Painel } from "../types";
-
-/** A tap older than this is not executed (the person is no longer waiting for it). */
-export const VALIDADE_MS = 10 * 60_000;
-
-export type Veredito =
-  | { ok: true; acao: Acao; config: ConfigQuick | null }
-  | { ok: false; motivo: "invalida" | "outra_conta" | "expirada" | "sem_defcon" | "sem_valor" | "ja_feita"; texto: string };
-
-/** Everything a tap must pass before it reaches the DEFCON's own sale/approach code. The tap is data
-    written by our own App Intent, but it is still checked: the account it was made for, how old it
-    is, whether a DEFCON block is running, and the amount, which is ALWAYS the app's configuration. */
-export function validarAcao(bruta: unknown, ctx: {
-  conta: string | null; agora: number; rodando: boolean; config: unknown; jaFeita: (id: string) => boolean;
-}): Veredito {
-  const a = AcaoSchema.safeParse(bruta);
-  if (!a.success) return { ok: false, motivo: "invalida", texto: "Toque do widget não reconhecido." };
-  const acao = a.data;
-  if (ctx.jaFeita(acao.id)) return { ok: false, motivo: "ja_feita", texto: "Este toque já foi registrado." };
-  if (!ctx.conta || acao.conta !== ctx.conta) return { ok: false, motivo: "outra_conta", texto: "O toque foi feito com outra conta. Nada foi registrado." };
-  if (acao.criadoEm > ctx.agora + 60_000 || ctx.agora - acao.criadoEm > VALIDADE_MS) {
-    return { ok: false, motivo: "expirada", texto: "Toque antigo do widget. Nada foi registrado." };
-  }
-  if (!ctx.rodando) return { ok: false, motivo: "sem_defcon", texto: "Comece ou retome o bloco do DEFCON para registrar pelo widget." };
-  if (acao.tipo === "abordagem") return { ok: true, acao, config: null };
-  const config = ConfigQuickSchema.safeParse(ctx.config);
-  if (!config.success) return { ok: false, motivo: "sem_valor", texto: "Defina o valor da venda rápida em Conta > VANT Quick." };
-  return { ok: true, acao, config: config.data };
-}
+import type { Atividade, Painel } from "../types";
 
 const limitar = (x: number) => Math.min(1, Math.max(0, x));
 const reais = (x: number) => Math.round(x * 100) / 100;
@@ -49,11 +21,15 @@ export function painelDoDia(d: { conta: string; data: string; faturamento: numbe
 export function atividadeDoBloco(d: {
   conta: string; inicio: Date | null; fim: Date | null; bloco: number; totalBlocos: number;
   faturamentoBloco: number; metaHora: number; vendasBloco: number; pausado: boolean;
+  faturamentoDia: number; metaDia: number; vendasDia: number; abordagensDia: number; rapidaValor: number | null;
 }): Atividade | null {
   if (!d.inicio || !d.fim || d.fim.getTime() <= d.inicio.getTime()) return null;
   return {
     conta: d.conta, inicio: d.inicio.getTime(), fim: d.fim.getTime(), bloco: d.bloco + 1, totalBlocos: Math.max(d.bloco + 1, d.totalBlocos),
     faturamentoBloco: reais(Math.max(0, d.faturamentoBloco)), metaHora: reais(Math.max(0, d.metaHora)),
     vendasBloco: Math.max(0, d.vendasBloco), pausado: d.pausado,
+    faturamentoDia: reais(Math.max(0, d.faturamentoDia)), metaDia: reais(Math.max(0, d.metaDia)),
+    vendasDia: Math.max(0, d.vendasDia), abordagensDia: Math.max(0, d.abordagensDia),
+    rapidaValor: d.rapidaValor !== null && d.rapidaValor > 0 ? reais(d.rapidaValor) : null,
   };
 }

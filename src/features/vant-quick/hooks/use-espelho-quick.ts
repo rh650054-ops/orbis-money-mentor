@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { quick, temQuick } from "../api/ponte";
+import { lerConfig } from "../lib/memoria";
 import { atividadeDoBloco, painelDoDia } from "../lib/regras";
 
 /** The DEFCON numbers VANT Quick mirrors (from useDefconChallenge). */
@@ -48,7 +49,10 @@ export function useEspelhoQuick(conta: string | null, d: DefconParaEspelho) {
     const a = atividadeDoBloco({
       conta, inicio: inicio ? new Date(inicio) : null, fim: fim ? new Date(fim) : null, bloco: d.currentBlockIndex, totalBlocos: d.blocks.length,
       faturamentoBloco: bloco?.achieved_amount ?? 0, metaHora: bloco?.target_amount ?? 0, vendasBloco: d.blockSalesCount, pausado: d.phase !== "running",
+      faturamentoDia: d.totalSold, metaDia: d.dailyGoal, vendasDia: d.totalSalesCount, abordagensDia: d.totalApproaches,
+      rapidaValor: lerConfig(conta)?.valor ?? null,
     });
     if (a) void quick.atualizarAtividade(a);
-  }, [conta, d.loading, d.phase, d.currentBlockIndex, d.blocks.length, bloco?.achieved_amount, bloco?.target_amount, d.blockSalesCount, inicio, fim]);
+  }, [conta, d.loading, d.phase, d.currentBlockIndex, d.blocks.length, bloco?.achieved_amount, bloco?.target_amount, d.blockSalesCount, inicio, fim,
+      d.totalSold, d.dailyGoal, d.totalSalesCount, d.totalApproaches]);
 }

@@ -1,12 +1,10 @@
 import { ConfigQuickSchema, type ConfigQuick } from "../types";
 
-/* Device-local memory of VANT Quick, per account (localStorage; nothing sensitive):
-   - the quick sale configured by the user;
-   - the taps already executed, so a tap delivered twice (cold start + listener + coming back to
-     the app) is executed once. Each tap has its own id, so two real sales in a row are two taps. */
+/* Device-local memory of VANT Quick, per account (localStorage; nothing sensitive): the quick sale
+   configured by the user (the server keeps its own copy, which is the one a widget tap charges),
+   and when this device's credential expires (the token itself only lives in the Keychain). */
 const chaveConfig = (conta: string) => `vant_quick_config:${conta}`;
-const chaveFeitos = (conta: string) => `vant_quick_feitos:${conta}`;
-const DIA = 24 * 60 * 60_000;
+const chaveCredencial = (conta: string) => `vant_quick_credencial_expira:${conta}`;
 
 export function lerConfig(conta: string): ConfigQuick | null {
   try {
@@ -21,26 +19,27 @@ export function salvarConfig(conta: string, c: ConfigQuick): ConfigQuick {
   return ok;
 }
 
-function lerFeitos(conta: string, agora: number): Record<string, number> {
-  try {
-    const bruto = JSON.parse(localStorage.getItem(chaveFeitos(conta)) ?? "{}") as Record<string, unknown>;
-    return Object.fromEntries(Object.entries(bruto).filter((e): e is [string, number] => typeof e[1] === "number" && agora - e[1] < DIA));
-  } catch { return {}; }
-}
-
-export function jaFeita(conta: string, id: string, agora = Date.now()): boolean {
-  return id in lerFeitos(conta, agora);
-}
-
-/** Marked BEFORE the DEFCON code runs: a crash in the middle loses at most that tap, never doubles it. */
-export function marcarFeita(conta: string, id: string, agora = Date.now()): void {
-  const feitos = lerFeitos(conta, agora);
-  feitos[id] = agora;
-  const ultimos = Object.entries(feitos).sort((a, b) => b[1] - a[1]).slice(0, 300);
-  try { localStorage.setItem(chaveFeitos(conta), JSON.stringify(Object.fromEntries(ultimos))); } catch { /* full storage: the sale id still protects the database */ }
-}
-
 /** Leaving or switching account: this account's quick memory goes with it. */
 export function esquecerConta(conta: string): void {
-  try { localStorage.removeItem(chaveConfig(conta)); localStorage.removeItem(chaveFeitos(conta)); } catch { /* nothing kept */ }
+  try { localStorage.removeItem(chaveConfig(conta)); localStorage.removeItem(chaveCredencial(conta)); } catch { /* nothing kept */ }
+}
+
+/** When this device's credential expires (ms), or null. */
+export function credencialExpiraEm(conta: string): number | null {
+  try { const v = Number(localStorage.getItem(chaveCredencial(conta))); return Number.isFinite(v) && v > 0 ? v : null; } catch { return null; }
+}
+export function marcarCredencial(conta: string, expiraEm: number): void {
+  try { localStorage.setItem(chaveCredencial(conta), String(expiraEm)); } catch { /* re-issued next time */ }
+}
+
+/** A stable id of this installation (not of the person): the server rotates one credential per device. */
+export function idDoAparelho(): string {
+  const k = "vant_quick_aparelho";
+  try {
+    const v = localStorage.getItem(k);
+    if (v && /^[0-9a-f-]{36}$/.test(v)) return v;
+    const novo = crypto.randomUUID();
+    localStorage.setItem(k, novo);
+    return novo;
+  } catch { return "00000000-0000-4000-8000-000000000000"; }
 }

@@ -75,3 +75,8 @@ verify_jwt = false
 # apple-conciliar: scheduled; door = header x-orbis-cron, checked inside.
 [functions.apple-conciliar]
 verify_jwt = false
+
+# vant-quick: called by the iPhone widget / Live Activity in the background, with NO user session.
+# MUST be false: the proof is the device credential (Bearer vq1_...), checked inside (SQL, hash only).
+[functions.vant-quick]
+verify_jwt = false
