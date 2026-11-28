@@ -23,8 +23,8 @@ enum QuickArmazem {
     private enum Chave {
         static let conta = "conta", painel = "painel", config = "config"
         static let pendentes = "pendentes", ultima = "ultima", leitura = "leitura"
-        static let servidor = "servidor", interativo = "interativo", painelServidor = "painel-servidor"
-        static let todas = [conta, painel, config, pendentes, ultima, leitura, servidor, interativo, painelServidor]
+        static let servidor = "servidor", interativo = "interativo", painelServidor = "painel-servidor", duvida = "duvida"
+        static let todas = [conta, painel, config, pendentes, ultima, leitura, servidor, interativo, painelServidor, duvida]
     }
 
     /// One tap on the widget. It carries no amount: the app uses its own configuration.
@@ -127,6 +127,9 @@ enum QuickArmazem {
         get { ler(PainelDoServidor.self, Chave.painelServidor) }
         set { gravar(newValue, Chave.painelServidor) }
     }
+    /// The last tap whose answer never arrived: asked about later (QuickAcao.resolverDuvida).
+    struct Duvida: Codable { let id: String; let tipo: String; let conta: String; let quando: Double }
+    static var duvida: Duvida? { get { ler(Duvida.self, Chave.duvida) } set { gravar(newValue, Chave.duvida) } }
 
     /// A new tap. Each tap has its own id (two real sales in a row are two taps). Taps older than
     /// a day are dropped and the queue is capped, so a forgotten widget never piles up actions.

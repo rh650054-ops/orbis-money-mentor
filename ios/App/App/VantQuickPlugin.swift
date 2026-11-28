@@ -86,6 +86,7 @@ public class VantQuickPlugin: CAPPlugin, CAPBridgedPlugin {
     /// the Live Activity. Only when this account may use VANT Quick interactive.
     static func puxarDoServidor() async {
         guard QuickArmazem.interativo, let conta = QuickArmazem.conta else { return }
+        await QuickAcao.resolverDuvida()
         if case .confirmada(let p) = await QuickServidor.enviar(acao: "painel", id: nil, origem: "widget"), let p, QuickArmazem.conta == conta {
             QuickArmazem.painelServidor = .init(conta: conta, quando: Date().timeIntervalSince1970 * 1000, painel: p)
             WidgetCenter.shared.reloadAllTimelines()

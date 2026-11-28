@@ -25,6 +25,7 @@ struct PainelProvedor: TimelineProvider {
             return completion(Timeline(entries: [agora()], policy: .after(Date().addingTimeInterval(15 * 60))))
         }
         Task {
+            if #available(iOS 17.0, *) { await QuickAcao.resolverDuvida() }
             if case .confirmada(let p) = await QuickServidor.enviar(acao: "painel", id: nil, origem: "widget"), let p, QuickArmazem.conta == conta {
                 QuickArmazem.painelServidor = .init(conta: conta, quando: Date().timeIntervalSince1970 * 1000, painel: p)
             }

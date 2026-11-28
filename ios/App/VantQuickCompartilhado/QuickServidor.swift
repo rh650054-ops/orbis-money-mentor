@@ -25,9 +25,25 @@ enum QuickServidor {
         var rapida: Rapida?
         struct Rapida: Codable { var valor: Double; var metodo: String }
     }
-    private struct Resposta: Codable { var ok: Bool; var motivo: String?; var aplicado: Bool?; var repetido: Bool?; var painel: Painel? }
+    private struct Resposta: Codable { var ok: Bool; var motivo: String?; var aplicado: Bool?; var repetido: Bool?; var existe: Bool?; var painel: Painel? }
 
     enum Resultado { case confirmada(Painel?), recusada(String), inconclusiva }
+    enum Situacao { case existe(Painel?), naoExiste(Painel?), desconhecida }
+
+    /// Asks the server about a tap whose answer never arrived. "não existe" also CLOSES the id on
+    /// the server, so the original request can never land later: the answer shown never changes.
+    static func situacao(id: String) async -> Situacao {
+        guard let url = endereco(), let token = QuickCofre.ler(),
+              let dados = try? JSONSerialization.data(withJSONObject: ["acao": "status", "id": id, "origem": "widget"]) else { return .desconhecida }
+        var req = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 8)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.httpBody = dados
+        guard let (resp, http) = try? await URLSession.shared.data(for: req), let h = http as? HTTPURLResponse, h.statusCode == 200,
+              let r = try? JSONDecoder().decode(Resposta.self, from: resp), r.ok, let existe = r.existe else { return .desconhecida }
+        return existe ? .existe(r.painel) : .naoExiste(r.painel)
+    }
 
     /// Base URL of the project (public, written by the app). Only https on supabase.co is accepted.
     static func endereco() -> URL? {
@@ -70,6 +86,7 @@ enum QuickServidor {
         case "atualize_outro_aparelho": return "Atualize a VANT no outro aparelho"
         case "defcon_nao_habilitado", "desativado": return "Registro pelo widget indisponível"
         case "credencial_invalida", "credencial_expirada": return "Abra a VANT para reconectar"
+        case "encerrada": return "Não registrada — toque de novo"
         default: return "Não registrada"
         }
     }

@@ -123,15 +123,18 @@ begin
 end $$;
 revoke all on function public.vant_quick_painel(uuid) from public, anon, authenticated;
 
--- p_acao: 'venda' | 'abordagem' | 'painel'. p_id = the tap's id (the same id is resent when an
--- answer did not arrive: it is applied once). p_origem: 'widget' | 'atividade'.
+-- p_acao: 'venda' | 'abordagem' | 'painel' | 'status'. p_id = the tap's id (the same id is resent
+-- when an answer did not arrive: it is applied once). p_origem: 'widget' | 'atividade'.
+-- 'status' (the iPhone asking later about a tap whose answer never arrived): "existe" true when the
+-- server has it; when it does not, the id is CLOSED at that moment, so the original request, if it
+-- is still travelling, can never land afterwards: the answer the iPhone got never changes.
 -- Returns {ok, motivo?, aplicado?, painel}. A refusal never writes anything.
 create or replace function public.vant_quick_executar(p_token text, p_acao text, p_id uuid default null, p_origem text default 'widget')
 returns jsonb language plpgsql security definer set search_path to 'public' as $$
 declare cr record; s record; b record; c record; v_dia date := (now() at time zone 'America/Sao_Paulo')::date;
         lim record; r jsonb;
 begin
-  if p_acao not in ('venda','abordagem','painel') then return jsonb_build_object('ok', false, 'motivo', 'acao_invalida'); end if;
+  if p_acao not in ('venda','abordagem','painel','status') then return jsonb_build_object('ok', false, 'motivo', 'acao_invalida'); end if;
   if p_origem not in ('widget','atividade') then return jsonb_build_object('ok', false, 'motivo', 'origem_invalida'); end if;
   if p_token is null or p_token !~ '^vq1_[0-9a-f]{64}$' then return jsonb_build_object('ok', false, 'motivo', 'credencial_invalida'); end if;
 
@@ -142,16 +145,31 @@ begin
   if p_acao = 'painel' then    -- reading never counts against the usage limits
     return jsonb_build_object('ok', true, 'painel', public.vant_quick_painel(cr.user_id));
   end if;
+  if p_id is null then return jsonb_build_object('ok', false, 'motivo', 'id_obrigatorio'); end if;
+  -- the same tap id is handled one request at a time (a late original vs. the status question)
+  perform pg_advisory_xact_lock(hashtextextended('vant_quick:' || p_id::text, 0));
+
+  if p_acao = 'status' then    -- never counts against the limits, never writes a sale
+    if exists (select 1 from public.defcon_sales where id = p_id and user_id = cr.user_id)
+       or exists (select 1 from public.defcon_abordagens where id = p_id and user_id = cr.user_id) then
+      return jsonb_build_object('ok', true, 'existe', true, 'painel', public.vant_quick_painel(cr.user_id));
+    end if;
+    insert into public.defcon_ids_encerrados (id, user_id, motivo) values (p_id, cr.user_id, 'consultada_sem_registro')
+    on conflict (id) do nothing;
+    return jsonb_build_object('ok', true, 'existe', false, 'painel', public.vant_quick_painel(cr.user_id));
+  end if;
 
   if not coalesce((select vant_quick from public.defcon_persistencia_config), false) then
     return jsonb_build_object('ok', false, 'motivo', 'desativado');
   end if;
-  if p_id is null then return jsonb_build_object('ok', false, 'motivo', 'id_obrigatorio'); end if;
-
   -- a resend of a tap already applied answers what happened, without counting the use again
   if exists (select 1 from public.defcon_sales where id = p_id and user_id = cr.user_id)
      or exists (select 1 from public.defcon_abordagens where id = p_id and user_id = cr.user_id) then
     return jsonb_build_object('ok', true, 'aplicado', false, 'repetido', true, 'painel', public.vant_quick_painel(cr.user_id));
+  end if;
+  -- the iPhone was already told "not registered" for this id (status): it stays that way
+  if exists (select 1 from public.defcon_ids_encerrados where id = p_id) then
+    return jsonb_build_object('ok', false, 'motivo', 'encerrada');
   end if;
 
   lim := public.vant_quick_limites();

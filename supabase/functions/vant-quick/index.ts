@@ -15,7 +15,7 @@ export interface Banco {
 }
 export interface Deps { db: Banco }
 
-const ACOES = new Set(["venda", "abordagem", "painel"]);
+const ACOES = new Set(["venda", "abordagem", "painel", "status"]);
 const ORIGENS = new Set(["widget", "atividade"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TOKEN = /^vq1_[0-9a-f]{64}$/;
@@ -25,6 +25,7 @@ const STATUS: Record<string, number> = {
   credencial_invalida: 401, credencial_expirada: 401,
   desativado: 503,
   rapido_demais: 429, limite_do_dia: 429,
+  encerrada: 409,
   sem_defcon: 409, defcon_nao_habilitado: 409, atualize_outro_aparelho: 409, bloco_parado: 409, sem_valor: 409,
   acao_invalida: 400, origem_invalida: 400, id_obrigatorio: 400,
 };

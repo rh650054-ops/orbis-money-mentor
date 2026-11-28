@@ -118,3 +118,49 @@ select t.verdade('H1 ...an account not switched on: no buttons', not (public.van
 update public.defcon_persistencia_config set vant_quick = false;
 select t.logar(pg_temp.u('vend'));
 select t.verdade('H1 ...interactive switch off: no buttons for anyone', not (public.vant_quick_disponivel() ->> 'interativo')::boolean);
+
+-- ======================================================================================
+-- I. The answer never reached the iPhone: asking later about the tap's id
+-- ======================================================================================
+update public.defcon_persistencia_config set vant_quick = true;
+insert into public.defcon_persistencia_contas (user_id) values (pg_temp.u('perdida'));
+select pg_temp.dia(pg_temp.u('perdida')) as s \gset q_
+select pg_temp.emitir(pg_temp.u('perdida')) as tk \gset q_
+select t.logar(pg_temp.u('perdida'));
+select public.vant_quick_salvar_config(25, 'dinheiro');
+-- I1: registered on the server, the answer lost on the way back
+select public.vant_quick_executar(:'q_tk', 'venda', pg_temp.id('q1'));
+update public.vant_quick_credenciais set ultimo_uso_em = now() - interval '1 minute' where user_id = pg_temp.u('perdida');
+select (select usos_no_dia from public.vant_quick_credenciais where user_id = pg_temp.u('perdida') and revogado_em is null) as usos \gset q_
+select public.vant_quick_executar(:'q_tk', 'status', pg_temp.id('q1')) as j \gset i1_
+select t.verdade('I1 asked later: the server says it EXISTS (the iPhone shows "confirmada"), with the panel',
+  pg_temp.ok(:'i1_j') and (:'i1_j'::jsonb ->> 'existe')::boolean and (:'i1_j'::jsonb -> 'painel' ->> 'faturamento')::numeric = 25);
+select t.verdade('I1 ...asking created nothing and did not count as a use: still ONE sale',
+  (select count(*) from public.defcon_sales where session_id = :'q_s') = 1
+  and (select usos_no_dia from public.vant_quick_credenciais where user_id = pg_temp.u('perdida') and revogado_em is null) = :'q_usos');
+select public.vant_quick_executar(:'q_tk', 'venda', pg_temp.id('q1')) as j \gset i1b_
+select t.verdade('I1 ...and a resend of the same id after that: "repetido", still one sale',
+  (:'i1b_j'::jsonb ->> 'repetido')::boolean and (select count(*) from public.defcon_sales where session_id = :'q_s') = 1);
+-- I2: the request never reached the server; the iPhone asks: "not registered" -> the id is closed
+select public.vant_quick_executar(:'q_tk', 'status', pg_temp.id('q2')) as j \gset i2_
+select t.verdade('I2 never arrived: the server says it does NOT exist (the iPhone shows "não registrada")', not (:'i2_j'::jsonb ->> 'existe')::boolean);
+select public.vant_quick_executar(:'q_tk', 'venda', pg_temp.id('q2')) as j \gset i2b_
+select t.verdade('I2 ...the original request arriving AFTER that is refused: the answer given never changes, no sale',
+  :'i2b_j'::jsonb ->> 'motivo' = 'encerrada' and not exists (select 1 from public.defcon_sales where id = pg_temp.id('q2')));
+-- I3: the original is STILL being processed when the iPhone asks (real parallel connections)
+select dblink_connect('qa', current_setting('vant.teste_conexao'));
+select dblink_connect('qb', current_setting('vant.teste_conexao'));
+update public.vant_quick_credenciais set ultimo_uso_em = now() - interval '1 minute' where user_id = pg_temp.u('perdida');
+select dblink_exec('qa', 'begin');
+select * from dblink('qa', format($q$select public.vant_quick_executar(%L, 'venda', %L)::text$q$, :'q_tk', pg_temp.id('q3'))) as x(r text);
+select dblink_send_query('qb', format($q$select public.vant_quick_executar(%L, 'status', %L)::text$q$, :'q_tk', pg_temp.id('q3')));
+select pg_sleep(0.3);
+select t.verdade('I3 the question waits for the original still in progress (same id, one at a time)', dblink_is_busy('qb') = 1);
+select dblink_exec('qa', 'commit');
+select * from dblink_get_result('qb') as x(r text) \gset i3_
+select t.verdade('I3 ...then answers EXISTS: the tap is confirmed, one sale, never closed by mistake',
+  (:'i3_r'::jsonb ->> 'existe')::boolean and (select count(*) from public.defcon_sales where id = pg_temp.id('q3')) = 1
+  and not exists (select 1 from public.defcon_ids_encerrados where id = pg_temp.id('q3')));
+select dblink_disconnect('qa'); select dblink_disconnect('qb');
+select t.verdade('I4 status needs a real id and a valid credential', public.vant_quick_executar(:'q_tk', 'status') ->> 'motivo' = 'id_obrigatorio'
+  and public.vant_quick_executar('vq1_' || repeat('b', 64), 'status', pg_temp.id('q1')) ->> 'motivo' = 'credencial_invalida');

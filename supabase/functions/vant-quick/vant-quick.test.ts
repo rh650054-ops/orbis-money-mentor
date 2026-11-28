@@ -73,6 +73,17 @@ describe("vant-quick", () => {
     expect(erros.join(" ")).not.toContain(TK);
   });
 
+  it("status (asking about a tap whose answer was lost) needs the tap id and is passed as is", async () => {
+    const db = banco({ ok: true, existe: true, painel: {} });
+    expect((await tratar(pedir({ acao: "status" }), { db })).status).toBe(400);
+    const r = await tratar(pedir({ acao: "status", id: ID }), { db });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toMatchObject({ existe: true });
+    expect(db.chamadas.at(-1)).toEqual({ n: "vant_quick_executar", a: { p_token: TK, p_acao: "status", p_id: ID, p_origem: "widget" } });
+    const r2 = await tratar(pedir({ acao: "venda", id: ID }), { db: banco({ ok: false, motivo: "encerrada" }) });
+    expect(r2.status).toBe(409);
+  });
+
   it("only POST", async () => {
     expect((await tratar(pedir(null, TK, "GET"), { db: banco({}) })).status).toBe(405);
   });

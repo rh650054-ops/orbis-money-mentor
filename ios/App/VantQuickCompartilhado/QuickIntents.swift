@@ -47,6 +47,8 @@ enum QuickAcao {
             await anunciar(id: id, tipo: tipo, estado: "recusada", texto: "Registro pelo widget indisponível", ok: false)
             return
         }
+        // a previous tap still without an answer is cleared up first (no new tap hides it)
+        await resolverDuvida()
         QuickArmazem.ultima = .init(id: id, tipo: tipo, estado: "registrando", texto: nil, quando: agora)
         recarregar()
         switch await QuickServidor.enviar(acao: tipo, id: id, origem: origem) {
@@ -58,7 +60,29 @@ enum QuickAcao {
         case .recusada(let motivo):
             await anunciar(id: id, tipo: tipo, estado: "recusada", texto: QuickServidor.frase(motivo), ok: false, conta: conta)
         case .inconclusiva:
+            // kept to be asked about later by its id: never shown as done, never sent again as new
+            QuickArmazem.duvida = .init(id: id, tipo: tipo, conta: conta, quando: Date().timeIntervalSince1970 * 1000)
             await anunciar(id: id, tipo: tipo, estado: "nao_confirmada", texto: "Sem resposta — \(nome.lowercased()) não confirmada", ok: false, conta: conta)
+        }
+    }
+
+    /// Asks the server about the tap whose answer never arrived, by ITS id: "existe" → confirmed with
+    /// the server's numbers; "não existe" → not registered (and the server closed that id, so the lost
+    /// request can never land later). No answer again → asked again next time. Never registers.
+    static func resolverDuvida() async {
+        guard let d = QuickArmazem.duvida else { return }
+        guard d.conta == QuickArmazem.conta else { QuickArmazem.duvida = nil; return }   // another account now
+        let nome = d.tipo == "abordagem" ? "Abordagem" : "Venda"
+        switch await QuickServidor.situacao(id: d.id) {
+        case .existe(let painel):
+            QuickArmazem.duvida = nil
+            if let painel { QuickArmazem.painelServidor = .init(conta: d.conta, quando: Date().timeIntervalSince1970 * 1000, painel: painel) }
+            await anunciar(id: d.id, tipo: d.tipo, estado: "confirmada", texto: "\(nome) confirmada ✓", ok: true, painel: painel, conta: d.conta)
+        case .naoExiste(let painel):
+            QuickArmazem.duvida = nil
+            await anunciar(id: d.id, tipo: d.tipo, estado: "recusada", texto: "\(nome) não registrada — toque de novo", ok: false, painel: painel, conta: d.conta)
+        case .desconhecida:
+            return
         }
     }
 
