@@ -52,9 +52,9 @@ import { NovaCaixinhaSheet } from "@/components/financas/NovaCaixinhaSheet";
 import { ContaSheet, type ContaInfo } from "@/components/financas/ContaSheet";
 import { DicaDoOrbis, type DicaContexto } from "@/components/financas/DicaDoOrbis";
 import { useFinancasHome } from "@/components/financas/FinancasHome";
-import { BancosAba } from "@/features/financas-bancos";
+import { BancosAba, DinheiroDisponivel, PrimeiroBanco, useSaldoDisponivel } from "@/features/financas-bancos";
 import { AbasNav, abaValida, ParaResolver, ConviteBanco, type AbaFinancas } from "@/components/financas/FinancasAbas";
-import { DinheiroDisponivel, PrioridadeHoje, MeuNegocio, FolegoFinanceiro, FluxoDeCaixa, EsqueletoResumo, SecaoResumo, mesDoResumo } from "@/features/financas-resumo";
+import { PrioridadeHoje, MeuNegocio, FolegoFinanceiro, FluxoDeCaixa, EsqueletoResumo, SecaoResumo, mesDoResumo } from "@/features/financas-resumo";
 import { RaioXAba } from "@/features/raiox";
 import { ToastAction } from "@/shared/ui/toast";
 import { MesBlindadoCard } from "@/components/financas/planejar/MesBlindadoCard";
@@ -168,10 +168,14 @@ export default function Finances() {
   const [abaParams, setAbaParams] = useSearchParams();
   const { h: casa, recarregar: recarregarCasa } = useFinancasHome(user?.id);
   const comBanco = Boolean(casa?.tem_banco);
+  // 28/11: ONE definition of "saldo disponível" (recent × unconfirmed × unavailable), Resumo and Bancos
+  const saldoC = useSaldoDisponivel(casa, user?.id);
   // 25/10 (Rick): Essencial vê a aba Bancos com cadeado e tem limite de contas/objetivos
   const acessoQ = useAcessoQuery(user?.id);
   const essencialTravado = travaPro(acessoQ);
-  const aba: AbaFinancas = abaValida(abaParams.get("aba"), comBanco, essencialTravado);
+  // 28/11: a Pro account with no bank yet sees the Bancos tab with its empty state (known access only)
+  const proSemBanco = !comBanco && acessoQ.data?.recursosPro === true;
+  const aba: AbaFinancas = abaValida(abaParams.get("aba"), comBanco, essencialTravado, proSemBanco);
   const irAba = (a: AbaFinancas) => {
     const p = new URLSearchParams(abaParams);
     if (a === "resumo") p.delete("aba"); else p.set("aba", a);
@@ -2226,7 +2230,7 @@ export default function Finances() {
       </div>
 
 
-      <AbasNav aba={aba} onAba={irAba} comBanco={comBanco} bancosTravado={essencialTravado} />
+      <AbasNav aba={aba} onAba={irAba} comBanco={comBanco} bancosTravado={essencialTravado} bancosVazio={proSemBanco} />
 
       {/* 04/10: "pra que serve cada conta" mora no Vender. Aqui só o lembrete, se faltar. */}
       {casa?.precisa_papel && (
@@ -2244,7 +2248,7 @@ export default function Finances() {
           Mesmos dados e ações de antes; só a ordem e o visual mudaram. */}
       {aba === "resumo" && (
         <>
-          {comBanco && casa && <DinheiroDisponivel h={casa} onVerBancos={() => irAba("bancos")} />}
+          {comBanco && casa && saldoC && <DinheiroDisponivel h={casa} c={saldoC} onVerBancos={() => irAba("bancos")} />}
           {casa && !comBanco && (
             <ConviteBanco onLigar={() => navigate("/verificar")} texto="Saldo, fôlego e gastos aparecem aqui sozinhos, sem digitar nada." />
           )}
@@ -2289,7 +2293,7 @@ export default function Finances() {
             fiadoHoje={summary.debtToday}
           />
 
-          {comBanco && casa && <FolegoFinanceiro h={casa} onPlanejar={() => irAba("planejar")} />}
+          {comBanco && casa && <FolegoFinanceiro h={casa} parcial={!!saldoC?.conferido && saldoC.parcial} onPlanejar={() => irAba("planejar")} />}
           {comBanco && casa && (
             <>
               <SecaoResumo titulo="Fluxo de caixa" lado={mesDoResumo()} />
@@ -2300,6 +2304,7 @@ export default function Finances() {
       )}
 
       {/* only with a bank: without one the tab exists only for Essencial, as the Pro lock (below) */}
+      {aba === "bancos" && !comBanco && proSemBanco && <PrimeiroBanco email={user?.email} />}
       {aba === "bancos" && casa && comBanco && (
         <>
           {/* BANCOS (redesign 28/11/2026): saldo → contas de trabalho → pessoais → conectar → organização → reserva */}

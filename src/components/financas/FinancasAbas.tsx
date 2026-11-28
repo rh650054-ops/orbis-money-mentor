@@ -30,16 +30,17 @@ const hora = (iso: string) =>
 const nomeMes = () => new Date().toLocaleDateString("pt-BR", { month: "long", timeZone: "America/Sao_Paulo" });
 
 /** bancosTravado (25/10): Essencial vê a aba Bancos com cadeado, com o que o Pro mostraria (fosco). */
-export function abaValida(v: string | null, comBanco: boolean, bancosTravado = false): AbaFinancas {
+/** bancosVazio (28/11): a Pro account with no bank sees the tab with the "first bank" empty state. */
+export function abaValida(v: string | null, comBanco: boolean, bancosTravado = false, bancosVazio = false): AbaFinancas {
   if (v === "planejar" || v === "raiox") return v;
   if (v === "analise") return "raiox";   // links antigos
-  if (v === "bancos" && (comBanco || bancosTravado)) return v;
+  if (v === "bancos" && (comBanco || bancosTravado || bancosVazio)) return v;
   return "resumo";
 }
 
 /* ---------- navegação: texto, ouro no selecionado, sem botões grandes ---------- */
-export function AbasNav({ aba, onAba, comBanco, bancosTravado = false }: { aba: AbaFinancas; onAba: (a: AbaFinancas) => void; comBanco: boolean; bancosTravado?: boolean }) {
-  const lista: AbaFinancas[] = comBanco || bancosTravado ? ["resumo", "bancos", "planejar", "raiox"] : ["resumo", "planejar", "raiox"];
+export function AbasNav({ aba, onAba, comBanco, bancosTravado = false, bancosVazio = false }: { aba: AbaFinancas; onAba: (a: AbaFinancas) => void; comBanco: boolean; bancosTravado?: boolean; bancosVazio?: boolean }) {
+  const lista: AbaFinancas[] = comBanco || bancosTravado || bancosVazio ? ["resumo", "bancos", "planejar", "raiox"] : ["resumo", "planejar", "raiox"];
   // 05/10: o sublinhado ouro desliza até a aba escolhida (~200ms, ease-out) e
   // acompanha a largura do texto.
   const botoes = useRef<Partial<Record<AbaFinancas, HTMLButtonElement | null>>>({});
@@ -47,7 +48,7 @@ export function AbasNav({ aba, onAba, comBanco, bancosTravado = false }: { aba: 
   useLayoutEffect(() => {
     const el = botoes.current[aba];
     if (el) setBarra({ x: el.offsetLeft, w: el.offsetWidth });
-  }, [aba, comBanco, bancosTravado]);
+  }, [aba, comBanco, bancosTravado, bancosVazio]);
   return (
     <div role="tablist" aria-label="Partes das finanças" className="relative flex gap-5 overflow-x-auto" style={{ borderBottom: `1px solid ${LINHA}` }}>
       {lista.map((a) => {

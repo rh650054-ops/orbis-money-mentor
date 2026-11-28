@@ -1,12 +1,13 @@
-/* 2 · 3 · Contas de trabalho (gold) and pessoais (blue): total, logo, name, balance and the REAL
-   state of each connection (statusDoBanco, the same rule as the Vender screen). */
+/* 2 · 3 · Contas de trabalho (gold) and pessoais (blue): the group's RECENT money (lib/saldo.ts),
+   then each bank with logo, name, balance and the real state of its connection (statusDoBanco).
+   An unconfirmed balance is shown in grey and never added to the group's total. */
 import { ChevronRight, Landmark } from "lucide-react";
 import { statusDoBanco } from "@/features/vender";
 import { Pilula } from "@/shared/components/vant-status";
 import { Cartao, COR } from "@/features/financas-resumo";
-import { totalDoGrupo, type LinhaConta } from "../lib/contas";
-import { qualidade } from "../lib/qualidade";
+import type { LinhaConta } from "../lib/contas";
 import { dinheiro } from "../lib/ocultar";
+import { diaCurto, type ContaNoSaldo } from "../lib/saldo";
 
 export type TipoGrupo = "trabalho" | "pessoal" | "sem";
 const COR_DO_GRUPO: Record<TipoGrupo, string> = { trabalho: COR.ouro, pessoal: COR.azul, sem: COR.sub };
@@ -22,7 +23,7 @@ function Logo({ l }: { l: LinhaConta }) {
 }
 
 interface Props {
-  tipo: TipoGrupo; linhas: LinhaConta[]; oculto: boolean; ligando: boolean;
+  tipo: TipoGrupo; linhas: ContaNoSaldo[]; oculto: boolean; ligando: boolean;
   /** institution names connected more than once (lower case) */
   repetidos?: Set<string>;
   onAbrir: () => void; onAutorizar: (itemId: string) => void;
@@ -31,22 +32,28 @@ interface Props {
 export function GrupoContas({ tipo, linhas, oculto, ligando, onAbrir, onAutorizar, repetidos }: Props) {
   if (linhas.length === 0) return null;
   const cor = COR_DO_GRUPO[tipo];
-  const total = totalDoGrupo(linhas);
-  const parcial = total != null && !qualidade(linhas).completo;
+  const recentes = linhas.filter((l) => l.estado === "recente");
+  const total = recentes.length ? recentes.reduce((t, l) => t + (l.saldo ?? 0), 0) : null;
+  const velhas = linhas.filter((l) => l.estado === "sem_confirmacao");
+  const semConfirmacao = velhas.length ? velhas.reduce((t, l) => t + (l.saldo ?? 0), 0) : null;
+  const semSaldo = linhas.filter((l) => l.estado === "indisponivel").length;
   return (
     <Cartao rotulo={TITULO[tipo]}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 text-[14px] font-black" style={{ color: COR.texto }}>
-            <span className="w-1 h-4 rounded-full" style={{ background: cor }} aria-hidden />{TITULO[tipo]}
+          <p className="flex items-center gap-2 text-[14px] font-black whitespace-nowrap" style={{ color: COR.texto }}>
+            <span className="w-1 h-4 rounded-full shrink-0" style={{ background: cor }} aria-hidden />{TITULO[tipo]}
           </p>
           {tipo === "sem" && <p className="text-[12.5px] mt-1" style={{ color: COR.sub }}>Diga se é de trabalho ou pessoal.</p>}
         </div>
         {tipo === "sem"
           ? <button type="button" onClick={onAbrir} className="text-[13px] font-extrabold shrink-0 min-h-9" style={{ color: COR.ouro }}>Classificar</button>
-          : <div className="text-right shrink-0">
-              <p className="text-[18px] font-black tabular-nums" style={{ color: total == null ? COR.mute : cor }}>{dinheiro(total, oculto)}</p>
-              {parcial && <p className="text-[11px] font-bold" style={{ color: "#F2B43A" }}>parcial</p>}
+          : <div className="text-right shrink-0 max-w-[55%]">
+              {total == null
+                ? <p className="text-[13px] font-bold mt-0.5" style={{ color: COR.mute }}>sem leitura recente</p>
+                : <p className="text-[18px] max-[359px]:text-[16px] font-black tabular-nums" style={{ color: total < 0 && !oculto ? COR.vermelho : cor }}>{dinheiro(total, oculto)}</p>}
+              {semConfirmacao != null && <p className="text-[11px] font-bold tabular-nums" style={{ color: "#F2B43A" }}>{total == null ? `último ${dinheiro(semConfirmacao, oculto)}` : `+ ${dinheiro(semConfirmacao, oculto)} sem confirmação`}</p>}
+              {semSaldo > 0 && <p className="text-[11px] font-bold" style={{ color: "#F2B43A" }}>{semSaldo} sem saldo</p>}
             </div>}
       </div>
       <div className="mt-2 -mb-2">
@@ -55,7 +62,7 @@ export function GrupoContas({ tipo, linhas, oculto, ligando, onAbrir, onAutoriza
           const desconectado = !!st?.autorizar;
           // a connection that answers but sent no balance is not shown as healthy
           const pilula = l.saldo == null && st?.rotulo === "ATIVO" ? { tom: "atencao" as const, rotulo: "SEM SALDO" } : st ? { tom: st.tom, rotulo: st.rotulo } : { tom: "neutro" as const, rotulo: "SEM DADOS" };
-          const desde = l.conexao?.last_synced_at ? new Date(l.conexao.last_synced_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" }) : null;
+          const desde = l.conexao?.last_synced_at ? diaCurto(l.conexao.last_synced_at) : null;
           return (
             <div key={l.id} className="py-3" style={{ borderTop: `1px solid ${COR.linha}` }}>
               <button type="button" onClick={onAbrir} aria-label={`Detalhes de ${l.banco}`}
@@ -63,15 +70,17 @@ export function GrupoContas({ tipo, linhas, oculto, ligando, onAbrir, onAutoriza
                 <Logo l={l} />
                 <span className="flex-1 min-w-0">
                   <span className="block text-[14.5px] font-black truncate" style={{ color: COR.texto }}>{l.banco}</span>
-                  <span className="flex items-center gap-1.5 mt-1 min-w-0">
+                  <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1 min-w-0">
                     <span className="shrink-0"><Pilula tom={pilula.tom}>{pilula.rotulo}</Pilula></span>
-                    <span className="text-[12px] truncate" style={{ color: desconectado ? COR.vermelho : COR.mute }}>{desconectado ? (desde ? `desde ${desde}` : "sem leitura") : st ? st.detalhe : "sem dados da conexão"}</span>
+                    {/* on a 320 px phone the time goes under the pill instead of being cut */}
+                    <span className="text-[12px] truncate max-[359px]:whitespace-normal" style={{ color: desconectado ? COR.vermelho : COR.mute }}>{desconectado ? (desde ? `desde ${desde}` : "sem leitura") : st ? st.detalhe : "sem dados da conexão"}</span>
                   </span>
                   {repetidos?.has(l.banco.trim().toLowerCase()) && (
-                    <span className="block text-[11.5px] truncate" style={{ color: "#F2B43A" }}>conectado 2 vezes</span>
+                    <span className="block text-[11.5px] truncate" style={{ color: COR.mute }}>outra conexão deste banco</span>
                   )}
                 </span>
-                <span className="text-[15px] max-[359px]:text-[14px] font-black tabular-nums shrink-0 text-right" style={{ color: l.saldo == null ? COR.mute : (l.saldo < 0 && !oculto) ? COR.vermelho : COR.texto }}>
+                <span className="text-[15px] max-[359px]:text-[14px] font-black tabular-nums shrink-0 text-right" style={{ color: l.estado !== "recente" ? COR.mute : (l.saldo! < 0 && !oculto) ? COR.vermelho : COR.texto }}
+                  title={l.estado === "sem_confirmacao" ? "último saldo conhecido, sem confirmação recente" : undefined}>
                   {dinheiro(l.saldo, oculto)}
                 </span>
                 <ChevronRight className="w-4 h-4 shrink-0 max-[359px]:hidden" style={{ color: COR.mute }} aria-hidden />

@@ -30,8 +30,8 @@ function Linha({ icone, titulo, valor, sub, cor, oculto, onClick, primeira }: {
       style={{ borderTop: primeira ? "none" : `1px solid ${COR.linha}` }}>
       <span className="w-10 h-10 rounded-[12px] shrink-0 grid place-items-center" style={{ background: "#1a1916" }}>{icone}</span>
       <span className="flex-1 min-w-0">
-        <span className="block text-[14.5px] font-black" style={{ color: COR.texto }}>{titulo}</span>
-        <span className="block text-[12px] truncate" style={{ color: COR.mute }}>{sub}</span>
+        <span className="block text-[14.5px] max-[359px]:text-[14px] font-black leading-tight" style={{ color: COR.texto }}>{titulo}</span>
+        <span className="block text-[12px] truncate max-[359px]:whitespace-normal" style={{ color: COR.mute }}>{sub}</span>
       </span>
       {valor != null && <span className="text-[15px] font-black tabular-nums shrink-0" style={{ color: valor > 0 ? cor : COR.texto }}>{dinheiro(valor, oculto)}</span>}
       <ChevronRight className="w-4 h-4 shrink-0 max-[359px]:hidden" style={{ color: COR.mute }} aria-hidden />

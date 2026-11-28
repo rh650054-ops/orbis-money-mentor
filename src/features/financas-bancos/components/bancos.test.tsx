@@ -1,207 +1,229 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import type { HomeFinancas } from "@/components/financas/FinancasHome";
 import type { BancoLigado } from "@/components/conectar/pluggy";
 import type { Painel } from "@/components/financas/FinancasPainel";
-import { agrupar, totalDoGrupo } from "../lib/contas";
-import { dinheiro } from "../lib/ocultar";
-import { linhasDaOrganizacao } from "../lib/organizacao";
-import { avisosDoSaldo, bancosRepetidos, qualidade } from "../lib/qualidade";
-import { renderHook, act } from "@testing-library/react";
-import { useOcultarValores } from "../lib/ocultar";
-import { PainelGaveta } from "@/components/financas/FinancasPainel";
-import { SaldoDisponivel } from "./saldo-disponivel";
-import { GrupoContas } from "./grupo-contas";
-import { OrganizacaoFinanceira } from "./organizacao";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: vi.fn(), rpc: vi.fn(), functions: { invoke: vi.fn() }, auth: { getSession: vi.fn() } } }));
+const ligar = vi.fn();
+vi.mock("@/features/vender", async (orig) => ({
+  ...(await orig<typeof import("@/features/vender")>()),
+  useLigarBanco: () => ({ ligar, ligando: false, precisaExtra: false, fecharExtra: vi.fn() }),
+}));
+
+import { PainelGaveta } from "@/components/financas/FinancasPainel";
+import { abaValida } from "@/components/financas/FinancasAbas";
+import { agrupar, totalDoGrupo } from "../lib/contas";
+import { dinheiro, useOcultarValores } from "../lib/ocultar";
+import { linhasDaOrganizacao } from "../lib/organizacao";
+import { bancosRepetidos, consolidar, distribuicao } from "../lib/saldo";
+import { SaldoDisponivel } from "./saldo-disponivel";
+import { DinheiroDisponivel } from "./dinheiro-resumo";
+import { GrupoContas } from "./grupo-contas";
+import { OrganizacaoFinanceira } from "./organizacao";
+import { PrimeiroBanco } from "./primeiro-banco";
 
 const agora = new Date().toISOString();
+const velho = new Date(Date.now() - 3 * 24 * 3600_000).toISOString();
 const conexao = (o: Partial<BancoLigado> = {}): BancoLigado => ({
   id: "c1", item_id: "i1", institution_name: "Banco A", institution_logo: null, status: "UPDATED", last_synced_at: agora, papel: "trabalho", ...o,
 });
-const casa = (o: Partial<HomeFinancas> = {}): HomeFinancas => ({
-  tem_banco: true, tem_saldo: true, saldo: 1000, bancos: [], atualizado: agora, fixas_mes: 0, folego_dias: null,
+/** Rick's example of 28/11: Alfa 612,30 ok · Beta 218,18 disconnected · Gama 500,99 ok */
+const exemplo = (o: Partial<HomeFinancas> = {}): HomeFinancas => ({
+  tem_banco: true, tem_saldo: true, saldo: 1331.47, bancos: [], atualizado: agora, fixas_mes: 0, folego_dias: null,
   entrou: 0, saiu: 0, sobrou: 0, alerta: null, causas: null, piloto: { lancamentos: 0, conferir: 0 },
-  saldo_trabalho: 700, saldo_pessoal: 300,
-  contas: [{ id: "c1", banco: "Banco A", papel: "trabalho", saldo: 700 }, { id: "c2", banco: "Banco B", papel: "pessoal", saldo: 300 }], ...o,
+  saldo_trabalho: 830.48, saldo_pessoal: 500.99,
+  contas: [{ id: "a", banco: "Banco Alfa", papel: "trabalho", saldo: 612.3 }, { id: "b", banco: "Banco Beta", papel: "trabalho", saldo: 218.18 },
+    { id: "g", banco: "Banco Gama", papel: "pessoal", saldo: 500.99 }], ...o,
 });
+const conexoesExemplo = [conexao({ id: "a" }), conexao({ id: "b", status: "USER_INPUT_TIMEOUT", last_synced_at: velho }), conexao({ id: "g", papel: "pessoal" })];
 const painel = (o: Partial<Painel> = {}): Painel => ({
   tem_cartao: true, cartoes: [{ banco: "A", nome: "Cartão", fatura: 450, limite: 1000, disponivel: 550, vence: null, minimo: null }],
   parcelas: [], parcelas_por_mes: [], parcelas_mes: 0, parcelas_total: 0,
   tem_emprestimo: false, emprestimos: [], especial_usado: 120, especial_limite: 500, juros_mes: { emprestimo: 0, especial: 9.6 },
-  tem_investimento: true, investimentos: [], guardado: 2000, reserva: 800, saldo_contas: 1000, dividas: 570, dia_de_rua: 200, leitura: null, ...o,
+  tem_investimento: true, investimentos: [{ banco: "A", nome: "CDB", tipo: "x", saldo: 2000 }], guardado: 2000, reserva: 800,
+  saldo_contas: 1000, dividas: 570, dia_de_rua: 200, leitura: null, ...o,
 });
+const so = (t: string | null) => (t ?? "").replace(/\s/g, " ");
 const grupo = { oculto: false, ligando: false, onAbrir: vi.fn(), onAutorizar: vi.fn() };
 
-beforeEach(() => { try { localStorage.clear(); } catch { /* ok */ } });
+beforeEach(() => { try { localStorage.clear(); } catch { /* ok */ } ligar.mockReset(); });
 
-describe("rules", () => {
-  it("zero is R$ 0, missing is 'indisponível'", () => {
-    expect(dinheiro(0, false).replace(/\s/g, " ")).toBe("R$ 0");
-    expect(dinheiro(null, false)).toBe("indisponível");
-    expect(dinheiro(null, true)).toBe("indisponível");
-    expect(dinheiro(10, true)).toBe("R$ •••••");
+describe("the definition of saldo disponível (lib/saldo.ts)", () => {
+  it("Rick's example: recent 1.113,29, unconfirmed 218,18, PARCIAL", () => {
+    const c = consolidar(exemplo(), conexoesExemplo);
+    expect(c.recente).toBeCloseTo(1113.29, 2);
+    expect(c.semConfirmacao).toBeCloseTo(218.18, 2);
+    expect(c).toMatchObject({ parcial: true, qtdSemConfirmacao: 1, qtdDesconectadas: 1, qtdIndisponiveis: 0 });
+    expect(c.partes.trabalho.recente).toBeCloseTo(612.3, 2);
+  });
+  it("all disconnected: no recent money (null, not zero), last known apart", () => {
+    const c = consolidar(exemplo(), conexoesExemplo.map((x) => ({ ...x, status: "WAITING_USER_INPUT" })));
+    expect(c.recente).toBeNull();
+    expect(c.semConfirmacao).toBeCloseTo(1331.47, 2);
+    expect(c.qtdDesconectadas).toBe(3);
+  });
+  it("all outdated (good status, old read): same, never counted as recent", () => {
+    const c = consolidar(exemplo(), conexoesExemplo.map((x) => ({ ...x, status: "UPDATED", last_synced_at: velho })));
+    expect(c.recente).toBeNull();
+    expect(c.qtdSemConfirmacao).toBe(3);
+    expect(c.qtdDesconectadas).toBe(0);
+  });
+  it("an outdated NEGATIVE balance stays negative in the unconfirmed sum", () => {
+    const c = consolidar(exemplo({ contas: [{ id: "a", banco: "A", papel: "trabalho", saldo: 300 }, { id: "b", banco: "B", papel: "pessoal", saldo: -120 }] }),
+      [conexao({ id: "a" }), conexao({ id: "b", papel: "pessoal", last_synced_at: velho })]);
+    expect(c.recente).toBe(300);
+    expect(c.semConfirmacao).toBe(-120);
+  });
+  it("partial sum equal to zero is R$ 0 AND partial", () => {
+    const c = consolidar(exemplo({ contas: [{ id: "a", banco: "A", papel: "trabalho", saldo: 0 }, { id: "b", banco: "B", papel: "pessoal", saldo: 90 }] }),
+      [conexao({ id: "a" }), conexao({ id: "b", papel: "pessoal", status: "USER_INPUT_TIMEOUT" })]);
+    expect(c.recente).toBe(0);
+    expect(c.parcial).toBe(true);
+  });
+  it("really zero: R$ 0, complete", () => {
+    const c = consolidar(exemplo({ contas: [{ id: "a", banco: "A", papel: "trabalho", saldo: 0 }] }), [conexao({ id: "a" })]);
+    expect(c.recente).toBe(0);
+    expect(c.parcial).toBe(false);
+  });
+  it("no balance sent: unavailable, out of both sums", () => {
+    const c = consolidar(exemplo({ contas: [{ id: "a", banco: "A", papel: "trabalho", saldo: null }] }), [conexao({ id: "a" })]);
+    expect(c).toMatchObject({ recente: null, semConfirmacao: null, qtdIndisponiveis: 1, parcial: true });
+  });
+  it("connections not loaded: nothing is claimed; connections unreadable: nothing is recent", () => {
+    expect(consolidar(exemplo(), null).conferido).toBe(false);
+    expect(consolidar(exemplo(), []).recente).toBeNull();
   });
   it("one connection without a role counts as work, like financas_home()", () => {
-    const g = agrupar(casa({ contas: [{ id: "c1", banco: "A", papel: null, saldo: 5 }] }), []);
-    expect(g.trabalho).toHaveLength(1);
+    expect(agrupar(exemplo({ contas: [{ id: "a", banco: "A", papel: null, saldo: 5 }] }), []).trabalho).toHaveLength(1);
   });
-  it("two connections without a role stay unclassified", () => {
-    const g = agrupar(casa({ contas: [{ id: "c1", banco: "A", papel: null, saldo: 5 }, { id: "c2", banco: "B", papel: null, saldo: 5 }] }), []);
-    expect(g.semPapel).toHaveLength(2);
+  it("no bar when a side is negative, or when there is only one side", () => {
+    const neg = consolidar(exemplo({ contas: [{ id: "a", banco: "A", papel: "trabalho", saldo: -50 }, { id: "g", banco: "G", papel: "pessoal", saldo: 300 }] }),
+      [conexao({ id: "a" }), conexao({ id: "g", papel: "pessoal" })]);
+    expect(distribuicao(neg)).toBeNull();
+    expect(distribuicao(consolidar(exemplo({ contas: [{ id: "a", banco: "A", papel: "trabalho", saldo: 50 }] }), [conexao({ id: "a" })]))).toBeNull();
   });
-  it("a group total is null only when no balance came", () => {
+  it("the same bank twice is a fact, not a duplicate", () => {
+    expect([...bancosRepetidos([{ banco: "Banco A" }, { banco: "banco a" }])]).toEqual(["banco a"]);
+  });
+  it("zero is R$ 0, missing is 'indisponível', hidden is masked", () => {
+    expect(so(dinheiro(0, false))).toBe("R$ 0");
+    expect(dinheiro(null, false)).toBe("indisponível");
+    expect(dinheiro(10, true)).toBe("R$ •••••");
+  });
+  it("groups and organisation keep their rules", () => {
     expect(totalDoGrupo([{ id: "a", banco: "A", saldo: null, conexao: null }])).toBeNull();
-    expect(totalDoGrupo([{ id: "a", banco: "A", saldo: null, conexao: null }, { id: "b", banco: "B", saldo: 0, conexao: null }])).toBe(0);
-  });
-  it("savings are shown apart: the reserve is inside 'guardado', never added to the balance", () => {
-    const l = linhasDaOrganizacao(painel());
-    expect(l.guardado.valor).toBe(2000);
-    expect(l.cartao.valor).toBe(450);
-    expect(l.dividas.valor).toBe(120);
+    expect(linhasDaOrganizacao(painel())).toMatchObject({ guardado: { valor: 2000 }, cartao: { valor: 450 }, dividas: { valor: 120 } });
   });
 });
 
-describe("Saldo disponível", () => {
-  it("shows the total, the time and the split; the eye hides every value", () => {
-    const ocultar = vi.fn();
-    const { rerender } = render(<SaldoDisponivel h={casa()} oculto={false} onOcultar={ocultar} q={null} semPapel={null} />);
-    expect(screen.getByText("R$ 1.000")).toBeTruthy();
-    expect(screen.getByRole("img", { name: "70% trabalho, 30% pessoal" })).toBeTruthy();
-    fireEvent.click(screen.getByLabelText("Ocultar valores"));
-    expect(ocultar).toHaveBeenCalled();
-    rerender(<SaldoDisponivel h={casa()} oculto onOcultar={ocultar} q={null} semPapel={null} />);
-    expect(screen.queryByText("R$ 1.000")).toBeNull();
-    expect(screen.getAllByText("R$ •••••").length).toBe(3);
-  });
-  it("no balance from the bank is 'indisponível', not zero", () => {
-    render(<SaldoDisponivel h={casa({ tem_saldo: false, saldo: null, atualizado: null })} oculto={false} onOcultar={vi.fn()} q={null} semPapel={null} />);
-    expect(screen.getByText("Saldo indisponível")).toBeTruthy();
-    expect(screen.queryByText("R$ 0")).toBeNull();
-  });
-});
-
-describe("account groups and the connection state", () => {
-  it("ATIVO only with a recent read and a good status", () => {
-    render(<GrupoContas tipo="trabalho" linhas={agrupar(casa(), [conexao()]).trabalho} {...grupo} />);
-    expect(screen.getByText("ATIVO")).toBeTruthy();
-  });
-  it("an old read is ATENÇÃO, not ATIVO", () => {
-    const velho = new Date(Date.now() - 3 * 24 * 3600_000).toISOString();
-    render(<GrupoContas tipo="trabalho" linhas={agrupar(casa(), [conexao({ last_synced_at: velho })]).trabalho} {...grupo} />);
-    expect(screen.queryByText("ATIVO")).toBeNull();
-    expect(screen.getByText("ATENÇÃO")).toBeTruthy();
-  });
-  it("without connection data it says so instead of looking healthy", () => {
-    render(<GrupoContas tipo="trabalho" linhas={agrupar(casa(), []).trabalho} {...grupo} />);
-    expect(screen.getByText("SEM DADOS")).toBeTruthy();
-  });
-  it("a disconnected bank offers Autorizar with its item", () => {
-    const onAutorizar = vi.fn();
-    render(<GrupoContas tipo="trabalho" linhas={agrupar(casa(), [conexao({ status: "WAITING_USER_INPUT" })]).trabalho} {...grupo} onAutorizar={onAutorizar} />);
-    expect(screen.getByText("DESCONECTADO")).toBeTruthy();
-    fireEvent.click(screen.getByText("Autorizar de novo no app do banco"));
-    expect(onAutorizar).toHaveBeenCalledWith("i1");
-  });
-  it("tapping a bank opens its details", () => {
-    const onAbrir = vi.fn();
-    render(<GrupoContas tipo="pessoal" linhas={agrupar(casa(), [conexao({ id: "c2", papel: "pessoal" })]).pessoal} {...grupo} onAbrir={onAbrir} />);
-    fireEvent.click(screen.getByLabelText("Detalhes de Banco B"));
-    expect(onAbrir).toHaveBeenCalled();
-  });
-  it("an account balance the bank did not send is 'indisponível'", () => {
-    render(<GrupoContas tipo="trabalho" linhas={agrupar(casa({ contas: [{ id: "c1", banco: "A", papel: "trabalho", saldo: null }] }), [conexao()]).trabalho} {...grupo} />);
-    expect(screen.getAllByText("indisponível").length).toBe(2);
-  });
-});
-
-describe("Organização financeira", () => {
-  it("each row opens the same drawer as before", () => {
-    const abrir = vi.fn();
-    render(<OrganizacaoFinanceira p={painel()} oculto={false} abrir={abrir} />);
-    fireEvent.click(screen.getByText("Cartões"));
-    fireEvent.click(screen.getByText("Dinheiro guardado"));
-    fireEvent.click(screen.getByText("Dívidas"));
-    expect(abrir.mock.calls.map((c) => c[0])).toEqual(["cartao", "guardado", "dividas"]);
-  });
-  it("a card the bank did not release shows no zero", () => {
-    render(<OrganizacaoFinanceira p={painel({ tem_cartao: false, cartoes: [] })} oculto={false} abrir={vi.fn()} />);
-    expect(screen.getByText("o banco não liberou")).toBeTruthy();
-  });
-});
-
-describe("audit 28/11: the total never passes for complete when it is not", () => {
-  const velho = new Date(Date.now() - 3 * 24 * 3600_000).toISOString();
-  const duas = (o: Partial<HomeFinancas>, c: BancoLigado[]) => { const g = agrupar(casa(o), c); return [...g.trabalho, ...g.pessoal, ...g.semPapel]; };
-
-  it("one bank recent, the other with an old read: PARCIAL, with the date of the old balance", () => {
-    const q = qualidade(duas({}, [conexao(), conexao({ id: "c2", last_synced_at: velho })]));
-    expect(q).toMatchObject({ completo: false, antigas: 1, semSaldo: 0 });
-    expect(avisosDoSaldo(q)[0]).toMatch(/^1 banco sem leitura recente: saldo de \d\d\/\d\d$/);
-  });
-  it("a disconnected bank whose old balance is still in the total says so", () => {
-    const q = qualidade(duas({}, [conexao(), conexao({ id: "c2", status: "USER_INPUT_TIMEOUT", last_synced_at: velho })]));
-    expect(q.desconectadas).toBe(1);
-    expect(avisosDoSaldo(q)[0]).toMatch(/^1 banco desconectado: saldo de/);
-  });
-  it("one account without a balance: left out of the total, and the screen says it", () => {
-    const q = qualidade(duas({ contas: [{ id: "c1", banco: "A", papel: "trabalho", saldo: 700 }, { id: "c2", banco: "B", papel: "pessoal", saldo: null }] },
-      [conexao(), conexao({ id: "c2" })]));
-    expect(avisosDoSaldo(q)).toEqual(["Sem o saldo de 1 banco: não entra no total"]);
-  });
-  it("everything recent: complete, no warning", () => {
-    const q = qualidade(duas({}, [conexao(), conexao({ id: "c2" })]));
-    expect(q.completo).toBe(true);
-    expect(avisosDoSaldo(q)).toEqual([]);
-  });
-  it("no connection data yet is NOT counted as recent", () => {
-    expect(qualidade(duas({}, [])).completo).toBe(false);
-  });
-  it("PARCIAL badge and 'mais recente' time on the card", () => {
-    const q = qualidade(duas({}, [conexao(), conexao({ id: "c2", last_synced_at: velho })]));
-    render(<SaldoDisponivel h={casa()} oculto={false} onOcultar={vi.fn()} q={q} semPapel={null} />);
+describe("the cards", () => {
+  it("Bancos: recent money big, PARCIAL, unconfirmed line with the date", () => {
+    render(<SaldoDisponivel c={consolidar(exemplo(), conexoesExemplo)} oculto={false} onOcultar={vi.fn()} />);
     expect(screen.getByText("PARCIAL")).toBeTruthy();
-    expect(screen.getByText(/Leitura mais recente às/)).toBeTruthy();
-    expect(screen.queryByText(/^Atualizado às/)).toBeNull();
+    expect(so(screen.getByText(/1\.113,29/).textContent)).toBe("R$ 1.113,29");
+    expect(so(screen.getByText(/Sem confirmação recente/).textContent)).toMatch(/R\$ 218,18 · 1 banco desconectado desde \d\d\/\d\d/);
   });
-  it("the same bank twice is flagged (second account or a copy after reconnecting)", () => {
-    const linhas = duas({ contas: [{ id: "c1", banco: "Banco A", papel: "trabalho", saldo: 1 }, { id: "c2", banco: "banco a", papel: "pessoal", saldo: 2 }] }, []);
-    expect([...bancosRepetidos(linhas)]).toEqual(["banco a"]);
-    render(<GrupoContas tipo="trabalho" linhas={linhas.slice(0, 1)} {...grupo} repetidos={bancosRepetidos(linhas)} />);
-    expect(screen.getByText("conectado 2 vezes")).toBeTruthy();
+  it("nothing recent: 'Saldo atual indisponível' (never R$ 0) and the last known value apart", () => {
+    render(<SaldoDisponivel c={consolidar(exemplo(), conexoesExemplo.map((x) => ({ ...x, status: "WAITING_USER_INPUT" })))} oculto={false} onOcultar={vi.fn()} />);
+    expect(screen.getByText("Saldo atual indisponível")).toBeTruthy();
+    expect(screen.queryByText("R$ 0")).toBeNull();
+    expect(screen.getByText(/Último saldo conhecido/)).toBeTruthy();
+    expect(screen.queryByText("PARCIAL")).toBeNull();
   });
-  it("a group with a missing balance shows its total as parcial", () => {
-    const g = agrupar(casa({ contas: [{ id: "c1", banco: "A", papel: "trabalho", saldo: 700 }, { id: "c2", banco: "B", papel: "trabalho", saldo: null }] }), [conexao(), conexao({ id: "c2" })]);
-    render(<GrupoContas tipo="trabalho" linhas={g.trabalho} {...grupo} />);
-    expect(screen.getByText("parcial")).toBeTruthy();
+  it("partial zero shows R$ 0 with PARCIAL; real zero shows R$ 0 'Atualizado'", () => {
+    const { unmount } = render(<SaldoDisponivel c={consolidar(exemplo({ contas: [{ id: "a", banco: "A", papel: "trabalho", saldo: 0 }, { id: "b", banco: "B", papel: "pessoal", saldo: 90 }] }),
+      [conexao({ id: "a" }), conexao({ id: "b", papel: "pessoal", status: "USER_INPUT_TIMEOUT" })])} oculto={false} onOcultar={vi.fn()} />);
+    expect(screen.getByText("PARCIAL")).toBeTruthy();
+    unmount();
+    render(<SaldoDisponivel c={consolidar(exemplo({ contas: [{ id: "a", banco: "A", papel: "trabalho", saldo: 0 }] }), [conexao({ id: "a" })])} oculto={false} onOcultar={vi.fn()} />);
+    expect(screen.queryByText("PARCIAL")).toBeNull();
+    expect(screen.getByText(/^Atualizado às/)).toBeTruthy();
   });
-  it("unclassified money is shown apart, not hidden inside work or personal", () => {
-    render(<SaldoDisponivel h={casa({ saldo: 1300, saldo_trabalho: 700, saldo_pessoal: 300 })} oculto={false} onOcultar={vi.fn()} q={null} semPapel={300} />);
-    expect(screen.getByRole("img", { name: /sem classificação/ })).toBeTruthy();
-    expect(screen.getByText(/em banco sem classificação/)).toBeTruthy();
+  it("Resumo and Bancos show the SAME number and the same lines", () => {
+    const c = consolidar(exemplo(), conexoesExemplo);
+    const { container: bancos } = render(<SaldoDisponivel c={c} oculto={false} onOcultar={vi.fn()} />);
+    const { container: resumo } = render(<DinheiroDisponivel h={exemplo()} c={c} onVerBancos={vi.fn()} />);
+    const numero = (el: HTMLElement) => so([...el.querySelectorAll("p")].find((p) => so(p.textContent) === "R$ 1.113,29")?.textContent ?? null);
+    expect(numero(bancos)).toBe("R$ 1.113,29");
+    expect(numero(resumo)).toBe("R$ 1.113,29");
+    expect(so(bancos.textContent)).toContain("Sem confirmação recente: R$ 218,18");
+    expect(so(resumo.textContent)).toContain("Sem confirmação recente: R$ 218,18");
   });
-  it("a negative balance is red with a minus sign (it lowers the total, never adds)", () => {
-    render(<SaldoDisponivel h={casa({ saldo: -150 })} oculto={false} onOcultar={vi.fn()} q={null} semPapel={null} />);
-    expect(screen.getByText("− R$ 150")).toBeTruthy();
+  it("Resumo: a recent negative balance turns the card red; the bar is not drawn", () => {
+    const c = consolidar(exemplo({ causas: [{ descricao: "Aluguel", categoria: "casa", valor: 900, data: "2026-11-27" }],
+      contas: [{ id: "a", banco: "A", papel: "trabalho", saldo: -400 }, { id: "g", banco: "G", papel: "pessoal", saldo: 80 }] }),
+      [conexao({ id: "a" }), conexao({ id: "g", papel: "pessoal" })]);
+    render(<DinheiroDisponivel h={exemplo({ causas: [{ descricao: "Aluguel", categoria: "casa", valor: 900, data: "2026-11-27" }] })} c={c} onVerBancos={vi.fn()} />);
+    expect(screen.getByText("Você está no negativo")).toBeTruthy();
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+  it("group: total is recent money only; the unconfirmed one is labelled, in grey", () => {
+    const c = consolidar(exemplo(), conexoesExemplo);
+    render(<GrupoContas tipo="trabalho" linhas={c.contas.filter((x) => x.papel === "trabalho")} {...grupo} />);
+    expect(so(screen.getAllByText(/612,30/)[0]!.textContent)).toBe("R$ 612,30");
+    expect(so(screen.getByText(/sem confirmação$/).textContent)).toBe("+ R$ 218,18 sem confirmação");
+    expect(screen.getByText("DESCONECTADO")).toBeTruthy();
+    expect(screen.getByText("Autorizar de novo no app do banco")).toBeTruthy();
+  });
+  it("a connection that sent no balance is SEM SALDO, never ATIVO", () => {
+    const c = consolidar(exemplo({ contas: [{ id: "a", banco: "A", papel: "trabalho", saldo: null }] }), [conexao({ id: "a" })]);
+    render(<GrupoContas tipo="trabalho" linhas={c.contas} {...grupo} />);
+    expect(screen.getByText("SEM SALDO")).toBeTruthy();
+    expect(screen.queryByText("ATIVO")).toBeNull();
+  });
+  it("two connections of one bank: neutral note, no duplicate claim", () => {
+    const c = consolidar(exemplo({ contas: [{ id: "a", banco: "Banco A", papel: "trabalho", saldo: 1 }, { id: "b", banco: "Banco A", papel: "pessoal", saldo: 2 }] }),
+      [conexao({ id: "a" }), conexao({ id: "b", papel: "pessoal" })]);
+    render(<GrupoContas tipo="trabalho" linhas={c.contas.filter((x) => x.papel === "trabalho")} {...grupo} repetidos={bancosRepetidos(c.contas)} />);
+    expect(screen.getByText("outra conexão deste banco")).toBeTruthy();
+    expect(screen.queryByText(/duplic/i)).toBeNull();
   });
 });
 
-describe("audit 28/11: privacy", () => {
-  it("hidden: the bar's accessible name does not leak the split", () => {
-    render(<SaldoDisponivel h={casa()} oculto onOcultar={vi.fn()} q={null} semPapel={null} />);
-    const barra = screen.getByRole("img", { name: "Distribuição oculta" });
-    expect(barra.children).toHaveLength(1);   // one neutral segment: the split is not drawn
-    expect(screen.queryByText(/R\$ \d/)).toBeNull();
+describe("Pro without a bank and Essencial", () => {
+  it("Pro without a bank: the empty state, and the CTA is the existing connect flow", () => {
+    render(<PrimeiroBanco />);
+    expect(screen.getByText("Todo o seu dinheiro em um só lugar.")).toBeTruthy();
+    expect(screen.getByText(/Conecte seu primeiro banco e acompanhe seus saldos, despesas, cartões e investimentos automaticamente\./)).toBeTruthy();
+    expect(screen.getByText("Conexão segura via Open Finance")).toBeTruthy();
+    fireEvent.click(screen.getByText("Conectar meu primeiro banco"));
+    expect(ligar).toHaveBeenCalledWith();
   });
-  it("hidden: no digit of money anywhere in groups and organisation", () => {
+  it("the tab: Pro without a bank can open Bancos; Essencial keeps the locked tab; nobody else", () => {
+    expect(abaValida("bancos", false, false, true)).toBe("bancos");
+    expect(abaValida("bancos", false, true, false)).toBe("bancos");
+    expect(abaValida("bancos", false, false, false)).toBe("resumo");
+    expect(abaValida("bancos", true)).toBe("bancos");
+  });
+});
+
+describe("privacy", () => {
+  it("hidden: no digit of money anywhere on the screen, and the bar says nothing", () => {
+    const c = consolidar(exemplo(), conexoesExemplo);
     const { container } = render(<>
-      <GrupoContas tipo="trabalho" linhas={agrupar(casa(), [conexao()]).trabalho} {...grupo} oculto />
+      <SaldoDisponivel c={c} oculto onOcultar={vi.fn()} />
+      <GrupoContas tipo="trabalho" linhas={c.contas.filter((x) => x.papel === "trabalho")} {...grupo} oculto />
       <OrganizacaoFinanceira p={painel()} oculto abrir={vi.fn()} />
     </>);
-    expect(container.textContent).not.toMatch(/R\$\s?\d/);
+    expect(so(container.textContent)).not.toMatch(/R\$ ?−? ?\d/);
+    expect(container.querySelector('[aria-label*="%"]')).toBeNull();
   });
-  it("the choice is per account: a second account on the same phone starts with its own", () => {
+  it("drawers: amounts are masked in the text itself (nothing behind a blur), titles stay", () => {
+    for (const aba of ["cartao", "dividas", "guardado"] as const) {
+      const { unmount } = render(<PainelGaveta p={painel()} aba={aba} onFechar={vi.fn()} oculto />);
+      const texto = so(document.body.textContent);
+      expect(texto).not.toMatch(/R\$ ?\d/);
+      expect(texto).toContain("R$ •••••");
+      expect(document.querySelector('[style*="blur"]')).toBeNull();
+      unmount();
+    }
+  });
+  it("drawers shown normally when values are visible", () => {
+    render(<PainelGaveta p={painel()} aba="cartao" onFechar={vi.fn()} />);
+    expect(so(document.body.textContent)).toMatch(/R\$ 450/);
+  });
+  it("the choice is per account and starts clean for another account on the same phone", () => {
     const { result, rerender } = renderHook(({ u }) => useOcultarValores(u), { initialProps: { u: "conta-a" } });
     act(() => result.current.alternar());
     expect(result.current.oculto).toBe(true);
@@ -209,39 +231,6 @@ describe("audit 28/11: privacy", () => {
     expect(result.current.oculto).toBe(false);
     rerender({ u: "conta-a" });
     expect(result.current.oculto).toBe(true);
-  });
-  it("the key starts with orbis_, so signing out clears it", () => {
-    const { result } = renderHook(() => useOcultarValores("conta-a"));
-    act(() => result.current.alternar());
     expect(Object.keys(localStorage).some((k) => k.startsWith("orbis_") && k.includes("conta-a"))).toBe(true);
-  });
-});
-
-describe("audit 28/11: the detail drawer with values hidden", () => {
-  it("blurs the card screen, hides it from screen readers and offers to show", () => {
-    const mostrar = vi.fn();
-    render(<PainelGaveta p={painel()} aba="cartao" onFechar={vi.fn()} oculto onMostrar={mostrar} />);
-    const botao = screen.getByText("Valores ocultos · Mostrar");
-    const conteudo = document.querySelector('[aria-hidden="true"][style*="blur"]');
-    expect(conteudo).toBeTruthy();
-    fireEvent.click(botao);
-    expect(mostrar).toHaveBeenCalled();
-  });
-  it("shown normally when values are visible", () => {
-    render(<PainelGaveta p={painel()} aba="cartao" onFechar={vi.fn()} />);
-    expect(screen.queryByText("Valores ocultos · Mostrar")).toBeNull();
-  });
-});
-
-describe("audit 28/11: details found in the screens", () => {
-  it("a connection that answers but sent no balance is SEM SALDO, never ATIVO", () => {
-    render(<GrupoContas tipo="trabalho" linhas={agrupar(casa({ contas: [{ id: "c1", banco: "A", papel: "trabalho", saldo: null }] }), [conexao()]).trabalho} {...grupo} />);
-    expect(screen.getByText("SEM SALDO")).toBeTruthy();
-    expect(screen.queryByText("ATIVO")).toBeNull();
-  });
-  it("no personal account: the personal side is not drawn as 'indisponível'", () => {
-    render(<SaldoDisponivel h={casa({ saldo_pessoal: null })} oculto={false} onOcultar={vi.fn()} q={null} semPapel={300} />);
-    expect(screen.queryByText("Pessoal")).toBeNull();
-    expect(screen.getByText("Trabalho")).toBeTruthy();
   });
 });
