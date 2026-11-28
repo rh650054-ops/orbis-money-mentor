@@ -1,4 +1,5 @@
 import { lazy, Suspense, type ComponentType } from "react";
+import { plataforma } from "@/shared/lib/platform";
 import { avisar } from "@/shared/lib/avisar";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { x1SoPontos } from "@/shared/lib/x1-loja";
@@ -45,6 +46,7 @@ function lazyWithReload<T extends ComponentType<any>>(
   );
 }
 
+const VigiaQuick = lazy(() => import("@/features/vant-quick").then((m) => ({ default: m.VigiaQuick })));
 const Index = lazyWithReload(() => import("@/pages/Index"));
 const EntrarNovoDominio = lazyWithReload(() => import("@/features/novo-dominio/routes/entrar-page"));
 const Transactions = lazyWithReload(() => import("@/pages/Transactions"));
@@ -123,6 +125,8 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <PaywallGate />
+      {/* VANT Quick (iPhone): account stamp for the widgets, cleanup on sign-out, widget tap → DEFCON */}
+      {plataforma() === "ios" && <Suspense fallback={null}><VigiaQuick /></Suspense>}
       {/* App da loja: tour de boas-vindas no 1º acesso de cada instalação, com ou sem conta (28/10) */}
       <BoasVindasGate />
       {/* IA de terceiros (Anthropic e OpenAI): pergunta uma vez antes de enviar qualquer dado (23/11, App Store 5.1.2(i)) */}

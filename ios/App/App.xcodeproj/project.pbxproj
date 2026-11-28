@@ -17,6 +17,20 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
+		A7C0DE00000000000000000F /* VantQuickPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE000000000000000001 /* VantQuickPlugin.swift */; };
+		A7C0DE000000000000000010 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE000000000000000002 /* MainViewController.swift */; };
+		A7C0DE000000000000000011 /* QuickArmazem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE000000000000000004 /* QuickArmazem.swift */; };
+		A7C0DE000000000000000012 /* QuickAtributos.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE000000000000000005 /* QuickAtributos.swift */; };
+		A7C0DE000000000000000013 /* QuickIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE000000000000000006 /* QuickIntents.swift */; };
+		A7C0DE000000000000000014 /* QuickArmazem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE000000000000000004 /* QuickArmazem.swift */; };
+		A7C0DE000000000000000015 /* QuickAtributos.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE000000000000000005 /* QuickAtributos.swift */; };
+		A7C0DE000000000000000016 /* QuickIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE000000000000000006 /* QuickIntents.swift */; };
+		A7C0DE000000000000000017 /* VantQuickBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE000000000000000007 /* VantQuickBundle.swift */; };
+		A7C0DE000000000000000018 /* PainelWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE000000000000000008 /* PainelWidget.swift */; };
+		A7C0DE000000000000000019 /* VendaRapidaWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE000000000000000009 /* VendaRapidaWidget.swift */; };
+		A7C0DE00000000000000001A /* DefconAtividade.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE00000000000000000A /* DefconAtividade.swift */; };
+		A7C0DE00000000000000001B /* Estilo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C0DE00000000000000000B /* Estilo.swift */; };
+		A7C0DE00000000000000001C /* VantQuick.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A7C0DE00000000000000000E /* VantQuick.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +46,20 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A7C0DE000000000000000001 /* VantQuickPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VantQuickPlugin.swift; sourceTree = "<group>"; };
+		A7C0DE000000000000000002 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
+		A7C0DE000000000000000003 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
+		A7C0DE000000000000000004 /* QuickArmazem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickArmazem.swift; sourceTree = "<group>"; };
+		A7C0DE000000000000000005 /* QuickAtributos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAtributos.swift; sourceTree = "<group>"; };
+		A7C0DE000000000000000006 /* QuickIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickIntents.swift; sourceTree = "<group>"; };
+		A7C0DE000000000000000007 /* VantQuickBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VantQuickBundle.swift; sourceTree = "<group>"; };
+		A7C0DE000000000000000008 /* PainelWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PainelWidget.swift; sourceTree = "<group>"; };
+		A7C0DE000000000000000009 /* VendaRapidaWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VendaRapidaWidget.swift; sourceTree = "<group>"; };
+		A7C0DE00000000000000000A /* DefconAtividade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefconAtividade.swift; sourceTree = "<group>"; };
+		A7C0DE00000000000000000B /* Estilo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Estilo.swift; sourceTree = "<group>"; };
+		A7C0DE00000000000000000C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A7C0DE00000000000000000D /* VantQuick.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = VantQuick.entitlements; sourceTree = "<group>"; };
+		A7C0DE00000000000000000E /* VantQuick.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VantQuick.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -43,12 +71,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A7C0DE000000000000000021 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
+				A7C0DE00000000000000001D /* VantQuickCompartilhado */,
+				A7C0DE00000000000000001E /* VantQuick */,
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
@@ -58,6 +95,7 @@
 		504EC3051FED79650016851F /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				A7C0DE00000000000000000E /* VantQuick.appex */,
 				504EC3041FED79650016851F /* App.app */,
 			);
 			name = Products;
@@ -66,6 +104,9 @@
 		504EC3061FED79650016851F /* App */ = {
 			isa = PBXGroup;
 			children = (
+				A7C0DE000000000000000003 /* App.entitlements */,
+				A7C0DE000000000000000002 /* MainViewController.swift */,
+				A7C0DE000000000000000001 /* VantQuickPlugin.swift */,
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				4A1C0DE02E9A000100A1B2C3 /* PrivacyInfo.xcprivacy */,
@@ -80,6 +121,30 @@
 			path = App;
 			sourceTree = "<group>";
 		};
+		A7C0DE00000000000000001D /* VantQuickCompartilhado */ = {
+			isa = PBXGroup;
+			children = (
+				A7C0DE000000000000000004 /* QuickArmazem.swift */,
+				A7C0DE000000000000000005 /* QuickAtributos.swift */,
+				A7C0DE000000000000000006 /* QuickIntents.swift */,
+			);
+			path = VantQuickCompartilhado;
+			sourceTree = "<group>";
+		};
+		A7C0DE00000000000000001E /* VantQuick */ = {
+			isa = PBXGroup;
+			children = (
+				A7C0DE000000000000000007 /* VantQuickBundle.swift */,
+				A7C0DE000000000000000008 /* PainelWidget.swift */,
+				A7C0DE000000000000000009 /* VendaRapidaWidget.swift */,
+				A7C0DE00000000000000000A /* DefconAtividade.swift */,
+				A7C0DE00000000000000000B /* Estilo.swift */,
+				A7C0DE00000000000000000C /* Info.plist */,
+				A7C0DE00000000000000000D /* VantQuick.entitlements */,
+			);
+			path = VantQuick;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -87,6 +152,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 504EC3161FED79650016851F /* Build configuration list for PBXNativeTarget "App" */;
 			buildPhases = (
+				A7C0DE00000000000000001F /* Embed Foundation Extensions */,
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
@@ -94,6 +160,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				A7C0DE000000000000000028 /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -102,6 +169,23 @@
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A7C0DE000000000000000026 /* VantQuick */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A7C0DE000000000000000025 /* Build configuration list for PBXNativeTarget "VantQuick" */;
+			buildPhases = (
+				A7C0DE000000000000000020 /* Sources */,
+				A7C0DE000000000000000021 /* Frameworks */,
+				A7C0DE000000000000000022 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VantQuick;
+			productName = VantQuick;
+			productReference = A7C0DE00000000000000000E /* VantQuick.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -112,6 +196,10 @@
 				LastSwiftUpdateCheck = 0920;
 				LastUpgradeCheck = 0920;
 				TargetAttributes = {
+					A7C0DE000000000000000026 = {
+						CreatedOnToolsVersion = 15.0;
+						ProvisioningStyle = Automatic;
+					};
 					504EC3031FED79650016851F = {
 						CreatedOnToolsVersion = 9.2;
 						LastSwiftMigration = 1100;
@@ -135,6 +223,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				A7C0DE000000000000000026 /* VantQuick */,
 				504EC3031FED79650016851F /* App */,
 			);
 		};
@@ -155,6 +244,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A7C0DE000000000000000022 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -162,8 +258,28 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A7C0DE000000000000000013 /* QuickIntents.swift in Sources */,
+				A7C0DE000000000000000012 /* QuickAtributos.swift in Sources */,
+				A7C0DE000000000000000011 /* QuickArmazem.swift in Sources */,
+				A7C0DE000000000000000010 /* MainViewController.swift in Sources */,
+				A7C0DE00000000000000000F /* VantQuickPlugin.swift in Sources */,
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7C0DE000000000000000020 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A7C0DE000000000000000014 /* QuickArmazem.swift in Sources */,
+				A7C0DE000000000000000015 /* QuickAtributos.swift in Sources */,
+				A7C0DE000000000000000016 /* QuickIntents.swift in Sources */,
+				A7C0DE000000000000000017 /* VantQuickBundle.swift in Sources */,
+				A7C0DE000000000000000018 /* PainelWidget.swift in Sources */,
+				A7C0DE000000000000000019 /* VendaRapidaWidget.swift in Sources */,
+				A7C0DE00000000000000001A /* DefconAtividade.swift in Sources */,
+				A7C0DE00000000000000001B /* Estilo.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -187,6 +303,38 @@
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A7C0DE00000000000000001F /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A7C0DE00000000000000001C /* VantQuick.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		A7C0DE000000000000000027 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A7C0DE000000000000000026;
+			remoteInfo = VantQuick;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		A7C0DE000000000000000028 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A7C0DE000000000000000026 /* VantQuick */;
+			targetProxy = A7C0DE000000000000000027 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		504EC3141FED79650016851F /* Debug */ = {
@@ -302,6 +450,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -324,6 +473,7 @@
 		504EC3181FED79650016851F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -339,6 +489,58 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		A7C0DE000000000000000023 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = VantQuick/VantQuick.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = VantQuick/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.vant.vendas.quick;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+			};
+			name = Debug;
+		};
+		A7C0DE000000000000000024 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = VantQuick/VantQuick.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = VantQuick/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.vant.vendas.quick;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
 			};
 			name = Release;
 		};
@@ -359,6 +561,15 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A7C0DE000000000000000025 /* Build configuration list for PBXNativeTarget "VantQuick" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A7C0DE000000000000000023 /* Debug */,
+				A7C0DE000000000000000024 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
