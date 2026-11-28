@@ -52,9 +52,8 @@ import { NovaCaixinhaSheet } from "@/components/financas/NovaCaixinhaSheet";
 import { ContaSheet, type ContaInfo } from "@/components/financas/ContaSheet";
 import { DicaDoOrbis, type DicaContexto } from "@/components/financas/DicaDoOrbis";
 import { useFinancasHome } from "@/components/financas/FinancasHome";
-import { FinancasPainel } from "@/components/financas/FinancasPainel";
-import { ReservaCaixinha } from "@/components/financas/ReservaCaixinha";
-import { AbasNav, abaValida, ParaResolver, BancosLista, ConviteBanco, type AbaFinancas } from "@/components/financas/FinancasAbas";
+import { BancosAba } from "@/features/financas-bancos";
+import { AbasNav, abaValida, ParaResolver, ConviteBanco, type AbaFinancas } from "@/components/financas/FinancasAbas";
 import { DinheiroDisponivel, PrioridadeHoje, MeuNegocio, FolegoFinanceiro, FluxoDeCaixa, EsqueletoResumo, SecaoResumo, mesDoResumo } from "@/features/financas-resumo";
 import { RaioXAba } from "@/features/raiox";
 import { ToastAction } from "@/shared/ui/toast";
@@ -167,7 +166,7 @@ export default function Finances() {
   // ABAS (04/10): Resumo · Bancos · Planejar · Análise. A aba vive na URL (?aba=)
   // pra "voltar" do Raio-X cair no lugar certo; abrir Finanças sempre começa no Resumo.
   const [abaParams, setAbaParams] = useSearchParams();
-  const { h: casa } = useFinancasHome(user?.id);
+  const { h: casa, recarregar: recarregarCasa } = useFinancasHome(user?.id);
   const comBanco = Boolean(casa?.tem_banco);
   // 25/10 (Rick): Essencial vê a aba Bancos com cadeado e tem limite de contas/objetivos
   const acessoQ = useAcessoQuery(user?.id);
@@ -2302,11 +2301,8 @@ export default function Finances() {
 
       {aba === "bancos" && casa && (
         <>
-          <BancosLista h={casa} onGerenciar={() => navigate("/verificar")} />
-          {/* cartão, dívidas e guardado — lidos do banco toda madrugada */}
-          <FinancasPainel userId={user?.id} />
-          {/* a reserva é uma caixinha que a pessoa escolhe (04/10) */}
-          <ReservaCaixinha userId={user?.id} />
+          {/* BANCOS (redesign 28/11/2026): saldo → contas de trabalho → pessoais → conectar → organização → reserva */}
+          <BancosAba h={casa} userId={user?.id} email={user?.email} onGerenciar={() => navigate("/verificar")} onMudou={recarregarCasa} />
         </>
       )}
 

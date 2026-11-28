@@ -131,43 +131,6 @@ export function ParaResolver({ qtd, total, principal, vencidas, onResolver, onVe
   );
 }
 
-/* ---------- BANCOS · saldo de cada conta, com o papel (trabalho/reserva) ---------- */
-export function BancosLista({ h, onGerenciar }: { h: HomeFinancas; onGerenciar: () => void }) {
-  const linhas = h.contas && h.contas.length > 0
-    ? h.contas.map((c) => ({ id: c.id, banco: c.banco ?? "Banco", saldo: c.saldo, papel: c.papel }))
-    : h.bancos.map((b, i) => ({ id: String(i), banco: b.banco ?? "Banco", saldo: b.saldo as number | null, papel: null as "trabalho" | "pessoal" | null }));
-  return (
-    <section className="orbis-card-in rounded-[18px] border px-4 py-3" style={{ background: "#0e0e10", borderColor: LINHA }}>
-      <div className="flex items-center justify-between gap-2 pb-1">
-        <Rotulo>Seus bancos</Rotulo>
-        <button type="button" onClick={onGerenciar} className="inline-flex items-center gap-0.5 h-8 text-[12.5px] font-extrabold" style={{ color: GOLD }}>
-          Gerenciar <ChevronRight className="w-4 h-4" strokeWidth={2.6} />
-        </button>
-      </div>
-      {linhas.map((l, i) => (
-        <div key={l.id} className="flex items-center gap-3 py-3" style={{ borderTop: i === 0 ? "none" : `1px solid ${LINHA}` }}>
-          <span className="w-9 h-9 rounded-[11px] shrink-0 flex items-center justify-center" style={{ background: "#1a1a19" }}>
-            <Landmark className="w-[17px] h-[17px]" style={{ color: SUB }} />
-          </span>
-          <span className="flex-1 min-w-0 flex items-center gap-2">
-            <span className="text-[15px] font-extrabold truncate">{l.banco}</span>
-            {l.papel && (
-              <span className="text-[9.5px] font-black tracking-[.1em] uppercase rounded-full px-2 py-0.5 shrink-0"
-                style={l.papel === "trabalho"
-                  ? { color: GOLD, border: "1px solid rgba(245,184,0,.45)", background: "#1a1305" }
-                  : { color: "#d8d2c6", border: "1px solid rgba(255,255,255,.18)", background: "#16161a" }}>
-                {l.papel}
-              </span>
-            )}
-          </span>
-          <span className="text-[16px] font-black tabular-nums shrink-0">{l.saldo == null ? "—" : reais(l.saldo)}</span>
-        </div>
-      ))}
-      {h.atualizado && <p className="text-[11px] font-bold pt-1" style={{ color: MUTE }}>lido às {hora(h.atualizado)} · atualiza de hora em hora</p>}
-    </section>
-  );
-}
-
 /* ---------- convite pra ligar o banco (quem ainda não tem) ---------- */
 export function ConviteBanco({ onLigar, texto }: { onLigar: () => void; texto: string }) {
   return (

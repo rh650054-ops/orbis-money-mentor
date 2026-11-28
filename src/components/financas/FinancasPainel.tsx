@@ -301,6 +301,34 @@ export function PainelLista({ p, abrir }: { p: Painel; abrir: (a: Aba) => void }
 }
 
 const TITULO: Record<Aba, string> = { cartao: "CARTÃO", dividas: "DÍVIDAS", guardado: "GUARDADO" };
+export type AbaPainel = Aba;
+
+/** financas_painel(), read once a day from the bank (pluggy-dia). null when it failed. */
+export async function carregarPainel(): Promise<Painel | null> {
+  const { data, error } = await (supabase as unknown as { rpc: (f: string) => Promise<{ data: unknown; error: unknown }> }).rpc("financas_painel");
+  if (error) { avisar.silencioso("financas_painel", error); return null; }
+  return data as Painel;
+}
+
+/** The three detail screens (cartão, dívidas, guardado) in their drawer. Shared by the old list and Bancos (28/11). */
+export function PainelGaveta({ p, aba, onFechar }: { p: Painel; aba: Aba | null; onFechar: () => void }) {
+  return (
+    <Gaveta open={aba !== null} onOpenChange={(o) => { if (!o) onFechar(); }} titulo={aba ? TITULO[aba] : ""}
+      style={{ background: "#0b0b0c", borderColor: "rgba(255,255,255,.08)" }}>
+        <div className="px-4 flex flex-col gap-3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
+          <p className="font-mono text-[10px] font-bold tracking-[.18em] text-center" style={{ color: MUTE }}>{aba ? TITULO[aba] : ""}</p>
+          {aba === "cartao" && <TelaCartao p={p} />}
+          {aba === "dividas" && <TelaDividas p={p} />}
+          {aba === "guardado" && <TelaGuardado p={p} />}
+          {p.leitura && (
+            <p className="text-[10px] font-bold text-center" style={{ color: MUTE }}>
+              lido do banco às {new Date(p.leitura).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })} · atualiza toda madrugada
+            </p>
+          )}
+        </div>
+    </Gaveta>
+  );
+}
 
 export function FinancasPainel({ userId }: { userId?: string }) {
   const [p, setP] = useState<Painel | null>(null);
@@ -309,11 +337,7 @@ export function FinancasPainel({ userId }: { userId?: string }) {
   useEffect(() => {
     if (!userId) return;
     let vivo = true;
-    (async () => {
-      const { data, error } = await (supabase as unknown as { rpc: (f: string) => Promise<{ data: unknown; error: unknown }> }).rpc("financas_painel");
-      if (error) { avisar.silencioso("financas_painel", error); return; }
-      if (vivo) setP(data as Painel);
-    })();
+    void carregarPainel().then((d) => { if (vivo && d) setP(d); });
     return () => { vivo = false; };
   }, [userId]);
 
@@ -321,20 +345,7 @@ export function FinancasPainel({ userId }: { userId?: string }) {
   return (
     <>
       <PainelLista p={p} abrir={setAba} />
-      <Gaveta open={aba !== null} onOpenChange={(o) => { if (!o) setAba(null); }} titulo={aba ? TITULO[aba] : ""}
-        style={{ background: "#0b0b0c", borderColor: "rgba(255,255,255,.08)" }}>
-          <div className="px-4 flex flex-col gap-3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
-            <p className="font-mono text-[10px] font-bold tracking-[.18em] text-center" style={{ color: MUTE }}>{aba ? TITULO[aba] : ""}</p>
-            {aba === "cartao" && <TelaCartao p={p} />}
-            {aba === "dividas" && <TelaDividas p={p} />}
-            {aba === "guardado" && <TelaGuardado p={p} />}
-            {p.leitura && (
-              <p className="text-[10px] font-bold text-center" style={{ color: MUTE }}>
-                lido do banco às {new Date(p.leitura).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })} · atualiza toda madrugada
-              </p>
-            )}
-          </div>
-      </Gaveta>
+      <PainelGaveta p={p} aba={aba} onFechar={() => setAba(null)} />
     </>
   );
 }
