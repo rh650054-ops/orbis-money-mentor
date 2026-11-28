@@ -2,6 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { bloqueioIa } from '@/shared/lib/consentimento-ia';
+import { CABECALHOS_VANT } from "./cabecalho-cliente";
+export { VANT_CLIENTE } from "./cabecalho-cliente";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -43,15 +45,14 @@ const buscaComPrazo: typeof fetch = (entrada, init) => {
   return fetch(entrada, { ...init, signal: controle.signal }).finally(() => clearTimeout(alarme));
 };
 
-export const VANT_CLIENTE = "vant-livro/2 supabase-js";
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
   },
-  // x-client-info (a header supabase-js always sends, so CORS already allows it) now says that
+  // X-Client-Info (a header supabase-js always sends, so CORS already allows it) now says that
   // this app writes the DEFCON of server-derived sessions through the ledger (defcon_lancar).
   // The server reads it only to tell this app from older builds that write totals.
-  global: { fetch: buscaComPrazo, headers: { "x-client-info": VANT_CLIENTE } },
+  global: { fetch: buscaComPrazo, headers: CABECALHOS_VANT },
 });
