@@ -126,7 +126,7 @@ struct TelaBloqueada: View {
                     ForEach(botoes, id: \.self) { b in
                         Button(intent: RegistrarVendaIntent(origem: "atividade", opcao: b.id, valor: b.valor)) {
                             VStack(spacing: 0) {
-                                Text("+ \(Estilo.reaisCurto(b.valor))").font(.system(size: 16, weight: .heavy, design: .rounded)).lineLimit(1).minimumScaleFactor(0.6)
+                                Text("+ \(Estilo.reaisBotao(b.valor))").font(.system(size: 16, weight: .heavy, design: .rounded)).lineLimit(1).minimumScaleFactor(0.6)
                                 Text(b.rotulo).font(.system(size: 9, weight: .semibold)).opacity(0.75).lineLimit(1)
                             }
                             .foregroundStyle(Self.tinta)

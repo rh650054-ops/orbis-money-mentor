@@ -184,7 +184,7 @@ private struct BotaoVenda: View {
         Button(intent: RegistrarVendaIntent(origem: origem, opcao: o.id, valor: o.valor)) {
             VStack(spacing: 2) {
                 Text(o.rotulo.uppercased()).font(.system(size: 9.5, weight: .bold)).tracking(0.6).opacity(0.75)
-                Text("+ \(Estilo.reaisCurto(o.valor))").font(.system(size: alto >= 48 ? 20 : 16, weight: .heavy, design: .rounded))
+                Text("+ \(Estilo.reaisBotao(o.valor))").font(.system(size: alto >= 48 ? 20 : 16, weight: .heavy, design: .rounded))
                     .minimumScaleFactor(0.6).lineLimit(1)
             }
             .foregroundStyle(tintaBotao)
