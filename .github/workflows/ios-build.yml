@@ -170,7 +170,15 @@ jobs:
 
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/VANT.xcarchive" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" \
-            "${AUTH[@]}" | tail -40
+            "${AUTH[@]}" > "$RUNNER_TEMP/export.log" 2>&1 || EXPORT_FALHOU=1
+          tail -40 "$RUNNER_TEMP/export.log"
+          if [ -n "${EXPORT_FALHOU:-}" ]; then
+            # Apple's own answer is only in the distribution logs; show the relevant lines.
+            LOGS=$(grep -o '/[^"]*\.xcdistributionlogs' "$RUNNER_TEMP/export.log" | head -1)
+            [ -n "$LOGS" ] && grep -rhiE 'error|fail|denied|not allowed|permission|forbidden|status|code=' "$LOGS" 2>/dev/null \
+              | grep -viE 'private|BEGIN|token' | sort -u | tail -60
+            rm -f "$KEY"; exit 70
+          fi
           rm -f "$KEY"
           if [ "$DESTINO" = "export" ]; then
             IPA=$(ls "$RUNNER_TEMP"/export/*.ipa)
