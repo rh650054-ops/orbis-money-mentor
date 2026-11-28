@@ -176,7 +176,7 @@ jobs:
             # Apple's own answer is only in the distribution logs; show the relevant lines.
             LOGS=$(grep -o '/[^"]*\.xcdistributionlogs' "$RUNNER_TEMP/export.log" | head -1)
             [ -n "$LOGS" ] && grep -rhoE 'got status code [0-9]+ to a [A-Z]+ request to URL: [^ ]{0,160}' "$LOGS" 2>/dev/null | sort -u | head -60
-            [ -n "$LOGS" ] && grep -rhE -B25 -A8 '"status" : "40[0-9]"' "$LOGS" 2>/dev/null | grep -viE 'PRIVATE KEY|BEGIN|eyJ' | cut -c1-300 | head -80
+            [ -n "$LOGS" ] && grep -rhE -B25 -A8 '"status" : "40[0-9]"' "$LOGS" 2>/dev/null | grep -viE 'PRIVATE KEY|BEGIN|eyJ' | sed -E 's/issuer: [^ >]+/issuer: ***/' | cut -c1-300 | head -80
             rm -f "$KEY"; exit 70
           fi
           rm -f "$KEY"
