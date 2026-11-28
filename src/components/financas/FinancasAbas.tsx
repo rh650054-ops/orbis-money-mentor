@@ -11,7 +11,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { ChevronRight, Landmark, AlertTriangle, Lock } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
-import { Folego, type HomeFinancas } from "./FinancasHome";
+import { type HomeFinancas } from "./FinancasHome";
 
 /* 27/10: "Análise" virou "Raio-X" (as duas telas respondiam "pra onde foi o dinheiro"). */
 export type AbaFinancas = "resumo" | "bancos" | "planejar" | "raiox";
@@ -90,86 +90,6 @@ function Link({ children, onClick }: { children: React.ReactNode; onClick: () =>
   );
 }
 
-/* ---------- RESUMO 1 · SEU DINHEIRO (só com banco) ---------- */
-export function SeuDinheiro({ h, onVerBancos }: { h: HomeFinancas; onVerBancos: () => void }) {
-  const [comoCalcula, setComoCalcula] = useState(false);
-  const saldo = h.saldo ?? 0;
-  const negativo = h.tem_saldo && saldo < 0;
-  const nBancos = h.bancos.length;
-  const lido = h.atualizado ? ` · lido ${hora(h.atualizado)}` : "";
-
-  if (negativo) {
-    return (
-      <Caixa tom="red">
-        <Rotulo cor={RED}>Seu dinheiro</Rotulo>
-        <p className="text-[28px] font-black tabular-nums leading-none tracking-tight" style={{ color: RED }}>− {reais(Math.abs(saldo))}</p>
-        <p className="text-[13px] font-semibold" style={{ color: SUB }}>no negativo agora{lido}</p>
-        {h.causas && h.causas.length > 0 && (
-          <div className="rounded-xl px-3 py-1 mt-1" style={{ background: "rgba(0,0,0,.35)" }}>
-            <p className="text-[9.5px] font-black tracking-[.15em] pt-2" style={{ color: MUTE }}>O QUE MAIS SAIU NESSES 7 DIAS</p>
-            {h.causas.slice(0, 3).map((c, i) => (
-              <div key={i} className="flex items-center gap-2 py-2" style={{ borderTop: i === 0 ? "none" : `1px solid ${LINHA}` }}>
-                <span className="flex-1 min-w-0 text-[12.5px] font-extrabold truncate">{c.descricao}</span>
-                <span className="text-[12.5px] font-black tabular-nums" style={{ color: RED }}>− {reais(c.valor)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-        <Link onClick={onVerBancos}>Ver bancos</Link>
-      </Caixa>
-    );
-  }
-
-  return (
-    <Caixa>
-      <Rotulo>Seu dinheiro</Rotulo>
-      {h.tem_saldo ? (
-        <>
-          <p className="text-[28px] font-black tabular-nums leading-none tracking-tight text-foreground">{reais(saldo)}</p>
-          <p className="text-[13px] font-semibold" style={{ color: SUB }}>
-            disponível agora · {nBancos} {nBancos === 1 ? "banco" : "bancos"}{lido}
-          </p>
-          {h.saldo_pessoal != null && (
-            <p className="text-[12.5px] font-bold tabular-nums" style={{ color: MUTE }}>
-              trabalho <b className="text-foreground">{reais(h.saldo_trabalho ?? 0)}</b> · pessoal <b className="text-foreground">{reais(h.saldo_pessoal ?? 0)}</b>
-            </p>
-          )}
-        </>
-      ) : (
-        <p className="text-[13px]" style={{ color: SUB }}>Lendo o saldo do seu banco. Aparece aqui na próxima leitura.</p>
-      )}
-
-      <div className="flex items-baseline justify-between gap-3 mt-2">
-        <Rotulo>Fôlego</Rotulo>
-        {h.folego_dias != null && (
-          <span className="text-[18px] font-black tabular-nums">{h.folego_dias} {h.folego_dias === 1 ? "dia" : "dias"}</span>
-        )}
-      </div>
-      {h.folego_dias != null ? (
-        <>
-          <Folego dias={h.folego_dias} />
-          <p className="text-[13px]" style={{ color: SUB }}>
-            Você aguenta {h.folego_dias} {h.folego_dias === 1 ? "dia" : "dias"} sem vender, pagando só as contas fixas.{" "}
-            <button type="button" onClick={() => setComoCalcula((v) => !v)} className="font-extrabold underline-offset-2 underline" style={{ color: MUTE }}>
-              {comoCalcula ? "fechar" : "como calculamos?"}
-            </button>
-          </p>
-          {comoCalcula && (
-            <p className="text-[12.5px] rounded-xl px-3 py-2" style={{ color: SUB, background: "#151514" }}>
-              Saldo dos bancos ÷ o que suas contas fixas custam por dia ({reais(h.fixas_mes)} no mês ÷ 30).
-            </p>
-          )}
-        </>
-      ) : (
-        <p className="text-[13px]" style={{ color: SUB }}>
-          {h.fixas_mes > 0 ? "Aparece quando o saldo for lido." : "Cadastre suas contas fixas (aluguel, luz, celular) pra ver quantos dias você aguenta."}
-        </p>
-      )}
-      <Link onClick={onVerBancos}>Ver bancos</Link>
-    </Caixa>
-  );
-}
-
 /* ---------- RESUMO 3 · PARA RESOLVER (só o que pede ação) ---------- */
 export interface Pendencia { nome: string; valor: number; texto: string }
 export function ParaResolver({ qtd, total, principal, vencidas, onResolver, onVerContas }: {
@@ -207,30 +127,6 @@ export function ParaResolver({ qtd, total, principal, vencidas, onResolver, onVe
         </div>
       )}
       <Link onClick={onVerContas}>Ver contas</Link>
-    </Caixa>
-  );
-}
-
-/* ---------- RESUMO 4 · MOVIMENTO (entrou × saiu do banco) ---------- */
-export function Movimento({ h, onVer }: { h: HomeFinancas; onVer: () => void }) {
-  const dif = h.entrou - h.saiu;
-  return (
-    <Caixa>
-      <Rotulo>Movimento · {nomeMes()}</Rotulo>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold" style={{ color: SUB }}>Entrou</p>
-          <p className="text-[18px] font-black tabular-nums leading-tight whitespace-nowrap truncate" style={{ color: OK }}>{reais(h.entrou)}</p>
-        </div>
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold" style={{ color: SUB }}>Saiu</p>
-          <p className="text-[18px] font-black tabular-nums leading-tight whitespace-nowrap truncate" style={{ color: RED }}>{reais(h.saiu)}</p>
-        </div>
-      </div>
-      <p className="text-[13px] font-semibold tabular-nums" style={{ color: SUB }}>
-        <b className="text-[16px]" style={{ color: dif < 0 ? RED : "#F4F1EA" }}>{dif < 0 ? "−" : "+"}{reais(Math.abs(dif))}</b> de diferença entre entradas e saídas
-      </p>
-      <Link onClick={onVer}>Ver movimentações</Link>
     </Caixa>
   );
 }
