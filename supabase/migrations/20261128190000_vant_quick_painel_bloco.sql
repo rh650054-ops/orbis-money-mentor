@@ -8,17 +8,23 @@
 -- The panel now also carries the current block, from the same columns the app reads:
 -- hourly_goal_blocks.achieved_amount / target_amount and challenge_blocks.sales_count.
 -- Additive: builds 29/31/32 ignore the new keys. Nothing else in the panel changes.
+--
+-- Review of 28/11 (Rick): answers can arrive out of order (two taps, a pull, the widget's own
+-- read). "geradoEm" is the server's clock when this panel was built (ms): the iPhone keeps the
+-- newest panel it has seen and drops an older one, whatever its revenue (a reversed sale is a
+-- valid drop, so the rule is "newer wins", never "higher wins"). Server clock only: the phone's
+-- clock is never compared with it.
 -- ============================================================================================
 create or replace function public.vant_quick_painel(p_uid uuid) returns jsonb
 language plpgsql stable security definer set search_path to 'public' as $$
 declare s record; b record; c record; v_vendas integer; v_ab integer; v_bloco_inicio timestamptz; v_fat numeric; v_opcoes jsonb;
-        v_vendas_bloco integer;
+        v_vendas_bloco integer; v_gerado numeric := round(extract(epoch from clock_timestamp()) * 1000);
 begin
   v_opcoes := public.vant_quick_opcoes(p_uid);
   select * into c from public.vant_quick_config where user_id = p_uid;
   select * into s from public.challenge_sessions
    where user_id = p_uid and date = (now() at time zone 'America/Sao_Paulo')::date;
-  if not found then return jsonb_build_object('sessao', null, 'opcoes', v_opcoes); end if;
+  if not found then return jsonb_build_object('sessao', null, 'opcoes', v_opcoes, 'geradoEm', v_gerado); end if;
   select count(*) filter (where not late and coalesce(method,'') <> 'gorjeta') into v_vendas from public.defcon_sales where session_id = s.id;
   select v_vendas + count(*) into v_ab from public.defcon_abordagens where session_id = s.id;
   select hb.* into b from public.hourly_goal_blocks hb where hb.id = public.defcon_bloco_do_plano(s.id, s.current_block_index);
@@ -43,6 +49,7 @@ begin
     'metaHora', coalesce(round(b.target_amount, 2), 0),
     'vendasBloco', coalesce(v_vendas_bloco, 0),
     'opcoes', v_opcoes,
+    'geradoEm', v_gerado,
     'rapida', case when c.user_id is null then null else jsonb_build_object('valor', c.valor, 'metodo', c.metodo) end);
 end $$;
 revoke all on function public.vant_quick_painel(uuid) from public, anon, authenticated;

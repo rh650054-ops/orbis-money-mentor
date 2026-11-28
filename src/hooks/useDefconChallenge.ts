@@ -1773,6 +1773,8 @@ export function useDefconChallenge(userId: string | undefined) {
     blockSalesCount,
     totalApproaches,
     totalSalesCount,
+    /** the DEFCON session of today (VANT Quick tells its Live Activity which session it shows) */
+    sessionId,
     blockReportData,
     sessionSales,
     startChallenge,

@@ -18,6 +18,8 @@ export interface DefconParaEspelho {
   blockStartedAt: Date | null;
   blockEndTime: Date | null;
   blockSalesCount: number;
+  /** today's DEFCON session: a late server answer of another session never updates this one */
+  sessionId?: string | null;
 }
 
 const ATIVA = new Set(["running", "break", "lunch_pause", "block_report"]);
@@ -50,9 +52,9 @@ export function useEspelhoQuick(conta: string | null, d: DefconParaEspelho) {
       conta, inicio: inicio ? new Date(inicio) : null, fim: fim ? new Date(fim) : null, bloco: d.currentBlockIndex, totalBlocos: d.blocks.length,
       faturamentoBloco: bloco?.achieved_amount ?? 0, metaHora: bloco?.target_amount ?? 0, vendasBloco: d.blockSalesCount, pausado: d.phase !== "running",
       faturamentoDia: d.totalSold, metaDia: d.dailyGoal, vendasDia: d.totalSalesCount, abordagensDia: d.totalApproaches,
-      rapidaValor: lerConfig(conta)?.valor ?? null,
+      rapidaValor: lerConfig(conta)?.valor ?? null, sessao: d.sessionId ?? null,
     });
     if (a) void quick.atualizarAtividade(a);
   }, [conta, d.loading, d.phase, d.currentBlockIndex, d.blocks.length, bloco?.achieved_amount, bloco?.target_amount, d.blockSalesCount, inicio, fim,
-      d.totalSold, d.dailyGoal, d.totalSalesCount, d.totalApproaches]);
+      d.totalSold, d.dailyGoal, d.totalSalesCount, d.totalApproaches, d.sessionId]);
 }

@@ -32,6 +32,23 @@ struct QuickAtributos: ActivityAttributes {
         var avisoOk: Bool = false
         /// V2: the quick sale buttons (the server's options, at most 2), each with the price it shows
         var botoes: [Botao]? = nil
+        /// review 28/11: the DEFCON session drawn, and the server time of the last answer drawn
+        /// (QuickOrdem drops older answers and answers of another session)
+        var sessao: String? = nil
+        var versao: Double? = nil
+
+        var vista: QuickVista {
+            QuickVista(sessao: sessao, versao: versao, bloco: bloco, totalBlocos: totalBlocos, blocoInicio: blocoInicio, blocoFim: blocoFim,
+                       pausado: pausado, faturamentoBloco: faturamentoBloco, metaHora: metaHora, vendasBloco: vendasBloco,
+                       faturamentoDia: faturamentoDia, metaDia: metaDia, vendasDia: vendasDia, abordagensDia: abordagensDia, rapidaValor: rapidaValor)
+        }
+        mutating func usar(_ v: QuickVista) {
+            sessao = v.sessao; versao = v.versao; bloco = v.bloco; totalBlocos = v.totalBlocos
+            blocoInicio = v.blocoInicio; blocoFim = v.blocoFim; pausado = v.pausado
+            faturamentoBloco = v.faturamentoBloco; metaHora = v.metaHora; vendasBloco = v.vendasBloco
+            faturamentoDia = v.faturamentoDia; metaDia = v.metaDia; vendasDia = v.vendasDia; abordagensDia = v.abordagensDia
+            rapidaValor = v.rapidaValor
+        }
     }
 
     /// One quick sale button of the lock screen: the server's option id and the price drawn on it.

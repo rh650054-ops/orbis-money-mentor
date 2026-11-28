@@ -50,3 +50,15 @@ select t.verdade('B4 a sale in block 2: island R$ 20 / 1 sale (this block), lock
   and ((:'r7'::jsonb) -> 'painel' ->> 'faturamento')::numeric = 140 and ((:'r7'::jsonb) -> 'painel' ->> 'bloco')::int = 2);
 select t.verdade('B5 no session today: the panel has no block numbers to show (nothing invented)',
   not (public.vant_quick_painel(pg_temp.u('ninguem')) ? 'faturamentoBloco'));
+-- C. review of 28/11: ordering stamp and the function's permissions
+select public.vant_quick_painel(pg_temp.u('ilha')) ->> 'geradoEm' as g1 \gset
+select pg_sleep(0.01) is not null as x \gset
+select public.vant_quick_painel(pg_temp.u('ilha')) ->> 'geradoEm' as g2 \gset
+select t.verdade('C1 every panel carries the server time it was built (ms); a later panel has a later stamp',
+  :'g1'::numeric > 1.7e12 and :'g2'::numeric > :'g1'::numeric);
+select t.verdade('C2 no session today: still stamped (the widget orders "Comece o DEFCON" too)',
+  public.vant_quick_painel(pg_temp.u('ninguem')) ? 'geradoEm');
+select t.verdade('C3 permissions unchanged: security definer, search_path=public, no execute for anon / authenticated',
+  (select prosecdef and proconfig = array['search_path=public'] from pg_proc where oid = 'public.vant_quick_painel(uuid)'::regprocedure)
+  and not has_function_privilege('anon', 'public.vant_quick_painel(uuid)', 'execute')
+  and not has_function_privilege('authenticated', 'public.vant_quick_painel(uuid)', 'execute'));

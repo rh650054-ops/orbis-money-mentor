@@ -22,6 +22,7 @@ export function atividadeDoBloco(d: {
   conta: string; inicio: Date | null; fim: Date | null; bloco: number; totalBlocos: number;
   faturamentoBloco: number; metaHora: number; vendasBloco: number; pausado: boolean;
   faturamentoDia: number; metaDia: number; vendasDia: number; abordagensDia: number; rapidaValor: number | null;
+  sessao?: string | null;
 }): Atividade | null {
   if (!d.inicio || !d.fim || d.fim.getTime() <= d.inicio.getTime()) return null;
   return {
@@ -31,5 +32,6 @@ export function atividadeDoBloco(d: {
     faturamentoDia: reais(Math.max(0, d.faturamentoDia)), metaDia: reais(Math.max(0, d.metaDia)),
     vendasDia: Math.max(0, d.vendasDia), abordagensDia: Math.max(0, d.abordagensDia),
     rapidaValor: d.rapidaValor !== null && d.rapidaValor > 0 ? reais(d.rapidaValor) : null,
+    sessao: d.sessao ?? null,
   };
 }
